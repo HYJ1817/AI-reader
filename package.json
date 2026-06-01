@@ -1,0 +1,37 @@
+{
+  "name": "ai-reader-pwa",
+  "version": "0.1.0",
+  "description": "Local-first AI-assisted EPUB/TXT reader PWA for iPhone Safari.",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "dexie": "^4.4.3",
+    "epubjs": "^0.3.93",
+    "jszip": "^3.10.1",
+    "next": "16.2.6",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "^0.8.13",
+    "postcss": "^8.5.15",
+    "xmldom": "npm:@xmldom/xmldom@^0.8.13"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.6",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "^5",
+    "vitest": "^4.1.7"
+  }
+}

@@ -1,0 +1,3436 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--ios-bg);
+  color: var(--ios-text);
+}
+
+.app[data-reduce-motion="true"],
+.app[data-reduce-motion="true"] *,
+.app[data-reduce-motion="true"] *::before,
+.app[data-reduce-motion="true"] *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
+.header {
+  display: none;
+}
+
+.title {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--ios-text);
+}
+
+.headerActions {
+  display: flex;
+  gap: 12px;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ios-tint);
+  transition: opacity 0.15s;
+}
+
+.iconButton:not(:disabled):hover {
+  opacity: 0.7;
+}
+
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 24px;
+  padding-bottom: calc(var(--tab-height) + 24px + var(--safe-bottom));
+}
+
+.libraryPage {
+  padding-top: calc(var(--safe-top) + 8px);
+}
+
+.settingsPage {
+  padding-top: calc(var(--safe-top) + 8px);
+}
+
+.pageFade {
+  animation: pageFadeIn 0.24s ease-out;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.pageHeaderActions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.settingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--ios-radius-lg);
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  border: 0.5px solid var(--ios-separator);
+}
+
+.settingsProfileCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 74px;
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 18px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+
+.settingsAppIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 13px;
+  color: #ffffff;
+  background: linear-gradient(145deg, #0a84ff, #34c759);
+  box-shadow:
+    0 8px 18px rgba(10, 132, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.settingsProfileText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.settingsProfileText strong,
+.settingsProfileText small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settingsProfileText strong {
+  color: var(--ios-text);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.settingsProfileText small {
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsSection + .settingsSection {
+  margin-top: 12px;
+}
+
+.settingsSectionTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ios-text);
+}
+
+.settingsNativeList {
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+}
+
+.settingsSwitchRow,
+.settingsSegmentRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 58px;
+  padding: 10px 12px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.settingsSwitchRow:last-child,
+.settingsSegmentRow:last-child {
+  border-bottom: none;
+}
+
+.settingsRowText {
+  min-width: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.settingsRowIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.settingsIconBlue {
+  background: #0a84ff;
+}
+
+.settingsIconGreen {
+  background: #34c759;
+}
+
+.settingsIconGray {
+  background: #8e8e93;
+}
+
+.settingsIconOrange {
+  background: #ff9500;
+}
+
+.settingsIconPurple {
+  background: #af52de;
+}
+
+.settingsIconCyan {
+  background: #32ade6;
+}
+
+.settingsRowText strong {
+  color: var(--ios-text);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.settingsRowText small {
+  color: var(--ios-secondary);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.iosSwitch {
+  flex-shrink: 0;
+  appearance: none;
+  position: relative;
+  width: 52px;
+  height: 32px;
+  border-radius: 999px;
+  background: var(--ios-pill);
+  border: 0.5px solid var(--ios-separator);
+  transition: background 0.18s ease;
+}
+
+.iosSwitch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.24);
+  transition: transform 0.18s ease;
+}
+
+.iosSwitch:checked {
+  background: #34c759;
+  border-color: #34c759;
+}
+
+.iosSwitch:checked::after {
+  transform: translateX(20px);
+}
+
+.settingsSegmentControl {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 12px;
+  background-color: var(--ios-pill);
+}
+
+.settingsSegmentControl button {
+  min-width: 42px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settingsSegmentControl .settingsSegmentActive {
+  background: var(--ios-bg);
+  color: var(--ios-tint);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.settingsInfoRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+  color: var(--ios-text);
+  font-size: 15px;
+}
+
+.settingsNativeList .settingsInfoRow {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.settingsNativeList .settingsInfoRow:last-child {
+  border-bottom: none;
+}
+
+.settingsInfoRow strong {
+  max-width: 52%;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.settingsFootnote {
+  margin: 0;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.settingsNativeList + .settingsFootnote {
+  margin-top: 8px;
+}
+
+.settingsInputRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.settingsInputRow:last-child {
+  border-bottom: none;
+}
+
+.settingsInputRow > label {
+  flex-shrink: 0;
+  width: 70px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ios-text);
+  white-space: nowrap;
+}
+
+.settingsInputRow > input {
+  min-width: 0;
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid var(--ios-separator);
+  border-radius: 8px;
+  background: var(--ios-pill);
+  color: var(--ios-text);
+  font-size: 15px;
+  outline: none;
+}
+
+.settingsInputRow > input::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.settingsInputRow > input:focus {
+  border-color: var(--ios-tint);
+}
+
+.settingsActionRow {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border-top: 0.5px solid var(--ios-separator);
+}
+
+.settingsActionRow button {
+  min-height: 34px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.settingsActionRow button:active {
+  opacity: 0.7;
+}
+
+.settingsNavRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 0.5px solid var(--ios-separator);
+  background: transparent;
+  color: var(--ios-text);
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.settingsNavRow:last-child {
+  border-bottom: none;
+}
+
+.settingsNavRow:active {
+  background: var(--ios-pill);
+}
+
+.settingsStatusText {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.settingsStatusOk {
+  color: #30d158;
+}
+
+.settingsStatusErr {
+  color: #ff453a;
+}
+
+.libraryTitle {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: var(--ios-text);
+  padding: 0;
+}
+
+.libraryActions {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0 16px;
+}
+
+.libraryActionButton {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 20px;
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  border: 0.5px solid var(--ios-separator);
+  color: var(--ios-tint);
+  font-size: 14px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.libraryActionButton:not(:disabled):hover {
+  opacity: 0.7;
+}
+
+.libraryActionButton svg {
+  flex-shrink: 0;
+}
+
+.libraryTextButton {
+  flex-shrink: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 10px;
+  color: var(--ios-tint);
+  font-size: 15px;
+  font-weight: 700;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.libraryTextButton:not(:disabled):active {
+  background: color-mix(in srgb, var(--ios-tint) 10%, transparent);
+}
+
+.selectionSummary {
+  margin: -4px 0 10px;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.libraryHero {
+  margin-top: 14px;
+}
+
+.libraryOverviewPanel {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 6px;
+  padding: 16px;
+  border: 0.5px solid var(--glass-highlight);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 56%),
+    linear-gradient(140deg, color-mix(in srgb, var(--ios-tint) 9%, transparent), transparent 48%),
+    var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.18),
+    inset 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.libraryOverviewCopy,
+.libraryOverviewGoal,
+.libraryOverviewStats {
+  position: relative;
+  z-index: 1;
+}
+
+.libraryOverviewCopy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.libraryOverviewEyebrow {
+  color: var(--ios-tint);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.libraryOverviewCopy strong {
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.14;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.libraryOverviewCopy small {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ios-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.34;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.libraryOverviewGoal {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+  padding: 9px 10px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--ios-bg-elevated) 82%, transparent);
+  color: var(--ios-text);
+  text-align: left;
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.libraryOverviewGoal:active {
+  transform: scale(0.986);
+}
+
+.libraryOverviewGoalRing {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  font-variant-numeric: tabular-nums;
+}
+
+.libraryOverviewGoalRing::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--ios-bg-elevated);
+}
+
+.libraryOverviewGoalRing span,
+.libraryOverviewGoalRing small {
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+.libraryOverviewGoalRing span {
+  color: var(--ios-tint);
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.libraryOverviewGoalRing small {
+  margin-top: 3px;
+  color: var(--ios-text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.libraryOverviewGoalText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.libraryOverviewGoalText strong,
+.libraryOverviewGoalText small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.libraryOverviewGoalText strong {
+  color: var(--ios-text);
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.libraryOverviewGoalText small {
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.libraryOverviewStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-radius: 16px;
+  background: rgba(120, 130, 160, 0.1);
+}
+
+.libraryOverviewStats > span {
+  min-width: 0;
+  padding: 10px 8px;
+  text-align: center;
+}
+
+.libraryOverviewStats > span + span {
+  border-left: 0.5px solid var(--ios-separator);
+}
+
+.libraryOverviewStats strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 19px;
+  font-weight: 900;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.libraryOverviewStats small {
+  display: block;
+  margin-top: 3px;
+  color: var(--ios-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 10px;
+}
+
+.sectionHeader h2 {
+  margin: 0;
+  color: var(--ios-text);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.sectionHeader span {
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.continueCard,
+.featureBookCard,
+.readingGoalCard {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 0.5px solid var(--ios-separator);
+  background: var(--ios-bg-elevated);
+  color: var(--ios-text);
+  text-align: left;
+  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+}
+
+.continueHeroCard {
+  align-items: stretch;
+  min-height: 142px;
+  padding: 14px;
+  border-radius: 20px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--ios-tint) 12%, transparent), transparent 54%),
+    var(--ios-bg-elevated);
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.12);
+}
+
+.continueCoverFrame {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 86px;
+  min-height: 116px;
+}
+
+.continueCoverFrame::after,
+.shelfCoverFrame::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -7px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.22);
+  filter: blur(8px);
+  pointer-events: none;
+}
+
+.continueCoverFrame .bookCover {
+  width: 78px;
+  height: 112px;
+  border-radius: 7px;
+  box-shadow:
+    1px 0 0 rgba(255, 255, 255, 0.28) inset,
+    -8px 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.continueHeroCard .continueCardText {
+  justify-content: center;
+  gap: 6px;
+}
+
+.continueHeroCard .continueCardText strong {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.continueKicker {
+  color: var(--ios-tint);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.continueMetaRow {
+  overflow: hidden;
+  color: var(--ios-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.libraryProgressRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ios-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.libraryProgressRow > span:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.libraryProgressTrack {
+  position: relative;
+  flex: 1;
+  min-width: 44px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 130, 160, 0.18);
+}
+
+.libraryProgressTrack span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: var(--ios-tint);
+}
+
+.continueCard:active,
+.featureBookCard:active,
+.readingGoalCard:active,
+.quickActionsGrid button:active,
+.bookItem:active {
+  transform: scale(0.985);
+}
+
+.continueCardText,
+.featureBookText,
+.readingGoalText {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.continueCardText strong,
+.featureBookText strong,
+.readingGoalText strong {
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continueCardText small,
+.featureBookText small,
+.readingGoalText small {
+  overflow: hidden;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continueChevron {
+  flex-shrink: 0;
+  color: var(--ios-tertiary);
+  font-size: 28px;
+  line-height: 1;
+}
+
+.emptyCoverMini {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 68px;
+  border-radius: 6px;
+  color: var(--ios-secondary);
+  background: var(--ios-pill);
+}
+
+.recentShelf {
+  margin-top: 16px;
+}
+
+.recentShelfScroller {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 92px;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 2px 12px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.recentShelfScroller::-webkit-scrollbar {
+  display: none;
+}
+
+.shelfBookButton {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  color: var(--ios-text);
+  text-align: left;
+  scroll-snap-align: start;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.shelfBookButton:active {
+  transform: scale(0.97);
+}
+
+.shelfCoverFrame {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 82px;
+  height: 116px;
+}
+
+.shelfCoverFrame .bookCover {
+  width: 76px;
+  height: 108px;
+  border-radius: 7px;
+  box-shadow:
+    1px 0 0 rgba(255, 255, 255, 0.28) inset,
+    -7px 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.shelfBookTitle,
+.shelfBookMeta {
+  width: 86px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shelfBookTitle {
+  color: var(--ios-text);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.shelfBookProgress {
+  width: 76px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 130, 160, 0.18);
+}
+
+.shelfBookProgress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ios-tint);
+}
+
+.shelfBookMeta {
+  margin-top: -3px;
+  color: var(--ios-tertiary);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.libraryStats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+
+.libraryStats div {
+  min-width: 0;
+  padding: 12px 10px;
+  border-radius: 14px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+}
+
+.libraryStats strong {
+  display: block;
+  color: var(--ios-text);
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.libraryStats span {
+  display: block;
+  margin-top: 3px;
+  color: var(--ios-secondary);
+  font-size: 12px;
+}
+
+.collectionShelf {
+  margin-top: 12px;
+}
+
+.collectionList {
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  border: 0.5px solid var(--ios-separator);
+  background: var(--ios-bg-elevated);
+  overflow: hidden;
+}
+
+.collectionRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 0;
+  border-bottom: 0.5px solid var(--ios-separator);
+  border-radius: 0;
+  background: transparent;
+  color: var(--ios-text);
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.collectionRow:last-child {
+  border-bottom: 0;
+}
+
+.collectionRowActive {
+  background: color-mix(in srgb, var(--ios-tint) 10%, transparent);
+}
+
+.collectionRowActive .collectionRowName {
+  color: var(--ios-tint);
+}
+
+.collectionRowIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--ios-tint);
+  background: color-mix(in srgb, var(--ios-tint) 12%, transparent);
+}
+
+.collectionRowBody {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.collectionRowName {
+  min-width: 0;
+  flex: 1;
+  font-size: 17px;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.collectionRowMeta {
+  flex-shrink: 0;
+  max-width: 42%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ios-secondary);
+  font-size: 15px;
+}
+
+.collectionRowChevron {
+  flex-shrink: 0;
+  color: var(--ios-tertiary);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.librarySearchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0 6px;
+}
+
+.librarySearchBox {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 12px;
+  background: var(--ios-pill);
+  color: var(--ios-secondary);
+}
+
+.librarySearchBox input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--ios-text);
+  font: inherit;
+  font-size: 15px;
+}
+
+.librarySearchBox input::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.libraryViewToggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 38px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--ios-pill);
+}
+
+.libraryViewToggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  color: var(--ios-secondary);
+}
+
+.libraryViewToggle .libraryViewActive {
+  background: var(--ios-bg-elevated);
+  color: var(--ios-tint);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 48px 24px;
+  gap: 12px;
+  min-height: 60vh;
+}
+
+.emptyStateCompact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 34vh;
+  padding: 28px 20px;
+  gap: 12px;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--ios-tertiary);
+  margin-bottom: 8px;
+}
+
+.emptyTitle {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ios-text);
+}
+
+.emptyText {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ios-secondary);
+  max-width: 280px;
+}
+
+.primaryButton {
+  margin-top: 8px;
+  padding: 10px 24px;
+  background: var(--ios-tint);
+  color: #ffffff;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.primaryButton:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.askInput {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 360px;
+  margin-top: 16px;
+}
+
+.input {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid var(--ios-separator);
+  border-radius: 10px;
+  background: var(--ios-bg-elevated);
+  color: var(--ios-text);
+  font-size: 15px;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.input:focus {
+  border-color: var(--ios-tint);
+}
+
+.sendButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ios-tint);
+  color: #ffffff;
+  transition: opacity 0.15s;
+}
+
+.sendButton:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.tabBar {
+  display: flex;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: calc(var(--tab-height) + var(--safe-bottom));
+  padding-bottom: var(--safe-bottom);
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  border-top: 0.5px solid var(--ios-separator);
+  z-index: 10;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--ios-tertiary);
+  transition: color 0.15s;
+  padding: 8px 0;
+}
+
+.tab:focus {
+  outline: none;
+}
+
+.tab:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--ios-tint) 70%, transparent);
+  outline-offset: -6px;
+  border-radius: 14px;
+}
+
+.tabIcon {
+  width: 26px;
+  height: 26px;
+  display: block;
+  overflow: visible;
+}
+
+.tabIconStroke {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.55;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tabIconFill {
+  fill: currentColor;
+  opacity: 0.16;
+}
+
+.activeTab .tabIconStroke {
+  stroke-width: 1.85;
+}
+
+.activeTab .tabIconFill {
+  opacity: 0.3;
+}
+
+.activeTab {
+  color: var(--ios-tint);
+}
+
+.tab:not(:disabled):hover {
+  color: var(--ios-secondary);
+}
+
+.activeTab:hover {
+  color: var(--ios-tint);
+}
+
+.libraryBatchBar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--tab-height) + var(--safe-bottom) + 10px);
+  z-index: 30;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 10px;
+  border-radius: 18px;
+  border: 0.5px solid var(--glass-highlight);
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22), inset 0 1px rgba(255, 255, 255, 0.08);
+  animation: sheetSlideUp 0.24s cubic-bezier(0.2, 0.86, 0.22, 1);
+}
+
+.libraryBatchBar span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.batchTextButton,
+.batchDangerButton {
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 800;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.batchTextButton {
+  color: var(--ios-tint);
+  background: color-mix(in srgb, var(--ios-tint) 10%, transparent);
+}
+
+.batchDangerButton {
+  color: #ff453a;
+  background: rgba(255, 69, 58, 0.11);
+}
+
+.batchTextButton:disabled,
+.batchDangerButton:disabled {
+  opacity: 0.38;
+}
+
+@media (min-width: 640px) {
+  .content {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .readingContent {
+    max-width: none;
+    width: 100%;
+  }
+}
+
+.bookList {
+  display: flex;
+  flex-direction: column;
+}
+
+.bookGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 14px;
+  row-gap: 18px;
+  padding: 2px 0 8px;
+}
+
+.bookGridCell {
+  position: relative;
+  min-width: 0;
+}
+
+.bookSelectable {
+  cursor: pointer;
+}
+
+.bookGridItem {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 7px;
+  color: var(--ios-text);
+  text-align: left;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.bookGridItem:active {
+  transform: scale(0.985);
+}
+
+.bookSelected .bookGridItem {
+  opacity: 0.72;
+  transform: scale(0.985);
+}
+
+.bookSelected .bookCover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-tint) 74%, transparent), 0 10px 18px rgba(0, 0, 0, 0.28);
+}
+
+.bookGridItem .bookCover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 0.7;
+  border-radius: 7px;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.28);
+}
+
+.bookSelected .bookGridItem .bookCover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-tint) 74%, transparent), 0 10px 18px rgba(0, 0, 0, 0.28);
+}
+
+.bookGridTitle {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookGridMeta {
+  margin-top: -4px;
+  color: var(--ios-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.bookGridProgress {
+  width: 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 130, 160, 0.18);
+}
+
+.bookGridProgress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ios-tint);
+}
+
+.bookGridMoreButton {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: #ffffff;
+  background: rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18);
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.bookGridCell:hover .bookGridMoreButton,
+.bookGridMoreButton:focus-visible {
+  opacity: 1;
+}
+
+.bookGridMoreButton:active {
+  transform: scale(0.94);
+}
+
+@media (hover: none) {
+  .bookGridMoreButton {
+    opacity: 1;
+  }
+}
+
+.selectionBadge,
+.selectionBadgeInline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  background: rgba(120, 130, 160, 0.48);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
+.selectionBadge {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  width: 27px;
+  height: 27px;
+}
+
+.bookSelected .selectionBadge,
+.bookSelected .selectionBadgeInline {
+  background: var(--ios-tint);
+  border-color: var(--ios-tint);
+}
+
+.selectionBadgeInline {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+}
+
+.bookItems {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.bookItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 0.5px solid var(--ios-separator);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.bookItem:hover {
+  opacity: 0.7;
+}
+
+.bookItem.bookSelected {
+  opacity: 1;
+}
+
+.bookItem.bookSelected .bookTitle {
+  color: var(--ios-tint);
+}
+
+.bookItem:last-child {
+  border-bottom: none;
+}
+
+.bookCover {
+  flex-shrink: 0;
+  width: 48px;
+  height: 68px;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  position: relative;
+}
+
+.bookCoverLabel {
+  position: absolute;
+  bottom: 4px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.8px;
+  opacity: 0.8;
+}
+
+.bookCoverImage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-position: center;
+  background-size: cover;
+  background-color: var(--ios-pill);
+}
+
+.bookInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.bookTitle {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ios-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bookMeta {
+  font-size: 13px;
+  color: var(--ios-secondary);
+}
+
+.bookListProgressRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ios-tertiary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.bookListProgressRow > span:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bookListProgressTrack {
+  flex: 1;
+  min-width: 56px;
+  max-width: 140px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(120, 130, 160, 0.18);
+}
+
+.bookListProgressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ios-tint);
+}
+
+.bookMoreButton {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ios-tertiary);
+  transition: opacity 0.15s;
+}
+
+.bookMoreButton:hover {
+  opacity: 0.7;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.importError {
+  font-size: 13px;
+  color: #ff453a;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.reader {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.readerHeader {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.readerTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.readerMeta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.readerBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.paragraph {
+  color: var(--foreground);
+  margin: 0 0 1em 0;
+}
+
+.readingDashboard {
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 8px);
+}
+
+.dashboardSection {
+  margin-top: 16px;
+}
+
+.readingGoalCard {
+  margin-top: 10px;
+  min-height: 96px;
+  background: linear-gradient(135deg, rgba(10, 132, 255, 0.18), var(--ios-bg-elevated) 62%);
+}
+
+.dashboardGoalRing {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  color: var(--ios-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.dashboardGoalRing::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--ios-bg-elevated);
+}
+
+.dashboardGoalRing span,
+.dashboardGoalRing small {
+  position: relative;
+  z-index: 1;
+  line-height: 1;
+}
+
+.dashboardGoalRing span {
+  color: var(--ios-tint);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.dashboardGoalRing small {
+  margin-top: 4px;
+  color: var(--ios-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.featureBookCard {
+  min-height: 96px;
+}
+
+.quickActionsGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.quickActionsGrid button {
+  min-width: 0;
+  min-height: 92px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 0.5px solid var(--ios-separator);
+  background: var(--ios-bg-elevated);
+  color: var(--ios-text);
+  text-align: left;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.quickActionsGrid strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.quickActionsGrid span {
+  display: block;
+  margin-top: 8px;
+  color: var(--ios-secondary);
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.readingWeekCard {
+  margin-top: 16px;
+  padding: 14px 14px 12px;
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 16px;
+  background: var(--ios-bg-elevated);
+}
+
+.readingWeekCard .sectionHeader {
+  margin-top: 0;
+}
+
+.readingWeekCard .sectionHeader h2 {
+  font-size: 18px;
+}
+
+.readingWeekCard .sectionHeader span {
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weekBars {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  align-items: end;
+  min-height: 116px;
+  padding-top: 8px;
+}
+
+.weekBars > div {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.weekBarTrack {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 22px;
+  height: 82px;
+  border-radius: 999px;
+  background: var(--ios-pill);
+  overflow: hidden;
+}
+
+.weekBarTrack span {
+  width: 100%;
+  min-height: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #56ccff, var(--ios-tint));
+}
+
+.weekBars small {
+  color: var(--ios-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.weekBarToday .weekBarTrack {
+  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.24);
+}
+
+.weekBarToday small {
+  color: var(--ios-tint);
+}
+
+.readerShell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.readerStage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding-top: calc(var(--safe-top) + 48px);
+  padding-bottom: calc(var(--tab-height) + var(--safe-bottom) + 72px);
+}
+
+.readerChromeHidden .readerStage {
+  padding-top: var(--safe-top);
+  padding-bottom: calc(var(--tab-height) + var(--safe-bottom) + 12px);
+}
+
+.readerTurnFeedback {
+  position: absolute;
+  top: var(--safe-top);
+  bottom: calc(var(--tab-height) + var(--safe-bottom));
+  width: 42%;
+  z-index: 9;
+  pointer-events: none;
+  animation: readerTurnFlash 0.26s ease-out both;
+}
+
+.readerTurnPrev {
+  left: 0;
+  background: linear-gradient(90deg, rgba(10, 132, 255, 0.14), transparent 78%);
+}
+
+.readerTurnNext {
+  right: 0;
+  background: linear-gradient(270deg, rgba(10, 132, 255, 0.14), transparent 78%);
+}
+
+@keyframes readerTurnFlash {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.92);
+  }
+  34% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+.readerChrome {
+  pointer-events: none;
+}
+
+.readerTopBar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: calc(var(--safe-top) + 8px) 8px 8px;
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  border-bottom: 0.5px solid var(--ios-separator);
+  z-index: 20;
+  pointer-events: auto;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.readerChromeControlsHidden .readerTopBar {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+.readerTopTitle {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ios-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+.readerTopSpacer {
+  flex-shrink: 0;
+  width: 4px;
+}
+
+.chromeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--ios-tint);
+  pointer-events: auto;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.chromeButton:not(:disabled):hover {
+  opacity: 0.7;
+}
+
+.goalRingButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  pointer-events: auto;
+  transition: opacity 0.15s;
+}
+
+.goalRingButton:hover {
+  opacity: 0.7;
+}
+
+.goalRingStack {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.goalRingMinutes {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--ios-text);
+  line-height: 1;
+}
+
+.goalRingTarget {
+  margin-top: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--ios-text);
+  line-height: 1;
+}
+
+.readerBottomPill {
+  position: absolute;
+  bottom: calc(var(--tab-height) + var(--safe-bottom) + 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 6px 4px;
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 24px;
+  z-index: 20;
+  pointer-events: auto;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.readerChromeControlsHidden .readerBottomPill {
+  opacity: 0;
+  transform: translateX(-50%) translateY(24px);
+  pointer-events: none;
+}
+
+.pillButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ios-tint);
+  pointer-events: auto;
+  transition: opacity 0.15s;
+}
+
+.pillButton:not(:disabled):hover {
+  opacity: 0.7;
+}
+
+.pillProgress {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ios-text);
+  min-width: 40px;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 14px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalTitle {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ios-text);
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.formLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ios-secondary);
+}
+
+.modalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.secondaryButton {
+  padding: 8px 16px;
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 8px;
+  background: var(--ios-blur-bg);
+  color: var(--ios-tint);
+  font-size: 14px;
+  font-weight: 500;
+  transition: opacity 0.15s;
+}
+
+.secondaryButton:not(:disabled):hover {
+  opacity: 0.7;
+}
+
+.askPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 60vh;
+}
+
+.askContext {
+  margin: 0;
+}
+
+.askSheetInner {
+  padding: 0 16px 16px;
+}
+
+.selectedTextPreview {
+  padding: 10px 14px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ios-secondary);
+  max-height: 120px;
+  overflow-y: auto;
+  position: relative;
+}
+
+.selectedTextLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--ios-tint);
+  margin-bottom: 4px;
+}
+
+.clearSelectionButton {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--ios-secondary);
+  font-size: 14px;
+  transition: background 0.15s;
+}
+
+.clearSelectionButton:hover {
+  background: var(--ios-separator);
+}
+
+.answerBox {
+  padding: 14px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 10px;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ios-text);
+  white-space: pre-wrap;
+}
+
+.errorBox {
+  padding: 10px 14px;
+  background: rgba(255, 69, 58, 0.12);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  border-radius: 10px;
+  font-size: 14px;
+  color: #ff453a;
+}
+
+.settingsPrompt {
+  font-size: 13px;
+  color: var(--ios-tint);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.backupSection {
+  border-top: 0.5px solid var(--ios-separator);
+  padding-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.backupTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ios-text);
+}
+
+.loadingDots {
+  display: inline-flex;
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.loadingDots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ios-secondary);
+  animation: blink 1.4s infinite both;
+}
+
+.loadingDots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loadingDots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.3; }
+  40% { opacity: 1; }
+}
+
+
+.segmentedControl {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.segmentedButton {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--foreground);
+  background: var(--surface);
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.segmentedButton + .segmentedButton {
+  border-left: 1px solid var(--border);
+}
+
+.segmentedActive {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.segmentedActive:hover {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.rangeInput {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.readerContent {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.readingContent {
+  padding: 0;
+  padding-bottom: 0;
+  overflow: hidden;
+}
+
+.libraryEditingContent {
+  padding-bottom: calc(var(--tab-height) + 96px + var(--safe-bottom));
+}
+
+.sheetOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: sheetBackdropIn 0.22s ease-out;
+}
+
+.bottomSheet {
+  width: 100%;
+  max-width: 500px;
+  max-height: 80dvh;
+  background: var(--ios-sheet-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  border-radius: 14px 14px 0 0;
+  border-top: 0.5px solid var(--glass-highlight);
+  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-bottom: calc(var(--safe-bottom) + 8px);
+  animation: sheetSlideUp 0.28s cubic-bezier(0.2, 0.86, 0.22, 1);
+  will-change: transform;
+}
+
+@keyframes sheetBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sheetSlideUp {
+  from {
+    transform: translateY(28px) scale(0.985);
+  }
+  to {
+    transform: translateY(0) scale(1);
+  }
+}
+
+.sheetGrabber {
+  width: 36px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--ios-tertiary);
+  margin: 8px auto 0;
+  flex-shrink: 0;
+}
+
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px 8px;
+  flex-shrink: 0;
+}
+
+.sheetTitle {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ios-text);
+}
+
+.sheetBody {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0 8px;
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tocItem {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--ios-text);
+  border-bottom: 0.5px solid var(--ios-separator);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.15s;
+}
+
+.tocItem:not(:disabled):hover {
+  background: var(--ios-pill);
+}
+
+.bottomSheet .formField {
+  padding: 0 16px 16px;
+}
+
+.bottomSheet .modalActions {
+  padding: 0 16px;
+}
+
+.bottomSheet .emptyText {
+  margin: 16px auto 24px;
+}
+
+.bookActionSheet {
+  max-height: min(86dvh, 720px);
+  border-radius: 22px 22px 0 0;
+}
+
+.bookActionHero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px 16px;
+}
+
+.bookActionHero .bookCover {
+  width: 64px;
+  height: 90px;
+  border-radius: 7px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+}
+
+.bookActionHeroText {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bookActionHeroText strong {
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.18;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookActionHeroText span {
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.actionListGroup,
+.bookDetailGroup {
+  overflow: hidden;
+  margin: 0 16px 12px;
+  border-radius: 16px;
+  border: 0.5px solid var(--ios-separator);
+  background: var(--ios-bg-elevated);
+}
+
+.actionListRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 12px;
+  color: var(--ios-text);
+  font-size: 16px;
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 0.5px solid var(--ios-separator);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.actionListRow:last-child {
+  border-bottom: none;
+}
+
+.actionListRow:active {
+  background: var(--ios-pill);
+  transform: scale(0.995);
+}
+
+.actionListRow > span:nth-child(2) {
+  min-width: 0;
+  flex: 1;
+}
+
+.actionListRow small {
+  flex-shrink: 0;
+  color: var(--ios-secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.actionIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  color: var(--ios-tint);
+  background: color-mix(in srgb, var(--ios-tint) 12%, transparent);
+}
+
+.actionListDanger {
+  color: #ff453a;
+}
+
+.actionListDanger .actionIcon {
+  color: #ff453a;
+  background: rgba(255, 69, 58, 0.12);
+}
+
+.bookDetailGroup {
+  padding: 4px 0;
+}
+
+.bookDetailGroup h3 {
+  margin: 0;
+  padding: 10px 12px 4px;
+  color: var(--ios-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.bookDetailRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 0 12px;
+  color: var(--ios-text);
+  font-size: 14px;
+  border-top: 0.5px solid var(--ios-separator);
+}
+
+.bookDetailRow strong {
+  max-width: 58%;
+  overflow: hidden;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deleteConfirmBox {
+  padding: 14px 12px 12px;
+}
+
+.deleteConfirmBox strong {
+  display: block;
+  color: #ff453a;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.deleteConfirmBox p {
+  margin: 6px 0 12px;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.deleteConfirmBox div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dangerButton {
+  margin-top: 8px;
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: #ff453a;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.goalSheet {
+  max-width: 430px;
+  max-height: 92dvh;
+  min-height: min(720px, calc(100dvh - var(--safe-top) - 18px));
+  border-radius: 28px 28px 0 0;
+  background: var(--ios-bg);
+  overflow: hidden;
+  box-shadow: 0 -18px 52px rgba(0, 0, 0, 0.3);
+}
+
+.goalHero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  min-height: 0;
+  padding: 22px 18px 24px;
+  text-align: center;
+}
+
+.goalCloseButton {
+  position: absolute;
+  top: 18px;
+  right: 16px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ios-tint);
+  background: var(--ios-pill);
+}
+
+.goalHeroTitle {
+  margin: 0;
+  padding: 6px 44px 0;
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.08;
+  color: var(--ios-text);
+}
+
+.goalHeroSubtitle {
+  margin: 14px auto 0;
+  max-width: 350px;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.42;
+  color: var(--ios-secondary);
+}
+
+.goalArcWrap {
+  position: relative;
+  width: min(100%, 374px);
+  height: 336px;
+  margin: 34px auto 10px;
+}
+
+.goalArc {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  transform: translateX(-50%);
+}
+
+.goalArcTrack,
+.goalArcProgress {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 14;
+}
+
+.goalArcTrack {
+  stroke: rgba(176, 180, 196, 0.18);
+}
+
+.goalArcProgress {
+  stroke: #16b7e8;
+  filter: drop-shadow(0 4px 8px rgba(22, 183, 232, 0.22));
+}
+
+.goalArcCenter {
+  position: absolute;
+  left: 50%;
+  top: 57%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 300px);
+  transform: translate(-50%, -50%);
+}
+
+.goalArcLabel {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ios-text);
+}
+
+.goalArcNumber {
+  margin-top: 12px;
+  font-size: 118px;
+  font-weight: 500;
+  line-height: 0.88;
+  color: var(--ios-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.goalTargetButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+  max-width: 100%;
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.1;
+  color: var(--ios-text);
+}
+
+.goalTargetButton span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.goalChevron {
+  font-size: 42px;
+  line-height: 0.6;
+  color: var(--ios-secondary);
+}
+
+.goalTargetEditor {
+  width: 100%;
+  max-width: 350px;
+  margin: 0 auto 16px;
+  padding: 14px;
+  border-radius: var(--ios-radius-lg);
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+}
+
+.goalTargetActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.goalContinueButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: min(100%, 362px);
+  min-height: 78px;
+  margin-top: auto;
+  padding: 13px 22px;
+  border-radius: 999px;
+  background: var(--ios-text);
+  color: var(--ios-bg);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.goalContinueButton:active {
+  transform: scale(0.985);
+}
+
+.goalContinueButton span {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.goalContinueButton small {
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 15px;
+  line-height: 1.15;
+  opacity: 0.55;
+}
+
+@media (max-height: 760px) {
+  .goalSheet {
+    min-height: min(650px, calc(100dvh - var(--safe-top) - 12px));
+  }
+
+  .goalHeroTitle {
+    font-size: 32px;
+  }
+
+  .goalHeroSubtitle {
+    font-size: 18px;
+    line-height: 1.34;
+  }
+
+  .goalArcWrap {
+    height: 282px;
+    margin-top: 22px;
+  }
+
+  .goalArcNumber {
+    font-size: 96px;
+  }
+
+  .goalArcLabel,
+  .goalTargetButton {
+    font-size: 20px;
+  }
+}
+
+.goalSheetProgress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 12px;
+}
+
+.goalSheetLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ios-secondary);
+}
+
+.goalSheetValue {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--ios-text);
+}
+
+.goalSheetTarget {
+  font-size: 13px;
+  color: var(--ios-secondary);
+}
+
+.goalRangeField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 16px;
+}
+
+.goalRangeLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ios-secondary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.goalRangeValue {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ios-text);
+}
+
+.goalRangeInput {
+  width: 100%;
+  accent-color: var(--ios-tint);
+}
+
+.goalActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 0 16px 16px;
+}
+
+.groupFilterBar {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.groupFilterBar::-webkit-scrollbar {
+  display: none;
+}
+
+.groupChip {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: var(--ios-blur-bg);
+  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  border: 0.5px solid var(--ios-separator);
+  transition: background 0.15s, color 0.15s;
+}
+
+.groupChipActive {
+  background: var(--ios-tint);
+  color: #ffffff;
+  border-color: var(--ios-tint);
+}
+
+.groupChip:hover {
+  opacity: 0.8;
+}
+
+.bookGroupLabels {
+  font-size: 12px;
+  color: var(--ios-tint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.groupSheetBookTitle {
+  padding: 0 16px 12px;
+  font-size: 14px;
+  color: var(--ios-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.groupEmpty {
+  padding: 16px;
+  text-align: center;
+}
+
+.groupEmptyHint {
+  font-size: 13px;
+  color: var(--ios-tertiary);
+  margin: 4px 0 0;
+}
+
+.groupList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.groupListItem {
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.groupListItem:last-child {
+  border-bottom: none;
+}
+
+.groupItemRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  min-height: 44px;
+}
+
+.groupCheckLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.groupCheckbox {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  accent-color: var(--ios-tint);
+}
+
+.groupName {
+  font-size: 15px;
+  color: var(--ios-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.groupItemActions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.groupAction {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--ios-secondary);
+  transition: opacity 0.15s;
+}
+
+.groupAction:hover {
+  opacity: 0.7;
+}
+
+.groupActionDelete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: #ff453a;
+  transition: opacity 0.15s;
+}
+
+.groupActionDelete:hover {
+  opacity: 0.7;
+}
+
+.groupEditRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+}
+
+.groupEditInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--ios-tint);
+  border-radius: 8px;
+  background: var(--ios-bg-elevated);
+  color: var(--ios-text);
+  font-size: 15px;
+  outline: none;
+}
+
+.groupEditSave {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--ios-tint);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.groupEditCancel {
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: var(--ios-pill);
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.groupCreateRow {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 0.5px solid var(--ios-separator);
+}
+
+.groupCreateInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--ios-separator);
+  border-radius: 8px;
+  background: var(--ios-bg-elevated);
+  color: var(--ios-text);
+  font-size: 15px;
+  outline: none;
+}
+
+.groupCreateInput::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.groupCreateInput:focus {
+  border-color: var(--ios-tint);
+}
+
+.groupCreateButton {
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: var(--ios-tint);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.groupCreateButton:disabled {
+  opacity: 0.4;
+}
+
+.groupCreateButton:not(:disabled):hover {
+  opacity: 0.85;
+}
+
+.groupSheetActions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px 0;
+}
+
+.readerSettingsBody {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 4px 16px 16px;
+}
+
+.readerSettingsGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.readerSettingsGroupTitle {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ios-secondary);
+  text-transform: none;
+  padding: 0 0 6px;
+  margin: 0;
+}
+
+.readerSettingsList {
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+}
+
+.readerSettingLabel {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ios-text);
+  white-space: nowrap;
+}
+
+.readerSettingValue {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ios-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.readerThemeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.readerThemeRow:last-child {
+  border-bottom: none;
+}
+
+.readerThemeLabel {
+  flex-shrink: 0;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ios-text);
+}
+
+.readerThemeSegment {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--ios-pill);
+}
+
+.readerThemeSegment button {
+  min-width: 42px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+
+.readerThemeSegment .readerThemeSegmentActive {
+  background: var(--ios-bg);
+  color: var(--ios-tint);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.readerSettingSliderRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.readerSettingSliderRow:last-child {
+  border-bottom: none;
+}
+
+.readerSettingSliderHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.readerSettingSliderInput {
+  width: 100%;
+  max-width: 390px;
+  accent-color: var(--ios-tint);
+}
+
+.readerSettingsDone {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 16px 4px;
+}
+
+.readerSettingsDone button {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  background: var(--ios-tint);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+
+.readerSettingsDone button:active {
+  opacity: 0.7;
+}
+
+.tocSheet {
+  max-height: 80dvh;
+}
+
+.tocGroupList {
+  margin: 0 16px;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+}
+
+.tocList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.tocRow {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.tocRow:last-child {
+  border-bottom: none;
+}
+
+.tocRowStack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.tocRowButton {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 15px;
+  color: var(--ios-text);
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.tocRowButton:active {
+  background: var(--ios-pill);
+}
+
+.tocRowLabel {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tocRowChildren {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border-top: 0.5px solid var(--ios-separator);
+}
+
+.tocRowChildren .tocRow:first-child {
+  border-top: 0;
+}
+
+.tocEmptyText {
+  margin: 24px 16px;
+  text-align: center;
+  font-size: 15px;
+  color: var(--ios-secondary);
+  line-height: 1.5;
+}
