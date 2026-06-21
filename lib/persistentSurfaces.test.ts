@@ -7,11 +7,16 @@ const pageSource = readFileSync(
 );
 
 describe("persistent app surfaces", () => {
-  it("keeps the library mounted while switching tabs", () => {
-    expect(pageSource).not.toContain(
-      '{activeTab === "library" && ('
-    );
-    expect(pageSource).toContain("styles.tabPageInactive");
-    expect(pageSource).toContain('aria-hidden={activeTab !== "library"}');
+  it("keeps all primary tabs mounted while switching", () => {
+    expect(pageSource).not.toContain('{activeTab === "reading" && !openBook && (');
+    expect(pageSource).not.toContain('{activeTab === "settings" && (');
+    expect(pageSource).toContain('getNavigationSurfaceClass("library")');
+    expect(pageSource).toContain('getNavigationSurfaceClass("reading")');
+    expect(pageSource).toContain('getNavigationSurfaceClass("settings")');
+  });
+
+  it("renders one shared bottom-tab indicator", () => {
+    expect(pageSource).toContain("styles.tabIndicator");
+    expect(pageSource).toContain('"--tab-index": getNavigationTabIndex(activeTab)');
   });
 });

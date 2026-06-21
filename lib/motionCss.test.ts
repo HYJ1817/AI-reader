@@ -41,11 +41,29 @@ describe("motion CSS", () => {
     expect(css).toContain("--shadow-sheet: 0 -8px 18px rgba(0, 0, 0, 0.16);");
   });
 
-  it("uses a crossfade instead of a generic page fade-and-rise", () => {
-    const start = css.indexOf("@keyframes pageFadeIn");
-    const end = css.indexOf(".pageHeader", start);
-    const keyframes = css.slice(start, end);
-    expect(keyframes).not.toContain("transform:");
+  it("uses persistent tab surfaces instead of display switching or mount fades", () => {
+    expect(css).not.toContain(".tabPageInactive");
+    expect(css).not.toContain("@keyframes pageFadeIn");
+    expect(css).toMatch(
+      /\.appSurface\s*\{[^}]*transition:[^}]*opacity[^}]*transform/s
+    );
+    expect(css).toMatch(
+      /\.appSurfaceBefore\s*\{[^}]*translate3d\(-8px,\s*0,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.appSurfaceAfter\s*\{[^}]*translate3d\(8px,\s*0,\s*0\)/s
+    );
+  });
+
+  it("moves one shared tab indicator with a compositor transform", () => {
+    expect(css).toMatch(
+      /\.tabIndicator\s*\{[^}]*transform:\s*translate3d\(calc\(var\(--tab-index\)\s*\*\s*100%\),\s*0,\s*0\)/s
+    );
+    const activeStart = css.indexOf(".activeTab {");
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).not.toContain("background:");
+    expect(activeRule).not.toContain("box-shadow:");
   });
 
   it("keeps the library import action free of moving blur and shadow", () => {

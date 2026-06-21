@@ -112,6 +112,11 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
+import {
+  getNavigationSurfaceState,
+  getNavigationTabIndex,
+  type NavigationTab,
+} from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
   getInitialVisibleItemCount,
@@ -126,7 +131,7 @@ import {
   reduceReaderChromeState,
 } from "@/lib/readerChromeState";
 
-type Tab = "library" | "reading" | "settings";
+type Tab = NavigationTab;
 type ReaderTurnDirection = "prev" | "next";
 type ReaderPageInfo = { current: number; total: number };
 const LIBRARY_RENDER_BATCH = 30;
@@ -303,6 +308,17 @@ export default function Home() {
   const [editingGroupName, setEditingGroupName] = useState("");
   const autoOpenAttemptedRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
+
+  function getNavigationSurfaceClass(tab: Tab): string {
+    const state = getNavigationSurfaceState(tab, activeTab);
+    const stateClass =
+      state === "active"
+        ? styles.appSurfaceActive
+        : state === "before"
+          ? styles.appSurfaceBefore
+          : styles.appSurfaceAfter;
+    return `${styles.appSurface} ${stateClass}`;
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -1565,11 +1581,7 @@ export default function Home() {
         } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
       >
         <div
-          className={`${styles.libraryPage} ${
-            activeTab === "library"
-              ? styles.tabPageActive
-              : styles.tabPageInactive
-          }`}
+          className={`${styles.libraryPage} ${getNavigationSurfaceClass("library")}`}
           aria-hidden={activeTab !== "library"}
         >
             <div className={styles.pageHeader}>
@@ -2079,8 +2091,10 @@ export default function Home() {
             </div>
         )}
 
-        {activeTab === "reading" && !openBook && (
-            <div className={`${styles.readingDashboard} ${styles.pageFade}`}>
+        <div
+          className={`${styles.readingDashboard} ${getNavigationSurfaceClass("reading")}`}
+          aria-hidden={activeTab !== "reading" || Boolean(openBook)}
+        >
               <div className={styles.pageHeader}>
                 <h1 className={styles.libraryTitle}>{UI_TEXT.READING}</h1>
               </div>
@@ -2164,11 +2178,12 @@ export default function Home() {
                   ))}
                 </div>
               </section>
-            </div>
-        )}
+        </div>
 
-        {activeTab === "settings" && (
-          <div className={styles.settingsPage}>
+        <div
+          className={`${styles.settingsPage} ${getNavigationSurfaceClass("settings")}`}
+          aria-hidden={activeTab !== "settings"}
+        >
             <h1 className={styles.libraryTitle}>{UI_TEXT.SETTINGS}</h1>
 
             <section className={styles.settingsSection}>
@@ -2324,12 +2339,18 @@ export default function Home() {
               </div>
             </section>
 
-          </div>
-        )}
+        </div>
       </main>
 
       {showBottomTabs && (
         <nav className={styles.tabBar}>
+          <span
+            className={styles.tabIndicator}
+            style={{
+              "--tab-index": getNavigationTabIndex(activeTab),
+            } as React.CSSProperties}
+            aria-hidden="true"
+          />
           <button
             className={`${styles.tab} ${activeTab === "library" ? styles.activeTab : ""}`}
             onClick={() => {
