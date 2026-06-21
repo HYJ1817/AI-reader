@@ -7,6 +7,8 @@ import { normalizeEpubNavigation } from "@/lib/epubNavigation";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import { shouldObserveSystemReaderTheme } from "@/lib/readerPreferences";
+import { getEpubRenditionOptions } from "@/lib/epubReaderMode";
+import type { ReaderMode } from "@/lib/readerMode";
 import {
   applyEpubReaderPreferences,
   EMPTY_EPUB_PREFERENCE_STATE,
@@ -39,6 +41,7 @@ export type EpubReaderHandle = {
 type EpubReaderProps = {
   bookId: string;
   fileBlob: Blob;
+  mode: ReaderMode;
   getReadingPosition: (bookId: string) => Promise<ReadingPosition | undefined>;
   saveReadingPosition: (position: ReadingPosition) => Promise<void>;
   onTextSelect?: (text: string) => void;
@@ -76,6 +79,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   {
     bookId,
     fileBlob,
+    mode,
     getReadingPosition,
     saveReadingPosition,
     onTextSelect,
@@ -98,6 +102,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const bookRef = useRef<unknown>(null);
   const objectUrlRef = useRef<string | null>(null);
   const bookIdRef = useRef(bookId);
+  const modeRef = useRef(mode);
+  const latestLocatorRef = useRef<string | null>(null);
   const preferencesRef = useRef(preferences);
   const onTextSelectRef = useRef(onTextSelect);
   const onReaderTapRef = useRef(onReaderTap);
@@ -119,8 +125,15 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   );
 
   useEffect(() => {
+    if (bookIdRef.current !== bookId) {
+      latestLocatorRef.current = null;
+    }
     bookIdRef.current = bookId;
   }, [bookId]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
 
   useEffect(() => {
     preferencesRef.current = preferences;
@@ -219,11 +232,16 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         typeof (location as Record<string, unknown>).start === "object"
           ? ((location as Record<string, unknown>).start as Record<string, unknown>).cfi
           : undefined;
+      const locator = typeof cfi === "string" ? cfi : "epub-unknown";
+      if (locator !== "epub-unknown") {
+        latestLocatorRef.current = locator;
+      }
 
       pendingPositionRef.current = {
         bookId: currentBookId,
-        locator: typeof cfi === "string" ? cfi : "epub-unknown",
+        locator,
         progressPercent: percent,
+        readingMode: modeRef.current,
         updatedAt: new Date().toISOString(),
       };
       if (saveTimerRef.current !== null) {
@@ -576,14 +594,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         await book.open(bookSource, "binary");
         if (cancelled) return;
 
-        const rendition = book.renderTo(container, {
-          width: "100%",
-          height: "100%",
-          spread: "none",
-          flow: "scrolled",
-          manager: "continuous",
-          overflow: "auto",
-        });
+        const rendition = book.renderTo(
+          container,
+          getEpubRenditionOptions(mode)
+        );
         renditionRef.current = rendition;
         appliedPreferenceStateRef.current = EMPTY_EPUB_PREFERENCE_STATE;
 
@@ -608,8 +622,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         const savedPosition = await getReadingPosition(bookId);
         if (cancelled) return;
 
-        if (savedPosition?.locator && savedPosition.locator !== "epub-unknown") {
-          await rendition.display(savedPosition.locator);
+        const resumeLocator =
+          latestLocatorRef.current ??
+          (savedPosition?.locator !== "epub-unknown"
+            ? savedPosition?.locator
+            : undefined);
+        if (resumeLocator) {
+          await rendition.display(resumeLocator);
         } else {
           await rendition.display();
         }
@@ -678,7 +697,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         objectUrlRef.current = null;
       }
     };
-  }, [bookId, fileBlob, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, attachTapHandlers, applyPreferences]);
+  }, [bookId, fileBlob, mode, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, attachTapHandlers, applyPreferences]);
 
   useEffect(() => {
     if (!renditionRef.current || !preferences) return;
@@ -703,7 +722,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         style={{
           flex: 1,
           minHeight: 0,
-          overflow: "auto",
+          overflow: mode === "paged" ? "hidden" : "auto",
           maxWidth: preferences?.contentWidth ? `${preferences.contentWidth}px` : undefined,
           margin: preferences?.contentWidth ? "0 auto" : undefined,
           width: "100%",

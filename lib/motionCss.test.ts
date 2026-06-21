@@ -83,9 +83,8 @@ describe("motion CSS", () => {
 
   it("does not move multiple live backdrop-filter layers with reader chrome", () => {
     for (const selector of [
-      ".readerOverlayClose {",
-      ".readerTopHint {",
-      ".readerPageBadge {",
+      ".readerOverlayBack {",
+      ".readerFloatingTool {",
       ".readerCornerMenuButton {",
     ]) {
       const start = css.indexOf(selector);
@@ -96,16 +95,27 @@ describe("motion CSS", () => {
   });
 
   it("keeps reader chrome travel within eight pixels", () => {
-    const start = css.indexOf(".readerActionPanel {");
+    const start = css.indexOf(".readerFloatingTool {");
     const end = css.indexOf("}", start);
     const rule = css.slice(start, end);
     expect(rule).toContain("translateY(8px)");
 
     const hiddenStart = css.indexOf(
-      ".readerChromeControlsHidden .readerActionPanel {"
+      ".readerChromeControlsHidden .readerFloatingTools {"
     );
     const hiddenEnd = css.indexOf("}", hiddenStart);
     const hiddenRule = css.slice(hiddenStart, hiddenEnd);
     expect(hiddenRule).toContain("translateY(8px)");
+  });
+
+  it("staggers individual reader tools by 35 milliseconds", () => {
+    expect(css).toContain("--reader-tool-delay: 35ms");
+    expect(css).toContain("calc(var(--tool-order) * var(--reader-tool-delay))");
+  });
+
+  it("removes reader tool travel and stagger when motion is reduced", () => {
+    expect(css).toMatch(
+      /\[data-reduce-motion="true"\]\s+\.readerFloatingTool\s*\{[^}]*transition-delay:\s*0ms[^}]*transform:\s*none/s
+    );
   });
 });

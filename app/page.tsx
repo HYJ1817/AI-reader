@@ -31,7 +31,9 @@ import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
   chunkParagraphs,
   parseTxtParagraphs,
+  progressFromHorizontalScroll,
   progressFromScroll,
+  scrollLeftFromProgress,
   scrollTopFromProgress,
 } from "@/lib/txtReader";
 import BookCover from "@/app/BookCover";
@@ -75,6 +77,11 @@ import AiSettingsSheet from "@/app/AiSettingsSheet";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
 import BottomSheet from "@/app/BottomSheet";
 import { UI_TEXT } from "@/lib/uiText";
+import {
+  DEFAULT_READER_MODE,
+  sanitizeReaderMode,
+  type ReaderMode,
+} from "@/lib/readerMode";
 import { filterBooksByQuery } from "@/lib/libraryFilters";
 import {
   getDailyReadingStat,
@@ -133,7 +140,6 @@ import {
 
 type Tab = NavigationTab;
 type ReaderTurnDirection = "prev" | "next";
-type ReaderPageInfo = { current: number; total: number };
 const LIBRARY_RENDER_BATCH = 30;
 
 type WakeLockSentinelLike = {
@@ -160,23 +166,6 @@ function formatBookDate(value?: string): string {
     month: "short",
     day: "numeric",
   });
-}
-
-function pageInfoFromProgress(progressPercent: number, totalPages = 100): ReaderPageInfo {
-  const total = Math.max(1, Math.round(totalPages));
-  const progress = normalizeProgressPercent(progressPercent);
-  const current = progress <= 0 ? 1 : Math.ceil((progress / 100) * total);
-  return { current: Math.min(total, Math.max(1, current)), total };
-}
-
-function pageInfoFromScroll(
-  scrollTop: number,
-  scrollHeight: number,
-  clientHeight: number
-): ReaderPageInfo {
-  const total = Math.max(1, Math.ceil(scrollHeight / Math.max(1, clientHeight)));
-  const current = Math.floor(Math.max(0, scrollTop) / Math.max(1, clientHeight)) + 1;
-  return { current: Math.min(total, Math.max(1, current)), total };
 }
 
 function withTimeout<T>(
@@ -233,7 +222,8 @@ export default function Home() {
   const [tocItems, setTocItems] = useState<EpubTocItem[]>([]);
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [readerProgressPercent, setReaderProgressPercent] = useState(0);
-  const [readerPageInfo, setReaderPageInfo] = useState<ReaderPageInfo>({ current: 1, total: 1 });
+  const [readerMode, setReaderMode] = useState<ReaderMode>(DEFAULT_READER_MODE);
+  const readerModeRestoreProgressRef = useRef<number | null>(null);
   const epubReaderRef = useRef<EpubReaderHandle>(null);
   const [readerChromeState, dispatchReaderChrome] = useReducer(
     reduceReaderChromeState,
@@ -512,11 +502,17 @@ export default function Home() {
       const txtReader = readerRef.current;
       const progressBeforeChange =
         openBook?.format === "txt" && txtReader
-          ? progressFromScroll(
-              txtReader.scrollTop,
-              txtReader.scrollHeight,
-              txtReader.clientHeight
-            )
+          ? readerMode === "paged"
+            ? progressFromHorizontalScroll(
+                txtReader.scrollLeft,
+                txtReader.scrollWidth,
+                txtReader.clientWidth
+              )
+            : progressFromScroll(
+                txtReader.scrollTop,
+                txtReader.scrollHeight,
+                txtReader.clientHeight
+              )
           : null;
       const generation = ++readerPrefsGenerationRef.current;
       setReaderPrefs(next);
@@ -531,11 +527,19 @@ export default function Home() {
           if (readerPrefsGenerationRef.current !== generation) return;
           const reader = readerRef.current;
           if (!reader) return;
-          reader.scrollTop = scrollTopFromProgress(
-            progressBeforeChange,
-            reader.scrollHeight,
-            reader.clientHeight
-          );
+          if (readerMode === "paged") {
+            reader.scrollLeft = scrollLeftFromProgress(
+              progressBeforeChange,
+              reader.scrollWidth,
+              reader.clientWidth
+            );
+          } else {
+            reader.scrollTop = scrollTopFromProgress(
+              progressBeforeChange,
+              reader.scrollHeight,
+              reader.clientHeight
+            );
+          }
         });
       });
     });
@@ -705,7 +709,6 @@ export default function Home() {
       setOpenBook(null);
       setParagraphs([]);
       setReaderProgressPercent(0);
-      setReaderPageInfo({ current: 1, total: 1 });
       setSelectedText(null);
       setActiveTab("library");
     }
@@ -772,7 +775,6 @@ export default function Home() {
       setOpenBook(null);
       setParagraphs([]);
       setReaderProgressPercent(0);
-      setReaderPageInfo({ current: 1, total: 1 });
       setSelectedText(null);
       setActiveTab("library");
     }
@@ -930,16 +932,22 @@ export default function Home() {
   const openBookForReading = useCallback(async (book: BookRecord) => {
     const now = new Date().toISOString();
     await saveBook({ ...book, lastOpenedAt: now });
-    setBooks(await listBooks());
+    const [nextBooks, savedPosition] = await Promise.all([
+      listBooks(),
+      getReadingPosition(book.id),
+    ]);
+    setBooks(nextBooks);
 
     setOpenBook(book);
+    setReaderMode(sanitizeReaderMode(savedPosition?.readingMode));
+    readerModeRestoreProgressRef.current =
+      savedPosition?.progressPercent ?? null;
     presentReader();
     scrollRestoredRef.current = false;
     setSelectedText(null);
     setTocItems([]);
     setTocDrawerOpen(false);
     setReaderProgressPercent(0);
-    setReaderPageInfo({ current: 1, total: 1 });
     dispatchReaderChrome({ type: "hide" });
 
     if (book.format === "txt") {
@@ -1023,23 +1031,40 @@ export default function Home() {
 
     const el = readerRef.current;
     if (!el) return;
+    let cancelled = false;
 
     getReadingPosition(openBook.id).then((pos) => {
-      if (pos && el.scrollHeight > el.clientHeight) {
+      if (cancelled) return;
+      const restoreProgress = normalizeProgressPercent(
+        readerModeRestoreProgressRef.current ?? pos?.progressPercent ?? 0
+      );
+      readerModeRestoreProgressRef.current = null;
+
+      if (readerMode === "paged") {
+        el.scrollLeft = scrollLeftFromProgress(
+          restoreProgress,
+          el.scrollWidth,
+          el.clientWidth
+        );
+      } else {
         el.scrollTop = scrollTopFromProgress(
-          pos.progressPercent,
+          restoreProgress,
           el.scrollHeight,
           el.clientHeight
         );
-        const progress = normalizeProgressPercent(pos.progressPercent);
+      }
+
+      if (pos || restoreProgress > 0) {
+        const progress = restoreProgress;
         setReaderProgressPercent(progress);
-        setReaderPageInfo(pageInfoFromScroll(el.scrollTop, el.scrollHeight, el.clientHeight));
         setReadingProgressMap((map) => ({ ...map, [openBook.id]: progress }));
       }
-      setReaderPageInfo(pageInfoFromScroll(el.scrollTop, el.scrollHeight, el.clientHeight));
       scrollRestoredRef.current = true;
     });
-  }, [openBook, paragraphs]);
+    return () => {
+      cancelled = true;
+    };
+  }, [openBook, paragraphs, readerMode]);
 
   useEffect(() => {
     return () => {
@@ -1084,21 +1109,22 @@ export default function Home() {
       const el = readerRef.current;
       if (!el) return;
 
-      const progressPercent = progressFromScroll(
-        el.scrollTop,
-        el.scrollHeight,
-        el.clientHeight
-      );
-      const pageInfo = pageInfoFromScroll(el.scrollTop, el.scrollHeight, el.clientHeight);
+      const progressPercent =
+        readerMode === "paged"
+          ? progressFromHorizontalScroll(
+              el.scrollLeft,
+              el.scrollWidth,
+              el.clientWidth
+            )
+          : progressFromScroll(
+              el.scrollTop,
+              el.scrollHeight,
+              el.clientHeight
+            );
       setReaderProgressPercent((current) =>
         shouldPublishProgressPercent(current, progressPercent)
           ? progressPercent
           : current
-      );
-      setReaderPageInfo((current) =>
-        current.current === pageInfo.current && current.total === pageInfo.total
-          ? current
-          : pageInfo
       );
       setReadingProgressMap((map) =>
         shouldPublishProgressPercent(map[openBook.id] ?? 0, progressPercent)
@@ -1113,13 +1139,14 @@ export default function Home() {
         readerSaveTimerRef.current = null;
         void saveReadingPosition({
           bookId: openBook.id,
-          locator: "txt-scroll",
+          locator: readerMode === "paged" ? "txt-paged" : "txt-scroll",
           progressPercent,
+          readingMode: readerMode,
           updatedAt: new Date().toISOString(),
         });
       }, 180);
     });
-  }, [openBook]);
+  }, [openBook, readerMode]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1132,16 +1159,10 @@ export default function Home() {
         pendingEpubProgressRef.current = null;
         if (progress === null || !openBook) return;
 
-        const pageInfo = pageInfoFromProgress(progress);
         setReaderProgressPercent((current) =>
           shouldPublishProgressPercent(current, progress)
             ? progress
             : current
-        );
-        setReaderPageInfo((current) =>
-          current.current === pageInfo.current && current.total === pageInfo.total
-            ? current
-            : pageInfo
         );
         setReadingProgressMap((map) =>
           shouldPublishProgressPercent(map[openBook.id] ?? 0, progress)
@@ -1277,6 +1298,43 @@ export default function Home() {
     setActiveTab("library");
   }
 
+  const handleReaderModeChange = useCallback(
+    (nextMode: ReaderMode) => {
+      if (!openBook || nextMode === readerMode) return;
+
+      let progress = readerProgressPercent;
+      const reader = readerRef.current;
+      if (openBook.format === "txt" && reader) {
+        progress =
+          readerMode === "paged"
+            ? progressFromHorizontalScroll(
+                reader.scrollLeft,
+                reader.scrollWidth,
+                reader.clientWidth
+              )
+            : progressFromScroll(
+                reader.scrollTop,
+                reader.scrollHeight,
+                reader.clientHeight
+              );
+        readerModeRestoreProgressRef.current = progress;
+        scrollRestoredRef.current = false;
+      }
+
+      setReaderMode(nextMode);
+      if (openBook.format === "txt") {
+        void saveReadingPosition({
+          bookId: openBook.id,
+          locator: nextMode === "paged" ? "txt-paged" : "txt-scroll",
+          progressPercent: progress,
+          readingMode: nextMode,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+    },
+    [openBook, readerMode, readerProgressPercent]
+  );
+
   const turnReaderPage = useCallback(async (
     direction: ReaderTurnDirection,
     options: { instant?: boolean } = {}
@@ -1300,11 +1358,19 @@ export default function Home() {
         "(prefers-reduced-motion: reduce)"
       ).matches,
     });
-    reader.scrollBy({
-      top: reader.clientHeight * (direction === "prev" ? -0.85 : 0.85),
-      behavior: options.instant || reduceMotion ? "auto" : "smooth",
-    });
-  }, [appPrefs.reduceMotion, openBook]);
+    const behavior = options.instant || reduceMotion ? "auto" : "smooth";
+    if (readerMode === "paged") {
+      reader.scrollBy({
+        left: reader.clientWidth * (direction === "prev" ? -1 : 1),
+        behavior,
+      });
+    } else {
+      reader.scrollBy({
+        top: reader.clientHeight * (direction === "prev" ? -0.85 : 0.85),
+        behavior,
+      });
+    }
+  }, [appPrefs.reduceMotion, openBook, readerMode]);
 
   const toggleReaderChrome = useCallback(() => {
     dispatchReaderChrome({ type: "tap", at: performance.now() });
@@ -1523,12 +1589,10 @@ export default function Home() {
       target.closest(`.${styles.readerTopBar}`) ||
       target.closest(`.${styles.readerBottomPill}`) ||
       target.closest(`.${styles.readerBottomProgress}`) ||
-      target.closest(`.${styles.readerOverlayClose}`) ||
-      target.closest(`.${styles.readerTopHint}`) ||
-      target.closest(`.${styles.readerPageBadge}`) ||
+      target.closest(`.${styles.readerOverlayBack}`) ||
       target.closest(`.${styles.readerCornerMenuButton}`) ||
-      target.closest(`.${styles.readerActionPanel}`) ||
-      target.closest(`.${styles.readerGoalMini}`)
+      target.closest(`.${styles.readerFloatingTools}`) ||
+      target.closest(`.${styles.readerModeMenu}`)
     ) {
       return;
     }
@@ -2025,6 +2089,7 @@ export default function Home() {
                     ref={epubReaderRef}
                     bookId={openBook.id}
                     fileBlob={openBook.fileBlob}
+                    mode={readerMode}
                     getReadingPosition={getReadingPosition}
                     saveReadingPosition={saveReadingPosition}
                     onTextSelect={(text) => setSelectedText(text)}
@@ -2044,7 +2109,9 @@ export default function Home() {
                 ) : (
                   <div
                     ref={readerRef}
-                    className={styles.readerBody}
+                    className={`${styles.readerBody} ${
+                      readerMode === "paged" ? styles.readerBodyPaged : ""
+                    }`}
                     onScroll={handleReaderScroll}
                     onTransitionEnd={handleReaderSwipeTransitionEnd}
                     style={{
@@ -2078,15 +2145,12 @@ export default function Home() {
                 onContents={() => setTocDrawerOpen(true)}
                 hasToc={tocItems.length > 0 && openBook.format === "epub"}
                 progressPercent={readerProgressPercent}
-                currentPage={readerPageInfo.current}
-                totalPages={readerPageInfo.total}
                 onOpenSettings={() => setReaderSettingsOpen(true)}
                 onAsk={() => setAskSheetOpen(true)}
                 onOpenGoal={handleOpenGoalSheet}
-                bookTitle={openBook.title}
+                readerMode={readerMode}
+                onReaderModeChange={handleReaderModeChange}
                 visible={readerChromeVisible}
-                todayMinutes={formatReadingMinutes(todaySeconds)}
-                targetMinutes={readingGoal.targetMinutes}
               />
             </div>
         )}

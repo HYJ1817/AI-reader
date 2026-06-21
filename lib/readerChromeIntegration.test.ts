@@ -9,6 +9,10 @@ const epubSource = readFileSync(
   new URL("../app/EpubReader.tsx", import.meta.url),
   "utf8"
 );
+const controlsSource = readFileSync(
+  new URL("../app/ReaderControls.tsx", import.meta.url),
+  "utf8"
+);
 
 describe("reader chrome event integration", () => {
   it("reserves a stationary TXT tap for chrome instead of edge page turns", () => {
@@ -32,5 +36,19 @@ describe("reader chrome event integration", () => {
   it("prevents an EPUB scroll gesture from also completing as a tap", () => {
     expect(epubSource).toContain("if (scrollIntentFired) return;");
     expect(epubSource).toContain("isTapGesture({");
+  });
+
+  it("uses unframed floating tools instead of the old top and bottom chrome", () => {
+    expect(controlsSource).toContain("readerFloatingTools");
+    expect(controlsSource).toContain("readerOverlayBack");
+    expect(controlsSource).not.toContain("readerTopHint");
+    expect(controlsSource).not.toContain("readerPageBadge");
+    expect(controlsSource).not.toContain("readerGoalMini");
+    expect(controlsSource).not.toContain("readerActionPanel");
+  });
+
+  it("exposes both scroll and paged reading modes", () => {
+    expect(controlsSource).toContain('handleReaderModeChange("scroll")');
+    expect(controlsSource).toContain('handleReaderModeChange("paged")');
   });
 });

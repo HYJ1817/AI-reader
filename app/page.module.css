@@ -2011,6 +2011,21 @@
   display: none;
 }
 
+.readerBodyPaged {
+  overflow-x: auto;
+  overflow-y: hidden;
+  column-count: 1;
+  column-fill: auto;
+  column-gap: 48px;
+  scroll-behavior: smooth;
+  touch-action: pan-x pinch-zoom;
+}
+
+.readerBodyPaged .paragraphChunk {
+  content-visibility: visible;
+  contain: none;
+}
+
 .paragraph {
   color: var(--foreground);
   margin: 0 0 1.05em 0;
@@ -2247,12 +2262,10 @@
   pointer-events: none;
 }
 
-.readerOverlayClose,
-.readerTopHint,
-.readerPageBadge,
+.readerOverlayBack,
 .readerCornerMenuButton,
-.readerActionPanel,
-.readerGoalMini {
+.readerFloatingTools,
+.readerModeMenu {
   position: absolute;
   z-index: 24;
   pointer-events: auto;
@@ -2261,239 +2274,177 @@
     transform var(--motion-chrome-enter) var(--ease-emphasized);
 }
 
-.readerOverlayClose {
-  top: calc(var(--safe-top) + 14px);
-  left: 32px;
-  width: 64px;
-  height: 64px;
+.readerOverlayBack {
+  top: calc(var(--safe-top) + 12px);
+  left: 10px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  color: color-mix(in srgb, var(--foreground) 58%, transparent);
-  background: color-mix(in srgb, var(--background) 94%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 12%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 42%, transparent),
-    0 2px 6px rgba(0, 0, 0, 0.07);
+  color: color-mix(in srgb, var(--foreground) 82%, transparent);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
-.readerOverlayClose:active,
-.readerCornerMenuButton:active,
-.readerGoalMini:active {
-  transform: scale(0.98);
-}
-
-.readerTopHint {
-  top: calc(var(--safe-top) + 40px);
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(58vw, 260px);
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 16px;
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--foreground) 56%, transparent);
-  background: color-mix(in srgb, var(--background) 92%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 8%, transparent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  font-size: 15px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.readerPageBadge {
-  left: 50%;
-  bottom: calc(var(--safe-bottom) + 44px);
-  transform: translateX(-50%);
-  min-height: 34px;
-  min-width: 74px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 14px;
-  border-radius: 999px;
-  color: color-mix(in srgb, var(--foreground) 74%, transparent);
-  background: color-mix(in srgb, var(--background) 94%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 8%, transparent);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
-  font-size: 15px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.readerPageBadgeMenuOpen {
-  bottom: calc(var(--safe-bottom) + 22px);
-  opacity: 0.74;
-  transform: translateX(-50%) translateY(4px);
+.readerOverlayBack:active {
+  opacity: 0.55;
 }
 
 .readerCornerMenuButton {
-  right: 32px;
-  bottom: calc(var(--safe-bottom) + 48px);
-  width: 64px;
-  height: 64px;
+  right: 18px;
+  bottom: calc(var(--safe-bottom) + 20px);
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  color: var(--foreground);
-  background: color-mix(in srgb, var(--background) 94%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 40%, transparent),
-    0 3px 8px rgba(0, 0, 0, 0.08);
+  color: color-mix(in srgb, var(--foreground) 88%, transparent);
+  background: color-mix(in srgb, var(--background) 96%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
+}
+
+.readerCornerMenuButton:active {
+  transform: scale(0.96);
 }
 
 .readerCornerMenuButtonOpen {
+  transform: rotate(90deg);
+}
+
+.readerFloatingTools {
+  --reader-tool-delay: 35ms;
+  right: 18px;
+  bottom: calc(var(--safe-bottom) + 82px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
 }
 
-.readerGoalMini {
-  display: none;
-}
-
-.readerActionPanel {
-  left: 50%;
-  bottom: calc(var(--safe-bottom) + 112px);
-  width: min(78vw, 340px);
-  display: grid;
-  gap: 9px;
-  transform: translateX(-50%) translateY(8px);
-  opacity: 0;
-  pointer-events: none;
-  color: var(--foreground);
-}
-
-.readerActionPanelOpen {
+.readerFloatingToolsOpen {
   opacity: 1;
-  transform: translateX(-50%) translateY(0);
+  transform: translateY(0);
   pointer-events: auto;
 }
 
-.readerActionPanelHeader,
-.readerActionPanelSearch,
-.readerActionPanelSetting {
+.readerFloatingTool {
+  min-height: 42px;
   display: flex;
   align-items: center;
-  min-height: 58px;
-  border-radius: 20px;
-  background: color-mix(in srgb, var(--background) 95%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.readerActionPanelHeader {
-  justify-content: space-between;
-  overflow: hidden;
-}
-
-.readerActionPanelHeader button {
-  min-height: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  gap: 9px;
+  padding: 0 14px 0 12px;
+  border-radius: 8px;
   color: var(--foreground);
-  font-size: 17px;
+  background: color-mix(in srgb, var(--background) 97%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 11%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
   font-weight: 650;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity var(--motion-chrome-enter) var(--ease-standard),
+    transform var(--motion-chrome-enter) var(--ease-emphasized);
+  transition-delay: calc(var(--tool-order) * var(--reader-tool-delay));
 }
 
-.readerActionPanelHeader button:first-child {
-  flex: 1;
-  justify-content: flex-start;
-  padding: 0 26px;
-}
-
-.readerActionPanelHeader button:last-child {
-  width: 72px;
-  border-left: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-}
-
-.readerActionPanelSearch,
-.readerActionPanelSetting {
-  justify-content: space-between;
-  padding: 0 26px;
-  font-size: 20px;
-  font-weight: 650;
-}
-
-.readerActionPanelSearch svg {
-  flex-shrink: 0;
-}
-
-.readerActionPanelSetting strong {
-  color: var(--foreground);
-  font-size: 20px;
-  font-weight: 750;
-}
-
-.readerActionPanelDock {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-}
-
-.readerActionPanelDock button {
-  min-width: 0;
-  height: 62px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: var(--foreground);
-  background: color-mix(in srgb, var(--background) 95%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
-}
-
-.readerActionPanelDock button:disabled {
-  color: color-mix(in srgb, var(--foreground) 28%, transparent);
+.readerFloatingToolsOpen .readerFloatingTool {
   opacity: 1;
+  transform: translateY(0);
 }
 
-.readerChromeControlsHidden .readerOverlayClose {
+.readerFloatingTool:disabled {
+  color: color-mix(in srgb, var(--foreground) 34%, transparent);
+}
+
+.readerFloatingToolActive {
+  color: var(--ios-tint);
+  border-color: color-mix(in srgb, var(--ios-tint) 35%, transparent);
+}
+
+.readerModeMenu {
+  right: 150px;
+  bottom: calc(var(--safe-bottom) + 174px);
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transform: translate3d(8px, 0, 0);
+  pointer-events: none;
+}
+
+.readerModeMenuOpen {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  pointer-events: auto;
+}
+
+.readerModeMenu button {
+  min-width: 54px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--background) 97%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 11%, transparent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.readerModeMenu .readerModeOptionActive {
+  color: var(--ios-tint);
+  border-color: color-mix(in srgb, var(--ios-tint) 38%, transparent);
+}
+
+.readerChromeControlsHidden .readerOverlayBack {
   opacity: 0;
   transform: translateY(-8px);
   pointer-events: none;
 }
 
-.readerChromeControlsHidden .readerTopHint {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-8px);
-  pointer-events: none;
-}
-
-.readerChromeControlsHidden .readerPageBadge {
-  opacity: 0;
-  transform: translateX(-50%) translateY(8px);
-  pointer-events: none;
-}
-
-.readerChromeControlsHidden .readerCornerMenuButton,
-.readerChromeControlsHidden .readerGoalMini {
+.readerChromeControlsHidden .readerCornerMenuButton {
   opacity: 0;
   transform: translateY(8px);
   pointer-events: none;
 }
 
-.readerChromeControlsHidden .readerActionPanel {
+.readerChromeControlsHidden .readerFloatingTools {
   opacity: 0;
-  transform: translateX(-50%) translateY(8px);
+  transform: translateY(8px);
   pointer-events: none;
 }
 
-.readerChromeControlsHidden .readerOverlayClose,
-.readerChromeControlsHidden .readerTopHint,
-.readerChromeControlsHidden .readerPageBadge,
+.readerChromeControlsHidden .readerModeMenu {
+  opacity: 0;
+  transform: translate3d(8px, 0, 0);
+  pointer-events: none;
+}
+
+.readerChromeControlsHidden .readerOverlayBack,
 .readerChromeControlsHidden .readerCornerMenuButton,
-.readerChromeControlsHidden .readerActionPanel,
-.readerChromeControlsHidden .readerGoalMini {
+.readerChromeControlsHidden .readerFloatingTools,
+.readerChromeControlsHidden .readerModeMenu {
   transition-duration: var(--motion-chrome-exit);
   transition-timing-function: var(--ease-standard);
+}
+
+[data-reduce-motion="true"] .readerFloatingTool {
+  transition-delay: 0ms;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readerFloatingTool {
+    transition-delay: 0ms;
+    transform: none;
+  }
 }
 
 .readerTopBar {
