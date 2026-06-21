@@ -10,7 +10,7 @@ export type AppPreferences = {
 };
 
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
-  libraryView: "grid",
+  libraryView: "list",
   autoOpenLastBook: false,
   reduceMotion: false,
   keepScreenAwake: false,

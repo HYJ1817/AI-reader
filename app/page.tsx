@@ -1,6 +1,13 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import styles from "./page.module.css";
 import {
   listBooks,
@@ -22,6 +29,7 @@ import { createBookRecordFromFile } from "@/lib/importBook";
 import { extractEpubCoverImage } from "@/lib/epubCover";
 import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
+  chunkParagraphs,
   parseTxtParagraphs,
   progressFromScroll,
   scrollTopFromProgress,
@@ -30,20 +38,20 @@ import BookCover from "@/app/BookCover";
 import EpubReader from "@/app/EpubReader";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import {
-  DEFAULT_AI_SETTINGS,
-  sanitizeAiSettings,
-  hasUsableAiSettings,
-  loadAiSettings,
-  saveAiSettingsToStorage,
-  clearAiSettingsFromStorage,
-  type AiClientSettings,
-} from "@/lib/aiSettings";
+  DEFAULT_AI_PROVIDER_SETTINGS,
+  getActiveAiProvider,
+  hasUsableAiProvider,
+  loadAiProviderSettings,
+  saveAiProviderSettingsToStorage,
+  type AiProviderSettings,
+} from "@/lib/aiProviders";
 import { createBackupPayload, restoreBackupPayload } from "@/lib/backup";
 import { createBookFileExport } from "@/lib/bookFileExport";
 import { hasIndexedDbSupport } from "@/lib/browserStorage";
 import {
   DEFAULT_READER_PREFERENCES,
   loadReaderPreferences,
+  readerPreferenceChangeNeedsMotion,
   saveReaderPreferencesToStorage,
   type ReaderPreferences,
 } from "@/lib/readerPreferences";
@@ -54,13 +62,18 @@ import {
   type AppPreferences,
   type LibraryViewMode,
 } from "@/lib/appPreferences";
-import { normalizeProgressPercent } from "@/lib/readerProgress";
+import {
+  normalizeProgressPercent,
+  shouldPublishProgressPercent,
+} from "@/lib/readerProgress";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import ReaderControls from "@/app/ReaderControls";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import TocDrawer from "@/app/TocDrawer";
 import AskAiPanel from "@/app/AskAiPanel";
+import AiSettingsSheet from "@/app/AiSettingsSheet";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
+import BottomSheet from "@/app/BottomSheet";
 import { UI_TEXT } from "@/lib/uiText";
 import { filterBooksByQuery } from "@/lib/libraryFilters";
 import {
@@ -73,6 +86,7 @@ import {
   saveReadingGoalToStorage,
   getLocalDateKey,
   formatReadingMinutes,
+  shouldPublishReadingSeconds,
 } from "@/lib/readingGoal";
 import {
   buildSevenDayReadingInsights,
@@ -83,13 +97,14 @@ import {
   selectAllBookIds,
   toggleBookSelection,
 } from "@/lib/librarySelection";
-import { getReaderTapAction, type ReaderTapAction } from "@/lib/readerTapZones";
-import { getReaderSwipeAction } from "@/lib/readerSwipe";
 import {
-  selectFeaturedLibraryBook,
-  selectRecentShelfBooks,
-} from "@/lib/libraryShelves";
-import { buildLibraryDashboard } from "@/lib/libraryDashboard";
+  getReaderSwipeAction,
+  getReaderSwipeSettleOffset,
+  getReaderSwipeVisualOffset,
+  hasActiveReaderSwipeOffset,
+  isReaderSwipeSettleTransition,
+} from "@/lib/readerSwipe";
+import { selectFeaturedLibraryBook } from "@/lib/libraryShelves";
 import {
   buildReadingProgressMap,
   formatLibraryProgressLabel,
@@ -99,14 +114,22 @@ import {
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
-  formatAiStatus,
-  formatSettingsBookCount,
-  formatSettingsReadingMinutes,
-  SETTINGS_APP_VERSION,
-} from "@/lib/settingsDisplay";
+  getInitialVisibleItemCount,
+  getNextVisibleItemCount,
+} from "@/lib/incrementalList";
+import {
+  isTapGesture,
+  shouldReduceReaderMotion,
+} from "@/lib/motionInteractions";
+import {
+  createReaderChromeState,
+  reduceReaderChromeState,
+} from "@/lib/readerChromeState";
 
 type Tab = "library" | "reading" | "settings";
-type ReaderTurnDirection = Exclude<ReaderTapAction, "chrome">;
+type ReaderTurnDirection = "prev" | "next";
+type ReaderPageInfo = { current: number; total: number };
+const LIBRARY_RENDER_BATCH = 30;
 
 type WakeLockSentinelLike = {
   release: () => Promise<void>;
@@ -134,6 +157,23 @@ function formatBookDate(value?: string): string {
   });
 }
 
+function pageInfoFromProgress(progressPercent: number, totalPages = 100): ReaderPageInfo {
+  const total = Math.max(1, Math.round(totalPages));
+  const progress = normalizeProgressPercent(progressPercent);
+  const current = progress <= 0 ? 1 : Math.ceil((progress / 100) * total);
+  return { current: Math.min(total, Math.max(1, current)), total };
+}
+
+function pageInfoFromScroll(
+  scrollTop: number,
+  scrollHeight: number,
+  clientHeight: number
+): ReaderPageInfo {
+  const total = Math.max(1, Math.ceil(scrollHeight / Math.max(1, clientHeight)));
+  const current = Math.floor(Math.max(0, scrollTop) / Math.max(1, clientHeight)) + 1;
+  return { current: Math.min(total, Math.max(1, current)), total };
+}
+
 function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
@@ -151,6 +191,11 @@ function withTimeout<T>(
 export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>("library");
   const [books, setBooks] = useState<BookRecord[]>([]);
+  const [libraryRenderWindow, setLibraryRenderWindow] = useState({
+    key: "",
+    count: LIBRARY_RENDER_BATCH,
+  });
+  const libraryLoadSentinelRef = useRef<HTMLDivElement>(null);
   const [readingProgressMap, setReadingProgressMap] = useState<ReadingProgressMap>({});
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
@@ -162,10 +207,10 @@ export default function Home() {
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
 
-  const [aiSettings, setAiSettings] = useState<AiClientSettings>(DEFAULT_AI_SETTINGS);
-  const [formBaseUrl, setFormBaseUrl] = useState("");
-  const [formApiKey, setFormApiKey] = useState("");
-  const [formModel, setFormModel] = useState("");
+  const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
+    DEFAULT_AI_PROVIDER_SETTINGS
+  );
+  const [aiSettingsSheetOpen, setAiSettingsSheetOpen] = useState(false);
 
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
@@ -183,14 +228,40 @@ export default function Home() {
   const [tocItems, setTocItems] = useState<EpubTocItem[]>([]);
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [readerProgressPercent, setReaderProgressPercent] = useState(0);
+  const [readerPageInfo, setReaderPageInfo] = useState<ReaderPageInfo>({ current: 1, total: 1 });
   const epubReaderRef = useRef<EpubReaderHandle>(null);
-  const [readerChromeVisible, setReaderChromeVisible] = useState(true);
-  const [readerTurnFeedback, setReaderTurnFeedback] = useState<{
-    direction: ReaderTurnDirection;
-    id: number;
+  const [readerChromeState, dispatchReaderChrome] = useReducer(
+    reduceReaderChromeState,
+    false,
+    createReaderChromeState
+  );
+  const readerChromeVisible = readerChromeState.visible;
+  const readerPointerDownRef = useRef<{
+    x: number;
+    y: number;
+    time: number;
+    target: EventTarget | null;
+    axis: "pending" | "horizontal" | "vertical";
+    baseOffset: number;
   } | null>(null);
-  const readerTouchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const readerSwipeHandledRef = useRef(false);
+  const readerSwipeSettleTimerRef = useRef<number | null>(null);
+  const readerSwipeGenerationRef = useRef(0);
+  const pendingReaderSwipeSettleRef = useRef<{
+    generation: number;
+    action: ReturnType<typeof getReaderSwipeAction>;
+  } | null>(null);
+  const readerScrollFrameRef = useRef<number | null>(null);
+  const readerSaveTimerRef = useRef<number | null>(null);
+  const epubProgressFrameRef = useRef<number | null>(null);
+  const pendingEpubProgressRef = useRef<number | null>(null);
+  const readerPresentFrameRef = useRef<number | null>(null);
+  const readerPrefsFrameRef = useRef<number | null>(null);
+  const readerPrefsSaveTimerRef = useRef<number | null>(null);
+  const readerPrefsMotionTimerRef = useRef<number | null>(null);
+  const readerPrefsRestoreFrameRef = useRef<number | null>(null);
+  const pendingReaderPrefsRef = useRef<ReaderPreferences | null>(null);
+  const readerPrefsGenerationRef = useRef(0);
+  const readerShellRef = useRef<HTMLDivElement>(null);
   const [askSheetOpen, setAskSheetOpen] = useState(false);
 
   const [readingGoal, setReadingGoal] = useState(() => loadReadingGoal());
@@ -198,9 +269,20 @@ export default function Home() {
   const [readingStats, setReadingStats] = useState<DailyReadingStat[]>([]);
   const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const [goalInputValue, setGoalInputValue] = useState(readingGoal.targetMinutes);
-  const tickRef = useRef<{ date: string; lastVis: boolean }>({ date: "", lastVis: false });
+  const tickRef = useRef<{
+    date: string;
+    lastVis: boolean;
+    secondsRead: number;
+    publishedSeconds: number;
+  }>({
+    date: "",
+    lastVis: false,
+    secondsRead: 0,
+    publishedSeconds: 0,
+  });
 
   const [groups, setGroups] = useState<BookGroup[]>([]);
+  const [libraryScreen, setLibraryScreen] = useState<"library" | "collections">("library");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [librarySearchQuery, setLibrarySearchQuery] = useState("");
   const [libraryView, setLibraryView] = useState<LibraryViewMode>(
@@ -214,6 +296,8 @@ export default function Home() {
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
   const [batchGroupSheetOpen, setBatchGroupSheetOpen] = useState(false);
   const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
+  const [collectionsEditing, setCollectionsEditing] = useState(false);
+  const [collectionCreateSheetOpen, setCollectionCreateSheetOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
@@ -267,7 +351,7 @@ export default function Home() {
 
   useEffect(() => {
     const t = setTimeout(() => {
-      setAiSettings(loadAiSettings());
+      setAiProviderSettings(loadAiProviderSettings());
     }, 0);
     return () => clearTimeout(t);
   }, []);
@@ -289,79 +373,166 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    listBookGroups().then(setGroups);
+    if (!hasIndexedDbSupport(window)) return;
+    listBookGroups().then(setGroups).catch(() => setGroups([]));
   }, []);
 
   useEffect(() => {
+    if (!hasIndexedDbSupport(window)) return;
     const dateKey = getLocalDateKey();
-    getDailyReadingStat(dateKey).then((stat) => {
-      setTodaySeconds(stat?.secondsRead ?? 0);
-    });
-    listDailyReadingStats().then(setReadingStats);
+    getDailyReadingStat(dateKey)
+      .then((stat) => {
+        const secondsRead = stat?.secondsRead ?? 0;
+        tickRef.current.date = dateKey;
+        tickRef.current.secondsRead = secondsRead;
+        tickRef.current.publishedSeconds = secondsRead;
+        setTodaySeconds(secondsRead);
+      })
+      .catch(() => {
+        tickRef.current.date = dateKey;
+        tickRef.current.secondsRead = 0;
+        tickRef.current.publishedSeconds = 0;
+        setTodaySeconds(0);
+      });
+    listDailyReadingStats().then(setReadingStats).catch(() => setReadingStats([]));
   }, []);
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      const dateKey = getLocalDateKey();
-      if (tickRef.current.date !== dateKey) {
-        tickRef.current.date = dateKey;
-        const stat = await getDailyReadingStat(dateKey);
-        setTodaySeconds(stat?.secondsRead ?? 0);
+      if (!hasIndexedDbSupport(window)) {
+        tickRef.current.lastVis = false;
+        return;
       }
-      const isVisible = document.visibilityState === "visible";
-      const shouldCount =
-        activeTab === "reading" &&
-        openBook !== null &&
-        isVisible;
-      if (shouldCount && tickRef.current.lastVis) {
-        await incrementDailyReadingSeconds(dateKey, 1);
-        setTodaySeconds((prev) => prev + 1);
-        setReadingStats((prev) => {
-          const now = new Date().toISOString();
-          const existing = prev.find((stat) => stat.date === dateKey);
-          if (existing) {
-            return prev.map((stat) =>
-              stat.date === dateKey
-                ? { ...stat, secondsRead: stat.secondsRead + 1, updatedAt: now }
-                : stat
-            );
+      try {
+        const dateKey = getLocalDateKey();
+        if (tickRef.current.date !== dateKey) {
+          tickRef.current.date = dateKey;
+          const stat = await getDailyReadingStat(dateKey);
+          const secondsRead = stat?.secondsRead ?? 0;
+          tickRef.current.secondsRead = secondsRead;
+          tickRef.current.publishedSeconds = secondsRead;
+          setTodaySeconds(secondsRead);
+        }
+        const isVisible = document.visibilityState === "visible";
+        const shouldCount =
+          activeTab === "reading" &&
+          openBook !== null &&
+          isVisible;
+        if (shouldCount && tickRef.current.lastVis) {
+          await incrementDailyReadingSeconds(dateKey, 1);
+          const secondsRead = tickRef.current.secondsRead + 1;
+          tickRef.current.secondsRead = secondsRead;
+          if (
+            shouldPublishReadingSeconds(
+              tickRef.current.publishedSeconds,
+              secondsRead
+            )
+          ) {
+            tickRef.current.publishedSeconds = secondsRead;
+            setTodaySeconds(secondsRead);
+            setReadingStats((prev) => {
+              const now = new Date().toISOString();
+              const existing = prev.find((stat) => stat.date === dateKey);
+              if (existing) {
+                return prev.map((stat) =>
+                  stat.date === dateKey
+                    ? { ...stat, secondsRead, updatedAt: now }
+                    : stat
+                );
+              }
+              return [...prev, { date: dateKey, secondsRead, updatedAt: now }];
+            });
           }
-          return [...prev, { date: dateKey, secondsRead: 1, updatedAt: now }];
-        });
+        }
+        tickRef.current.lastVis = shouldCount;
+      } catch {
+        tickRef.current.lastVis = false;
       }
-      tickRef.current.lastVis = shouldCount;
     }, 1000);
     return () => clearInterval(interval);
   }, [activeTab, openBook]);
 
   function switchToSettings() {
-    setFormBaseUrl(aiSettings.baseUrl);
-    setFormApiKey(aiSettings.apiKey);
-    setFormModel(aiSettings.model);
     setActiveTab("settings");
   }
 
-  function handleSaveSettings() {
-    const sanitized = sanitizeAiSettings({
-      baseUrl: formBaseUrl,
-      apiKey: formApiKey,
-      model: formModel,
-    });
-    saveAiSettingsToStorage(sanitized);
-    setAiSettings(sanitized);
-  }
-
-  function handleClearSettings() {
-    clearAiSettingsFromStorage();
-    setAiSettings(DEFAULT_AI_SETTINGS);
-    setFormBaseUrl("");
-    setFormApiKey("");
-    setFormModel("");
+  function handleAiProviderSettingsSave(next: AiProviderSettings) {
+    saveAiProviderSettingsToStorage(next);
+    setAiProviderSettings(next);
   }
 
   function handleReaderPrefsChange(prefs: ReaderPreferences) {
-    setReaderPrefs(prefs);
-    saveReaderPreferencesToStorage(prefs);
+    if (
+      !appPrefs.reduceMotion &&
+      readerPreferenceChangeNeedsMotion(readerPrefs, prefs)
+    ) {
+      const readerShell = readerShellRef.current;
+      readerShell?.classList.add(styles.readerPreferencesAdjusting);
+      if (readerPrefsMotionTimerRef.current !== null) {
+        window.clearTimeout(readerPrefsMotionTimerRef.current);
+      }
+      readerPrefsMotionTimerRef.current = window.setTimeout(() => {
+        readerPrefsMotionTimerRef.current = null;
+        readerShell?.classList.remove(styles.readerPreferencesAdjusting);
+      }, 160);
+    }
+    pendingReaderPrefsRef.current = prefs;
+
+    if (readerPrefsSaveTimerRef.current !== null) {
+      window.clearTimeout(readerPrefsSaveTimerRef.current);
+    }
+    readerPrefsSaveTimerRef.current = window.setTimeout(() => {
+      readerPrefsSaveTimerRef.current = null;
+      const latest = pendingReaderPrefsRef.current;
+      if (latest) saveReaderPreferencesToStorage(latest);
+    }, 180);
+
+    if (readerPrefsFrameRef.current !== null) return;
+    readerPrefsFrameRef.current = window.requestAnimationFrame(() => {
+      readerPrefsFrameRef.current = null;
+      const next = pendingReaderPrefsRef.current;
+      if (!next) return;
+
+      const txtReader = readerRef.current;
+      const progressBeforeChange =
+        openBook?.format === "txt" && txtReader
+          ? progressFromScroll(
+              txtReader.scrollTop,
+              txtReader.scrollHeight,
+              txtReader.clientHeight
+            )
+          : null;
+      const generation = ++readerPrefsGenerationRef.current;
+      setReaderPrefs(next);
+
+      if (progressBeforeChange === null) return;
+      if (readerPrefsRestoreFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerPrefsRestoreFrameRef.current);
+      }
+      readerPrefsRestoreFrameRef.current = window.requestAnimationFrame(() => {
+        readerPrefsRestoreFrameRef.current = window.requestAnimationFrame(() => {
+          readerPrefsRestoreFrameRef.current = null;
+          if (readerPrefsGenerationRef.current !== generation) return;
+          const reader = readerRef.current;
+          if (!reader) return;
+          reader.scrollTop = scrollTopFromProgress(
+            progressBeforeChange,
+            reader.scrollHeight,
+            reader.clientHeight
+          );
+        });
+      });
+    });
+  }
+
+  function presentReader() {
+    if (readerPresentFrameRef.current !== null) {
+      window.cancelAnimationFrame(readerPresentFrameRef.current);
+    }
+    readerPresentFrameRef.current = window.requestAnimationFrame(() => {
+      readerPresentFrameRef.current = null;
+      setActiveTab("reading");
+    });
   }
 
   function handleAppPreferencesChange(next: Partial<AppPreferences>) {
@@ -518,6 +689,7 @@ export default function Home() {
       setOpenBook(null);
       setParagraphs([]);
       setReaderProgressPercent(0);
+      setReaderPageInfo({ current: 1, total: 1 });
       setSelectedText(null);
       setActiveTab("library");
     }
@@ -552,6 +724,21 @@ export default function Home() {
     setNewGroupName("");
   }
 
+  async function handleCreateCollectionGroup() {
+    const trimmed = newGroupName.trim();
+    if (!trimmed) return;
+    const group: BookGroup = {
+      id: crypto.randomUUID(),
+      name: trimmed,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    await saveBookGroup(group);
+    setGroups(await listBookGroups());
+    setNewGroupName("");
+    setCollectionCreateSheetOpen(false);
+  }
+
   async function handleDeleteSelectedBooks() {
     if (selectedBookIds.length === 0) return;
     const idsToDelete = [...selectedBookIds];
@@ -569,6 +756,7 @@ export default function Home() {
       setOpenBook(null);
       setParagraphs([]);
       setReaderProgressPercent(0);
+      setReaderPageInfo({ current: 1, total: 1 });
       setSelectedText(null);
       setActiveTab("library");
     }
@@ -587,7 +775,7 @@ export default function Home() {
     try {
       const record = await createBookRecordFromFile(file);
       await saveBook(record);
-      setBooks(await listBooks());
+      await openBookForReading(record);
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED
@@ -600,9 +788,23 @@ export default function Home() {
   const groupFilteredBooks = groupFilter === null
     ? books
     : groupFilter === "__ungrouped"
-      ? books.filter((b) => !b.groupIds || b.groupIds.length === 0)
-      : books.filter((b) => b.groupIds?.includes(groupFilter));
-  const filteredBooks = filterBooksByQuery(groupFilteredBooks, librarySearchQuery);
+      ? books.filter((book) => !book.groupIds || book.groupIds.length === 0)
+      : books.filter((book) => book.groupIds?.includes(groupFilter));
+  const filteredBooks = filterBooksByQuery(
+    groupFilteredBooks,
+    librarySearchQuery
+  );
+  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}`;
+  const visibleBookCount = Math.min(
+    filteredBooks.length,
+    libraryRenderWindow.key === libraryRenderKey
+      ? libraryRenderWindow.count
+      : getInitialVisibleItemCount(
+          filteredBooks.length,
+          LIBRARY_RENDER_BATCH
+        )
+  );
+  const visibleBooks = filteredBooks.slice(0, visibleBookCount);
   const collectionListItems = buildCollectionListItems(
     books, groups, UI_TEXT.ALL_BOOKS, UI_TEXT.UNGROUPED,
   );
@@ -612,10 +814,6 @@ export default function Home() {
   const allVisibleSelected = filteredBooks.length > 0 && selectedVisibleCount === filteredBooks.length;
   const selectedCountLabel = UI_TEXT.SELECTED_COUNT.replace("{count}", String(selectedBookIds.length));
   const latestBook = selectFeaturedLibraryBook(books);
-  const recentShelfBooks = selectRecentShelfBooks(books, {
-    excludeId: latestBook?.id,
-    limit: 8,
-  });
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
@@ -623,19 +821,16 @@ export default function Home() {
     ? getBookProgressPercent(readingProgressMap, bookActionSheetBook.id)
     : 0;
   const showBottomTabs = shouldShowBottomTabs(activeTab, Boolean(openBook));
+  const activeAiProvider = useMemo(
+    () => getActiveAiProvider(aiProviderSettings),
+    [aiProviderSettings]
+  );
+  const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
   const todayMinutesValue = formatReadingMinutes(todaySeconds);
   const todayGoalProgress = readingGoal.targetMinutes > 0
     ? Math.min(todayMinutesValue / readingGoal.targetMinutes, 1)
     : 0;
   const goalRingBackground = `conic-gradient(var(--ios-tint) ${Math.round(todayGoalProgress * 360)}deg, rgba(120, 130, 160, 0.18) 0deg)`;
-  const libraryDashboard = buildLibraryDashboard({
-    bookCount: books.length,
-    groupCount: groups.length,
-    todayMinutes: todayMinutesValue,
-    targetMinutes: readingGoal.targetMinutes,
-    featuredTitle: latestBook?.title,
-  });
-  const libraryGoalBackground = `conic-gradient(var(--ios-tint) ${Math.round(libraryDashboard.goalPercent * 3.6)}deg, rgba(120, 130, 160, 0.18) 0deg)`;
   const readerThemeLabel =
     readerPrefs.theme === "system"
       ? "\u8ddf\u968f\u7cfb\u7edf"
@@ -656,6 +851,58 @@ export default function Home() {
     readingGoal.targetMinutes
   );
   const totalMinutesValue = totalReadingMinutes(readingStatsWithToday);
+  const paragraphChunks = useMemo(
+    () => chunkParagraphs(paragraphs),
+    [paragraphs]
+  );
+
+  useEffect(() => {
+    if (
+      activeTab !== "library" ||
+      libraryScreen !== "library" ||
+      visibleBookCount >= filteredBooks.length
+    ) {
+      return;
+    }
+    const target = libraryLoadSentinelRef.current;
+    if (!target) return;
+    const Observer = (
+      window as Window & {
+        IntersectionObserver?: typeof IntersectionObserver;
+      }
+    ).IntersectionObserver;
+    if (!Observer) {
+      const frame = window.requestAnimationFrame(() => {
+        setLibraryRenderWindow({
+          key: libraryRenderKey,
+          count: filteredBooks.length,
+        });
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const observer = new Observer(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setLibraryRenderWindow({
+          key: libraryRenderKey,
+          count: getNextVisibleItemCount(
+            visibleBookCount,
+            filteredBooks.length,
+            LIBRARY_RENDER_BATCH
+          ),
+        });
+      },
+      { rootMargin: "480px 0px" }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [
+    activeTab,
+    filteredBooks.length,
+    libraryRenderKey,
+    libraryScreen,
+    visibleBookCount,
+  ]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -670,13 +917,14 @@ export default function Home() {
     setBooks(await listBooks());
 
     setOpenBook(book);
-    setActiveTab("reading");
+    presentReader();
     scrollRestoredRef.current = false;
     setSelectedText(null);
     setTocItems([]);
     setTocDrawerOpen(false);
     setReaderProgressPercent(0);
-    setReaderChromeVisible(true);
+    setReaderPageInfo({ current: 1, total: 1 });
+    dispatchReaderChrome({ type: "hide" });
 
     if (book.format === "txt") {
       setReaderLoading(true);
@@ -769,39 +1017,136 @@ export default function Home() {
         );
         const progress = normalizeProgressPercent(pos.progressPercent);
         setReaderProgressPercent(progress);
+        setReaderPageInfo(pageInfoFromScroll(el.scrollTop, el.scrollHeight, el.clientHeight));
         setReadingProgressMap((map) => ({ ...map, [openBook.id]: progress }));
       }
+      setReaderPageInfo(pageInfoFromScroll(el.scrollTop, el.scrollHeight, el.clientHeight));
       scrollRestoredRef.current = true;
     });
   }, [openBook, paragraphs]);
 
+  useEffect(() => {
+    return () => {
+      if (readerScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerScrollFrameRef.current);
+      }
+      if (epubProgressFrameRef.current !== null) {
+        window.cancelAnimationFrame(epubProgressFrameRef.current);
+      }
+      if (readerSaveTimerRef.current !== null) {
+        window.clearTimeout(readerSaveTimerRef.current);
+      }
+      if (readerPresentFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerPresentFrameRef.current);
+      }
+      if (readerPrefsFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerPrefsFrameRef.current);
+      }
+      if (readerPrefsRestoreFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerPrefsRestoreFrameRef.current);
+      }
+      if (readerPrefsSaveTimerRef.current !== null) {
+        window.clearTimeout(readerPrefsSaveTimerRef.current);
+      }
+      if (readerPrefsMotionTimerRef.current !== null) {
+        window.clearTimeout(readerPrefsMotionTimerRef.current);
+      }
+      if (readerSwipeSettleTimerRef.current !== null) {
+        window.clearTimeout(readerSwipeSettleTimerRef.current);
+      }
+      pendingReaderSwipeSettleRef.current = null;
+    };
+  }, []);
+
   const handleReaderScroll = useCallback(() => {
     if (!openBook || !readerRef.current) return;
-    const el = readerRef.current;
-    const progressPercent = progressFromScroll(
-      el.scrollTop,
-      el.scrollHeight,
-      el.clientHeight
-    );
-    const updatedAt = new Date().toISOString();
-    setReaderProgressPercent(progressPercent);
-    setReadingProgressMap((map) => ({ ...map, [openBook.id]: progressPercent }));
-    saveReadingPosition({
-      bookId: openBook.id,
-      locator: "txt-scroll",
-      progressPercent,
-      updatedAt,
+    dispatchReaderChrome({ type: "scroll", at: performance.now() });
+    if (readerScrollFrameRef.current !== null) return;
+
+    readerScrollFrameRef.current = window.requestAnimationFrame(() => {
+      readerScrollFrameRef.current = null;
+      const el = readerRef.current;
+      if (!el) return;
+
+      const progressPercent = progressFromScroll(
+        el.scrollTop,
+        el.scrollHeight,
+        el.clientHeight
+      );
+      const pageInfo = pageInfoFromScroll(el.scrollTop, el.scrollHeight, el.clientHeight);
+      setReaderProgressPercent((current) =>
+        shouldPublishProgressPercent(current, progressPercent)
+          ? progressPercent
+          : current
+      );
+      setReaderPageInfo((current) =>
+        current.current === pageInfo.current && current.total === pageInfo.total
+          ? current
+          : pageInfo
+      );
+      setReadingProgressMap((map) =>
+        shouldPublishProgressPercent(map[openBook.id] ?? 0, progressPercent)
+          ? { ...map, [openBook.id]: progressPercent }
+          : map
+      );
+
+      if (readerSaveTimerRef.current !== null) {
+        window.clearTimeout(readerSaveTimerRef.current);
+      }
+      readerSaveTimerRef.current = window.setTimeout(() => {
+        readerSaveTimerRef.current = null;
+        void saveReadingPosition({
+          bookId: openBook.id,
+          locator: "txt-scroll",
+          progressPercent,
+          updatedAt: new Date().toISOString(),
+        });
+      }, 180);
     });
   }, [openBook]);
 
-  const handleTextSelect = useCallback(() => {
+  const handleEpubProgressChange = useCallback(
+    (progressValue: number) => {
+      pendingEpubProgressRef.current = normalizeProgressPercent(progressValue);
+      if (epubProgressFrameRef.current !== null) return;
+
+      epubProgressFrameRef.current = window.requestAnimationFrame(() => {
+        epubProgressFrameRef.current = null;
+        const progress = pendingEpubProgressRef.current;
+        pendingEpubProgressRef.current = null;
+        if (progress === null || !openBook) return;
+
+        const pageInfo = pageInfoFromProgress(progress);
+        setReaderProgressPercent((current) =>
+          shouldPublishProgressPercent(current, progress)
+            ? progress
+            : current
+        );
+        setReaderPageInfo((current) =>
+          current.current === pageInfo.current && current.total === pageInfo.total
+            ? current
+            : pageInfo
+        );
+        setReadingProgressMap((map) =>
+          shouldPublishProgressPercent(map[openBook.id] ?? 0, progress)
+            ? { ...map, [openBook.id]: progress }
+            : map
+        );
+      });
+    },
+    [openBook]
+  );
+
+  const handleTextSelect = useCallback((): boolean => {
     const selection = window.getSelection();
-    if (!selection) return;
+    if (!selection) return false;
     const text = selection.toString().trim();
     if (text.length > 0) {
       setSelectedText(text);
-      setReaderChromeVisible(true);
+      dispatchReaderChrome({ type: "selection" });
+      return true;
     }
+    return false;
   }, []);
 
   function handleClearSelection() {
@@ -812,7 +1157,7 @@ export default function Home() {
 
   async function handleAsk() {
     if (!question.trim()) return;
-    if (!hasUsableAiSettings(aiSettings)) {
+    if (!activeAiProvider || !aiProviderUsable) {
       setAskError(UI_TEXT.CONFIGURE_AI_PROMPT);
       return;
     }
@@ -835,9 +1180,7 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          baseUrl: aiSettings.baseUrl,
-          apiKey: aiSettings.apiKey,
-          model: aiSettings.model,
+          provider: activeAiProvider,
           question: question.trim(),
           context,
         }),
@@ -905,7 +1248,7 @@ export default function Home() {
         });
       setGroups(await listBookGroups());
       setGroupFilter(null);
-      setAiSettings(loadAiSettings());
+      setAiProviderSettings(loadAiProviderSettings());
       setBackupStatus(UI_TEXT.BACKUP_RESTORED);
     } catch (err) {
       setBackupError(err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED);
@@ -918,46 +1261,40 @@ export default function Home() {
     setActiveTab("library");
   }
 
-  const handleToolbarPrev = useCallback(async () => {
+  const turnReaderPage = useCallback(async (
+    direction: ReaderTurnDirection,
+    options: { instant?: boolean } = {}
+  ) => {
+    dispatchReaderChrome({ type: "hide" });
     if (!openBook) return;
     if (openBook.format === "epub") {
-      await epubReaderRef.current?.prev();
-    } else if (readerRef.current) {
-      const el = readerRef.current;
-      el.scrollTop -= el.clientHeight * 0.85;
-    }
-  }, [openBook]);
-
-  const handleToolbarNext = useCallback(async () => {
-    if (!openBook) return;
-    if (openBook.format === "epub") {
-      await epubReaderRef.current?.next();
-    } else if (readerRef.current) {
-      const el = readerRef.current;
-      el.scrollTop += el.clientHeight * 0.85;
-    }
-  }, [openBook]);
-
-  const showReaderTurnFeedback = useCallback((direction: ReaderTurnDirection) => {
-    const id = Date.now();
-    setReaderTurnFeedback({ direction, id });
-    window.setTimeout(() => {
-      setReaderTurnFeedback((current) => (current?.id === id ? null : current));
-    }, 260);
-  }, []);
-
-  const turnReaderPage = useCallback((direction: ReaderTurnDirection) => {
-    setReaderChromeVisible(false);
-    showReaderTurnFeedback(direction);
-    if (direction === "prev") {
-      void handleToolbarPrev();
+      if (direction === "prev") {
+        await epubReaderRef.current?.prev();
+      } else {
+        await epubReaderRef.current?.next();
+      }
       return;
     }
-    void handleToolbarNext();
-  }, [handleToolbarNext, handleToolbarPrev, showReaderTurnFeedback]);
+
+    const reader = readerRef.current;
+    if (!reader) return;
+    const reduceMotion = shouldReduceReaderMotion({
+      appPreference: appPrefs.reduceMotion,
+      systemPreference: window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches,
+    });
+    reader.scrollBy({
+      top: reader.clientHeight * (direction === "prev" ? -0.85 : 0.85),
+      behavior: options.instant || reduceMotion ? "auto" : "smooth",
+    });
+  }, [appPrefs.reduceMotion, openBook]);
+
+  const toggleReaderChrome = useCallback(() => {
+    dispatchReaderChrome({ type: "tap", at: performance.now() });
+  }, []);
 
   const handleTocSelect = useCallback(async (href: string) => {
-    setTocDrawerOpen(false);
     await epubReaderRef.current?.goTo(href);
   }, []);
 
@@ -974,84 +1311,239 @@ export default function Home() {
     setGoalInputValue(saved.targetMinutes);
   }
 
-  const handleReaderStageTap = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (readerSwipeHandledRef.current) {
-      readerSwipeHandledRef.current = false;
-      return;
+  const handleReaderPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    const reader = readerRef.current;
+    let baseOffset = 0;
+    if (reader) {
+      const transform = window.getComputedStyle(reader).transform;
+      if (transform !== "none") {
+        try {
+          baseOffset = new DOMMatrixReadOnly(transform).m41;
+        } catch {
+          baseOffset = 0;
+        }
+      }
+      readerSwipeGenerationRef.current += 1;
+      if (readerSwipeSettleTimerRef.current !== null) {
+        window.clearTimeout(readerSwipeSettleTimerRef.current);
+        readerSwipeSettleTimerRef.current = null;
+      }
+      pendingReaderSwipeSettleRef.current = null;
+      reader.classList.remove(styles.readerSwipeSettling);
+      reader.style.setProperty("--reader-swipe-x", `${baseOffset}px`);
     }
-    const target = e.target as HTMLElement;
-    if (
-      target.closest("button") ||
-      target.closest("input") ||
-      target.closest("a") ||
-      target.closest('[role="button"]') ||
-      target.closest(`.${styles.readerTopBar}`) ||
-      target.closest(`.${styles.readerBottomPill}`)
-    ) {
-      return;
-    }
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const action = getReaderTapAction({
-      clientX: e.clientX,
-      left: rect.left,
-      width: rect.width,
-    });
-
-    if (appPrefs.edgeTapToTurn && action === "prev") {
-      turnReaderPage("prev");
-      return;
-    }
-    if (appPrefs.edgeTapToTurn && action === "next") {
-      turnReaderPage("next");
-      return;
-    }
-
-    setReaderChromeVisible((v) => !v);
-  }, [appPrefs.edgeTapToTurn, turnReaderPage]);
-
-  const handleReaderTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    const touch = e.touches[0];
-    if (!touch) return;
-    readerTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
-    readerSwipeHandledRef.current = false;
+    readerPointerDownRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      time: Date.now(),
+      target: e.target,
+      axis: "pending",
+      baseOffset,
+    };
   }, []);
 
-  const handleReaderTouchEnd = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
-    handleTextSelect();
-    const start = readerTouchStartRef.current;
-    readerTouchStartRef.current = null;
-    if (!start) return;
-    if (!appPrefs.swipeToTurn) return;
-
-    const target = e.target as HTMLElement;
+  const finishReaderSwipeSettle = useCallback(async (generation: number) => {
+    const pending = pendingReaderSwipeSettleRef.current;
     if (
-      target.closest("button") ||
-      target.closest("input") ||
-      target.closest("a") ||
-      target.closest('[role="button"]') ||
-      target.closest(`.${styles.readerTopBar}`) ||
-      target.closest(`.${styles.readerBottomPill}`)
+      !pending ||
+      pending.generation !== generation ||
+      generation !== readerSwipeGenerationRef.current
     ) {
       return;
     }
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim().length > 0) return;
+    pendingReaderSwipeSettleRef.current = null;
+    if (readerSwipeSettleTimerRef.current !== null) {
+      window.clearTimeout(readerSwipeSettleTimerRef.current);
+      readerSwipeSettleTimerRef.current = null;
+    }
+    if (pending.action !== "none") {
+      await turnReaderPage(pending.action, { instant: true });
+    }
+    if (generation !== readerSwipeGenerationRef.current) return;
+    const reader = readerRef.current;
+    if (!reader) return;
+    reader.classList.remove(styles.readerSwipeSettling);
+    reader.style.setProperty("--reader-swipe-x", "0px");
+  }, [turnReaderPage]);
 
-    const touch = e.changedTouches[0];
-    if (!touch) return;
-    const action = getReaderSwipeAction({
-      startX: start.x,
-      startY: start.y,
-      endX: touch.clientX,
-      endY: touch.clientY,
+  const settleReaderSwipe = useCallback((
+    action: ReturnType<typeof getReaderSwipeAction>,
+    currentOffset: number,
+    viewportWidth: number
+  ) => {
+    const reader = readerRef.current;
+    if (!reader) return;
+    const generation = ++readerSwipeGenerationRef.current;
+    const reduceMotion = shouldReduceReaderMotion({
+      appPreference: appPrefs.reduceMotion,
+      systemPreference: window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches,
     });
-    if (action === "none") return;
+    const duration = reduceMotion ? 0 : action === "none" ? 180 : 160;
+    const targetOffset = getReaderSwipeSettleOffset(
+      action,
+      currentOffset,
+      viewportWidth
+    );
+    reader.classList.remove(styles.readerSwipeTracking);
+    reader.classList.add(styles.readerSwipeSettling);
+    reader.style.setProperty("--reader-swipe-duration", `${duration}ms`);
+    void reader.offsetWidth;
+    reader.style.setProperty("--reader-swipe-x", `${targetOffset}px`);
+    pendingReaderSwipeSettleRef.current = { generation, action };
+    if (readerSwipeSettleTimerRef.current !== null) {
+      window.clearTimeout(readerSwipeSettleTimerRef.current);
+    }
+    if (duration === 0) {
+      void finishReaderSwipeSettle(generation);
+      return;
+    }
+    readerSwipeSettleTimerRef.current = window.setTimeout(() => {
+      void finishReaderSwipeSettle(generation);
+    }, duration + 120);
+  }, [appPrefs.reduceMotion, finishReaderSwipeSettle]);
 
-    readerSwipeHandledRef.current = true;
-    turnReaderPage(action);
-  }, [appPrefs.swipeToTurn, handleTextSelect, turnReaderPage]);
+  const handleReaderSwipeTransitionEnd = useCallback(
+    (event: React.TransitionEvent<HTMLDivElement>) => {
+      if (
+        !isReaderSwipeSettleTransition({
+          propertyName: event.propertyName,
+          targetIsReader: event.target === event.currentTarget,
+        })
+      ) {
+        return;
+      }
+      const pending = pendingReaderSwipeSettleRef.current;
+      if (pending) void finishReaderSwipeSettle(pending.generation);
+    },
+    [finishReaderSwipeSettle]
+  );
+
+  const handleReaderPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const pointerDown = readerPointerDownRef.current;
+    const reader = readerRef.current;
+    if (!pointerDown || !reader || !appPrefs.swipeToTurn) return;
+
+    const dx = e.clientX - pointerDown.x;
+    const dy = e.clientY - pointerDown.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (pointerDown.axis === "pending" && (absX >= 13 || absY >= 13)) {
+      pointerDown.axis = absX > absY * 1.25 ? "horizontal" : "vertical";
+      if (pointerDown.axis === "horizontal") {
+        e.currentTarget.setPointerCapture(e.pointerId);
+        reader.classList.remove(styles.readerSwipeSettling);
+        reader.classList.add(styles.readerSwipeTracking);
+        dispatchReaderChrome({ type: "hide" });
+      } else if (hasActiveReaderSwipeOffset(pointerDown.baseOffset)) {
+        settleReaderSwipe(
+          "none",
+          pointerDown.baseOffset,
+          e.currentTarget.clientWidth
+        );
+        pointerDown.baseOffset = 0;
+      }
+      if (pointerDown.axis === "vertical") {
+        dispatchReaderChrome({ type: "scroll", at: performance.now() });
+      }
+    }
+
+    if (pointerDown.axis !== "horizontal") return;
+    e.preventDefault();
+    const offset = getReaderSwipeVisualOffset(
+      pointerDown.baseOffset + dx,
+      e.currentTarget.clientWidth
+    );
+    reader.style.setProperty("--reader-swipe-x", `${offset}px`);
+  }, [appPrefs.swipeToTurn, settleReaderSwipe]);
+
+  const handleReaderPointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const pointerDown = readerPointerDownRef.current;
+    readerPointerDownRef.current = null;
+    if (!pointerDown) return;
+
+    const elapsed = Date.now() - pointerDown.time;
+    const dx = e.clientX - pointerDown.x;
+    const dy = e.clientY - pointerDown.y;
+
+    if (pointerDown.axis === "horizontal") {
+      const swipeAction = getReaderSwipeAction({
+        startX: pointerDown.x,
+        startY: pointerDown.y,
+        endX: e.clientX,
+        endY: e.clientY,
+      });
+      const viewportWidth = e.currentTarget.clientWidth;
+      const currentOffset = getReaderSwipeVisualOffset(
+        pointerDown.baseOffset + dx,
+        viewportWidth
+      );
+      settleReaderSwipe(swipeAction, currentOffset, viewportWidth);
+      return;
+    }
+
+    if (pointerDown.axis === "vertical") return;
+
+    if (hasActiveReaderSwipeOffset(pointerDown.baseOffset)) {
+      settleReaderSwipe(
+        "none",
+        pointerDown.baseOffset,
+        e.currentTarget.clientWidth
+      );
+    }
+
+    const target = pointerDown.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (
+      target.closest("button") ||
+      target.closest("input") ||
+      target.closest("textarea") ||
+      target.closest("select") ||
+      target.closest("a") ||
+      target.closest('[role="button"]') ||
+      target.closest(`.${styles.readerTopBar}`) ||
+      target.closest(`.${styles.readerBottomPill}`) ||
+      target.closest(`.${styles.readerBottomProgress}`) ||
+      target.closest(`.${styles.readerOverlayClose}`) ||
+      target.closest(`.${styles.readerTopHint}`) ||
+      target.closest(`.${styles.readerPageBadge}`) ||
+      target.closest(`.${styles.readerCornerMenuButton}`) ||
+      target.closest(`.${styles.readerActionPanel}`) ||
+      target.closest(`.${styles.readerGoalMini}`)
+    ) {
+      return;
+    }
+
+    if (handleTextSelect()) return;
+
+    if (appPrefs.swipeToTurn) {
+      const swipeAction = getReaderSwipeAction({
+        startX: pointerDown.x,
+        startY: pointerDown.y,
+        endX: e.clientX,
+        endY: e.clientY,
+      });
+      if (swipeAction !== "none") {
+        void turnReaderPage(swipeAction);
+        return;
+      }
+    }
+
+    if (
+      !isTapGesture({
+        durationMs: elapsed,
+        deltaX: dx,
+        deltaY: dy,
+      })
+    ) {
+      return;
+    }
+
+    toggleReaderChrome();
+  }, [appPrefs.swipeToTurn, handleTextSelect, settleReaderSwipe, toggleReaderChrome, turnReaderPage]);
 
   return (
     <div
@@ -1072,8 +1564,14 @@ export default function Home() {
           activeTab === "reading" && openBook ? styles.readingContent : ""
         } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
       >
-        {activeTab === "library" && (
-          <div className={`${styles.libraryPage} ${styles.pageFade}`}>
+        <div
+          className={`${styles.libraryPage} ${
+            activeTab === "library"
+              ? styles.tabPageActive
+              : styles.tabPageInactive
+          }`}
+          aria-hidden={activeTab !== "library"}
+        >
             <div className={styles.pageHeader}>
               <h1 className={styles.libraryTitle}>{UI_TEXT.LIBRARY}</h1>
               <div className={styles.pageHeaderActions}>
@@ -1101,167 +1599,167 @@ export default function Home() {
               </div>
             </div>
 
-            <section className={styles.libraryOverviewPanel}>
-              <div className={styles.libraryOverviewCopy}>
-                <span className={styles.libraryOverviewEyebrow}>本地书库</span>
-                <strong>{libraryDashboard.title}</strong>
-                <small>{libraryDashboard.subtitle}</small>
-              </div>
-
-              <button className={styles.libraryOverviewGoal} onClick={handleOpenGoalSheet}>
-                <span
-                  className={styles.libraryOverviewGoalRing}
-                  style={{ background: libraryGoalBackground }}
-                  aria-hidden="true"
-                >
-                  <span>{todayMinutesValue}</span>
-                  <small>{readingGoal.targetMinutes}</small>
-                </span>
-                <span className={styles.libraryOverviewGoalText}>
-                  <strong>{UI_TEXT.READING_GOAL}</strong>
-                  <small>{libraryDashboard.goalText}</small>
-                </span>
-                <span className={styles.continueChevron}>{"\u203a"}</span>
-              </button>
-
-              <div className={styles.libraryOverviewStats}>
-                {libraryDashboard.stats.map((stat) => (
-                  <span key={stat.label}>
-                    <strong>{stat.value}</strong>
-                    <small>{stat.label}</small>
-                  </span>
-                ))}
-              </div>
-            </section>
-
-            <section className={styles.libraryHero}>
-              <div className={styles.sectionHeader}>
-                <h2>{UI_TEXT.CURRENT_READING}</h2>
-              </div>
-              {latestBook ? (
-                <button
-                  className={`${styles.continueCard} ${styles.continueHeroCard}`}
-                  onClick={() => openBookForReading(latestBook)}
-                >
-                  <span className={styles.continueCoverFrame}>
-                    <BookCover
-                      title={latestBook.title}
-                      format={latestBook.format}
-                      coverImageBlob={latestBook.coverImageBlob}
-                    />
-                  </span>
-                  <span className={styles.continueCardText}>
-                    <span className={styles.continueKicker}>{UI_TEXT.CONTINUE_READING}</span>
-                    <strong>{latestBook.title}</strong>
-                    <small>{latestBook.format.toUpperCase()}{" \u00b7 "}{formatBookSize(latestBook.size)}</small>
-                    <span className={styles.continueMetaRow}>
-                      {UI_TEXT.LAST_OPENED_AT}: {formatBookDate(latestBook.lastOpenedAt)}
-                    </span>
-                    <span className={styles.libraryProgressRow}>
-                      <span className={styles.libraryProgressTrack} aria-hidden="true">
-                        <span style={{ width: `${latestBookProgress}%` }} />
-                      </span>
-                      <span>{formatLibraryProgressLabel(latestBookProgress)}</span>
-                    </span>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-              ) : (
-                <button
-                  className={styles.continueCard}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <span className={styles.emptyCoverMini}>
-                    <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M5 4h7v18H5V4zm9 0h7v18h-7V4z" />
-                      <path d="M12 8h2M12 18h2" />
-                    </svg>
-                  </span>
-                  <span className={styles.continueCardText}>
-                    <strong>{UI_TEXT.NO_RECENT_BOOK}</strong>
-                    <small>{UI_TEXT.START_READING_HINT}</small>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-              )}
-            </section>
-
-            {recentShelfBooks.length > 0 && (
-              <section className={styles.recentShelf}>
-                <div className={styles.sectionHeader}>
-                  <h2>{UI_TEXT.RECENTLY_OPENED}</h2>
-                  <span>{recentShelfBooks.length}</span>
+            {libraryScreen === "collections" ? (
+              <div className={styles.collectionsScreen}>
+                <div className={styles.collectionsTopBar}>
+                  <button
+                    className={styles.collectionBackButton}
+                    onClick={() => {
+                      setLibraryScreen("library");
+                      setCollectionsEditing(false);
+                      setEditingGroupId(null);
+                      setEditingGroupName("");
+                    }}
+                  >
+                    <span aria-hidden="true">‹</span>
+                    {UI_TEXT.LIBRARY}
+                  </button>
+                  <button
+                    className={styles.libraryTextButton}
+                    onClick={() => {
+                      setCollectionsEditing((editing) => !editing);
+                      setEditingGroupId(null);
+                      setEditingGroupName("");
+                    }}
+                  >
+                    {collectionsEditing ? UI_TEXT.DONE : UI_TEXT.EDIT}
+                  </button>
                 </div>
-                <div className={styles.recentShelfScroller}>
-                  {recentShelfBooks.map((book) => {
-                    const progress = getBookProgressPercent(readingProgressMap, book.id);
-                    return (
-                      <button
-                        key={book.id}
-                        className={styles.shelfBookButton}
-                        onClick={() => openBookForReading(book)}
-                      >
-                        <span className={styles.shelfCoverFrame}>
-                          <BookCover
-                            title={book.title}
-                            format={book.format}
-                            coverImageBlob={book.coverImageBlob}
-                          />
-                        </span>
-                        <span className={styles.shelfBookTitle}>{book.title}</span>
-                        <span className={styles.shelfBookProgress} aria-hidden="true">
-                          <span style={{ width: `${progress}%` }} />
-                        </span>
-                        <span className={styles.shelfBookMeta}>{formatLibraryProgressLabel(progress)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-
-            {books.length > 0 && (
-              <section className={styles.collectionShelf}>
-                <div className={styles.sectionHeader}>
-                  <h2>{UI_TEXT.COLLECTIONS}</h2>
-                </div>
+                <h2 className={styles.collectionsTitle}>{UI_TEXT.COLLECTIONS}</h2>
                 <div className={styles.collectionList}>
                   {collectionListItems.map((item) => {
                     const isActive = groupFilter === item.filter;
+                    const customGroupId =
+                      typeof item.filter === "string" && item.filter !== "__ungrouped"
+                        ? item.filter
+                        : null;
+                    const isEditingGroup = customGroupId !== null && editingGroupId === customGroupId;
                     return (
-                      <button
+                      <div
                         key={item.id}
                         className={`${styles.collectionRow} ${isActive ? styles.collectionRowActive : ""}`}
-                        onClick={() => setGroupFilter(item.filter)}
                       >
-                        <span className={styles.collectionRowIcon}>
-                          {item.icon === "stack" ? (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                              <rect x="3" y="5" width="10" height="13" rx="1.5" />
-                              <rect x="7" y="2" width="10" height="13" rx="1.5" />
-                            </svg>
-                          ) : item.icon === "doc" ? (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                              <path d="M5 2.5h7.5L15 5v12.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" />
-                              <path d="M12.5 2.5V5h2.5" />
-                            </svg>
-                          ) : (
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                              <path d="M2.5 4.5h5l2 2h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1Z" />
-                            </svg>
+                        <button
+                          className={styles.collectionRowMain}
+                          onClick={() => {
+                            if (collectionsEditing) return;
+                            setGroupFilter(item.filter);
+                            setLibrarySearchQuery("");
+                            setLibraryScreen("library");
+                          }}
+                        >
+                          <span className={styles.collectionRowIcon}>
+                            {item.filter === null ? (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                                <path d="M4 5.5c2.2-.3 4 .3 6 1.6 2-1.3 3.8-1.9 6-1.6v10.7c-2.2-.3-4 .3-6 1.6-2-1.3-3.8-1.9-6-1.6V5.5Z" />
+                                <path d="M10 7.1v10.7" />
+                              </svg>
+                            ) : item.filter === "__ungrouped" ? (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                                <path d="M5 2.5h7.5L15 5v12.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" />
+                                <path d="M12.5 2.5V5h2.5" />
+                              </svg>
+                            ) : (
+                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                                <path d="M2.5 4.5h5l2 2h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1Z" />
+                              </svg>
+                            )}
+                          </span>
+                          <span className={styles.collectionRowBody}>
+                            {isEditingGroup ? (
+                              <input
+                                className={styles.collectionRenameInput}
+                                value={editingGroupName}
+                                onChange={(e) => setEditingGroupName(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && customGroupId) {
+                                    void handleRenameGroup(customGroupId);
+                                  }
+                                }}
+                                autoFocus
+                              />
+                            ) : (
+                              <span className={styles.collectionRowName}>{item.name}</span>
+                            )}
+                            <span className={styles.collectionRowMeta}>{item.count} {UI_TEXT.BOOK_COUNT}</span>
+                          </span>
+                          {!collectionsEditing && (
+                            <span className={styles.collectionRowChevron}>{"\u203a"}</span>
                           )}
-                        </span>
-                        <span className={styles.collectionRowBody}>
-                          <span className={styles.collectionRowName}>{item.name}</span>
-                          <span className={styles.collectionRowMeta}>{item.count} {UI_TEXT.BOOK_COUNT}</span>
-                        </span>
-                        <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-                      </button>
+                        </button>
+                        {collectionsEditing && customGroupId && (
+                          <span className={styles.collectionEditActions}>
+                            {isEditingGroup ? (
+                              <button
+                                className={styles.groupEditSave}
+                                onClick={() => handleRenameGroup(customGroupId)}
+                              >
+                                {UI_TEXT.SAVE}
+                              </button>
+                            ) : (
+                              <button
+                                className={styles.groupAction}
+                                onClick={() => {
+                                  setEditingGroupId(customGroupId);
+                                  setEditingGroupName(item.name);
+                                }}
+                              >
+                                {UI_TEXT.RENAME}
+                              </button>
+                            )}
+                            <button
+                              className={styles.groupActionDelete}
+                              onClick={() => handleDeleteGroup(customGroupId)}
+                            >
+                              {UI_TEXT.DELETE_GROUP}
+                            </button>
+                          </span>
+                        )}
+                      </div>
                     );
                   })}
+                  <button
+                    className={styles.collectionRow}
+                    onClick={() => {
+                      setNewGroupName("");
+                      setCollectionCreateSheetOpen(true);
+                    }}
+                  >
+                    <span className={styles.collectionRowIcon}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                        <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                    <span className={styles.collectionRowBody}>
+                      <span className={styles.collectionRowName}>新建藏书...</span>
+                    </span>
+                    <span className={styles.collectionRowChevron}>{"\u203a"}</span>
+                  </button>
                 </div>
-              </section>
-            )}
+              </div>
+            ) : (
+              <>
+            <button
+              className={styles.collectionEntryRow}
+              onClick={() => {
+                setLibraryScreen("collections");
+                setLibraryEditing(false);
+                setSelectedBookIds([]);
+              }}
+            >
+              <span className={styles.collectionEntryIcon}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+                  <path d="M4 6.5h6.5c1.1 0 2 .9 2 2v9.5H6a2 2 0 0 1-2-2V6.5Z" />
+                  <path d="M12.5 8.5c0-1.1.9-2 2-2H21V16a2 2 0 0 1-2 2h-6.5V8.5Z" />
+                </svg>
+              </span>
+              <span className={styles.collectionEntryText}>
+                <strong>{UI_TEXT.COLLECTIONS}</strong>
+                <small>{books.length} {UI_TEXT.BOOK_COUNT}</small>
+              </span>
+              <span className={styles.continueChevron}>{"\u203a"}</span>
+            </button>
 
             {books.length > 0 && (
               <div className={styles.librarySearchRow}>
@@ -1315,13 +1813,6 @@ export default function Home() {
                 {importError && (
                   <p className={styles.importError}>{importError}</p>
                 )}
-                <div className={styles.emptyIcon}>
-                  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-                    <rect x="8" y="8" width="20" height="48" rx="2"/>
-                    <rect x="36" y="8" width="20" height="48" rx="2"/>
-                    <path d="M28 20h8M28 32h8M28 44h8" strokeLinecap="round"/>
-                  </svg>
-                </div>
                 <h2 className={styles.emptyTitle}>{UI_TEXT.NO_BOOKS}</h2>
                 <p className={styles.emptyText}>
                   {UI_TEXT.NO_BOOKS_HINT}
@@ -1358,7 +1849,7 @@ export default function Home() {
                   </div>
                 ) : libraryView === "grid" ? (
                   <div className={styles.bookGrid}>
-                    {filteredBooks.map((book) => {
+                    {visibleBooks.map((book) => {
                       const isSelected = selectedBookIds.includes(book.id);
                       const progress = getBookProgressPercent(readingProgressMap, book.id);
                       return (
@@ -1412,7 +1903,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <ul className={styles.bookItems}>
-                    {filteredBooks.map((book) => {
+                    {visibleBooks.map((book) => {
                       const isSelected = selectedBookIds.includes(book.id);
                       const progress = getBookProgressPercent(readingProgressMap, book.id);
                       return (
@@ -1440,7 +1931,7 @@ export default function Home() {
                           <div className={styles.bookInfo}>
                             <span className={styles.bookTitle}>{book.title}</span>
                             <span className={styles.bookMeta}>
-                              {book.format.toUpperCase()} \u00b7 {formatBookSize(book.size)}
+                              {book.format.toUpperCase()}{" \u00b7 "}{formatBookSize(book.size)}
                             </span>
                             <span className={styles.bookListProgressRow}>
                               <span className={styles.bookListProgressTrack} aria-hidden="true">
@@ -1479,21 +1970,42 @@ export default function Home() {
                     })}
                   </ul>
                 )}
+                {visibleBookCount < filteredBooks.length && (
+                  <div
+                    ref={libraryLoadSentinelRef}
+                    className={styles.libraryLoadSentinel}
+                    aria-hidden="true"
+                  />
+                )}
               </div>
             )}
-          </div>
-        )}
+              </>
+            )}
+        </div>
 
-        {activeTab === "reading" && (
-          openBook ? (
-            <div className={`${styles.readerShell} ${readerChromeVisible ? "" : styles.readerChromeHidden}`}>
+        {openBook && (
+            <div
+              ref={readerShellRef}
+              className={`${styles.readerShell} ${
+                activeTab === "reading" ? styles.readerSessionActive : styles.readerSessionInactive
+              } ${readerChromeVisible ? "" : styles.readerChromeHidden}`}
+              aria-hidden={activeTab !== "reading"}
+            >
               <div
                 className={styles.readerStage}
-                onClick={handleReaderStageTap}
-                onTouchStart={handleReaderTouchStart}
-                onTouchEnd={handleReaderTouchEnd}
-                onMouseUp={() => {
-                  handleTextSelect();
+                onPointerDown={handleReaderPointerDown}
+                onPointerMove={handleReaderPointerMove}
+                onPointerUp={handleReaderPointerUp}
+                onPointerCancel={() => {
+                  const pointerDown = readerPointerDownRef.current;
+                  readerPointerDownRef.current = null;
+                  const reader = readerRef.current;
+                  const viewportWidth = reader?.clientWidth ?? 0;
+                  settleReaderSwipe(
+                    "none",
+                    pointerDown?.baseOffset ?? 0,
+                    viewportWidth
+                  );
                 }}
               >
                 {openBook.format === "epub" ? (
@@ -1504,12 +2016,13 @@ export default function Home() {
                     getReadingPosition={getReadingPosition}
                     saveReadingPosition={saveReadingPosition}
                     onTextSelect={(text) => setSelectedText(text)}
+                    onReaderTap={() => dispatchReaderChrome({ type: "tap", at: performance.now() })}
+                    onReaderScrollStart={() => dispatchReaderChrome({ type: "scroll", at: performance.now() })}
+                    onSwipeTurn={(direction) =>
+                      turnReaderPage(direction, { instant: true })
+                    }
                     onTocChange={(items) => setTocItems(items)}
-                    onProgressChange={(pct) => {
-                      const progress = normalizeProgressPercent(pct);
-                      setReaderProgressPercent(progress);
-                      setReadingProgressMap((map) => ({ ...map, [openBook.id]: progress }));
-                    }}
+                    onProgressChange={handleEpubProgressChange}
                     preferences={readerPrefs}
                   />
                 ) : readerLoading ? (
@@ -1521,6 +2034,7 @@ export default function Home() {
                     ref={readerRef}
                     className={styles.readerBody}
                     onScroll={handleReaderScroll}
+                    onTransitionEnd={handleReaderSwipeTransitionEnd}
                     style={{
                       fontSize: `${readerPrefs.fontSizePx}px`,
                       lineHeight: readerPrefs.lineHeight,
@@ -1529,30 +2043,31 @@ export default function Home() {
                       width: "100%",
                     }}
                   >
-                    {paragraphs.map((p, i) => (
-                      <p key={i} className={styles.paragraph}>{p}</p>
+                    {paragraphChunks.map((chunk, chunkIndex) => (
+                      <section
+                        key={chunkIndex}
+                        className={styles.paragraphChunk}
+                      >
+                        {chunk.map((paragraph, paragraphIndex) => (
+                          <p
+                            key={`${chunkIndex}-${paragraphIndex}`}
+                            className={styles.paragraph}
+                          >
+                            {paragraph}
+                          </p>
+                        ))}
+                      </section>
                     ))}
                   </div>
-                )}
-                {readerTurnFeedback && (
-                  <div
-                    key={readerTurnFeedback.id}
-                    className={`${styles.readerTurnFeedback} ${
-                      readerTurnFeedback.direction === "prev"
-                        ? styles.readerTurnPrev
-                        : styles.readerTurnNext
-                    }`}
-                    aria-hidden="true"
-                  />
                 )}
               </div>
               <ReaderControls
                 onBack={handleToolbarBack}
                 onContents={() => setTocDrawerOpen(true)}
                 hasToc={tocItems.length > 0 && openBook.format === "epub"}
-                onPrev={handleToolbarPrev}
-                onNext={handleToolbarNext}
                 progressPercent={readerProgressPercent}
+                currentPage={readerPageInfo.current}
+                totalPages={readerPageInfo.total}
                 onOpenSettings={() => setReaderSettingsOpen(true)}
                 onAsk={() => setAskSheetOpen(true)}
                 onOpenGoal={handleOpenGoalSheet}
@@ -1562,7 +2077,9 @@ export default function Home() {
                 targetMinutes={readingGoal.targetMinutes}
               />
             </div>
-          ) : (
+        )}
+
+        {activeTab === "reading" && !openBook && (
             <div className={`${styles.readingDashboard} ${styles.pageFade}`}>
               <div className={styles.pageHeader}>
                 <h1 className={styles.libraryTitle}>{UI_TEXT.READING}</h1>
@@ -1631,21 +2148,6 @@ export default function Home() {
                 )}
               </section>
 
-              <section className={styles.quickActionsGrid}>
-                <button onClick={() => fileInputRef.current?.click()}>
-                  <strong>{UI_TEXT.IMPORT_BOOKS}</strong>
-                  <span>{UI_TEXT.ALL_LOCAL}</span>
-                </button>
-                <button onClick={() => setReaderSettingsOpen(true)}>
-                  <strong>{UI_TEXT.READER_APPEARANCE}</strong>
-                  <span>{readerThemeLabel}</span>
-                </button>
-                <button onClick={switchToSettings}>
-                  <strong>{UI_TEXT.AI_SETTINGS_TITLE}</strong>
-                  <span>{formatAiStatus(hasUsableAiSettings(aiSettings))}</span>
-                </button>
-              </section>
-
               <section className={styles.readingWeekCard}>
                 <div className={styles.sectionHeader}>
                   <h2>{UI_TEXT.LAST_SEVEN_DAYS}</h2>
@@ -1663,39 +2165,16 @@ export default function Home() {
                 </div>
               </section>
             </div>
-          )
         )}
 
         {activeTab === "settings" && (
           <div className={styles.settingsPage}>
             <h1 className={styles.libraryTitle}>{UI_TEXT.SETTINGS}</h1>
 
-            <section className={styles.settingsProfileCard}>
-              <span className={styles.settingsAppIcon}>
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                  <path d="M5.5 6.5c3.3-.4 6 .4 8.5 2.2 2.5-1.8 5.2-2.6 8.5-2.2v15c-3.3-.4-6 .4-8.5 2.2-2.5-1.8-5.2-2.6-8.5-2.2v-15Z" />
-                  <path d="M14 8.7v15" />
-                </svg>
-              </span>
-              <span className={styles.settingsProfileText}>
-                <strong>AI Reader</strong>
-                <small>
-                  {formatSettingsBookCount(books.length)} · {UI_TEXT.TODAY_READING} {formatSettingsReadingMinutes(todayMinutesValue)}
-                </small>
-              </span>
-            </section>
-
             <section className={styles.settingsSection}>
               <h2 className={styles.settingsSectionTitle}>{UI_TEXT.APP_PREFERENCES}</h2>
               <div className={styles.settingsNativeList}>
                 <label className={styles.settingsSwitchRow}>
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconBlue}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M7 4.5h6a3 3 0 0 1 0 6H8" strokeLinecap="round" />
-                      <path d="M8.5 7.5 5.5 10l3 2.5" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M5.5 15.5h9" strokeLinecap="round" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.AUTO_OPEN_LAST_BOOK}</strong>
                     <small>{UI_TEXT.AUTO_OPEN_LAST_BOOK_HINT}</small>
@@ -1711,12 +2190,6 @@ export default function Home() {
                 </label>
 
                 <label className={styles.settingsSwitchRow}>
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconGreen}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M10 3.5v4" strokeLinecap="round" />
-                      <path d="M6.6 5.2a6 6 0 1 0 6.8 0" strokeLinecap="round" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.KEEP_SCREEN_AWAKE}</strong>
                     <small>{UI_TEXT.KEEP_SCREEN_AWAKE_HINT}</small>
@@ -1732,12 +2205,6 @@ export default function Home() {
                 </label>
 
                 <label className={styles.settingsSwitchRow}>
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconGray}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M5 5h10v10H5z" />
-                      <path d="M8 8h4v4H8z" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.REDUCE_MOTION}</strong>
                     <small>{UI_TEXT.REDUCE_MOTION_HINT}</small>
@@ -1751,33 +2218,6 @@ export default function Home() {
                     }
                   />
                 </label>
-
-                <div className={styles.settingsSegmentRow}>
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconOrange}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <rect x="3.5" y="4" width="5.2" height="12" rx="1.2" />
-                      <rect x="11.3" y="4" width="5.2" height="12" rx="1.2" />
-                    </svg>
-                  </span>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.DEFAULT_LIBRARY_VIEW}</strong>
-                    <small>{UI_TEXT.DEFAULT_LIBRARY_VIEW_HINT}</small>
-                  </span>
-                  <span className={styles.settingsSegmentControl}>
-                    <button
-                      className={libraryView === "grid" ? styles.settingsSegmentActive : ""}
-                      onClick={() => handleLibraryViewChange("grid")}
-                    >
-                      {UI_TEXT.GRID_VIEW}
-                    </button>
-                    <button
-                      className={libraryView === "list" ? styles.settingsSegmentActive : ""}
-                      onClick={() => handleLibraryViewChange("list")}
-                    >
-                      {UI_TEXT.LIST_VIEW}
-                    </button>
-                  </span>
-                </div>
               </div>
             </section>
 
@@ -1785,34 +2225,6 @@ export default function Home() {
               <h2 className={styles.settingsSectionTitle}>{UI_TEXT.READING_GESTURES}</h2>
               <div className={styles.settingsNativeList}>
                 <label className={styles.settingsSwitchRow}>
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconPurple}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M5.5 5.5h9v9h-9z" />
-                      <path d="m8 10 2-2 2 2" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M10 8v5" strokeLinecap="round" />
-                    </svg>
-                  </span>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.EDGE_TAP_TO_TURN}</strong>
-                    <small>{UI_TEXT.EDGE_TAP_TO_TURN_HINT}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    className={styles.iosSwitch}
-                    checked={appPrefs.edgeTapToTurn}
-                    onChange={(e) =>
-                      handleAppPreferencesChange({ edgeTapToTurn: e.target.checked })
-                    }
-                  />
-                </label>
-
-                <label className={styles.settingsSwitchRow}>
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconCyan}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M4 10h12" strokeLinecap="round" />
-                      <path d="m7 7-3 3 3 3M13 7l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.SWIPE_TO_TURN}</strong>
                     <small>{UI_TEXT.SWIPE_TO_TURN_HINT}</small>
@@ -1832,50 +2244,20 @@ export default function Home() {
             <section className={styles.settingsSection}>
               <h2 className={styles.settingsSectionTitle}>{UI_TEXT.AI_SETTINGS_TITLE}</h2>
               <div className={styles.settingsNativeList}>
-                <div className={styles.settingsInputRow}>
-                  <label htmlFor="ai-base-url">{UI_TEXT.BASE_URL}</label>
-                  <input
-                    id="ai-base-url"
-                    type="text"
-                    value={formBaseUrl}
-                    onChange={(e) => setFormBaseUrl(e.target.value)}
-                    placeholder="https://api.openai.com/v1"
-                  />
-                </div>
-                <div className={styles.settingsInputRow}>
-                  <label htmlFor="ai-model">{UI_TEXT.MODEL}</label>
-                  <input
-                    id="ai-model"
-                    type="text"
-                    value={formModel}
-                    onChange={(e) => setFormModel(e.target.value)}
-                    placeholder="gpt-4o-mini"
-                  />
-                </div>
-                <div className={styles.settingsInputRow}>
-                  <label htmlFor="ai-api-key">{UI_TEXT.API_KEY}</label>
-                  <input
-                    id="ai-api-key"
-                    type="password"
-                    value={formApiKey}
-                    onChange={(e) => setFormApiKey(e.target.value)}
-                    placeholder={UI_TEXT.API_KEY}
-                  />
-                </div>
-                <div className={styles.settingsActionRow}>
-                  <button
-                    className={styles.secondaryButton}
-                    onClick={handleClearSettings}
-                  >
-                    {UI_TEXT.CLEAR}
-                  </button>
-                  <button
-                    className={styles.primaryButton}
-                    onClick={handleSaveSettings}
-                  >
-                    {UI_TEXT.SAVE}
-                  </button>
-                </div>
+                <button
+                  className={styles.settingsNavRow}
+                  onClick={() => setAiSettingsSheetOpen(true)}
+                >
+                  <span className={styles.settingsRowText}>
+                    <strong>AI 服务商</strong>
+                    <small>
+                      {activeAiProvider
+                        ? `${activeAiProvider.label} · ${activeAiProvider.model}`
+                        : "未配置"}
+                    </small>
+                  </span>
+                  <span className={styles.continueChevron}>{"\u203a"}</span>
+                </button>
               </div>
             </section>
 
@@ -1886,12 +2268,6 @@ export default function Home() {
                   className={styles.settingsNavRow}
                   onClick={handleExportBackup}
                 >
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconBlue}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M10 3v9m0 0 3-3m-3 3L7 9" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M4 16h12" strokeLinecap="round" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.EXPORT_BACKUP}</strong>
                   </span>
@@ -1901,12 +2277,6 @@ export default function Home() {
                   className={styles.settingsNavRow}
                   onClick={() => backupInputRef.current?.click()}
                 >
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconGreen}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M10 12V3m0 0L7 6m3-3 3 3" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M4 16h12" strokeLinecap="round" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.IMPORT_BACKUP}</strong>
                   </span>
@@ -1935,12 +2305,6 @@ export default function Home() {
                   className={styles.settingsNavRow}
                   onClick={() => setReaderSettingsOpen(true)}
                 >
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconPurple}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <path d="M5 4.5c2-.2 3.6.2 5 1.4v10.6c-1.7-1.1-3.4-1.5-5-1.2V4.5Z" />
-                      <path d="M10 5.9c1.4-1.2 3-1.6 5-1.4v10.8c-1.6-.3-3.3.1-5 1.2V5.9Z" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.READER_APPEARANCE}</strong>
                     <small>{readerThemeLabel}</small>
@@ -1951,13 +2315,6 @@ export default function Home() {
                   className={styles.settingsNavRow}
                   onClick={handleOpenGoalSheet}
                 >
-                  <span className={`${styles.settingsRowIcon} ${styles.settingsIconOrange}`}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                      <circle cx="10" cy="10" r="7" />
-                      <circle cx="10" cy="10" r="3" />
-                      <circle cx="10" cy="10" r="0.5" fill="currentColor" />
-                    </svg>
-                  </span>
                   <span className={styles.settingsRowText}>
                     <strong>{UI_TEXT.READING_GOAL}</strong>
                     <small>{UI_TEXT.TODAY_READING} {todayMinutesValue}/{readingGoal.targetMinutes} {UI_TEXT.MINUTES}</small>
@@ -1967,36 +2324,6 @@ export default function Home() {
               </div>
             </section>
 
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.PRIVACY_AND_DATA}</h2>
-              <div className={styles.settingsNativeList}>
-                <div className={styles.settingsInfoRow}>
-                  <span>{UI_TEXT.COLLECTIONS}</span>
-                  <strong>{formatSettingsBookCount(books.length)}</strong>
-                </div>
-                <div className={styles.settingsInfoRow}>
-                  <span>{UI_TEXT.READING_STREAK}</span>
-                  <strong>{formatSettingsReadingMinutes(totalMinutesValue)}</strong>
-                </div>
-                <div className={styles.settingsInfoRow}>
-                  <span>{UI_TEXT.LOCAL_BACKUP}</span>
-                  <strong>{UI_TEXT.ALL_LOCAL}</strong>
-                </div>
-              </div>
-              <p className={styles.settingsFootnote}>{UI_TEXT.LOCAL_STORAGE_ONLY}</p>
-              <p className={styles.settingsFootnote}>{UI_TEXT.API_KEY_LOCAL_ONLY}</p>
-            </section>
-
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.PWA_INSTALL}</h2>
-              <div className={styles.settingsNativeList}>
-                <div className={styles.settingsInfoRow}>
-                  <span>{UI_TEXT.APP_VERSION}</span>
-                  <strong>{SETTINGS_APP_VERSION}</strong>
-                </div>
-              </div>
-              <p className={styles.settingsFootnote}>{UI_TEXT.PWA_INSTALL_HINT}</p>
-            </section>
           </div>
         )}
       </main>
@@ -2005,7 +2332,11 @@ export default function Home() {
         <nav className={styles.tabBar}>
           <button
             className={`${styles.tab} ${activeTab === "library" ? styles.activeTab : ""}`}
-            onClick={() => setActiveTab("library")}
+            onClick={() => {
+              setActiveTab("library");
+              setLibraryScreen("library");
+              setCollectionsEditing(false);
+            }}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
               <rect className={styles.tabIconFill} x="3.5" y="5.2" width="4.6" height="16" rx="1.5" />
@@ -2036,9 +2367,13 @@ export default function Home() {
             onClick={switchToSettings}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
-              <path className={styles.tabIconFill} d="M13 4.2 14.8 6l2.4-.6 1.7 2.9-1.8 1.8c.2.6.3 1.2.3 1.9s-.1 1.3-.3 1.9l1.8 1.8-1.7 2.9-2.4-.6L13 19.8 11.2 18l-2.4.6-1.7-2.9 1.8-1.8c-.2-.6-.3-1.2-.3-1.9s.1-1.3.3-1.9L7.1 8.3l1.7-2.9 2.4.6L13 4.2Z" />
-              <path className={styles.tabIconStroke} d="M13 4.2 14.8 6l2.4-.6 1.7 2.9-1.8 1.8c.2.6.3 1.2.3 1.9s-.1 1.3-.3 1.9l1.8 1.8-1.7 2.9-2.4-.6L13 19.8 11.2 18l-2.4.6-1.7-2.9 1.8-1.8c-.2-.6-.3-1.2-.3-1.9s.1-1.3.3-1.9L7.1 8.3l1.7-2.9 2.4.6L13 4.2Z" />
-              <circle className={styles.tabIconStroke} cx="13" cy="12" r="3.1" />
+              <path className={styles.tabIconStroke} d="M5.2 7.4h15.6M5.2 13h15.6M5.2 18.6h15.6" />
+              <circle className={styles.tabIconFill} cx="10" cy="7.4" r="2.2" />
+              <circle className={styles.tabIconFill} cx="16.2" cy="13" r="2.2" />
+              <circle className={styles.tabIconFill} cx="11.8" cy="18.6" r="2.2" />
+              <circle className={styles.tabIconStroke} cx="10" cy="7.4" r="2.2" />
+              <circle className={styles.tabIconStroke} cx="16.2" cy="13" r="2.2" />
+              <circle className={styles.tabIconStroke} cx="11.8" cy="18.6" r="2.2" />
             </svg>
             <span>{UI_TEXT.SETTINGS}</span>
           </button>
@@ -2084,15 +2419,26 @@ export default function Home() {
         />
       )}
 
+      {aiSettingsSheetOpen && (
+        <AiSettingsSheet
+          settings={aiProviderSettings}
+          onSave={handleAiProviderSettingsSave}
+          onClose={() => setAiSettingsSheetOpen(false)}
+        />
+      )}
+
       {askSheetOpen && (
-        <div className={styles.sheetOverlay} onClick={() => setAskSheetOpen(false)}>
-          <div className={styles.bottomSheet} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetGrabber} />
+        <BottomSheet
+          onClose={() => setAskSheetOpen(false)}
+          ariaLabel={UI_TEXT.ASK_AI}
+        >
+          {(close) => (
+            <>
             <div className={styles.sheetHeader}>
               <h2 className={styles.sheetTitle}>{UI_TEXT.ASK_AI}</h2>
               <button
                 className={styles.iconButton}
-                onClick={() => setAskSheetOpen(false)}
+                onClick={() => close()}
                 title={UI_TEXT.CLOSE}
                 aria-label={UI_TEXT.CLOSE}
               >
@@ -2112,17 +2458,20 @@ export default function Home() {
                   error={askError}
                   onAsk={handleAsk}
                   onClearSelection={handleClearSelection}
-                  aiSettingsUsable={hasUsableAiSettings(aiSettings)}
+                  aiSettingsUsable={aiProviderUsable}
                   bookTitle={openBook?.title ?? null}
                   onOpenSettings={() => {
-                    setAskSheetOpen(false);
-                    switchToSettings();
+                    close(() => {
+                      switchToSettings();
+                      setAiSettingsSheetOpen(true);
+                    });
                   }}
                 />
               </div>
             </div>
-          </div>
-        </div>
+            </>
+          )}
+        </BottomSheet>
       )}
 
       {goalSheetOpen && (
@@ -2139,14 +2488,17 @@ export default function Home() {
       )}
 
       {batchGroupSheetOpen && (
-        <div className={styles.sheetOverlay} onClick={() => setBatchGroupSheetOpen(false)}>
-          <div className={styles.bottomSheet} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetGrabber} />
+        <BottomSheet
+          onClose={() => setBatchGroupSheetOpen(false)}
+          ariaLabel={UI_TEXT.ADD_SELECTED_TO_GROUP}
+        >
+          {(close) => (
+            <>
             <div className={styles.sheetHeader}>
               <h2 className={styles.sheetTitle}>{UI_TEXT.ADD_SELECTED_TO_GROUP}</h2>
               <button
                 className={styles.iconButton}
-                onClick={() => setBatchGroupSheetOpen(false)}
+                onClick={() => close()}
                 title={UI_TEXT.CLOSE}
                 aria-label={UI_TEXT.CLOSE}
               >
@@ -2171,7 +2523,7 @@ export default function Home() {
                     <button
                       key={group.id}
                       className={styles.actionListRow}
-                      onClick={() => handleAddSelectedBooksToGroup(group.id)}
+                      onClick={() => close(() => void handleAddSelectedBooksToGroup(group.id))}
                     >
                       <span className={styles.actionIcon}>
                         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -2191,31 +2543,37 @@ export default function Home() {
                   className={styles.groupCreateInput}
                   value={newGroupName}
                   onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") void handleCreateBatchGroup(); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") close(() => void handleCreateBatchGroup());
+                  }}
                   placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
                 />
                 <button
                   className={styles.groupCreateButton}
-                  onClick={handleCreateBatchGroup}
+                  onClick={() => close(() => void handleCreateBatchGroup())}
                   disabled={!newGroupName.trim()}
                 >
                   {UI_TEXT.NEW_GROUP}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+            </>
+          )}
+        </BottomSheet>
       )}
 
       {batchDeleteConfirmOpen && (
-        <div className={styles.sheetOverlay} onClick={() => setBatchDeleteConfirmOpen(false)}>
-          <div className={styles.bottomSheet} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetGrabber} />
+        <BottomSheet
+          onClose={() => setBatchDeleteConfirmOpen(false)}
+          ariaLabel={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}
+        >
+          {(close) => (
+            <>
             <div className={styles.sheetHeader}>
               <h2 className={styles.sheetTitle}>{UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}</h2>
               <button
                 className={styles.iconButton}
-                onClick={() => setBatchDeleteConfirmOpen(false)}
+                onClick={() => close()}
                 title={UI_TEXT.CLOSE}
                 aria-label={UI_TEXT.CLOSE}
               >
@@ -2231,35 +2589,84 @@ export default function Home() {
                 <div>
                   <button
                     className={styles.secondaryButton}
-                    onClick={() => setBatchDeleteConfirmOpen(false)}
+                    onClick={() => close()}
                   >
                     {UI_TEXT.CANCEL}
                   </button>
                   <button
                     className={styles.dangerButton}
-                    onClick={handleDeleteSelectedBooks}
+                    onClick={() => close(() => void handleDeleteSelectedBooks())}
                   >
                     {UI_TEXT.BATCH_DELETE}
                   </button>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+            </>
+          )}
+        </BottomSheet>
+      )}
+
+      {collectionCreateSheetOpen && (
+        <BottomSheet
+          onClose={() => setCollectionCreateSheetOpen(false)}
+          ariaLabel="新建藏书"
+        >
+          {(close) => (
+            <>
+            <div className={styles.sheetHeader}>
+              <h2 className={styles.sheetTitle}>新建藏书</h2>
+              <button
+                className={styles.iconButton}
+                onClick={() => close()}
+                title={UI_TEXT.CLOSE}
+                aria-label={UI_TEXT.CLOSE}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+            <div className={styles.sheetBody}>
+              <div className={styles.groupCreateRow}>
+                <input
+                  type="text"
+                  className={styles.groupCreateInput}
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") close(() => void handleCreateCollectionGroup());
+                  }}
+                  placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
+                  autoFocus
+                />
+                <button
+                  className={styles.groupCreateButton}
+                  onClick={() => close(() => void handleCreateCollectionGroup())}
+                  disabled={!newGroupName.trim()}
+                >
+                  {UI_TEXT.NEW_GROUP}
+                </button>
+              </div>
+            </div>
+            </>
+          )}
+        </BottomSheet>
       )}
 
       {bookActionSheetBook && (
-        <div className={styles.sheetOverlay} onClick={closeBookActionSheet}>
-          <div
-            className={`${styles.bottomSheet} ${styles.bookActionSheet}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className={styles.sheetGrabber} />
+        <BottomSheet
+          onClose={closeBookActionSheet}
+          ariaLabel={UI_TEXT.BOOK_ACTIONS}
+          className={styles.bookActionSheet}
+        >
+          {(close) => (
+            <>
             <div className={styles.sheetHeader}>
               <h2 className={styles.sheetTitle}>{UI_TEXT.BOOK_ACTIONS}</h2>
               <button
                 className={styles.iconButton}
-                onClick={closeBookActionSheet}
+                onClick={() => close()}
                 title={UI_TEXT.CLOSE}
                 aria-label={UI_TEXT.CLOSE}
               >
@@ -2290,8 +2697,7 @@ export default function Home() {
                   className={styles.actionListRow}
                   onClick={() => {
                     const book = bookActionSheetBook;
-                    closeBookActionSheet();
-                    void openBookForReading(book);
+                    close(() => void openBookForReading(book));
                   }}
                 >
                   <span className={styles.actionIcon}>
@@ -2308,8 +2714,7 @@ export default function Home() {
                   className={styles.actionListRow}
                   onClick={() => {
                     const book = bookActionSheetBook;
-                    closeBookActionSheet();
-                    openGroupSheet(book);
+                    close(() => openGroupSheet(book));
                   }}
                 >
                   <span className={styles.actionIcon}>
@@ -2323,7 +2728,10 @@ export default function Home() {
 
                 <button
                   className={styles.actionListRow}
-                  onClick={() => handleExportBook(bookActionSheetBook)}
+                  onClick={() => {
+                    const book = bookActionSheetBook;
+                    close(() => void handleExportBook(book));
+                  }}
                 >
                   <span className={styles.actionIcon}>
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -2370,7 +2778,10 @@ export default function Home() {
                       </button>
                       <button
                         className={styles.dangerButton}
-                        onClick={() => handleDeleteBook(bookActionSheetBook)}
+                        onClick={() => {
+                          const book = bookActionSheetBook;
+                          close(() => void handleDeleteBook(book));
+                        }}
                       >
                         {UI_TEXT.DELETE_BOOK}
                       </button>
@@ -2391,19 +2802,23 @@ export default function Home() {
                 )}
               </div>
             </div>
-          </div>
-        </div>
+            </>
+          )}
+        </BottomSheet>
       )}
 
       {groupSheetOpen && groupSheetBook && (
-        <div className={styles.sheetOverlay} onClick={() => setGroupSheetOpen(false)}>
-          <div className={styles.bottomSheet} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetGrabber} />
+        <BottomSheet
+          onClose={() => setGroupSheetOpen(false)}
+          ariaLabel={UI_TEXT.MANAGE_GROUPS}
+        >
+          {(close) => (
+            <>
             <div className={styles.sheetHeader}>
               <h2 className={styles.sheetTitle}>{UI_TEXT.MANAGE_GROUPS}</h2>
               <button
                 className={styles.iconButton}
-                onClick={() => setGroupSheetOpen(false)}
+                onClick={() => close()}
                 title={UI_TEXT.CLOSE}
                 aria-label={UI_TEXT.CLOSE}
               >
@@ -2513,13 +2928,14 @@ export default function Home() {
               </div>
 
               <div className={styles.groupSheetActions}>
-                <button className={styles.primaryButton} onClick={() => setGroupSheetOpen(false)}>
+                <button className={styles.primaryButton} onClick={() => close()}>
                   {UI_TEXT.DONE}
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+            </>
+          )}
+        </BottomSheet>
       )}
     </div>
   );

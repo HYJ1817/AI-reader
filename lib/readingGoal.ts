@@ -15,6 +15,16 @@ export function formatReadingMinutes(seconds: number): number {
   return Math.floor(seconds / 60);
 }
 
+export function shouldPublishReadingSeconds(
+  previousPublishedSeconds: number,
+  nextSeconds: number
+): boolean {
+  return (
+    formatReadingMinutes(previousPublishedSeconds) !==
+    formatReadingMinutes(nextSeconds)
+  );
+}
+
 function clampTargetMinutes(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return DEFAULT_READING_TARGET_MINUTES;

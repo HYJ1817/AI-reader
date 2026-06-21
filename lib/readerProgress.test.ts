@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { normalizeProgressPercent } from "./readerProgress";
+import {
+  normalizeProgressPercent,
+  shouldPublishProgressPercent,
+} from "./readerProgress";
 
 describe("normalizeProgressPercent", () => {
   it("returns 0 for null", () => {
@@ -58,5 +61,20 @@ describe("normalizeProgressPercent", () => {
 
   it("handles valid integer in range", () => {
     expect(normalizeProgressPercent(50)).toBe(50);
+  });
+});
+
+describe("shouldPublishProgressPercent", () => {
+  it("does not publish sub-percent changes that render identically", () => {
+    expect(shouldPublishProgressPercent(42.1, 42.4)).toBe(false);
+  });
+
+  it("publishes when the visible integer percentage changes", () => {
+    expect(shouldPublishProgressPercent(42.4, 42.6)).toBe(true);
+  });
+
+  it("sanitizes invalid progress values before comparing", () => {
+    expect(shouldPublishProgressPercent(Number.NaN, 0.2)).toBe(false);
+    expect(shouldPublishProgressPercent(0, Number.POSITIVE_INFINITY)).toBe(false);
   });
 });

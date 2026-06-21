@@ -1,4 +1,19 @@
 .app {
+  --page-x: 18px;
+  --list-radius: 13px;
+  --row-min: 58px;
+  --motion-fast: 140ms;
+  --motion-standard: 190ms;
+  --motion-sheet: 230ms;
+  --motion-chrome-enter: 220ms;
+  --motion-chrome-exit: 180ms;
+  --ease-standard: cubic-bezier(0.25, 1, 0.5, 1);
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --hairline: color-mix(in srgb, var(--ios-separator) 72%, transparent);
+  --shadow-soft: 0 7px 18px rgba(0, 0, 0, 0.1);
+  --shadow-float: 0 12px 34px rgba(0, 0, 0, 0.14);
+  --shadow-sheet: 0 -8px 18px rgba(0, 0, 0, 0.16);
+  --elevated-shadow: var(--shadow-soft);
   display: flex;
   flex-direction: column;
   height: 100dvh;
@@ -15,6 +30,18 @@
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app,
+  .app *,
+  .app *::before,
+  .app *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }
 
 .header {
@@ -41,7 +68,7 @@
   height: 36px;
   border-radius: 50%;
   color: var(--ios-tint);
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .iconButton:not(:disabled):hover {
@@ -52,12 +79,20 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding: 0 16px 24px;
-  padding-bottom: calc(var(--tab-height) + 24px + var(--safe-bottom));
+  padding: 0 var(--page-x) 24px;
+  padding-bottom: calc(76px + 12px + 24px + var(--safe-bottom));
 }
 
 .libraryPage {
   padding-top: calc(var(--safe-top) + 8px);
+}
+
+.tabPageActive {
+  display: block;
+}
+
+.tabPageInactive {
+  display: none;
 }
 
 .settingsPage {
@@ -65,17 +100,15 @@
 }
 
 .pageFade {
-  animation: pageFadeIn 0.24s ease-out;
+  animation: pageFadeIn var(--motion-standard) var(--ease-standard);
 }
 
 @keyframes pageFadeIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
@@ -98,85 +131,28 @@
 .settingsSection {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: var(--ios-radius-lg);
-  background: var(--ios-blur-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border: 0.5px solid var(--ios-separator);
-}
-
-.settingsProfileCard {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 74px;
-  margin: 12px 0;
-  padding: 12px;
-  border-radius: 18px;
-  background: var(--ios-bg-elevated);
-  border: 0.5px solid var(--ios-separator);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
-}
-
-.settingsAppIcon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 52px;
-  height: 52px;
-  border-radius: 13px;
-  color: #ffffff;
-  background: linear-gradient(145deg, #0a84ff, #34c759);
-  box-shadow:
-    0 8px 18px rgba(10, 132, 255, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.32);
-}
-
-.settingsProfileText {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.settingsProfileText strong,
-.settingsProfileText small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.settingsProfileText strong {
-  color: var(--ios-text);
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.settingsProfileText small {
-  color: var(--ios-secondary);
-  font-size: 13px;
-  font-weight: 600;
+  gap: 7px;
+  margin-top: 22px;
 }
 
 .settingsSection + .settingsSection {
-  margin-top: 12px;
+  margin-top: 24px;
 }
 
 .settingsSectionTitle {
-  font-size: 14px;
-  font-weight: 600;
   margin: 0;
-  color: var(--ios-text);
+  padding: 0 16px;
+  color: var(--ios-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
 }
 
 .settingsNativeList {
   overflow: hidden;
-  border-radius: 14px;
+  border-radius: var(--list-radius);
   background: var(--ios-bg-elevated);
-  border: 0.5px solid var(--ios-separator);
+  border: 0;
 }
 
 .settingsSwitchRow,
@@ -184,10 +160,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  min-height: 58px;
-  padding: 10px 12px;
-  border-bottom: 0.5px solid var(--ios-separator);
+  gap: 12px;
+  min-height: var(--row-min);
+  padding: 10px 16px;
+  border-bottom: 0.5px solid var(--hairline);
 }
 
 .settingsSwitchRow:last-child,
@@ -200,56 +176,20 @@
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 3px;
-}
-
-.settingsRowIcon {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22);
-}
-
-.settingsIconBlue {
-  background: #0a84ff;
-}
-
-.settingsIconGreen {
-  background: #34c759;
-}
-
-.settingsIconGray {
-  background: #8e8e93;
-}
-
-.settingsIconOrange {
-  background: #ff9500;
-}
-
-.settingsIconPurple {
-  background: #af52de;
-}
-
-.settingsIconCyan {
-  background: #32ade6;
+  gap: 4px;
 }
 
 .settingsRowText strong {
   color: var(--ios-text);
   font-size: 15px;
-  font-weight: 600;
-  line-height: 1.2;
+  font-weight: 500;
+  line-height: 1.24;
 }
 
 .settingsRowText small {
   color: var(--ios-secondary);
-  font-size: 12px;
-  line-height: 1.25;
+  font-size: 12.5px;
+  line-height: 1.28;
 }
 
 .iosSwitch {
@@ -260,8 +200,8 @@
   height: 32px;
   border-radius: 999px;
   background: var(--ios-pill);
-  border: 0.5px solid var(--ios-separator);
-  transition: background 0.18s ease;
+  border: 0.5px solid var(--hairline);
+  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
 }
 
 .iosSwitch::after {
@@ -274,7 +214,7 @@
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.24);
-  transition: transform 0.18s ease;
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .iosSwitch:checked {
@@ -309,7 +249,7 @@
 .settingsSegmentControl .settingsSegmentActive {
   background: var(--ios-bg);
   color: var(--ios-tint);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .settingsInfoRow {
@@ -324,8 +264,8 @@
 
 .settingsNativeList .settingsInfoRow {
   min-height: 44px;
-  padding: 8px 12px;
-  border-bottom: 0.5px solid var(--ios-separator);
+  padding: 8px 16px;
+  border-bottom: 0.5px solid var(--hairline);
 }
 
 .settingsNativeList .settingsInfoRow:last-child {
@@ -356,8 +296,8 @@
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  padding: 8px 12px;
-  border-bottom: 0.5px solid var(--ios-separator);
+  padding: 8px 16px;
+  border-bottom: 0.5px solid var(--hairline);
 }
 
 .settingsInputRow:last-child {
@@ -377,7 +317,7 @@
   min-width: 0;
   flex: 1;
   padding: 6px 8px;
-  border: 1px solid var(--ios-separator);
+  border: 1px solid var(--hairline);
   border-radius: 8px;
   background: var(--ios-pill);
   color: var(--ios-text);
@@ -393,12 +333,44 @@
   border-color: var(--ios-tint);
 }
 
+.settingsToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 56px;
+  padding: 8px 16px;
+  border-bottom: 0.5px solid var(--hairline);
+}
+
+.settingsToggleRow span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.settingsToggleRow strong {
+  font-size: 15px;
+  font-weight: 650;
+  color: var(--ios-text);
+}
+
+.settingsToggleRow small {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ios-secondary);
+}
+
+.settingsToggleRow input {
+  flex-shrink: 0;
+}
+
 .settingsActionRow {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  padding: 10px 12px;
-  border-top: 0.5px solid var(--ios-separator);
+  padding: 10px 16px;
+  border-top: 0.5px solid var(--hairline);
 }
 
 .settingsActionRow button {
@@ -407,7 +379,7 @@
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .settingsActionRow button:active {
@@ -419,13 +391,13 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 44px;
-  padding: 8px 12px;
-  border-bottom: 0.5px solid var(--ios-separator);
+  min-height: 56px;
+  padding: 10px 16px;
+  border-bottom: 0.5px solid var(--hairline);
   background: transparent;
   color: var(--ios-text);
   text-align: left;
-  transition: background 0.15s;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .settingsNavRow:last-child {
@@ -434,6 +406,36 @@
 
 .settingsNavRow:active {
   background: var(--ios-pill);
+}
+
+.settingsActiveBadge {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, #30d158 15%, transparent);
+  color: #30d158;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.settingsDeleteBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, #ff3b30 12%, transparent);
+  color: #ff3b30;
+  cursor: pointer;
+  margin-left: 8px;
+  padding: 0;
+}
+
+.settingsDeleteBtn:active {
+  background: color-mix(in srgb, #ff3b30 25%, transparent);
 }
 
 .settingsStatusText {
@@ -451,11 +453,12 @@
 }
 
 .libraryTitle {
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.4px;
+  font-size: 40px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
   color: var(--ios-text);
   padding: 0;
+  line-height: 1.05;
 }
 
 .libraryActions {
@@ -465,19 +468,19 @@
 }
 
 .libraryActionButton {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 8px 15px;
   border-radius: 20px;
-  background: var(--ios-blur-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border: 0.5px solid var(--ios-separator);
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--hairline);
   color: var(--ios-tint);
   font-size: 14px;
-  font-weight: 500;
-  transition: opacity 0.15s;
+  font-weight: 600;
+  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 }
 
 .libraryActionButton:not(:disabled):hover {
@@ -496,7 +499,7 @@
   color: var(--ios-tint);
   font-size: 15px;
   font-weight: 700;
-  transition: background 0.15s ease, opacity 0.15s ease;
+  transition: background var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
 }
 
 .libraryTextButton:not(:disabled):active {
@@ -522,17 +525,14 @@
   gap: 12px;
   margin-top: 6px;
   padding: 16px;
-  border: 0.5px solid var(--glass-highlight);
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 56%),
-    linear-gradient(140deg, color-mix(in srgb, var(--ios-tint) 9%, transparent), transparent 48%),
-    var(--ios-blur-bg);
+  border: 0.5px solid var(--ios-separator);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--ios-bg-elevated) 86%, transparent);
   backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
   -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.18),
-    inset 0 1px rgba(255, 255, 255, 0.08);
+    var(--elevated-shadow),
+    inset 0 1px 0 var(--glass-highlight);
 }
 
 .libraryOverviewCopy,
@@ -552,15 +552,15 @@
 .libraryOverviewEyebrow {
   color: var(--ios-tint);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.1;
 }
 
 .libraryOverviewCopy strong {
   overflow: hidden;
   color: var(--ios-text);
-  font-size: 25px;
-  font-weight: 800;
+  font-size: 23px;
+  font-weight: 750;
   line-height: 1.14;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -571,7 +571,7 @@
   overflow: hidden;
   color: var(--ios-secondary);
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 1.34;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -585,12 +585,15 @@
   gap: 12px;
   min-height: 72px;
   padding: 9px 10px;
-  border-radius: 18px;
+  border-radius: 16px;
   background: color-mix(in srgb, var(--ios-bg-elevated) 82%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--ios-separator) 70%, transparent);
   color: var(--ios-text);
   text-align: left;
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.06);
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  transition:
+    transform var(--motion-standard) var(--ease-standard),
+    opacity var(--motion-standard) var(--ease-standard);
 }
 
 .libraryOverviewGoal:active {
@@ -668,7 +671,8 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   border-radius: 16px;
-  background: rgba(120, 130, 160, 0.1);
+  background: color-mix(in srgb, var(--ios-pill) 70%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--ios-separator) 70%, transparent);
 }
 
 .libraryOverviewStats > span {
@@ -706,21 +710,22 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin: 8px 0 10px;
+  margin: 18px 0 12px;
 }
 
 .sectionHeader h2 {
   margin: 0;
   color: var(--ios-text);
-  font-size: 21px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 750;
+  letter-spacing: -0.2px;
   line-height: 1.2;
 }
 
 .sectionHeader span {
   color: var(--ios-secondary);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .continueCard,
@@ -731,12 +736,12 @@
   align-items: center;
   gap: 12px;
   padding: 12px;
-  border-radius: 14px;
-  border: 0.5px solid var(--ios-separator);
+  border-radius: var(--list-radius);
+  border: 0.5px solid var(--hairline);
   background: var(--ios-bg-elevated);
   color: var(--ios-text);
   text-align: left;
-  transition: transform 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+  transition: transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
 }
 
 .continueHeroCard {
@@ -835,7 +840,7 @@
   height: 4px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(120, 130, 160, 0.18);
+  background: color-mix(in srgb, var(--ios-secondary) 16%, transparent);
 }
 
 .libraryProgressTrack span {
@@ -848,7 +853,6 @@
 .continueCard:active,
 .featureBookCard:active,
 .readingGoalCard:active,
-.quickActionsGrid button:active,
 .bookItem:active {
   transform: scale(0.985);
 }
@@ -934,7 +938,9 @@
   color: var(--ios-text);
   text-align: left;
   scroll-snap-align: start;
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform var(--motion-standard) var(--ease-standard),
+    opacity var(--motion-standard) var(--ease-standard);
 }
 
 .shelfBookButton:active {
@@ -1033,11 +1039,100 @@
   margin-top: 12px;
 }
 
+.collectionEntryRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  margin: 0;
+  padding: 10px 0;
+  border: 0;
+  border-top: 0.5px solid var(--hairline);
+  border-bottom: 0.5px solid var(--hairline);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ios-text);
+  text-align: left;
+}
+
+.collectionEntryIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 0;
+  color: var(--ios-secondary);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.collectionEntryText {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 2px;
+}
+
+.collectionEntryText strong {
+  overflow: hidden;
+  color: var(--ios-text);
+  font-size: 17px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collectionEntryText small {
+  color: var(--ios-secondary);
+  font-size: 13px;
+}
+
+.collectionsScreen {
+  display: grid;
+  gap: 16px;
+  padding-top: 2px;
+}
+
+.collectionsTopBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+}
+
+.collectionBackButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ios-tint);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.collectionBackButton span {
+  font-size: 30px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.collectionsTitle {
+  margin: -4px 0 0;
+  color: var(--ios-text);
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1.05;
+}
+
 .collectionList {
   display: flex;
   flex-direction: column;
-  border-radius: 12px;
-  border: 0.5px solid var(--ios-separator);
+  border-radius: var(--list-radius);
+  border: 0.5px solid var(--hairline);
   background: var(--ios-bg-elevated);
   overflow: hidden;
 }
@@ -1055,7 +1150,17 @@
   background: transparent;
   color: var(--ios-text);
   text-align: left;
-  transition: background 0.15s ease;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.collectionRowMain {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-align: left;
 }
 
 .collectionRow:last-child {
@@ -1075,11 +1180,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 8px;
-  color: var(--ios-tint);
-  background: color-mix(in srgb, var(--ios-tint) 12%, transparent);
+  width: 34px;
+  height: 34px;
+  border-radius: 0;
+  color: var(--ios-text);
+  background: transparent;
+  border: 0;
+  box-shadow: none;
 }
 
 .collectionRowBody {
@@ -1117,11 +1224,47 @@
   line-height: 1;
 }
 
-.librarySearchRow {
+.collectionRenameInput {
+  min-width: 0;
+  flex: 1;
+  height: 34px;
+  padding: 0 8px;
+  border: 0.5px solid var(--hairline);
+  border-radius: 8px;
+  background: var(--ios-pill);
+  color: var(--ios-text);
+  font: inherit;
+  font-size: 16px;
+}
+
+.collectionEditActions {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 12px 0 6px;
+}
+
+.collectionEditActions button {
+  white-space: nowrap;
+}
+
+@media (max-width: 430px) {
+  .collectionEditActions {
+    gap: 4px;
+  }
+
+  .collectionEditActions button {
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.librarySearchRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 8px;
 }
 
 .librarySearchBox {
@@ -1130,8 +1273,8 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 38px;
-  padding: 0 11px;
+  height: 42px;
+  padding: 0 12px;
   border-radius: 12px;
   background: var(--ios-pill);
   color: var(--ios-secondary);
@@ -1157,7 +1300,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 38px;
+  height: 42px;
   padding: 3px;
   border-radius: 12px;
   background: var(--ios-pill);
@@ -1167,8 +1310,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   color: var(--ios-secondary);
 }
@@ -1176,6 +1319,7 @@
 .libraryViewToggle .libraryViewActive {
   background: var(--ios-bg-elevated);
   color: var(--ios-tint);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .emptyState {
@@ -1226,7 +1370,7 @@
   border-radius: 10px;
   font-size: 15px;
   font-weight: 600;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .primaryButton:not(:disabled):hover {
@@ -1270,7 +1414,7 @@
   border-radius: 50%;
   background: var(--ios-tint);
   color: #ffffff;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .sendButton:not(:disabled):hover {
@@ -1280,30 +1424,63 @@
 .tabBar {
   display: flex;
   position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: calc(var(--tab-height) + var(--safe-bottom));
-  padding-bottom: var(--safe-bottom);
+  left: 12px;
+  right: 12px;
+  bottom: calc(var(--safe-bottom) + 10px);
+  height: 72px;
+  padding: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  isolation: isolate;
   background: var(--ios-blur-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border-top: 0.5px solid var(--ios-separator);
+  backdrop-filter: blur(16px) saturate(128%);
+  -webkit-backdrop-filter: blur(16px) saturate(128%);
+  border: 0.5px solid var(--hairline);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 58%, transparent),
+    0 5px 14px rgba(0, 0, 0, 0.1);
   z-index: 10;
+  transition:
+    opacity var(--motion-standard) var(--ease-standard),
+    transform var(--motion-sheet) var(--ease-emphasized);
+}
+
+.tabBar::before {
+  content: "";
+  position: absolute;
+  inset: 1px 18px auto;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0.2;
+  pointer-events: none;
+}
+
+.tabBar::after {
+  content: none;
+}
+
+.tabBarReadingHidden {
+  opacity: 0;
+  transform: translateY(100%);
+  pointer-events: none;
 }
 
 .tab {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2px;
-  font-size: 10px;
+  gap: 3px;
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--ios-tertiary);
-  transition: color 0.15s;
-  padding: 8px 0;
+  transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  padding: 6px 4px;
+  border-radius: 999px;
 }
 
 .tab:focus {
@@ -1311,14 +1488,13 @@
 }
 
 .tab:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--ios-tint) 70%, transparent);
-  outline-offset: -6px;
-  border-radius: 14px;
+  outline: none;
+  border-radius: 999px;
 }
 
 .tabIcon {
-  width: 26px;
-  height: 26px;
+  width: 29px;
+  height: 29px;
   display: block;
   overflow: visible;
 }
@@ -1345,7 +1521,12 @@
 }
 
 .activeTab {
-  color: var(--ios-tint);
+  color: var(--ios-text);
+  background: color-mix(in srgb, var(--ios-bg-elevated) 66%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 46%, transparent),
+    0 3px 8px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
 }
 
 .tab:not(:disabled):hover {
@@ -1353,14 +1534,14 @@
 }
 
 .activeTab:hover {
-  color: var(--ios-tint);
+  color: var(--ios-text);
 }
 
 .libraryBatchBar {
   position: fixed;
   left: 12px;
   right: 12px;
-  bottom: calc(var(--tab-height) + var(--safe-bottom) + 10px);
+  bottom: calc(76px + 12px + var(--safe-bottom) + 10px);
   z-index: 30;
   display: grid;
   grid-template-columns: auto 1fr auto auto;
@@ -1369,12 +1550,12 @@
   min-height: 52px;
   padding: 8px 10px;
   border-radius: 18px;
-  border: 0.5px solid var(--glass-highlight);
-  background: var(--ios-blur-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22), inset 0 1px rgba(255, 255, 255, 0.08);
-  animation: sheetSlideUp 0.24s cubic-bezier(0.2, 0.86, 0.22, 1);
+  border: 0.5px solid var(--liquid-glass-border);
+  background: var(--liquid-glass-bg);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.09);
+  animation: batchBarEnter var(--motion-sheet) var(--ease-emphasized);
 }
 
 .libraryBatchBar span {
@@ -1395,7 +1576,20 @@
   border-radius: 12px;
   font-size: 13px;
   font-weight: 800;
-  transition: opacity 0.15s ease, background 0.15s ease;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard);
+}
+
+@keyframes batchBarEnter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .batchTextButton {
@@ -1430,6 +1624,12 @@
   flex-direction: column;
 }
 
+.libraryLoadSentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
+}
+
 .bookGrid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1441,6 +1641,8 @@
 .bookGridCell {
   position: relative;
   min-width: 0;
+  content-visibility: auto;
+  contain-intrinsic-size: 180px 260px;
 }
 
 .bookSelectable {
@@ -1456,7 +1658,7 @@
   gap: 7px;
   color: var(--ios-text);
   text-align: left;
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition: transform var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
 }
 
 .bookGridItem:active {
@@ -1469,7 +1671,7 @@
 }
 
 .bookSelected .bookCover {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-tint) 74%, transparent), 0 10px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ios-tint) 72%, transparent), 0 7px 14px rgba(0, 0, 0, 0.18);
 }
 
 .bookGridItem .bookCover {
@@ -1477,11 +1679,11 @@
   height: auto;
   aspect-ratio: 0.7;
   border-radius: 7px;
-  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 7px 14px rgba(0, 0, 0, 0.18);
 }
 
 .bookSelected .bookGridItem .bookCover {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ios-tint) 74%, transparent), 0 10px 18px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ios-tint) 72%, transparent), 0 7px 14px rgba(0, 0, 0, 0.18);
 }
 
 .bookGridTitle {
@@ -1507,7 +1709,7 @@
   height: 3px;
   overflow: hidden;
   border-radius: 999px;
-  background: rgba(120, 130, 160, 0.18);
+  background: color-mix(in srgb, var(--ios-secondary) 16%, transparent);
 }
 
 .bookGridProgress span {
@@ -1531,9 +1733,9 @@
   background: rgba(0, 0, 0, 0.34);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  box-shadow: inset 0 1px rgba(255, 255, 255, 0.18);
+  box-shadow: none;
   opacity: 0;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
 }
 
 .bookGridCell:hover .bookGridMoreButton,
@@ -1560,7 +1762,7 @@
   border: 1.5px solid rgba(255, 255, 255, 0.92);
   background: rgba(120, 130, 160, 0.48);
   color: #ffffff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
 }
 
 .selectionBadge {
@@ -1595,10 +1797,12 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
-  border-bottom: 0.5px solid var(--ios-separator);
+  padding: 13px 0;
+  border-bottom: 0.5px solid var(--hairline);
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+  content-visibility: auto;
+  contain-intrinsic-size: 74px;
 }
 
 .bookItem:hover {
@@ -1720,7 +1924,7 @@
   height: 28px;
   border-radius: 50%;
   color: var(--ios-tertiary);
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .bookMoreButton:hover {
@@ -1768,13 +1972,64 @@
 .readerBody {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 16px;
+  padding: 20px 24px 36px;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  transition:
+    opacity 110ms var(--ease-standard),
+    color 180ms var(--ease-standard),
+    background-color 180ms var(--ease-standard);
+  transform: translate3d(var(--reader-swipe-x, 0), 0, 0);
+}
+
+.readerBody::-webkit-scrollbar {
+  display: none;
 }
 
 .paragraph {
   color: var(--foreground);
-  margin: 0 0 1em 0;
+  margin: 0 0 1.05em 0;
+  text-align: justify;
+  text-wrap: pretty;
+  word-break: break-word;
+}
+
+.paragraphChunk {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1100px;
+}
+
+.epubReaderShell {
+  width: 100%;
+  padding: 0 20px 18px;
+  transition:
+    opacity 110ms var(--ease-standard),
+    color 180ms var(--ease-standard),
+    background-color 180ms var(--ease-standard);
+  transform: translate3d(var(--reader-swipe-x, 0), 0, 0);
+}
+
+.readerSwipeTracking {
+  transition: none !important;
+  will-change: transform;
+}
+
+.readerSwipeSettling {
+  transition:
+    transform var(--reader-swipe-duration, 180ms) var(--ease-emphasized),
+    opacity 110ms var(--ease-standard),
+    color 180ms var(--ease-standard),
+    background-color 180ms var(--ease-standard) !important;
+}
+
+.readerPreferencesAdjusting .readerBody,
+.readerPreferencesAdjusting .epubReaderShell {
+  opacity: 0.88;
+}
+
+.epubReaderViewport {
+  border-radius: 2px;
 }
 
 .readingDashboard {
@@ -1836,40 +2091,6 @@
 
 .featureBookCard {
   min-height: 96px;
-}
-
-.quickActionsGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.quickActionsGrid button {
-  min-width: 0;
-  min-height: 92px;
-  padding: 12px;
-  border-radius: 14px;
-  border: 0.5px solid var(--ios-separator);
-  background: var(--ios-bg-elevated);
-  color: var(--ios-text);
-  text-align: left;
-  transition: transform 0.18s ease, opacity 0.18s ease;
-}
-
-.quickActionsGrid strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.2;
-}
-
-.quickActionsGrid span {
-  display: block;
-  margin-top: 8px;
-  color: var(--ios-secondary);
-  font-size: 12px;
-  line-height: 1.25;
 }
 
 .readingWeekCard {
@@ -1947,11 +2168,39 @@
 }
 
 .readerShell {
-  position: relative;
+  position: fixed;
+  inset: 0;
+  z-index: 20;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100dvh;
   overflow: hidden;
+  background: var(--background);
+  color: var(--foreground);
+  isolation: isolate;
+  touch-action: pan-y pinch-zoom;
+  transition:
+    opacity 200ms var(--ease-standard),
+    transform 220ms var(--ease-emphasized),
+    visibility 0s linear 0s,
+    background-color 180ms var(--ease-standard),
+    color 180ms var(--ease-standard);
+}
+
+.readerSessionActive {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.readerSessionInactive {
+  opacity: 0;
+  transform: translate3d(18px, 0, 0);
+  visibility: hidden;
+  pointer-events: none;
+  transition-duration: 180ms, 180ms, 0s, 180ms, 180ms;
+  transition-delay: 0s, 0s, 180ms, 0s, 0s;
 }
 
 .readerStage {
@@ -1961,109 +2210,387 @@
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding-top: calc(var(--safe-top) + 48px);
-  padding-bottom: calc(var(--tab-height) + var(--safe-bottom) + 72px);
+  padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
+  background: var(--background);
+  transition: background-color 180ms var(--ease-standard);
 }
 
 .readerChromeHidden .readerStage {
-  padding-top: var(--safe-top);
-  padding-bottom: calc(var(--tab-height) + var(--safe-bottom) + 12px);
-}
-
-.readerTurnFeedback {
-  position: absolute;
-  top: var(--safe-top);
-  bottom: calc(var(--tab-height) + var(--safe-bottom));
-  width: 42%;
-  z-index: 9;
-  pointer-events: none;
-  animation: readerTurnFlash 0.26s ease-out both;
-}
-
-.readerTurnPrev {
-  left: 0;
-  background: linear-gradient(90deg, rgba(10, 132, 255, 0.14), transparent 78%);
-}
-
-.readerTurnNext {
-  right: 0;
-  background: linear-gradient(270deg, rgba(10, 132, 255, 0.14), transparent 78%);
-}
-
-@keyframes readerTurnFlash {
-  0% {
-    opacity: 0;
-    transform: scaleX(0.92);
-  }
-  34% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: scaleX(1);
-  }
+  padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
 }
 
 .readerChrome {
   pointer-events: none;
 }
 
-.readerTopBar {
+.readerOverlayClose,
+.readerTopHint,
+.readerPageBadge,
+.readerCornerMenuButton,
+.readerActionPanel,
+.readerGoalMini {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  z-index: 24;
+  pointer-events: auto;
+  transition:
+    opacity var(--motion-chrome-enter) var(--ease-standard),
+    transform var(--motion-chrome-enter) var(--ease-emphasized);
+}
+
+.readerOverlayClose {
+  top: calc(var(--safe-top) + 14px);
+  left: 32px;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: calc(var(--safe-top) + 8px) 8px 8px;
-  background: var(--ios-blur-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border-bottom: 0.5px solid var(--ios-separator);
+  justify-content: center;
+  border-radius: 50%;
+  color: color-mix(in srgb, var(--foreground) 58%, transparent);
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 12%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 42%, transparent),
+    0 2px 6px rgba(0, 0, 0, 0.07);
+}
+
+.readerOverlayClose:active,
+.readerCornerMenuButton:active,
+.readerGoalMini:active {
+  transform: scale(0.98);
+}
+
+.readerTopHint {
+  top: calc(var(--safe-top) + 40px);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(58vw, 260px);
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--foreground) 56%, transparent);
+  background: color-mix(in srgb, var(--background) 92%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.readerPageBadge {
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 44px);
+  transform: translateX(-50%);
+  min-height: 34px;
+  min-width: 74px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--foreground) 74%, transparent);
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 8%, transparent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.readerPageBadgeMenuOpen {
+  bottom: calc(var(--safe-bottom) + 22px);
+  opacity: 0.74;
+  transform: translateX(-50%) translateY(4px);
+}
+
+.readerCornerMenuButton {
+  right: 32px;
+  bottom: calc(var(--safe-bottom) + 48px);
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 40%, transparent),
+    0 3px 8px rgba(0, 0, 0, 0.08);
+}
+
+.readerCornerMenuButtonOpen {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.readerGoalMini {
+  display: none;
+}
+
+.readerActionPanel {
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 112px);
+  width: min(78vw, 340px);
+  display: grid;
+  gap: 9px;
+  transform: translateX(-50%) translateY(8px);
+  opacity: 0;
+  pointer-events: none;
+  color: var(--foreground);
+}
+
+.readerActionPanelOpen {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.readerActionPanelHeader,
+.readerActionPanelSearch,
+.readerActionPanelSetting {
+  display: flex;
+  align-items: center;
+  min-height: 58px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--background) 95%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.readerActionPanelHeader {
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.readerActionPanelHeader button {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--foreground);
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.readerActionPanelHeader button:first-child {
+  flex: 1;
+  justify-content: flex-start;
+  padding: 0 26px;
+}
+
+.readerActionPanelHeader button:last-child {
+  width: 72px;
+  border-left: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+}
+
+.readerActionPanelSearch,
+.readerActionPanelSetting {
+  justify-content: space-between;
+  padding: 0 26px;
+  font-size: 20px;
+  font-weight: 650;
+}
+
+.readerActionPanelSearch svg {
+  flex-shrink: 0;
+}
+
+.readerActionPanelSetting strong {
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 750;
+}
+
+.readerActionPanelDock {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.readerActionPanelDock button {
+  min-width: 0;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: var(--foreground);
+  background: color-mix(in srgb, var(--background) 95%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+}
+
+.readerActionPanelDock button:disabled {
+  color: color-mix(in srgb, var(--foreground) 28%, transparent);
+  opacity: 1;
+}
+
+.readerChromeControlsHidden .readerOverlayClose {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+}
+
+.readerChromeControlsHidden .readerTopHint {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-8px);
+  pointer-events: none;
+}
+
+.readerChromeControlsHidden .readerPageBadge {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+  pointer-events: none;
+}
+
+.readerChromeControlsHidden .readerCornerMenuButton,
+.readerChromeControlsHidden .readerGoalMini {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.readerChromeControlsHidden .readerActionPanel {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
+  pointer-events: none;
+}
+
+.readerChromeControlsHidden .readerOverlayClose,
+.readerChromeControlsHidden .readerTopHint,
+.readerChromeControlsHidden .readerPageBadge,
+.readerChromeControlsHidden .readerCornerMenuButton,
+.readerChromeControlsHidden .readerActionPanel,
+.readerChromeControlsHidden .readerGoalMini {
+  transition-duration: var(--motion-chrome-exit);
+  transition-timing-function: var(--ease-standard);
+}
+
+.readerTopBar {
+  position: absolute;
+  top: calc(var(--safe-top) + 6px);
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 38px;
+  padding: 1px 4px;
+  border-radius: 999px;
+  background: var(--liquid-glass-bg);
+  border: 0.5px solid var(--liquid-glass-border);
+  backdrop-filter: blur(14px) saturate(128%);
+  -webkit-backdrop-filter: blur(14px) saturate(128%);
+  box-shadow: var(--liquid-glass-shadow);
+  overflow: hidden;
+  isolation: isolate;
   z-index: 20;
   pointer-events: auto;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition:
+    opacity var(--motion-chrome-enter) var(--ease-standard),
+    transform var(--motion-chrome-enter) var(--ease-emphasized);
+}
+
+.readerTopBar::before {
+  content: "";
+  position: absolute;
+  inset: 1px 12px auto;
+  height: 16px;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent);
+  pointer-events: none;
 }
 
 .readerChromeControlsHidden .readerTopBar {
   opacity: 0;
-  transform: translateY(-100%);
+  transform: translateY(-12px);
   pointer-events: none;
 }
 
+.readerTopIconBtn {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  color: var(--ios-secondary);
+  flex-shrink: 0;
+  pointer-events: auto;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.readerTopIconBtn:not(:disabled):active {
+  opacity: 0.6;
+}
+
+.readerTopIconBtn:disabled {
+  opacity: 0.3;
+}
+
 .readerTopTitle {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--ios-text);
+  align-self: center;
+  padding: 0 8px;
+  color: color-mix(in srgb, var(--ios-secondary) 60%, transparent);
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   text-align: center;
+  letter-spacing: 0.2px;
 }
 
-.readerTopSpacer {
+.readerTopActions {
+  position: relative;
+  z-index: 1;
   flex-shrink: 0;
-  width: 4px;
+  display: flex;
+  align-items: center;
+  gap: 0;
 }
 
 .chromeButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   color: var(--ios-tint);
   pointer-events: auto;
-  transition: opacity 0.15s;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
   flex-shrink: 0;
 }
 
-.chromeButton:not(:disabled):hover {
-  opacity: 0.7;
+.chromeButton:not(:disabled):active {
+  background: color-mix(in srgb, var(--ios-tint) 12%, transparent);
+  transform: scale(0.94);
+}
+
+.chromeButton:disabled {
+  color: var(--ios-tertiary);
+  opacity: 0.42;
+}
+
+.readerBackButton {
+  display: none;
 }
 
 .goalRingButton {
@@ -2071,15 +2598,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 32px;
+  height: 32px;
   flex-shrink: 0;
   pointer-events: auto;
-  transition: opacity 0.15s;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
-.goalRingButton:hover {
-  opacity: 0.7;
+.goalRingButton:active {
+  transform: scale(0.92);
 }
 
 .goalRingStack {
@@ -2094,18 +2623,59 @@
 }
 
 .goalRingMinutes {
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--ios-text);
+  font-size: 8px;
+  font-weight: 800;
+  color: var(--ios-tint);
   line-height: 1;
 }
 
 .goalRingTarget {
-  margin-top: 2px;
-  font-size: 8px;
-  font-weight: 700;
-  color: var(--ios-text);
-  line-height: 1;
+  display: none;
+}
+
+.readerBottomProgress {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--safe-bottom) + 6px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--liquid-glass-bg);
+  border: 0.5px solid var(--liquid-glass-border);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
+  z-index: 15;
+  pointer-events: none;
+  transition:
+    opacity var(--motion-chrome-enter) var(--ease-standard),
+    transform var(--motion-chrome-enter) var(--ease-emphasized);
+}
+
+.readerChromeControlsHidden .readerBottomProgress {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.readerBottomBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--ios-secondary);
+  flex-shrink: 0;
+  pointer-events: auto;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.readerBottomBtn:not(:disabled):active {
+  opacity: 0.5;
 }
 
 .readerBottomPill {
@@ -2116,47 +2686,66 @@
   display: flex;
   align-items: center;
   gap: 0;
-  padding: 6px 4px;
-  background: var(--ios-blur-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border: 0.5px solid var(--ios-separator);
+  padding: 4px 4px;
+  background: var(--liquid-glass-bg);
+  border: 0.5px solid var(--liquid-glass-border);
+  backdrop-filter: blur(12px) saturate(128%);
+  -webkit-backdrop-filter: blur(12px) saturate(128%);
+  box-shadow: inset 0 1px 0 var(--glass-highlight);
   border-radius: 24px;
   z-index: 20;
   pointer-events: auto;
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition:
+    opacity var(--motion-standard) var(--ease-standard),
+    transform var(--motion-standard) var(--ease-emphasized);
 }
 
 .readerChromeControlsHidden .readerBottomPill {
   opacity: 0;
-  transform: translateX(-50%) translateY(24px);
+  transform: translateX(-50%) translateY(16px);
   pointer-events: none;
 }
 
 .pillButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  color: var(--ios-tint);
-  pointer-events: auto;
-  transition: opacity 0.15s;
+  display: none;
 }
 
-.pillButton:not(:disabled):hover {
-  opacity: 0.7;
+.readerProgressStack {
+  display: none;
 }
 
 .pillProgress {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ios-text);
-  min-width: 40px;
+  display: none;
+}
+
+.readerProgressPct {
+  flex-shrink: 0;
+  min-width: 28px;
   text-align: center;
-  white-space: nowrap;
+  color: var(--ios-tertiary);
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
+}
+
+.readerProgressTrack {
+  flex: 1;
+  min-width: 0;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ios-secondary) 14%, transparent);
+}
+
+.readerProgressTrack span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--ios-tint) 70%, transparent);
+  transform-origin: left center;
+  transition: transform 180ms var(--ease-standard);
 }
 
 .modalOverlay {
@@ -2214,7 +2803,7 @@
   color: var(--ios-tint);
   font-size: 14px;
   font-weight: 500;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .secondaryButton:not(:disabled):hover {
@@ -2270,7 +2859,7 @@
   border-radius: 4px;
   color: var(--ios-secondary);
   font-size: 14px;
-  transition: background 0.15s;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .clearSelectionButton:hover {
@@ -2330,20 +2919,15 @@
   height: 6px;
   border-radius: 50%;
   background: var(--ios-secondary);
-  animation: blink 1.4s infinite both;
+  opacity: 0.38;
 }
 
 .loadingDots span:nth-child(2) {
-  animation-delay: 0.2s;
+  opacity: 0.62;
 }
 
 .loadingDots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes blink {
-  0%, 80%, 100% { opacity: 0.3; }
-  40% { opacity: 1; }
+  opacity: 0.86;
 }
 
 
@@ -2361,7 +2945,9 @@
   font-weight: 500;
   color: var(--foreground);
   background: var(--surface);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
   white-space: nowrap;
 }
 
@@ -2399,38 +2985,107 @@
 }
 
 .libraryEditingContent {
-  padding-bottom: calc(var(--tab-height) + 96px + var(--safe-bottom));
+  padding-bottom: calc(76px + 12px + 96px + var(--safe-bottom));
 }
 
 .sheetOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: transparent;
   z-index: 100;
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: sheetBackdropIn 0.22s ease-out;
+  animation: sheetBackdropIn var(--motion-standard) var(--ease-standard);
+}
+
+.sheetOverlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  opacity: var(--sheet-backdrop-opacity, 1);
+  transition: opacity 180ms var(--ease-standard);
+  pointer-events: none;
 }
 
 .bottomSheet {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 500px;
   max-height: 80dvh;
   background: var(--ios-sheet-bg);
-  backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  -webkit-backdrop-filter: saturate(var(--glass-saturate)) blur(var(--glass-blur));
-  border-radius: 14px 14px 0 0;
-  border-top: 0.5px solid var(--glass-highlight);
-  box-shadow: 0 -18px 42px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.05);
+  contain: layout paint style;
+  border-radius: 24px 24px 0 0;
+  border-top: 0.5px solid var(--hairline);
+  border-left: 0.5px solid var(--hairline);
+  border-right: 0.5px solid var(--hairline);
+  box-shadow: var(--shadow-sheet);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   padding-bottom: calc(var(--safe-bottom) + 8px);
-  animation: sheetSlideUp 0.28s cubic-bezier(0.2, 0.86, 0.22, 1);
+  animation: sheetSlideUp var(--motion-sheet) var(--ease-emphasized);
+}
+
+.motionSheetOverlay {
+  opacity: 0;
+  animation: none;
+  transition: opacity 220ms var(--ease-standard);
+}
+
+.motionSheetOverlay .bottomSheet {
+  animation: none;
+  transform: translate3d(0, var(--sheet-drag-y, 0), 0);
+  transition: transform 240ms var(--ease-emphasized);
+}
+
+.motionSheetOpen {
+  opacity: 1;
+}
+
+.motionSheetEntering .bottomSheet {
+  transform: translate3d(0, 24px, 0);
+}
+
+.motionSheetClosing {
+  opacity: 0;
+  transition-duration: 180ms;
+}
+
+.motionSheetClosing .bottomSheet {
+  transform: translate3d(0, 100%, 0);
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-standard);
+}
+
+.motionSheetDragging {
+  opacity: 1;
+}
+
+.motionSheetDragging .bottomSheet {
+  transition: none;
   will-change: transform;
+}
+
+.motionSheetDragging::before {
+  transition: none;
+}
+
+.sheetDragHandle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 28px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.sheetDragHandle:active {
+  cursor: grabbing;
 }
 
 @keyframes sheetBackdropIn {
@@ -2444,10 +3099,10 @@
 
 @keyframes sheetSlideUp {
   from {
-    transform: translateY(28px) scale(0.985);
+    transform: translateY(22px);
   }
   to {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
@@ -2456,7 +3111,7 @@
   height: 5px;
   border-radius: 3px;
   background: var(--ios-tertiary);
-  margin: 8px auto 0;
+  margin: 0 auto;
   flex-shrink: 0;
 }
 
@@ -2496,11 +3151,16 @@
   text-align: left;
   font-size: 15px;
   color: var(--ios-text);
-  border-bottom: 0.5px solid var(--ios-separator);
+  border-bottom: 0.5px solid var(--hairline);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  transition: background 0.15s;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.tocRow {
+  content-visibility: auto;
+  contain-intrinsic-size: 52px;
 }
 
 .tocItem:not(:disabled):hover {
@@ -2583,7 +3243,9 @@
   font-weight: 600;
   text-align: left;
   border-bottom: 0.5px solid var(--ios-separator);
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .actionListRow:last-child {
@@ -2866,7 +3528,9 @@
   background: var(--ios-text);
   color: var(--ios-bg);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform var(--motion-standard) var(--ease-standard),
+    opacity var(--motion-standard) var(--ease-standard);
 }
 
 .goalContinueButton:active {
@@ -3001,7 +3665,9 @@
   font-size: 13px;
   font-weight: 500;
   border: 0.5px solid var(--ios-separator);
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
 .groupChipActive {
@@ -3050,6 +3716,12 @@
 
 .groupListItem {
   border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.tocLoadSentinel {
+  width: 100%;
+  height: 1px;
+  pointer-events: none;
 }
 
 .groupListItem:last-child {
@@ -3102,7 +3774,7 @@
   height: 32px;
   border-radius: 50%;
   color: var(--ios-secondary);
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .groupAction:hover {
@@ -3117,7 +3789,7 @@
   height: 32px;
   border-radius: 50%;
   color: #ff453a;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .groupActionDelete:hover {
@@ -3196,7 +3868,7 @@
   font-size: 14px;
   font-weight: 600;
   flex-shrink: 0;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .groupCreateButton:disabled {
@@ -3299,7 +3971,9 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
 .readerThemeSegment .readerThemeSegmentActive {
@@ -3348,7 +4022,7 @@
   color: #ffffff;
   font-size: 15px;
   font-weight: 600;
-  transition: opacity 0.15s;
+  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
 .readerSettingsDone button:active {
@@ -3401,7 +4075,7 @@
   font-size: 15px;
   color: var(--ios-text);
   background: transparent;
-  transition: background 0.15s;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .tocRowButton:active {
@@ -3433,4 +4107,695 @@
   font-size: 15px;
   color: var(--ios-secondary);
   line-height: 1.5;
+}
+
+.wizardSheet {
+  max-width: 430px;
+  max-height: 92dvh;
+  min-height: min(520px, calc(100dvh - var(--safe-top) - 18px));
+  border-radius: 28px 28px 0 0;
+  background: var(--ios-bg);
+}
+
+.wizardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 16px 12px;
+  flex-shrink: 0;
+}
+
+.wizardTitle {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--ios-text);
+}
+
+.wizardCloseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  color: var(--ios-secondary);
+  background: var(--ios-pill);
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.wizardCloseBtn:active {
+  opacity: 0.7;
+}
+
+.wizardSteps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 16px 16px;
+  flex-shrink: 0;
+}
+
+.wizardStepDot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wizardStepCircle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--ios-pill);
+  color: var(--ios-secondary);
+  border: 2px solid var(--ios-separator);
+  transition:
+    background var(--motion-standard) var(--ease-standard),
+    color var(--motion-standard) var(--ease-standard),
+    border-color var(--motion-standard) var(--ease-standard);
+}
+
+.wizardStepActive .wizardStepCircle {
+  background: var(--ios-tint);
+  color: #ffffff;
+  border-color: var(--ios-tint);
+}
+
+.wizardStepDone .wizardStepCircle {
+  background: #34c759;
+  color: #ffffff;
+  border-color: #34c759;
+}
+
+.wizardStepLine {
+  width: 32px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--ios-separator);
+  transition: background var(--motion-standard) var(--ease-standard);
+}
+
+.wizardStepLineDone {
+  background: #34c759;
+}
+
+.wizardBody {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px 8px;
+}
+
+.wizardStepTitle {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--ios-text);
+  margin: 0 0 6px;
+}
+
+.wizardStepHint {
+  font-size: 14px;
+  color: var(--ios-secondary);
+  margin: 0 0 20px;
+  line-height: 1.4;
+}
+
+.wizardProviderGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wizardProviderCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1.5px solid var(--ios-separator);
+  background: var(--ios-bg-elevated);
+  color: var(--ios-text);
+  text-align: left;
+  transition:
+    border-color var(--motion-standard) var(--ease-standard),
+    background var(--motion-standard) var(--ease-standard);
+}
+
+.wizardProviderCard:active {
+  transform: scale(0.99);
+}
+
+.wizardProviderActive {
+  border-color: var(--ios-tint);
+  background: color-mix(in srgb, var(--ios-tint) 6%, var(--ios-bg-elevated));
+}
+
+.wizardProviderIcon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  color: #ffffff;
+}
+
+.wizardProviderInfo {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wizardProviderName {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ios-text);
+}
+
+.wizardProviderDesc {
+  font-size: 12px;
+  color: var(--ios-secondary);
+}
+
+.wizardProviderCheck {
+  flex-shrink: 0;
+  color: var(--ios-tint);
+}
+
+.wizardFormList {
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+}
+
+.wizardFormRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.wizardFormRow:last-child {
+  border-bottom: none;
+}
+
+.wizardFormLabel {
+  flex-shrink: 0;
+  width: 70px;
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ios-text);
+  white-space: nowrap;
+}
+
+.wizardFormInput {
+  min-width: 0;
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--ios-separator);
+  border-radius: 8px;
+  background: var(--ios-pill);
+  color: var(--ios-text);
+  font-size: 15px;
+  outline: none;
+}
+
+.wizardFormInput::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.wizardFormInput:focus {
+  border-color: var(--ios-tint);
+}
+
+.wizardToggleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 54px;
+  padding: 8px 14px;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.wizardToggleRow:last-child {
+  border-bottom: none;
+}
+
+.wizardToggleText {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.wizardToggleText strong {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ios-text);
+}
+
+.wizardToggleText small {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ios-secondary);
+}
+
+.wizardNav {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  padding: 12px 16px;
+  padding-bottom: calc(var(--safe-bottom) + 12px);
+  flex-shrink: 0;
+}
+
+.wizardNav button {
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.wizardNav button:active {
+  opacity: 0.7;
+}
+
+.wizardNavBack {
+  background: var(--ios-pill);
+  color: var(--ios-text);
+}
+
+.wizardNavNext {
+  background: var(--ios-tint);
+  color: #ffffff;
+  margin-left: auto;
+}
+
+.wizardNavNext:disabled {
+  opacity: 0.4;
+}
+
+.wizardSummaryCard {
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--ios-bg-elevated);
+  border: 0.5px solid var(--ios-separator);
+  margin-bottom: 16px;
+}
+
+.wizardSummaryRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.wizardSummaryRow + .wizardSummaryRow {
+  border-top: 0.5px solid var(--ios-separator);
+}
+
+.wizardSummaryLabel {
+  color: var(--ios-secondary);
+  font-weight: 500;
+}
+
+.wizardSummaryValue {
+  color: var(--ios-text);
+  font-weight: 600;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bottomSheet::before {
+  content: "";
+  position: absolute;
+  inset: 1px 22px auto;
+  height: 22px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), transparent);
+  opacity: 0.18;
+  pointer-events: none;
+}
+
+.providerSheet {
+  max-width: 430px;
+  min-height: min(760px, calc(100dvh - var(--safe-top) - 16px));
+  max-height: 94dvh;
+  border-radius: 24px 24px 0 0;
+  background: var(--ios-bg);
+  padding-bottom: var(--safe-bottom);
+}
+
+.providerSheetChrome {
+  width: min(86%, 360px);
+  height: 14px;
+  margin: -18px auto 0;
+  border-radius: 18px 18px 0 0;
+  background: color-mix(in srgb, var(--ios-bg-elevated) 74%, transparent);
+  border: 0.5px solid var(--hairline);
+  box-shadow: none;
+  opacity: 0.72;
+}
+
+.providerSheetHeader {
+  display: grid;
+  grid-template-columns: 74px 1fr 74px;
+  align-items: center;
+  gap: 8px;
+  padding: 18px 16px 24px;
+}
+
+.providerSheetHeader h2 {
+  margin: 0;
+  text-align: center;
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 700;
+  color: var(--ios-text);
+}
+
+.providerNavButton {
+  justify-self: start;
+  border: none;
+  background: transparent;
+  color: var(--ios-tint);
+  font-size: 17px;
+  font-weight: 500;
+  padding: 4px 0;
+}
+
+.providerHeaderSpacer {
+  width: 74px;
+}
+
+.providerSheetBody {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 20px 24px;
+}
+
+.providerGroupLabel {
+  margin: 0 0 10px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ios-secondary);
+}
+
+.providerGroupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.providerGroupHeader .providerGroupLabel {
+  margin: 0 0 10px;
+}
+
+.providerRefreshButton {
+  min-height: 30px;
+  margin: 0 4px 10px 0;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: var(--ios-tint);
+  background: var(--ios-pill);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
+}
+
+.providerListCard {
+  overflow: hidden;
+  border-radius: var(--list-radius);
+  background: var(--ios-bg-elevated);
+  border: 0;
+}
+
+.providerChoiceRow,
+.providerFormRow,
+.providerSwitchRow,
+.providerStaticRow,
+.providerModelRow {
+  width: 100%;
+  min-height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-bottom: 0.5px solid var(--hairline);
+  color: var(--ios-text);
+  background: transparent;
+}
+
+.providerChoiceRow:last-child,
+.providerFormRow:last-child,
+.providerSwitchRow:last-child,
+.providerStaticRow:last-child,
+.providerModelRow:last-child {
+  border-bottom: none;
+}
+
+.providerChoiceIcon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+}
+
+.providerIconopenai {
+  color: #20b06b;
+  background: rgba(32, 176, 107, 0.14);
+}
+
+.providerIconanthropic {
+  color: #9357d8;
+  background: rgba(147, 87, 216, 0.14);
+}
+
+.providerIcongemini {
+  color: #168bd3;
+  background: rgba(22, 139, 211, 0.13);
+}
+
+.providerIconopenrouter {
+  color: #1a9ec0;
+  background: rgba(26, 158, 192, 0.13);
+}
+
+.providerIconxai {
+  color: #6f7378;
+  background: rgba(111, 115, 120, 0.12);
+}
+
+.providerChoiceText {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.providerChoiceText strong {
+  font-size: 16px;
+  line-height: 1.15;
+  font-weight: 500;
+  color: var(--ios-text);
+}
+
+.providerChoiceText small {
+  font-size: 13px;
+  line-height: 1.25;
+  color: var(--ios-secondary);
+}
+
+.providerModelActions {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.providerModelDelete {
+  color: #ff453a;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.providerModelCheck {
+  min-width: 18px;
+  color: var(--ios-tint);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.providerActiveBadge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(52, 199, 89, 0.13);
+  color: #1a8f45;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.providerChoiceChevron {
+  flex-shrink: 0;
+  color: var(--ios-tertiary);
+  font-size: 26px;
+  line-height: 1;
+}
+
+.providerEmptyState {
+  padding: 18px 16px;
+  color: var(--ios-secondary);
+  font-size: 15px;
+}
+
+.providerHelpText {
+  margin: 10px 0 28px;
+  padding: 0 20px;
+  font-size: 15px;
+  line-height: 1.38;
+  color: var(--ios-secondary);
+}
+
+.providerFormRow {
+  min-height: 58px;
+  padding: 0 16px;
+}
+
+.providerFormRow input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--ios-text);
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+.providerFormRow input::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.providerManualModelRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 54px;
+  padding: 8px 12px;
+}
+
+.providerManualModelRow input {
+  min-width: 0;
+  flex: 1;
+  height: 38px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--ios-pill);
+  color: var(--ios-text);
+  font-size: 14px;
+  outline: none;
+}
+
+.providerManualModelRow input::placeholder {
+  color: var(--ios-tertiary);
+}
+
+.providerManualModelRow button {
+  flex-shrink: 0;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 10px;
+  color: #ffffff;
+  background: var(--ios-tint);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.providerSwitchRow {
+  justify-content: space-between;
+  min-height: 58px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.providerSwitchRow input {
+  flex-shrink: 0;
+}
+
+.providerStaticRow {
+  justify-content: space-between;
+  min-height: 58px;
+  font-size: 17px;
+}
+
+.providerStaticRow strong {
+  font-weight: 500;
+  color: var(--ios-secondary);
+}
+
+.providerPrimaryButton,
+.providerSecondaryButton,
+.providerDangerButton {
+  width: 100%;
+  min-height: 56px;
+  margin-top: 28px;
+  border: none;
+  border-radius: 13px;
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.providerPrimaryButton {
+  background: var(--ios-tint);
+  color: #fff;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--ios-tint) 18%, transparent);
+}
+
+.providerPrimaryButton:disabled {
+  opacity: 1;
+  background: var(--ios-pill);
+  color: var(--ios-tertiary);
+  box-shadow: none;
+}
+
+.providerSecondaryButton {
+  margin-top: 12px;
+  background: var(--ios-bg-elevated);
+  color: var(--ios-tint);
+  border: 0.5px solid var(--hairline);
+}
+
+.providerDangerButton {
+  margin-top: 12px;
+  background: var(--ios-bg-elevated);
+  color: #ff3b30;
+  border: 0.5px solid var(--hairline);
 }

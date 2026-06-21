@@ -5,6 +5,10 @@ export type EpubTocItem = {
   children: EpubTocItem[];
 };
 
+export type FlatEpubTocItem = Omit<EpubTocItem, "children"> & {
+  depth: number;
+};
+
 function isValidItem(item: unknown): item is Record<string, unknown> {
   return typeof item === "object" && item !== null;
 }
@@ -62,4 +66,27 @@ export function normalizeEpubNavigation(input: unknown): EpubTocItem[] {
   }
 
   return [];
+}
+
+export function flattenEpubNavigation(
+  items: EpubTocItem[]
+): FlatEpubTocItem[] {
+  const flattened: FlatEpubTocItem[] = [];
+
+  function visit(nodes: EpubTocItem[], depth: number) {
+    for (const node of nodes) {
+      flattened.push({
+        id: node.id,
+        label: node.label,
+        href: node.href,
+        depth,
+      });
+      if (node.children.length > 0) {
+        visit(node.children, depth + 1);
+      }
+    }
+  }
+
+  visit(items, 0);
+  return flattened;
 }

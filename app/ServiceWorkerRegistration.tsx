@@ -34,9 +34,32 @@ export default function ServiceWorkerRegistration() {
       return;
     }
 
-    navigator.serviceWorker.register("/sw.js").catch(() => {
-      // Service worker registration failed silently.
-    });
+    const hadController = Boolean(navigator.serviceWorker.controller);
+    let reloading = false;
+    const handleControllerChange = () => {
+      if (!hadController || reloading) return;
+      reloading = true;
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener(
+      "controllerchange",
+      handleControllerChange
+    );
+
+    navigator.serviceWorker
+      .register("/sw.js", { updateViaCache: "none" })
+      .then((registration) => registration.update())
+      .catch(() => {
+        // Service worker registration failed silently.
+      });
+
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        handleControllerChange
+      );
+    };
   }, []);
 
   return null;

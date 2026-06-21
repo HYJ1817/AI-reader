@@ -68,4 +68,38 @@ describe("progressPercentFromEpubLocation", () => {
     const location = { percentage: 0.1, start: { percentage: 0.9 } };
     expect(progressPercentFromEpubLocation(location)).toBe(90);
   });
+
+  it("falls back to spine index and displayed page when percentage is absent", () => {
+    const location = {
+      start: {
+        index: 4,
+        displayed: { page: 2, total: 4 },
+      },
+    };
+    expect(progressPercentFromEpubLocation(location, 10)).toBe(42);
+  });
+
+  it("honors explicit start and end locations in the fallback path", () => {
+    expect(
+      progressPercentFromEpubLocation(
+        { atStart: true, start: { index: 3 } },
+        10
+      )
+    ).toBe(0);
+    expect(
+      progressPercentFromEpubLocation(
+        { atEnd: true, start: { index: 8 } },
+        10
+      )
+    ).toBe(100);
+  });
+
+  it("does not invent fallback progress without a valid spine length", () => {
+    expect(
+      progressPercentFromEpubLocation(
+        { start: { index: 4, displayed: { page: 2, total: 4 } } },
+        0
+      )
+    ).toBe(0);
+  });
 });

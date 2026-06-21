@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-reader-v2";
+const CACHE_NAME = "ai-reader-v3";
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -24,24 +24,31 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+async function fetchAndCache(request, cacheKey = request) {
+  const response = await fetch(request);
+  if (response.ok) {
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(cacheKey, response.clone());
+  }
+  return response;
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
   if (event.request.url.includes("/api/")) return;
+  if (new URL(event.request.url).origin !== self.location.origin) return;
 
   if (event.request.mode === "navigate") {
     event.respondWith(
-      fetch(event.request)
-        .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", clone));
-          return response;
-        })
+      fetchAndCache(event.request, "/")
         .catch(() => caches.match("/") || Response.error())
     );
     return;
   }
 
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetchAndCache(event.request).catch(
+      () => caches.match(event.request) || Response.error()
+    )
   );
 });

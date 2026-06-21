@@ -6,6 +6,7 @@ import {
   getReadingGoalArcPercent,
   getReadingGoalContinueSubtitle,
 } from "@/lib/readingGoalDisplay";
+import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
 
 type Props = {
@@ -50,15 +51,12 @@ export default function ReadingGoalSheet({
   }
 
   return (
-    <div className={styles.sheetOverlay} onClick={onClose}>
-      <div
-        className={`${styles.bottomSheet} ${styles.goalSheet}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className={styles.sheetGrabber} />
+    <BottomSheet onClose={onClose} className={styles.goalSheet} ariaLabel={UI_TEXT.READING_GOAL}>
+      {(close) => (
+        <>
         <button
           className={styles.goalCloseButton}
-          onClick={onClose}
+          onClick={() => close()}
           title={UI_TEXT.CLOSE}
           aria-label={UI_TEXT.CLOSE}
         >
@@ -124,12 +122,13 @@ export default function ReadingGoalSheet({
             </div>
           )}
 
-          <button className={styles.goalContinueButton} onClick={onContinue}>
+          <button className={styles.goalContinueButton} onClick={() => close(onContinue)}>
             <span>{UI_TEXT.CONTINUE_READING}</span>
             <small>{continueSubtitle}</small>
           </button>
         </div>
-      </div>
-    </div>
+        </>
+      )}
+    </BottomSheet>
   );
 }

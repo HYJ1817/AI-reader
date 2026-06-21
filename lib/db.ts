@@ -42,7 +42,7 @@ export type BookGroup = {
   updatedAt: string;
 };
 
-const db = new Dexie("AiReader") as Dexie & {
+type AiReaderDb = Dexie & {
   books: EntityTable<BookRecord, "id">;
   readingPositions: EntityTable<ReadingPosition, "bookId">;
   annotations: EntityTable<AnnotationRecord, "id">;
@@ -50,26 +50,42 @@ const db = new Dexie("AiReader") as Dexie & {
   bookGroups: EntityTable<BookGroup, "id">;
 };
 
-db.version(1).stores({
-  books: "id, lastOpenedAt, createdAt",
-  readingPositions: "bookId",
-  annotations: "id, bookId, createdAt",
-});
+function createDb(): AiReaderDb {
+  const db = new Dexie("AiReader") as AiReaderDb;
 
-db.version(2).stores({
-  dailyReadingStats: "date",
-});
+  db.version(1).stores({
+    books: "id, lastOpenedAt, createdAt",
+    readingPositions: "bookId",
+    annotations: "id, bookId, createdAt",
+  });
 
-db.version(3).stores({
-  bookGroups: "id, createdAt, name",
-});
+  db.version(2).stores({
+    dailyReadingStats: "date",
+  });
+
+  db.version(3).stores({
+    bookGroups: "id, createdAt, name",
+  });
+
+  return db;
+}
+
+const db: AiReaderDb | null =
+  typeof indexedDB === "undefined" ? null : createDb();
+
+function getDb(): AiReaderDb {
+  if (!db) {
+    throw new Error("IndexedDB is unavailable in this browser.");
+  }
+  return db;
+}
 
 export async function saveBook(record: BookRecord): Promise<void> {
-  await db.books.put(record);
+  await getDb().books.put(record);
 }
 
 export async function listBooks(): Promise<BookRecord[]> {
-  const all = await db.books.toArray();
+  const all = await getDb().books.toArray();
   return all.sort((a, b) => {
     const aTime = a.lastOpenedAt ?? a.createdAt;
     const bTime = b.lastOpenedAt ?? b.createdAt;
@@ -79,10 +95,11 @@ export async function listBooks(): Promise<BookRecord[]> {
 }
 
 export async function getBook(id: string): Promise<BookRecord | undefined> {
-  return db.books.get(id);
+  return getDb().books.get(id);
 }
 
 export async function deleteBook(id: string): Promise<void> {
+  const db = getDb();
   await db.transaction("rw", [db.books, db.readingPositions, db.annotations], async () => {
     await db.books.delete(id);
     await db.readingPositions.delete(id);
@@ -91,36 +108,36 @@ export async function deleteBook(id: string): Promise<void> {
 }
 
 export async function saveReadingPosition(position: ReadingPosition): Promise<void> {
-  await db.readingPositions.put(position);
+  await getDb().readingPositions.put(position);
 }
 
 export async function getReadingPosition(
   bookId: string
 ): Promise<ReadingPosition | undefined> {
-  return db.readingPositions.get(bookId);
+  return getDb().readingPositions.get(bookId);
 }
 
 export async function addAnnotation(record: AnnotationRecord): Promise<void> {
-  await db.annotations.put(record);
+  await getDb().annotations.put(record);
 }
 
 export async function listAnnotations(bookId: string): Promise<AnnotationRecord[]> {
-  return db.annotations
+  return getDb().annotations
     .where("bookId")
     .equals(bookId)
     .sortBy("createdAt");
 }
 
 export async function listReadingPositions(): Promise<ReadingPosition[]> {
-  return db.readingPositions.toArray();
+  return getDb().readingPositions.toArray();
 }
 
 export async function listAllAnnotations(): Promise<AnnotationRecord[]> {
-  return db.annotations.toArray();
+  return getDb().annotations.toArray();
 }
 
 export async function listBookGroups(): Promise<BookGroup[]> {
-  const all = await db.bookGroups.toArray();
+  const all = await getDb().bookGroups.toArray();
   return all.sort((a, b) => {
     if (a.createdAt !== b.createdAt) return a.createdAt.localeCompare(b.createdAt);
     return a.name.localeCompare(b.name);
@@ -128,10 +145,11 @@ export async function listBookGroups(): Promise<BookGroup[]> {
 }
 
 export async function saveBookGroup(group: BookGroup): Promise<void> {
-  await db.bookGroups.put(group);
+  await getDb().bookGroups.put(group);
 }
 
 export async function deleteBookGroup(id: string): Promise<void> {
+  const db = getDb();
   await db.transaction("rw", [db.bookGroups, db.books], async () => {
     await db.bookGroups.delete(id);
     const books = await db.books.toArray();
@@ -146,6 +164,7 @@ export async function deleteBookGroup(id: string): Promise<void> {
 }
 
 export async function updateBookGroupName(id: string, name: string): Promise<void> {
+  const db = getDb();
   const trimmed = name.trim();
   if (!trimmed) return;
   const existing = await db.bookGroups.get(id);
@@ -154,6 +173,7 @@ export async function updateBookGroupName(id: string, name: string): Promise<voi
 }
 
 export async function updateBookGroupMembership(bookId: string, groupIds: string[]): Promise<void> {
+  const db = getDb();
   const book = await db.books.get(bookId);
   if (!book) return;
   const deduped = [...new Set(groupIds)];
@@ -161,6 +181,7 @@ export async function updateBookGroupMembership(bookId: string, groupIds: string
 }
 
 export async function clearAllReaderData(): Promise<void> {
+  const db = getDb();
   await db.transaction("rw", [db.books, db.readingPositions, db.annotations, db.dailyReadingStats, db.bookGroups], async () => {
     await db.books.clear();
     await db.readingPositions.clear();
@@ -173,7 +194,7 @@ export async function clearAllReaderData(): Promise<void> {
 export async function getDailyReadingStat(
   date: string
 ): Promise<DailyReadingStat | undefined> {
-  return db.dailyReadingStats.get(date);
+  return getDb().dailyReadingStats.get(date);
 }
 
 export async function incrementDailyReadingSeconds(
@@ -181,6 +202,7 @@ export async function incrementDailyReadingSeconds(
   seconds: number
 ): Promise<void> {
   if (!Number.isFinite(seconds) || seconds <= 0) return;
+  const db = getDb();
   const safeSeconds = Math.floor(seconds);
   await db.transaction("rw", [db.dailyReadingStats], async () => {
     const existing = await db.dailyReadingStats.get(date);
@@ -201,5 +223,5 @@ export async function incrementDailyReadingSeconds(
 }
 
 export async function listDailyReadingStats(): Promise<DailyReadingStat[]> {
-  return db.dailyReadingStats.toArray();
+  return getDb().dailyReadingStats.toArray();
 }

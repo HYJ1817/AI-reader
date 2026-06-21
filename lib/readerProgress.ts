@@ -5,3 +5,10 @@ export function normalizeProgressPercent(value: unknown): number {
   const rounded = Math.round(value);
   return Math.min(100, Math.max(0, rounded));
 }
+
+export function shouldPublishProgressPercent(
+  current: unknown,
+  next: unknown
+): boolean {
+  return normalizeProgressPercent(current) !== normalizeProgressPercent(next);
+}

@@ -1,9 +1,24 @@
 import { describe, it, expect } from "vitest";
 import {
+  chunkParagraphs,
   parseTxtParagraphs,
   progressFromScroll,
   scrollTopFromProgress,
 } from "./txtReader";
+
+describe("chunkParagraphs", () => {
+  it("groups paragraphs into stable rendering chunks", () => {
+    expect(chunkParagraphs(["a", "b", "c", "d", "e"], 2)).toEqual([
+      ["a", "b"],
+      ["c", "d"],
+      ["e"],
+    ]);
+  });
+
+  it("uses a safe chunk size for invalid input", () => {
+    expect(chunkParagraphs(["a", "b"], 0)).toEqual([["a", "b"]]);
+  });
+});
 
 describe("parseTxtParagraphs", () => {
   it("normalizes CRLF to LF and splits on blank lines", () => {

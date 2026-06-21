@@ -4,6 +4,6 @@ export function shouldShowBottomTabs(
   activeTab: NavigationTab,
   hasOpenBook: boolean
 ): boolean {
-  if (activeTab === "reading" && hasOpenBook) return true;
+  if (activeTab === "reading" && hasOpenBook) return false;
   return ["library", "reading", "settings"].includes(activeTab);
 }

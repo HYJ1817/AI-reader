@@ -1,6 +1,13 @@
 "use client";
 
-import type { ReaderPreferences, ReaderTheme } from "@/lib/readerPreferences";
+import { useRef, useState } from "react";
+import {
+  readerPreferenceChangeNeedsMotion,
+  updateReaderPreferenceDraft,
+  type ReaderPreferences,
+  type ReaderTheme,
+} from "@/lib/readerPreferences";
+import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
 
 type Props = {
@@ -17,17 +24,44 @@ const THEMES: { value: ReaderTheme; label: string }[] = [
 ];
 
 export default function ReaderSettingsPanel({ preferences, onChange, onClose }: Props) {
-  function update<K extends keyof ReaderPreferences>(key: K, value: ReaderPreferences[K]) {
-    onChange({ ...preferences, [key]: value });
+  const [draft, setDraft] = useState(preferences);
+  const draftRef = useRef(preferences);
+  const committedRef = useRef(preferences);
+
+  function preview<K extends keyof ReaderPreferences>(
+    key: K,
+    value: ReaderPreferences[K]
+  ) {
+    const next = updateReaderPreferenceDraft(draftRef.current, key, value);
+    draftRef.current = next;
+    setDraft(next);
+  }
+
+  function commitDraft() {
+    const next = draftRef.current;
+    if (!readerPreferenceChangeNeedsMotion(committedRef.current, next)) return;
+    committedRef.current = next;
+    onChange(next);
+  }
+
+  function updateImmediately<K extends keyof ReaderPreferences>(
+    key: K,
+    value: ReaderPreferences[K]
+  ) {
+    const next = updateReaderPreferenceDraft(draftRef.current, key, value);
+    draftRef.current = next;
+    committedRef.current = next;
+    setDraft(next);
+    onChange(next);
   }
 
   return (
-    <div className={styles.sheetOverlay} onClick={onClose}>
-      <div className={styles.bottomSheet} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.sheetGrabber} />
+    <BottomSheet onClose={onClose} ariaLabel="主题与设置">
+      {(close) => (
+        <>
         <div className={styles.sheetHeader}>
           <h2 className={styles.sheetTitle}>主题与设置</h2>
-          <button className={styles.iconButton} onClick={onClose} title="关闭" aria-label="关闭">
+          <button className={styles.iconButton} onClick={() => close()} title="关闭" aria-label="关闭">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
               <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
             </svg>
@@ -45,8 +79,8 @@ export default function ReaderSettingsPanel({ preferences, onChange, onClose }: 
                     {THEMES.map((t) => (
                       <button
                         key={t.value}
-                        className={preferences.theme === t.value ? styles.readerThemeSegmentActive : ""}
-                        onClick={() => update("theme", t.value)}
+                        className={draft.theme === t.value ? styles.readerThemeSegmentActive : ""}
+                        onClick={() => updateImmediately("theme", t.value)}
                       >
                         {t.label}
                       </button>
@@ -62,15 +96,19 @@ export default function ReaderSettingsPanel({ preferences, onChange, onClose }: 
                 <div className={styles.readerSettingSliderRow}>
                   <div className={styles.readerSettingSliderHeader}>
                     <span className={styles.readerSettingLabel}>字号</span>
-                    <span className={styles.readerSettingValue}>{preferences.fontSizePx}px</span>
+                    <span className={styles.readerSettingValue}>{draft.fontSizePx}px</span>
                   </div>
                   <input
                     type="range"
                     min={14}
                     max={28}
                     step={1}
-                    value={preferences.fontSizePx}
-                    onChange={(e) => update("fontSizePx", Number(e.target.value))}
+                    value={draft.fontSizePx}
+                    onChange={(e) => preview("fontSizePx", Number(e.target.value))}
+                    onPointerUp={commitDraft}
+                    onPointerCancel={commitDraft}
+                    onKeyUp={commitDraft}
+                    onBlur={commitDraft}
                     className={styles.readerSettingSliderInput}
                   />
                 </div>
@@ -78,15 +116,19 @@ export default function ReaderSettingsPanel({ preferences, onChange, onClose }: 
                 <div className={styles.readerSettingSliderRow}>
                   <div className={styles.readerSettingSliderHeader}>
                     <span className={styles.readerSettingLabel}>行高</span>
-                    <span className={styles.readerSettingValue}>{preferences.lineHeight.toFixed(2)}</span>
+                    <span className={styles.readerSettingValue}>{draft.lineHeight.toFixed(2)}</span>
                   </div>
                   <input
                     type="range"
                     min={1.3}
                     max={2.2}
                     step={0.05}
-                    value={preferences.lineHeight}
-                    onChange={(e) => update("lineHeight", Number(e.target.value))}
+                    value={draft.lineHeight}
+                    onChange={(e) => preview("lineHeight", Number(e.target.value))}
+                    onPointerUp={commitDraft}
+                    onPointerCancel={commitDraft}
+                    onKeyUp={commitDraft}
+                    onBlur={commitDraft}
                     className={styles.readerSettingSliderInput}
                   />
                 </div>
@@ -94,15 +136,19 @@ export default function ReaderSettingsPanel({ preferences, onChange, onClose }: 
                 <div className={styles.readerSettingSliderRow}>
                   <div className={styles.readerSettingSliderHeader}>
                     <span className={styles.readerSettingLabel}>内容宽度</span>
-                    <span className={styles.readerSettingValue}>{preferences.contentWidth}px</span>
+                    <span className={styles.readerSettingValue}>{draft.contentWidth}px</span>
                   </div>
                   <input
                     type="range"
                     min={320}
                     max={960}
                     step={20}
-                    value={preferences.contentWidth}
-                    onChange={(e) => update("contentWidth", Number(e.target.value))}
+                    value={draft.contentWidth}
+                    onChange={(e) => preview("contentWidth", Number(e.target.value))}
+                    onPointerUp={commitDraft}
+                    onPointerCancel={commitDraft}
+                    onKeyUp={commitDraft}
+                    onBlur={commitDraft}
                     className={styles.readerSettingSliderInput}
                   />
                 </div>
@@ -111,10 +157,18 @@ export default function ReaderSettingsPanel({ preferences, onChange, onClose }: 
           </div>
 
           <div className={styles.readerSettingsDone}>
-            <button onClick={onClose}>完成</button>
+            <button
+              onClick={() => {
+                commitDraft();
+                close();
+              }}
+            >
+              完成
+            </button>
           </div>
         </div>
-      </div>
-    </div>
+        </>
+      )}
+    </BottomSheet>
   );
 }

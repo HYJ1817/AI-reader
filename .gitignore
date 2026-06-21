@@ -48,3 +48,5 @@ next-env.d.ts
 .tmp-v04-e2e/
 .tmp-v04-e2e-results/
 preview-*.png
+.superpowers/
+.tmp/

@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
+import { acquireBlobUrl, releaseBlobUrl } from "@/lib/blobUrlCache";
+import {
+  BOOK_COVER_OBSERVER_MARGIN,
+  shouldLoadBookCover,
+} from "@/lib/bookCoverLoading";
 import styles from "./page.module.css";
 
 const PALETTE = [
@@ -31,21 +36,69 @@ interface BookCoverProps {
 }
 
 export default function BookCover({ title, format, coverImageBlob }: BookCoverProps) {
-  const coverUrl = useMemo(
-    () => (coverImageBlob ? URL.createObjectURL(coverImageBlob) : null),
-    [coverImageBlob]
-  );
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [nearViewport, setNearViewport] = useState(false);
+  const coverRef = useRef<HTMLDivElement>(null);
   const hash = hashString(title + format);
   const bg = PALETTE[hash % PALETTE.length];
   const label = format.toUpperCase();
 
   useEffect(() => {
-    if (!coverUrl) return;
-    return () => URL.revokeObjectURL(coverUrl);
-  }, [coverUrl]);
+    if (!coverImageBlob) return;
+    const Observer = (
+      window as Window & {
+        IntersectionObserver?: typeof IntersectionObserver;
+      }
+    ).IntersectionObserver;
+    if (!Observer) {
+      const frame = window.requestAnimationFrame(() => setNearViewport(true));
+      return () => window.cancelAnimationFrame(frame);
+    }
+
+    const target = coverRef.current;
+    if (!target) return;
+    const observer = new Observer(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setNearViewport(true);
+        observer.disconnect();
+      },
+      { rootMargin: BOOK_COVER_OBSERVER_MARGIN }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [coverImageBlob]);
+
+  const observerSupported =
+    typeof window !== "undefined" &&
+    Boolean(
+      (
+        window as Window & {
+          IntersectionObserver?: typeof IntersectionObserver;
+        }
+      ).IntersectionObserver
+    );
+  const shouldLoad = shouldLoadBookCover({
+    hasCoverBlob: Boolean(coverImageBlob),
+    observerSupported,
+    nearViewport,
+  });
+
+  useEffect(() => {
+    if (!coverImageBlob || !shouldLoad) {
+      const frame = window.requestAnimationFrame(() => setCoverUrl(null));
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const nextUrl = acquireBlobUrl(coverImageBlob);
+    const frame = window.requestAnimationFrame(() => setCoverUrl(nextUrl));
+    return () => {
+      window.cancelAnimationFrame(frame);
+      releaseBlobUrl(coverImageBlob);
+    };
+  }, [coverImageBlob, shouldLoad]);
 
   return (
-    <div className={styles.bookCover} style={{ background: bg }}>
+    <div ref={coverRef} className={styles.bookCover} style={{ background: bg }}>
       {coverUrl ? (
         <span
           className={styles.bookCoverImage}

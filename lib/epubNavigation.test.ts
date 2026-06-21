@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { normalizeEpubNavigation } from "./epubNavigation";
+import {
+  flattenEpubNavigation,
+  normalizeEpubNavigation,
+} from "./epubNavigation";
 
 describe("normalizeEpubNavigation", () => {
   it("returns empty array for null input", () => {
@@ -240,5 +243,55 @@ describe("normalizeEpubNavigation", () => {
 
   it("handles empty direct array", () => {
     expect(normalizeEpubNavigation([])).toEqual([]);
+  });
+});
+
+describe("flattenEpubNavigation", () => {
+  it("preserves depth-first reading order and hierarchy depth", () => {
+    const items = normalizeEpubNavigation([
+      {
+        label: "Part 1",
+        href: "part-1.html",
+        children: [
+          { label: "Chapter 1", href: "chapter-1.html" },
+          {
+            label: "Chapter 2",
+            href: "chapter-2.html",
+            children: [
+              { label: "Section 2.1", href: "section-2-1.html" },
+            ],
+          },
+        ],
+      },
+      { label: "Part 2", href: "part-2.html" },
+    ]);
+
+    expect(flattenEpubNavigation(items)).toEqual([
+      { id: "toc-0", label: "Part 1", href: "part-1.html", depth: 0 },
+      { id: "toc-0-0", label: "Chapter 1", href: "chapter-1.html", depth: 1 },
+      { id: "toc-0-1", label: "Chapter 2", href: "chapter-2.html", depth: 1 },
+      {
+        id: "toc-0-1-0",
+        label: "Section 2.1",
+        href: "section-2-1.html",
+        depth: 2,
+      },
+      { id: "toc-1", label: "Part 2", href: "part-2.html", depth: 0 },
+    ]);
+  });
+
+  it("does not mutate the normalized navigation tree", () => {
+    const items = normalizeEpubNavigation([
+      {
+        label: "Part",
+        href: "part.html",
+        children: [{ label: "Chapter", href: "chapter.html" }],
+      },
+    ]);
+    const snapshot = structuredClone(items);
+
+    flattenEpubNavigation(items);
+
+    expect(items).toEqual(snapshot);
   });
 });

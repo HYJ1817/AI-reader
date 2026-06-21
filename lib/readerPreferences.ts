@@ -14,6 +14,39 @@ export const DEFAULT_READER_PREFERENCES: ReaderPreferences = {
   contentWidth: 720,
 };
 
+export function shouldObserveSystemReaderTheme(theme: ReaderTheme): boolean {
+  return theme === "system";
+}
+
+export function updateReaderPreferenceDraft<
+  K extends keyof ReaderPreferences,
+>(
+  current: ReaderPreferences,
+  key: K,
+  value: ReaderPreferences[K]
+): ReaderPreferences {
+  return { ...current, [key]: value };
+}
+
+export function readerPreferenceChangeNeedsMotion(
+  previous: ReaderPreferences,
+  next: ReaderPreferences
+): boolean {
+  return Object.values(getReaderPreferenceChanges(previous, next)).some(Boolean);
+}
+
+export function getReaderPreferenceChanges(
+  previous: ReaderPreferences,
+  next: ReaderPreferences
+): Record<keyof ReaderPreferences, boolean> {
+  return {
+    theme: previous.theme !== next.theme,
+    fontSizePx: previous.fontSizePx !== next.fontSizePx,
+    lineHeight: previous.lineHeight !== next.lineHeight,
+    contentWidth: previous.contentWidth !== next.contentWidth,
+  };
+}
+
 const VALID_THEMES: ReadonlySet<string> = new Set([
   "system",
   "light",

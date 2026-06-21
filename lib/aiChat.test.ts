@@ -4,7 +4,10 @@ import {
   limitContextText,
   buildChatMessages,
   extractChatAnswer,
+  buildAiProviderRequest,
+  extractAiProviderAnswer,
 } from "./aiChat";
+import { createAiProviderFromPreset } from "./aiProviders";
 
 describe("normalizeOpenAiBaseUrl", () => {
   it("trims whitespace and trailing slashes", () => {
@@ -167,5 +170,110 @@ describe("extractChatAnswer", () => {
   it("throws on non-object response", () => {
     expect(() => extractChatAnswer(null)).toThrow();
     expect(() => extractChatAnswer("string")).toThrow();
+  });
+});
+
+describe("buildAiProviderRequest", () => {
+  it("builds an OpenAI-compatible chat completions request", () => {
+    const provider = createAiProviderFromPreset("openai", {
+      baseUrl: "https://api.deepseek.com",
+      apiKey: "secret",
+      model: "deepseek-chat",
+    });
+    const request = buildAiProviderRequest(provider, buildChatMessages("hello", {}));
+
+    expect(request.url).toBe("https://api.deepseek.com/v1/chat/completions");
+    expect(request.init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      Authorization: "Bearer secret",
+    });
+    expect(JSON.parse(String(request.init.body))).toMatchObject({
+      model: "deepseek-chat",
+      temperature: 0.2,
+    });
+  });
+
+  it("builds an Anthropic messages request", () => {
+    const provider = createAiProviderFromPreset("anthropic", {
+      protocol: "anthropic-compatible",
+      baseUrl: "https://api.anthropic.com",
+      apiKey: "ant-secret",
+      model: "claude-3-5-haiku-latest",
+    });
+    const request = buildAiProviderRequest(provider, buildChatMessages("hello", {}));
+    const body = JSON.parse(String(request.init.body));
+
+    expect(request.url).toBe("https://api.anthropic.com/v1/messages");
+    expect(request.init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      "x-api-key": "ant-secret",
+      "anthropic-version": "2023-06-01",
+    });
+    expect(body.model).toBe("claude-3-5-haiku-latest");
+    expect(body.system).toContain("reading assistant");
+    expect(body.messages[0].role).toBe("user");
+  });
+
+  it("builds a Gemini generateContent request", () => {
+    const provider = createAiProviderFromPreset("gemini", {
+      protocol: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com",
+      apiKey: "gemini-secret",
+      model: "gemini-1.5-flash",
+    });
+    const request = buildAiProviderRequest(provider, buildChatMessages("hello", {}));
+    const body = JSON.parse(String(request.init.body));
+
+    expect(request.url).toBe(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=gemini-secret"
+    );
+    expect(request.init.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(body.systemInstruction.parts[0].text).toContain("reading assistant");
+    expect(body.contents[0].parts[0].text).toContain("hello");
+  });
+});
+
+describe("extractAiProviderAnswer", () => {
+  it("extracts OpenAI-compatible answers", () => {
+    const provider = createAiProviderFromPreset("openai", {
+      apiKey: "key",
+      model: "gpt-4o-mini",
+    });
+
+    expect(
+      extractAiProviderAnswer(provider, {
+        choices: [{ message: { content: "openai answer" } }],
+      })
+    ).toBe("openai answer");
+  });
+
+  it("extracts Anthropic text blocks", () => {
+    const provider = createAiProviderFromPreset("anthropic", {
+      protocol: "anthropic-compatible",
+      apiKey: "key",
+      model: "claude-3-5-haiku-latest",
+    });
+
+    expect(
+      extractAiProviderAnswer(provider, {
+        content: [{ type: "text", text: "anthropic answer" }],
+      })
+    ).toBe("anthropic answer");
+  });
+
+  it("extracts Gemini candidate parts", () => {
+    const provider = createAiProviderFromPreset("gemini", {
+      protocol: "gemini",
+      apiKey: "key",
+      model: "gemini-1.5-flash",
+    });
+
+    expect(
+      extractAiProviderAnswer(provider, {
+        candidates: [
+          { content: { parts: [{ text: "gemini " }, { text: "answer" }] } },
+        ],
+      })
+    ).toBe("gemini answer");
   });
 });

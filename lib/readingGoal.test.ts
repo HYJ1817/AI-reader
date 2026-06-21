@@ -5,6 +5,7 @@ import {
   saveReadingGoalToStorage,
   getLocalDateKey,
   formatReadingMinutes,
+  shouldPublishReadingSeconds,
 } from "./readingGoal";
 
 const storage = new Map<string, string>();
@@ -74,6 +75,18 @@ describe("formatReadingMinutes", () => {
 
   it("handles large values", () => {
     expect(formatReadingMinutes(3600)).toBe(60);
+  });
+});
+
+describe("shouldPublishReadingSeconds", () => {
+  it("publishes only when the displayed minute changes", () => {
+    expect(shouldPublishReadingSeconds(60, 61)).toBe(false);
+    expect(shouldPublishReadingSeconds(60, 119)).toBe(false);
+    expect(shouldPublishReadingSeconds(119, 120)).toBe(true);
+  });
+
+  it("publishes a reset or correction that changes the displayed minute", () => {
+    expect(shouldPublishReadingSeconds(3600, 0)).toBe(true);
   });
 });
 

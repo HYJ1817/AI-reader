@@ -18,6 +18,21 @@ export function parseTxtParagraphs(text: string): string[] {
     .filter((l) => l.length > 0);
 }
 
+export function chunkParagraphs(
+  paragraphs: string[],
+  chunkSize = 24
+): string[][] {
+  const safeChunkSize =
+    Number.isFinite(chunkSize) && chunkSize > 0
+      ? Math.max(1, Math.floor(chunkSize))
+      : Math.max(1, paragraphs.length);
+  const chunks: string[][] = [];
+  for (let index = 0; index < paragraphs.length; index += safeChunkSize) {
+    chunks.push(paragraphs.slice(index, index + safeChunkSize));
+  }
+  return chunks;
+}
+
 export function progressFromScroll(
   scrollTop: number,
   scrollHeight: number,

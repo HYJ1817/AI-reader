@@ -5,6 +5,10 @@ import {
   loadReaderPreferences,
   saveReaderPreferencesToStorage,
   clearReaderPreferencesFromStorage,
+  getReaderPreferenceChanges,
+  readerPreferenceChangeNeedsMotion,
+  shouldObserveSystemReaderTheme,
+  updateReaderPreferenceDraft,
 } from "./readerPreferences";
 
 const STORAGE_KEY = "ai-reader-preferences";
@@ -273,6 +277,82 @@ describe("clearReaderPreferencesFromStorage", () => {
   it("is a no-op when nothing is stored", () => {
     clearReaderPreferencesFromStorage();
     expect(loadReaderPreferences()).toEqual(DEFAULT_READER_PREFERENCES);
+  });
+});
+
+describe("readerPreferenceChangeNeedsMotion", () => {
+  it("returns true when typography or theme changes", () => {
+    expect(
+      readerPreferenceChangeNeedsMotion(DEFAULT_READER_PREFERENCES, {
+        ...DEFAULT_READER_PREFERENCES,
+        fontSizePx: 20,
+      })
+    ).toBe(true);
+    expect(
+      readerPreferenceChangeNeedsMotion(DEFAULT_READER_PREFERENCES, {
+        ...DEFAULT_READER_PREFERENCES,
+        theme: "sepia",
+      })
+    ).toBe(true);
+  });
+
+  it("returns false when values are unchanged", () => {
+    expect(
+      readerPreferenceChangeNeedsMotion(
+        DEFAULT_READER_PREFERENCES,
+        { ...DEFAULT_READER_PREFERENCES }
+      )
+    ).toBe(false);
+  });
+});
+
+describe("getReaderPreferenceChanges", () => {
+  it("reports only the fields that actually changed", () => {
+    expect(
+      getReaderPreferenceChanges(DEFAULT_READER_PREFERENCES, {
+        ...DEFAULT_READER_PREFERENCES,
+        fontSizePx: 21,
+        lineHeight: 1.9,
+      })
+    ).toEqual({
+      theme: false,
+      fontSizePx: true,
+      lineHeight: true,
+      contentWidth: false,
+    });
+  });
+
+  it("reports no changes for equivalent values", () => {
+    expect(
+      getReaderPreferenceChanges(
+        DEFAULT_READER_PREFERENCES,
+        { ...DEFAULT_READER_PREFERENCES }
+      )
+    ).toEqual({
+      theme: false,
+      fontSizePx: false,
+      lineHeight: false,
+      contentWidth: false,
+    });
+  });
+});
+
+describe("shouldObserveSystemReaderTheme", () => {
+  it("observes system appearance only for the system theme", () => {
+    expect(shouldObserveSystemReaderTheme("system")).toBe(true);
+    expect(shouldObserveSystemReaderTheme("light")).toBe(false);
+    expect(shouldObserveSystemReaderTheme("sepia")).toBe(false);
+    expect(shouldObserveSystemReaderTheme("dark")).toBe(false);
+  });
+});
+
+describe("updateReaderPreferenceDraft", () => {
+  it("creates an updated draft without mutating the current preferences", () => {
+    const current = { ...DEFAULT_READER_PREFERENCES };
+    const next = updateReaderPreferenceDraft(current, "fontSizePx", 22);
+
+    expect(next).toEqual({ ...DEFAULT_READER_PREFERENCES, fontSizePx: 22 });
+    expect(current).toEqual(DEFAULT_READER_PREFERENCES);
   });
 });
 

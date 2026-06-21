@@ -1,3 +1,9 @@
+import {
+  getActiveAiProvider,
+  loadAiProviderSettings,
+  providerToAiClientSettings,
+} from "./aiProviders";
+
 export interface AiClientSettings {
   baseUrl: string;
   apiKey: string;
@@ -42,6 +48,10 @@ const STORAGE_KEY = "ai-reader-ai-settings";
 export function loadAiSettings(): AiClientSettings {
   if (typeof window === "undefined") return DEFAULT_AI_SETTINGS;
   try {
+    const activeProvider = getActiveAiProvider(loadAiProviderSettings());
+    if (activeProvider) {
+      return providerToAiClientSettings(activeProvider);
+    }
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_AI_SETTINGS;
     const parsed = JSON.parse(raw);
