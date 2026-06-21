@@ -54,3 +54,64 @@ export function scrollTopFromProgress(
   const clamped = Math.min(100, Math.max(0, progressPercent));
   return (clamped / 100) * maxScroll;
 }
+
+function getScrollableDistance(
+  scrollSize: number,
+  clientSize: number
+): number {
+  const safeScrollSize = Number.isFinite(scrollSize)
+    ? Math.max(0, scrollSize)
+    : 0;
+  const safeClientSize = Number.isFinite(clientSize)
+    ? Math.max(0, clientSize)
+    : 0;
+  return Math.max(0, safeScrollSize - safeClientSize);
+}
+
+export function progressFromHorizontalScroll(
+  scrollLeft: number,
+  scrollWidth: number,
+  clientWidth: number
+): number {
+  const maxScroll = getScrollableDistance(scrollWidth, clientWidth);
+  if (maxScroll <= 0) return 0;
+  const safeScrollLeft = Number.isFinite(scrollLeft) ? scrollLeft : 0;
+  const raw = (safeScrollLeft / maxScroll) * 100;
+  return Math.floor(Math.min(100, Math.max(0, raw)));
+}
+
+export function scrollLeftFromProgress(
+  progressPercent: number,
+  scrollWidth: number,
+  clientWidth: number
+): number {
+  const maxScroll = getScrollableDistance(scrollWidth, clientWidth);
+  if (maxScroll <= 0) return 0;
+  const safeProgress = Number.isFinite(progressPercent) ? progressPercent : 0;
+  const clamped = Math.min(100, Math.max(0, safeProgress));
+  return (clamped / 100) * maxScroll;
+}
+
+export function getHorizontalPageInfo(
+  scrollLeft: number,
+  scrollWidth: number,
+  clientWidth: number
+): { current: number; total: number } {
+  if (!Number.isFinite(clientWidth) || clientWidth <= 0) {
+    return { current: 1, total: 1 };
+  }
+
+  const safeScrollWidth = Number.isFinite(scrollWidth)
+    ? Math.max(clientWidth, scrollWidth)
+    : clientWidth;
+  const safeScrollLeft = Number.isFinite(scrollLeft)
+    ? Math.max(0, scrollLeft)
+    : 0;
+  const total = Math.max(1, Math.ceil(safeScrollWidth / clientWidth));
+  const current = Math.min(
+    total,
+    Math.max(1, Math.round(safeScrollLeft / clientWidth) + 1)
+  );
+
+  return { current, total };
+}

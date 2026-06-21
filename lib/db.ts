@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
+import type { ReaderMode } from "./readerMode";
 
 export type BookRecord = {
   id: string;
@@ -17,6 +18,7 @@ export type ReadingPosition = {
   bookId: string;
   locator: string;
   progressPercent: number;
+  readingMode?: ReaderMode;
   updatedAt: string;
 };
 

@@ -87,6 +87,23 @@ describe("createBackupPayload", () => {
     expect(payload.readingPositions[0].progressPercent).toBe(42);
   });
 
+  it("preserves optional per-book reading modes", async () => {
+    const book = makeBook({ id: "b1" });
+    await saveBook(book);
+    await saveReadingPosition({
+      bookId: "b1",
+      locator: "chapter-2",
+      progressPercent: 24,
+      readingMode: "paged",
+      updatedAt: "2024-06-01T00:00:00Z",
+    });
+
+    const payload = await createBackupPayload();
+    expect(payload.version).toBe(1);
+    expect(payload.readingPositions[0].readingMode).toBe("paged");
+    expect(JSON.stringify(payload)).not.toContain("secret-key");
+  });
+
   it("exports annotations", async () => {
     const book = makeBook({ id: "b1" });
     await saveBook(book);
@@ -141,6 +158,25 @@ describe("validateBackupPayload", () => {
       aiSettings: {},
     });
     expect(payload.version).toBe(1);
+  });
+
+  it("accepts old reading positions without a reading mode", () => {
+    const payload = validateBackupPayload({
+      version: 1,
+      exportedAt: "2024-01-01T00:00:00Z",
+      books: [],
+      readingPositions: [
+        {
+          bookId: "b1",
+          locator: "txt:10",
+          progressPercent: 10,
+          updatedAt: "2024-01-01T00:00:00Z",
+        },
+      ],
+      annotations: [],
+      aiSettings: {},
+    });
+    expect(payload.readingPositions[0].readingMode).toBeUndefined();
   });
 });
 

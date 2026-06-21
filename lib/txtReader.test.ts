@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
   chunkParagraphs,
+  getHorizontalPageInfo,
   parseTxtParagraphs,
+  progressFromHorizontalScroll,
   progressFromScroll,
+  scrollLeftFromProgress,
   scrollTopFromProgress,
 } from "./txtReader";
 
@@ -122,5 +125,40 @@ describe("scrollTopFromProgress", () => {
   it("returns 0 when not scrollable", () => {
     expect(scrollTopFromProgress(50, 500, 500)).toBe(0);
     expect(scrollTopFromProgress(50, 400, 500)).toBe(0);
+  });
+});
+
+describe("horizontal pagination", () => {
+  it("maps horizontal scrolling to normalized progress", () => {
+    expect(progressFromHorizontalScroll(0, 1350, 450)).toBe(0);
+    expect(progressFromHorizontalScroll(450, 1350, 450)).toBe(50);
+    expect(progressFromHorizontalScroll(900, 1350, 450)).toBe(100);
+  });
+
+  it("maps normalized progress back to horizontal scrolling", () => {
+    expect(scrollLeftFromProgress(0, 1350, 450)).toBe(0);
+    expect(scrollLeftFromProgress(50, 1350, 450)).toBe(450);
+    expect(scrollLeftFromProgress(100, 1350, 450)).toBe(900);
+  });
+
+  it("reports current and total horizontal pages", () => {
+    expect(getHorizontalPageInfo(450, 1350, 450)).toEqual({
+      current: 2,
+      total: 3,
+    });
+    expect(getHorizontalPageInfo(0, 300, 450)).toEqual({
+      current: 1,
+      total: 1,
+    });
+  });
+
+  it("handles invalid and clamped horizontal values", () => {
+    expect(progressFromHorizontalScroll(-50, 1350, 450)).toBe(0);
+    expect(progressFromHorizontalScroll(1200, 1350, 450)).toBe(100);
+    expect(scrollLeftFromProgress(150, 1350, 450)).toBe(900);
+    expect(getHorizontalPageInfo(0, 1350, 0)).toEqual({
+      current: 1,
+      total: 1,
+    });
   });
 });
