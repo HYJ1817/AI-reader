@@ -7,31 +7,27 @@ const pageSource = readFileSync(
 );
 
 describe("surface architecture", () => {
-  it("renders focused application surfaces from Home", () => {
-    for (const component of [
-      "LibrarySurface",
-      "ReadingDashboard",
-      "SettingsSurface",
-      "AppOverlays",
-    ]) {
-      expect(
-        pageSource.includes(`<${component}`),
-        `Home should render <${component}`
-      ).toBe(true);
-    }
+  it.each([
+    "LibrarySurface",
+    "ReadingDashboard",
+    "SettingsSurface",
+    "AppOverlays",
+  ])("renders <%s> from Home", (component) => {
+    expect(
+      pageSource.includes(`<${component}`),
+      `Home should render <${component}>`
+    ).toBe(true);
   });
 
-  it("keeps large surface markup out of the orchestration page", () => {
-    for (const styleReference of [
-      "styles.collectionList",
-      "styles.readingGoalCard",
-      "styles.settingsNativeList",
-      "styles.bookActionHero",
-    ]) {
-      expect(
-        pageSource.includes(styleReference),
-        `Home should not contain ${styleReference}`
-      ).toBe(false);
-    }
+  it.each([
+    "styles.collectionList",
+    "styles.readingGoalCard",
+    "styles.settingsNativeList",
+    "styles.bookActionHero",
+  ])("keeps %s out of the orchestration page", (styleReference) => {
+    expect(
+      pageSource.includes(styleReference),
+      `Home should not contain ${styleReference}`
+    ).toBe(false);
   });
 });
