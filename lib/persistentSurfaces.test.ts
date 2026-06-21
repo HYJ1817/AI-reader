@@ -8,11 +8,18 @@ const pageSource = readFileSync(
 
 describe("persistent app surfaces", () => {
   it("keeps all primary tabs mounted while switching", () => {
-    expect(pageSource).not.toContain('{activeTab === "reading" && !openBook && (');
-    expect(pageSource).not.toContain('{activeTab === "settings" && (');
-    expect(pageSource).toContain('getNavigationSurfaceClass("library")');
-    expect(pageSource).toContain('getNavigationSurfaceClass("reading")');
-    expect(pageSource).toContain('getNavigationSurfaceClass("settings")');
+    expect(pageSource).not.toContain('activeTab === "reading" && !openBook');
+    expect(pageSource).not.toContain('activeTab === "settings" &&');
+    for (const component of [
+      "LibrarySurface",
+      "ReadingDashboard",
+      "SettingsSurface",
+    ]) {
+      expect(
+        pageSource.includes(`<${component}`),
+        `Home should keep <${component} mounted`
+      ).toBe(true);
+    }
   });
 
   it("renders one shared bottom-tab indicator", () => {
