@@ -57,24 +57,15 @@ function containsNavigationClassCall(node: ts.Node, tab: string): boolean {
   );
 }
 
-function containsIdentifier(node: ts.Node, identifier: string): boolean {
-  if (ts.isIdentifier(node) && node.text === identifier) return true;
-  return node.getChildren(pageAst).some((child) =>
-    containsIdentifier(child, identifier)
-  );
-}
-
 function containsNode(container: ts.Node, target: ts.Node): boolean {
   return target.pos >= container.pos && target.end <= container.end;
 }
 
-function hasActiveTabMountingAncestor(node: ts.Node): boolean {
+function hasConditionalMountingAncestor(node: ts.Node): boolean {
   for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
     if (
       ts.isBinaryExpression(ancestor) &&
-      ancestor.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken &&
-      containsNode(ancestor.right, node) &&
-      containsIdentifier(ancestor.left, "activeTab")
+      ancestor.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken
     ) {
       return true;
     }
@@ -82,8 +73,7 @@ function hasActiveTabMountingAncestor(node: ts.Node): boolean {
     if (
       ts.isConditionalExpression(ancestor) &&
       (containsNode(ancestor.whenTrue, node) ||
-        containsNode(ancestor.whenFalse, node)) &&
-      containsIdentifier(ancestor.condition, "activeTab")
+        containsNode(ancestor.whenFalse, node))
     ) {
       return true;
     }
@@ -94,8 +84,7 @@ function hasActiveTabMountingAncestor(node: ts.Node): boolean {
         Boolean(
           ancestor.elseStatement &&
             containsNode(ancestor.elseStatement, node)
-        )) &&
-      containsIdentifier(ancestor.expression, "activeTab")
+        ))
     ) {
       return true;
     }
@@ -129,8 +118,8 @@ describe("persistent app surfaces", () => {
         `<${component}> className should call getNavigationSurfaceClass("${tab}")`
       ).toBe(true);
       expect(
-        hasActiveTabMountingAncestor(opening),
-        `<${component}> should not be conditionally mounted from activeTab`
+        hasConditionalMountingAncestor(opening),
+        `<${component}> should not have a conditional mounting ancestor`
       ).toBe(false);
     }
   );
