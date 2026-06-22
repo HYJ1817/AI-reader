@@ -6,7 +6,8 @@
 - Active worktree: `C:\aaa\ai-reader-pwa\.worktrees\surface-visual-system`
 - GitHub: https://github.com/HYJ1817/AI-reader
 - Branch: `codex/surface-visual-system`
-- Latest commit: `ff8cc64` (`fix: improve reader taps and transition pacing`)
+- Latest code commit: `ff8cc64` (`fix: improve reader taps and transition pacing`)
+- Branch HEAD may include a newer documentation-only handoff commit.
 
 Start every new session with:
 
@@ -142,7 +143,7 @@ Cloudflare quick-tunnel URLs are temporary and may expire. Verify an existing li
 
 先完整阅读 C:\aaa\ai-reader-pwa\.worktrees\surface-visual-system\HANDOFF.md，然后进入 C:\aaa\ai-reader-pwa\.worktrees\surface-visual-system，检查 git 状态、当前分支、最新提交和相关代码。
 
-当前应在 codex/surface-visual-system 分支，最新提交应为 ff8cc64。不要 reset、clean、切回 main 或覆盖现有修改。项目仍是 Next.js PWA，不要未经确认改成原生 iOS。
+当前应在 codex/surface-visual-system 分支，git log 中应包含最新代码提交 ff8cc64，HEAD 可能是更新 HANDOFF.md 的文档提交。不要 reset、clean、切回 main 或覆盖现有修改。项目仍是 Next.js PWA，不要未经确认改成原生 iOS。
 
 上一轮已完成阅读点击阈值统一、菜单直接显示、页面和弹层动画调整，并已推送 GitHub。下一步先听取我的新问题；如果仍涉及阅读菜单，请先在真实 iPhone 上复现并区分 TXT/EPUB，再定位根因和修改。
 
