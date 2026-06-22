@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   useCallback,
@@ -39,6 +39,7 @@ import {
 import BookCover from "@/app/BookCover";
 import EpubReader from "@/app/EpubReader";
 import type { EpubReaderHandle } from "@/app/EpubReader";
+import LibrarySurface from "@/app/LibrarySurface";
 import {
   DEFAULT_AI_PROVIDER_SETTINGS,
   getActiveAiProvider,
@@ -128,6 +129,10 @@ import {
 } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
+  formatBookDate,
+  formatBookSize,
+} from "@/lib/libraryPresentation";
+import {
   getInitialVisibleItemCount,
   getNextVisibleItemCount,
 } from "@/lib/incrementalList";
@@ -153,22 +158,6 @@ type NavigatorWithWakeLock = Navigator & {
     request: (type: "screen") => Promise<WakeLockSentinelLike>;
   };
 };
-
-function formatBookSize(size: number): string {
-  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(size / 1024))} KB`;
-}
-
-function formatBookDate(value?: string): string {
-  if (!value) return "\u4ece\u672a";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "\u672a\u77e5";
-  return date.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function withTimeout<T>(
   promise: Promise<T>,
@@ -1646,421 +1635,81 @@ export default function Home() {
           activeTab === "reading" && openBook ? styles.readingContent : ""
         } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
       >
-        <div
+        <LibrarySurface
           className={`${styles.libraryPage} ${getNavigationSurfaceClass("library")}`}
-          aria-hidden={activeTab !== "library"}
-        >
-            <div className={styles.pageHeader}>
-              <h1 className={styles.libraryTitle}>{UI_TEXT.LIBRARY}</h1>
-              <div className={styles.pageHeaderActions}>
-                {books.length > 0 && (
-                  <button
-                    className={styles.libraryTextButton}
-                    onClick={libraryEditing ? exitLibraryEditing : enterLibraryEditing}
-                  >
-                    {libraryEditing ? UI_TEXT.DONE : UI_TEXT.EDIT}
-                  </button>
-                )}
-                {!libraryEditing && (
-                  <button
-                    className={styles.libraryActionButton}
-                    title={UI_TEXT.IMPORT}
-                    aria-label={UI_TEXT.IMPORT}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 17h14" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                    {UI_TEXT.IMPORT}
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {libraryScreen === "collections" ? (
-              <div className={styles.collectionsScreen}>
-                <div className={styles.collectionsTopBar}>
-                  <button
-                    className={styles.collectionBackButton}
-                    onClick={() => {
-                      setLibraryScreen("library");
-                      setCollectionsEditing(false);
-                      setEditingGroupId(null);
-                      setEditingGroupName("");
-                    }}
-                  >
-                    <span aria-hidden="true">‹</span>
-                    {UI_TEXT.LIBRARY}
-                  </button>
-                  <button
-                    className={styles.libraryTextButton}
-                    onClick={() => {
-                      setCollectionsEditing((editing) => !editing);
-                      setEditingGroupId(null);
-                      setEditingGroupName("");
-                    }}
-                  >
-                    {collectionsEditing ? UI_TEXT.DONE : UI_TEXT.EDIT}
-                  </button>
-                </div>
-                <h2 className={styles.collectionsTitle}>{UI_TEXT.COLLECTIONS}</h2>
-                <div className={styles.collectionList}>
-                  {collectionListItems.map((item) => {
-                    const isActive = groupFilter === item.filter;
-                    const customGroupId =
-                      typeof item.filter === "string" && item.filter !== "__ungrouped"
-                        ? item.filter
-                        : null;
-                    const isEditingGroup = customGroupId !== null && editingGroupId === customGroupId;
-                    return (
-                      <div
-                        key={item.id}
-                        className={`${styles.collectionRow} ${isActive ? styles.collectionRowActive : ""}`}
-                      >
-                        <button
-                          className={styles.collectionRowMain}
-                          onClick={() => {
-                            if (collectionsEditing) return;
-                            setGroupFilter(item.filter);
-                            setLibrarySearchQuery("");
-                            setLibraryScreen("library");
-                          }}
-                        >
-                          <span className={styles.collectionRowIcon}>
-                            {item.filter === null ? (
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                                <path d="M4 5.5c2.2-.3 4 .3 6 1.6 2-1.3 3.8-1.9 6-1.6v10.7c-2.2-.3-4 .3-6 1.6-2-1.3-3.8-1.9-6-1.6V5.5Z" />
-                                <path d="M10 7.1v10.7" />
-                              </svg>
-                            ) : item.filter === "__ungrouped" ? (
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                                <path d="M5 2.5h7.5L15 5v12.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" />
-                                <path d="M12.5 2.5V5h2.5" />
-                              </svg>
-                            ) : (
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                                <path d="M2.5 4.5h5l2 2h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1Z" />
-                              </svg>
-                            )}
-                          </span>
-                          <span className={styles.collectionRowBody}>
-                            {isEditingGroup ? (
-                              <input
-                                className={styles.collectionRenameInput}
-                                value={editingGroupName}
-                                onChange={(e) => setEditingGroupName(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter" && customGroupId) {
-                                    void handleRenameGroup(customGroupId);
-                                  }
-                                }}
-                                autoFocus
-                              />
-                            ) : (
-                              <span className={styles.collectionRowName}>{item.name}</span>
-                            )}
-                            <span className={styles.collectionRowMeta}>{item.count} {UI_TEXT.BOOK_COUNT}</span>
-                          </span>
-                          {!collectionsEditing && (
-                            <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-                          )}
-                        </button>
-                        {collectionsEditing && customGroupId && (
-                          <span className={styles.collectionEditActions}>
-                            {isEditingGroup ? (
-                              <button
-                                className={styles.groupEditSave}
-                                onClick={() => handleRenameGroup(customGroupId)}
-                              >
-                                {UI_TEXT.SAVE}
-                              </button>
-                            ) : (
-                              <button
-                                className={styles.groupAction}
-                                onClick={() => {
-                                  setEditingGroupId(customGroupId);
-                                  setEditingGroupName(item.name);
-                                }}
-                              >
-                                {UI_TEXT.RENAME}
-                              </button>
-                            )}
-                            <button
-                              className={styles.groupActionDelete}
-                              onClick={() => handleDeleteGroup(customGroupId)}
-                            >
-                              {UI_TEXT.DELETE_GROUP}
-                            </button>
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                  <button
-                    className={styles.collectionRow}
-                    onClick={() => {
-                      setNewGroupName("");
-                      setCollectionCreateSheetOpen(true);
-                    }}
-                  >
-                    <span className={styles.collectionRowIcon}>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                        <path d="M10 4v12M4 10h12" strokeLinecap="round" />
-                      </svg>
-                    </span>
-                    <span className={styles.collectionRowBody}>
-                      <span className={styles.collectionRowName}>新建藏书...</span>
-                    </span>
-                    <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-            <button
-              className={styles.collectionEntryRow}
-              onClick={() => {
-                setLibraryScreen("collections");
-                setLibraryEditing(false);
-                setSelectedBookIds([]);
-              }}
-            >
-              <span className={styles.collectionEntryIcon}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                  <path d="M4 6.5h6.5c1.1 0 2 .9 2 2v9.5H6a2 2 0 0 1-2-2V6.5Z" />
-                  <path d="M12.5 8.5c0-1.1.9-2 2-2H21V16a2 2 0 0 1-2 2h-6.5V8.5Z" />
-                </svg>
-              </span>
-              <span className={styles.collectionEntryText}>
-                <strong>{UI_TEXT.COLLECTIONS}</strong>
-                <small>{books.length} {UI_TEXT.BOOK_COUNT}</small>
-              </span>
-              <span className={styles.continueChevron}>{"\u203a"}</span>
-            </button>
-
-            {books.length > 0 && (
-              <div className={styles.librarySearchRow}>
-                <label className={styles.librarySearchBox}>
-                  <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                    <circle cx="9" cy="9" r="5.5" />
-                    <path d="m13 13 3.5 3.5" strokeLinecap="round" />
-                  </svg>
-                  <input
-                    type="search"
-                    value={librarySearchQuery}
-                    onChange={(e) => setLibrarySearchQuery(e.target.value)}
-                    placeholder={UI_TEXT.SEARCH_LIBRARY_PLACEHOLDER}
-                    aria-label={UI_TEXT.SEARCH}
-                  />
-                </label>
-                <div className={styles.libraryViewToggle} aria-label={UI_TEXT.GRID_VIEW}>
-                  <button
-                    className={libraryView === "grid" ? styles.libraryViewActive : ""}
-                    onClick={() => handleLibraryViewChange("grid")}
-                    aria-label={UI_TEXT.GRID_VIEW}
-                    title={UI_TEXT.GRID_VIEW}
-                  >
-                    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                      <rect x="3" y="3" width="5" height="5" rx="1" />
-                      <rect x="12" y="3" width="5" height="5" rx="1" />
-                      <rect x="3" y="12" width="5" height="5" rx="1" />
-                      <rect x="12" y="12" width="5" height="5" rx="1" />
-                    </svg>
-                  </button>
-                  <button
-                    className={libraryView === "list" ? styles.libraryViewActive : ""}
-                    onClick={() => handleLibraryViewChange("list")}
-                    aria-label={UI_TEXT.LIST_VIEW}
-                    title={UI_TEXT.LIST_VIEW}
-                  >
-                    <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                      <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {loading ? (
-              <div className={styles.emptyStateCompact}>
-                <p className={styles.emptyText}>{UI_TEXT.LOADING}</p>
-              </div>
-            ) : books.length === 0 ? (
-              <div className={styles.emptyStateCompact}>
-                {importError && (
-                  <p className={styles.importError}>{importError}</p>
-                )}
-                <h2 className={styles.emptyTitle}>{UI_TEXT.NO_BOOKS}</h2>
-                <p className={styles.emptyText}>
-                  {UI_TEXT.NO_BOOKS_HINT}
-                </p>
-                <button
-                  className={styles.primaryButton}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  {UI_TEXT.IMPORT}
-                </button>
-              </div>
-            ) : (
-              <div className={styles.bookList}>
-                {importError && (
-                  <p className={styles.importError}>{importError}</p>
-                )}
-                <div className={styles.sectionHeader}>
-                  <h2>{UI_TEXT.RECENT_BOOKS}</h2>
-                  {libraryEditing ? (
-                    <button className={styles.libraryTextButton} onClick={handleSelectAllVisible}>
-                      {allVisibleSelected ? UI_TEXT.CLEAR_SELECTION : UI_TEXT.SELECT_ALL}
-                    </button>
-                  ) : (
-                    <span>{activeCollectionName} · {filteredBooks.length}</span>
-                  )}
-                </div>
-                {libraryEditing && (
-                  <p className={styles.selectionSummary}>{selectedCountLabel}</p>
-                )}
-                {filteredBooks.length === 0 ? (
-                  <div className={styles.emptyStateCompact}>
-                    <h2 className={styles.emptyTitle}>{UI_TEXT.NO_MATCHING_BOOKS}</h2>
-                    <p className={styles.emptyText}>{librarySearchQuery || UI_TEXT.UNGROUPED}</p>
-                  </div>
-                ) : libraryView === "grid" ? (
-                  <div className={styles.bookGrid}>
-                    {visibleBooks.map((book) => {
-                      const isSelected = selectedBookIds.includes(book.id);
-                      const progress = getBookProgressPercent(readingProgressMap, book.id);
-                      return (
-                        <div
-                          key={book.id}
-                          className={`${styles.bookGridCell} ${libraryEditing ? styles.bookSelectable : ""} ${
-                            isSelected ? styles.bookSelected : ""
-                          }`}
-                        >
-                          <button
-                            className={styles.bookGridItem}
-                            onClick={() => handleBookPress(book)}
-                            aria-pressed={libraryEditing ? isSelected : undefined}
-                          >
-                            <BookCover
-                              title={book.title}
-                              format={book.format}
-                              coverImageBlob={book.coverImageBlob}
-                            />
-                            <span className={styles.bookGridTitle}>{book.title}</span>
-                            <span className={styles.bookGridProgress} aria-hidden="true">
-                              <span style={{ width: `${progress}%` }} />
-                            </span>
-                            <span className={styles.bookGridMeta}>{formatLibraryProgressLabel(progress)}</span>
-                          </button>
-                          {libraryEditing ? (
-                            <span className={styles.selectionBadge} aria-hidden="true">
-                              {isSelected && (
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M3.5 8.3 6.7 11.5 12.8 4.6" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              )}
-                            </span>
-                          ) : (
-                            <button
-                              className={styles.bookGridMoreButton}
-                              title={UI_TEXT.MORE}
-                              aria-label={UI_TEXT.MORE_OPTIONS}
-                              onClick={() => openBookActionSheet(book)}
-                            >
-                              <svg width="18" height="18" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                <circle cx="10" cy="4" r="1.5"/>
-                                <circle cx="10" cy="10" r="1.5"/>
-                                <circle cx="10" cy="16" r="1.5"/>
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <ul className={styles.bookItems}>
-                    {visibleBooks.map((book) => {
-                      const isSelected = selectedBookIds.includes(book.id);
-                      const progress = getBookProgressPercent(readingProgressMap, book.id);
-                      return (
-                        <li
-                          key={book.id}
-                          className={`${styles.bookItem} ${libraryEditing ? styles.bookSelectable : ""} ${
-                            isSelected ? styles.bookSelected : ""
-                          }`}
-                          onClick={() => handleBookPress(book)}
-                        >
-                          {libraryEditing && (
-                            <span className={styles.selectionBadgeInline} aria-hidden="true">
-                              {isSelected && (
-                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2">
-                                  <path d="M3.5 8.3 6.7 11.5 12.8 4.6" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              )}
-                            </span>
-                          )}
-                          <BookCover
-                            title={book.title}
-                            format={book.format}
-                            coverImageBlob={book.coverImageBlob}
-                          />
-                          <div className={styles.bookInfo}>
-                            <span className={styles.bookTitle}>{book.title}</span>
-                            <span className={styles.bookMeta}>
-                              {book.format.toUpperCase()}{" \u00b7 "}{formatBookSize(book.size)}
-                            </span>
-                            <span className={styles.bookListProgressRow}>
-                              <span className={styles.bookListProgressTrack} aria-hidden="true">
-                                <span style={{ width: `${progress}%` }} />
-                              </span>
-                              <span>{formatLibraryProgressLabel(progress)}</span>
-                            </span>
-                            {book.groupIds && book.groupIds.length > 0 && (
-                              <span className={styles.bookGroupLabels}>
-                                {book.groupIds
-                                  .map((gid) => groups.find((g) => g.id === gid)?.name)
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </span>
-                            )}
-                          </div>
-                          {!libraryEditing && (
-                            <button
-                              className={styles.bookMoreButton}
-                              title={UI_TEXT.MORE}
-                              aria-label={UI_TEXT.MORE_OPTIONS}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openBookActionSheet(book);
-                              }}
-                            >
-                              <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-                                <circle cx="10" cy="4" r="1.5"/>
-                                <circle cx="10" cy="10" r="1.5"/>
-                                <circle cx="10" cy="16" r="1.5"/>
-                              </svg>
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-                {visibleBookCount < filteredBooks.length && (
-                  <div
-                    ref={libraryLoadSentinelRef}
-                    className={styles.libraryLoadSentinel}
-                    aria-hidden="true"
-                  />
-                )}
-              </div>
-            )}
-              </>
-            )}
-        </div>
-
+          ariaHidden={activeTab !== "library"}
+          data={{
+            books,
+            visibleBooks,
+            filteredBookCount: filteredBooks.length,
+            groups,
+            collectionItems: collectionListItems,
+            progressMap: readingProgressMap,
+            loading,
+            importError,
+          }}
+          view={{
+            screen: libraryScreen,
+            searchQuery: librarySearchQuery,
+            mode: libraryView,
+            activeCollectionName,
+            groupFilter,
+            visibleBookCount,
+          }}
+          editing={{
+            library: libraryEditing,
+            collections: collectionsEditing,
+            selectedBookIds,
+            selectedCountLabel,
+            allVisibleSelected,
+            editingGroupId,
+            editingGroupName,
+          }}
+          sentinelRef={libraryLoadSentinelRef}
+          actions={{
+            importBooks: () => fileInputRef.current?.click(),
+            openCollections: () => {
+              setLibraryScreen("collections");
+              setLibraryEditing(false);
+              setSelectedBookIds([]);
+            },
+            closeCollections: () => {
+              setLibraryScreen("library");
+              setCollectionsEditing(false);
+              setEditingGroupId(null);
+              setEditingGroupName("");
+            },
+            toggleCollectionsEditing: () => {
+              setCollectionsEditing((editing) => !editing);
+              setEditingGroupId(null);
+              setEditingGroupName("");
+            },
+            selectCollection: (filter) => {
+              setGroupFilter(filter);
+              setLibrarySearchQuery("");
+              setLibraryScreen("library");
+            },
+            setSearchQuery: setLibrarySearchQuery,
+            setViewMode: handleLibraryViewChange,
+            toggleLibraryEditing: libraryEditing
+              ? exitLibraryEditing
+              : enterLibraryEditing,
+            selectAllVisible: handleSelectAllVisible,
+            pressBook: handleBookPress,
+            openBookActions: openBookActionSheet,
+            startRenamingGroup: (id, name) => {
+              setEditingGroupId(id);
+              setEditingGroupName(name);
+            },
+            setEditingGroupName,
+            renameGroup: (id) => void handleRenameGroup(id),
+            deleteGroup: (id) => void handleDeleteGroup(id),
+            openCreateCollection: () => {
+              setNewGroupName("");
+              setCollectionCreateSheetOpen(true);
+            },
+          }}
+        />
         {openBook && (
             <div
               ref={readerShellRef}
