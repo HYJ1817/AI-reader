@@ -48,25 +48,27 @@ export default function ReadingDashboard({
         <h1 className={styles.libraryTitle}>{UI_TEXT.READING}</h1>
       </div>
 
-      <button className={styles.readingGoalCard} onClick={onOpenGoal}>
-        <span
-          className={styles.dashboardGoalRing}
-          style={{ background: goalRingBackground }}
-        >
-          <span>{todayMinutes}</span>
-          <small>{targetMinutes}</small>
-        </span>
-        <span className={styles.readingGoalText}>
-          <strong>{UI_TEXT.TODAY_READING}</strong>
-          <small>
-            {UI_TEXT.TODAY_READING_PROGRESS} · {todayMinutes}/{targetMinutes}{" "}
-            {UI_TEXT.MINUTES}
-          </small>
-        </span>
-        <span className={styles.continueChevron}>{"\u203a"}</span>
-      </button>
+      <section className={styles.readingDashboardSection}>
+        <button className={styles.readingGoalCard} onClick={onOpenGoal}>
+          <span
+            className={styles.dashboardGoalRing}
+            style={{ background: goalRingBackground }}
+          >
+            <span>{todayMinutes}</span>
+            <small>{targetMinutes}</small>
+          </span>
+          <span className={styles.readingGoalText}>
+            <strong>{UI_TEXT.TODAY_READING}</strong>
+            <small>
+              {UI_TEXT.TODAY_READING_PROGRESS} · {todayMinutes}/{targetMinutes}{" "}
+              {UI_TEXT.MINUTES}
+            </small>
+          </span>
+          <span className={styles.continueChevron}>{"\u203a"}</span>
+        </button>
+      </section>
 
-      <section className={styles.dashboardSection}>
+      <section className={styles.readingDashboardSection}>
         <div className={styles.sectionHeader}>
           <h2>{UI_TEXT.CONTINUE_READING}</h2>
         </div>
@@ -120,7 +122,9 @@ export default function ReadingDashboard({
         )}
       </section>
 
-      <section className={styles.readingWeekCard}>
+      <section
+        className={`${styles.readingDashboardSection} ${styles.readingWeekCard}`}
+      >
         <div className={styles.sectionHeader}>
           <h2>{UI_TEXT.LAST_SEVEN_DAYS}</h2>
           <span>

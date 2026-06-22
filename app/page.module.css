@@ -2095,14 +2095,22 @@
   padding-top: calc(var(--safe-top) + 8px);
 }
 
-.dashboardSection {
-  margin-top: 16px;
+.readingDashboardSection {
+  padding: 18px 0;
+  border-bottom: 0.5px solid var(--ios-separator);
+}
+
+.readingDashboardSection:last-child {
+  border-bottom: 0;
 }
 
 .readingGoalCard {
-  margin-top: 10px;
+  margin: 0;
   min-height: 96px;
-  background: linear-gradient(135deg, rgba(10, 132, 255, 0.18), var(--ios-bg-elevated) 62%);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .dashboardGoalRing {
@@ -2149,14 +2157,16 @@
 
 .featureBookCard {
   min-height: 96px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .readingWeekCard {
-  margin-top: 16px;
-  padding: 14px 14px 12px;
-  border: 0.5px solid var(--ios-separator);
-  border-radius: 16px;
-  background: var(--ios-bg-elevated);
+  margin: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .readingWeekCard .sectionHeader {
