@@ -1,33 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { acquireBlobUrl, releaseBlobUrl } from "@/lib/blobUrlCache";
+import {
+  createFallbackCoverStyle,
+  normalizeCoverTitle,
+} from "@/lib/bookCoverStyle";
 import {
   BOOK_COVER_OBSERVER_MARGIN,
   shouldLoadBookCover,
 } from "@/lib/bookCoverLoading";
 import styles from "./page.module.css";
-
-const PALETTE = [
-  "#1e3a5f",
-  "#4a2c5e",
-  "#2d4a3e",
-  "#5c3d2e",
-  "#2e3d5c",
-  "#5c2e3d",
-  "#3d5c2e",
-  "#2e5c5c",
-  "#5c2e2e",
-  "#3d2e5c",
-];
-
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) {
-    h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-  }
-  return Math.abs(h);
-}
 
 interface BookCoverProps {
   title: string;
@@ -39,9 +22,8 @@ export default function BookCover({ title, format, coverImageBlob }: BookCoverPr
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [nearViewport, setNearViewport] = useState(false);
   const coverRef = useRef<HTMLDivElement>(null);
-  const hash = hashString(title + format);
-  const bg = PALETTE[hash % PALETTE.length];
-  const label = format.toUpperCase();
+  const fallbackStyle = createFallbackCoverStyle(title, format);
+  const normalizedTitle = normalizeCoverTitle(title);
 
   useEffect(() => {
     if (!coverImageBlob) return;
@@ -98,7 +80,18 @@ export default function BookCover({ title, format, coverImageBlob }: BookCoverPr
   }, [coverImageBlob, shouldLoad]);
 
   return (
-    <div ref={coverRef} className={styles.bookCover} style={{ background: bg }}>
+    <div
+      ref={coverRef}
+      className={`${styles.bookCover} ${
+        coverUrl ? styles.bookCoverReal : styles.bookCoverFallback
+      }`}
+      style={
+        {
+          "--cover-paper": fallbackStyle.paper,
+          "--cover-spine": fallbackStyle.spine,
+        } as CSSProperties
+      }
+    >
       {coverUrl ? (
         <span
           className={styles.bookCoverImage}
@@ -106,7 +99,11 @@ export default function BookCover({ title, format, coverImageBlob }: BookCoverPr
           aria-hidden="true"
         />
       ) : (
-        <span className={styles.bookCoverLabel}>{label}</span>
+        <>
+          <span className={styles.bookCoverSpine} aria-hidden="true" />
+          <span className={styles.bookCoverTitle}>{normalizedTitle}</span>
+          <span className={styles.bookCoverFormat}>{format.toUpperCase()}</span>
+        </>
       )}
     </div>
   );
