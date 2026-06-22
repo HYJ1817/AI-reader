@@ -36,7 +36,7 @@ import {
   scrollLeftFromProgress,
   scrollTopFromProgress,
 } from "@/lib/txtReader";
-import BookCover from "@/app/BookCover";
+import AppOverlays from "@/app/AppOverlays";
 import EpubReader from "@/app/EpubReader";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import LibrarySurface from "@/app/LibrarySurface";
@@ -117,7 +117,6 @@ import {
 import { selectFeaturedLibraryBook } from "@/lib/libraryShelves";
 import {
   buildReadingProgressMap,
-  formatLibraryProgressLabel,
   getBookProgressPercent,
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
@@ -128,10 +127,6 @@ import {
   type NavigationTab,
 } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
-import {
-  formatBookDate,
-  formatBookSize,
-} from "@/lib/libraryPresentation";
 import {
   getInitialVisibleItemCount,
   getNextVisibleItemCount,
@@ -2178,289 +2173,40 @@ export default function Home() {
         </BottomSheet>
       )}
 
-      {bookActionSheetBook && (
-        <BottomSheet
-          onClose={closeBookActionSheet}
-          ariaLabel={UI_TEXT.BOOK_ACTIONS}
-          className={styles.bookActionSheet}
-        >
-          {(close) => (
-            <>
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>{UI_TEXT.BOOK_ACTIONS}</h2>
-              <button
-                className={styles.iconButton}
-                onClick={() => close()}
-                title={UI_TEXT.CLOSE}
-                aria-label={UI_TEXT.CLOSE}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            <div className={styles.sheetBody}>
-              <div className={styles.bookActionHero}>
-                <BookCover
-                  title={bookActionSheetBook.title}
-                  format={bookActionSheetBook.format}
-                  coverImageBlob={bookActionSheetBook.coverImageBlob}
-                />
-                <div className={styles.bookActionHeroText}>
-                  <strong>{bookActionSheetBook.title}</strong>
-                  <span>
-                    {bookActionSheetBook.format.toUpperCase()} · {formatBookSize(bookActionSheetBook.size)}
-                  </span>
-                  <span>{formatLibraryProgressLabel(actionSheetBookProgress)}</span>
-                </div>
-              </div>
-
-              <div className={styles.actionListGroup}>
-                <button
-                  className={styles.actionListRow}
-                  onClick={() => {
-                    const book = bookActionSheetBook;
-                    close(() => void openBookForReading(book));
-                  }}
-                >
-                  <span className={styles.actionIcon}>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                      <path d="M5 4.5c2-.2 3.6.2 5 1.4v10.6c-1.7-1.1-3.4-1.5-5-1.2V4.5Z" />
-                      <path d="M10 5.9c1.4-1.2 3-1.6 5-1.4v10.8c-1.6-.3-3.3.1-5 1.2V5.9Z" />
-                    </svg>
-                  </span>
-                  <span>{UI_TEXT.OPEN_BOOK}</span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-
-                <button
-                  className={styles.actionListRow}
-                  onClick={() => {
-                    const book = bookActionSheetBook;
-                    close(() => openGroupSheet(book));
-                  }}
-                >
-                  <span className={styles.actionIcon}>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                      <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
-                    </svg>
-                  </span>
-                  <span>{UI_TEXT.MANAGE_GROUPS}</span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-
-                <button
-                  className={styles.actionListRow}
-                  onClick={() => {
-                    const book = bookActionSheetBook;
-                    close(() => void handleExportBook(book));
-                  }}
-                >
-                  <span className={styles.actionIcon}>
-                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                      <path d="M10 3v9m0 0 3-3m-3 3L7 9" strokeLinecap="round" strokeLinejoin="round" />
-                      <path d="M4 16h12" strokeLinecap="round" />
-                    </svg>
-                  </span>
-                  <span>{UI_TEXT.EXPORT_BOOK}</span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-              </div>
-
-              <div className={styles.bookDetailGroup}>
-                <h3>{UI_TEXT.BOOK_DETAILS}</h3>
-                <div className={styles.bookDetailRow}>
-                  <span>{UI_TEXT.FORMAT}</span>
-                  <strong>{bookActionSheetBook.format.toUpperCase()}</strong>
-                </div>
-                <div className={styles.bookDetailRow}>
-                  <span>{UI_TEXT.FILE_SIZE}</span>
-                  <strong>{formatBookSize(bookActionSheetBook.size)}</strong>
-                </div>
-                <div className={styles.bookDetailRow}>
-                  <span>{UI_TEXT.ADDED_AT}</span>
-                  <strong>{formatBookDate(bookActionSheetBook.createdAt)}</strong>
-                </div>
-                <div className={styles.bookDetailRow}>
-                  <span>{UI_TEXT.LAST_OPENED_AT}</span>
-                  <strong>{formatBookDate(bookActionSheetBook.lastOpenedAt)}</strong>
-                </div>
-              </div>
-
-              <div className={styles.actionListGroup}>
-                {deleteConfirmOpen ? (
-                  <div className={styles.deleteConfirmBox}>
-                    <strong>{UI_TEXT.DELETE_BOOK_CONFIRM_TITLE}</strong>
-                    <p>{UI_TEXT.DELETE_BOOK_CONFIRM_HINT}</p>
-                    <div>
-                      <button
-                        className={styles.secondaryButton}
-                        onClick={() => setDeleteConfirmOpen(false)}
-                      >
-                        {UI_TEXT.CANCEL}
-                      </button>
-                      <button
-                        className={styles.dangerButton}
-                        onClick={() => {
-                          const book = bookActionSheetBook;
-                          close(() => void handleDeleteBook(book));
-                        }}
-                      >
-                        {UI_TEXT.DELETE_BOOK}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <button
-                    className={`${styles.actionListRow} ${styles.actionListDanger}`}
-                    onClick={() => setDeleteConfirmOpen(true)}
-                  >
-                    <span className={styles.actionIcon}>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                        <path d="M5 6h10M8 6V4h4v2m-6 0 .7 10h6.6L14 6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                    <span>{UI_TEXT.DELETE_BOOK}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {groupSheetOpen && groupSheetBook && (
-        <BottomSheet
-          onClose={() => setGroupSheetOpen(false)}
-          ariaLabel={UI_TEXT.MANAGE_GROUPS}
-        >
-          {(close) => (
-            <>
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>{UI_TEXT.MANAGE_GROUPS}</h2>
-              <button
-                className={styles.iconButton}
-                onClick={() => close()}
-                title={UI_TEXT.CLOSE}
-                aria-label={UI_TEXT.CLOSE}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div className={styles.sheetBody}>
-              <div className={styles.groupSheetBookTitle}>{groupSheetBook.title}</div>
-
-              {groups.length === 0 ? (
-                <div className={styles.groupEmpty}>
-                  <p className={styles.emptyText}>{UI_TEXT.NO_GROUPS_YET}</p>
-                  <p className={styles.groupEmptyHint}>{UI_TEXT.CREATE_FIRST_GROUP_HINT}</p>
-                </div>
-              ) : (
-                <ul className={styles.groupList}>
-                  {groups.map((g) => {
-                    const isChecked = groupSheetBook.groupIds?.includes(g.id) ?? false;
-                    const isEditing = editingGroupId === g.id;
-                    return (
-                      <li key={g.id} className={styles.groupListItem}>
-                        {isEditing ? (
-                          <div className={styles.groupEditRow}>
-                            <input
-                              type="text"
-                              className={styles.groupEditInput}
-                              value={editingGroupName}
-                              onChange={(e) => setEditingGroupName(e.target.value)}
-                              onKeyDown={(e) => { if (e.key === "Enter") handleRenameGroup(g.id); }}
-                              autoFocus
-                            />
-                            <button
-                              className={styles.groupEditSave}
-                              onClick={() => handleRenameGroup(g.id)}
-                            >
-                              {UI_TEXT.SAVE}
-                            </button>
-                            <button
-                              className={styles.groupEditCancel}
-                              onClick={() => { setEditingGroupId(null); setEditingGroupName(""); }}
-                            >
-                              {UI_TEXT.CANCEL}
-                            </button>
-                          </div>
-                        ) : (
-                          <div className={styles.groupItemRow}>
-                            <label className={styles.groupCheckLabel}>
-                              <input
-                                type="checkbox"
-                                className={styles.groupCheckbox}
-                                checked={isChecked}
-                                onChange={() => handleToggleGroup(g.id)}
-                              />
-                              <span className={styles.groupName}>{g.name}</span>
-                            </label>
-                            <div className={styles.groupItemActions}>
-                              <button
-                                className={styles.groupAction}
-                                onClick={() => {
-                                  setEditingGroupId(g.id);
-                                  setEditingGroupName(g.name);
-                                }}
-                                title={UI_TEXT.RENAME}
-                                aria-label={UI_TEXT.RENAME}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                  <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5-3.5 1 1-3.5 8.172-8.828z" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                              </button>
-                              <button
-                                className={styles.groupActionDelete}
-                                onClick={() => handleDeleteGroup(g.id)}
-                                title={UI_TEXT.DELETE_GROUP}
-                                aria-label={UI_TEXT.DELETE_GROUP}
-                              >
-                                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                  <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round"/>
-                                </svg>
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              <div className={styles.groupCreateRow}>
-                <input
-                  type="text"
-                  className={styles.groupCreateInput}
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleCreateGroup(); }}
-                  placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-                />
-                <button
-                  className={styles.groupCreateButton}
-                  onClick={handleCreateGroup}
-                  disabled={!newGroupName.trim()}
-                >
-                  {UI_TEXT.NEW_GROUP}
-                </button>
-              </div>
-
-              <div className={styles.groupSheetActions}>
-                <button className={styles.primaryButton} onClick={() => close()}>
-                  {UI_TEXT.DONE}
-                </button>
-              </div>
-            </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
+      <AppOverlays
+        bookAction={{
+          book: bookActionSheetBook,
+          progress: actionSheetBookProgress,
+          deleteConfirmOpen,
+        }}
+        group={{
+          open: groupSheetOpen,
+          book: groupSheetBook,
+          groups,
+          editingGroupId,
+          editingGroupName,
+          newGroupName,
+        }}
+        actions={{
+          closeBookActions: closeBookActionSheet,
+          openBook: (book) => void openBookForReading(book),
+          openGroupSheet,
+          exportBook: (book) => void handleExportBook(book),
+          setDeleteConfirmOpen,
+          deleteBook: (book) => void handleDeleteBook(book),
+          closeGroupSheet: () => setGroupSheetOpen(false),
+          toggleBookGroup: (groupId) => void handleToggleGroup(groupId),
+          setEditingGroup: (groupId, name) => {
+            setEditingGroupId(groupId);
+            setEditingGroupName(name);
+          },
+          setEditingGroupName,
+          renameGroup: (groupId) => void handleRenameGroup(groupId),
+          deleteGroup: (groupId) => void handleDeleteGroup(groupId),
+          setNewGroupName,
+          createGroup: () => void handleCreateGroup(),
+        }}
+      />
     </div>
   );
 }
