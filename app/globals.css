@@ -21,17 +21,6 @@
   --control-fill: rgba(118, 118, 128, 0.14);
   --overlay-fill: rgba(255, 255, 255, 0.72);
   --sheet-fill: rgba(255, 255, 255, 0.96);
-  --ios-bg: var(--app-bg);
-  --ios-bg-elevated: var(--surface-primary);
-  --ios-text: var(--text-primary);
-  --ios-secondary: var(--text-secondary);
-  --ios-tertiary: var(--text-tertiary);
-  --ios-separator: var(--separator);
-  --ios-tint: var(--tint);
-  --ios-pill: var(--control-fill);
-  --ios-blur-bg: var(--overlay-fill);
-  --ios-sheet-bg: var(--sheet-fill);
-  --ios-radius-lg: 12px;
 
   --glass-saturate: 160%;
   --glass-blur: 18px;
@@ -63,22 +52,12 @@
     --control-fill: #2c2c2e;
     --overlay-fill: rgba(28, 28, 30, 0.72);
     --sheet-fill: rgba(28, 28, 30, 0.98);
-    --ios-bg: var(--app-bg);
-    --ios-bg-elevated: var(--surface-primary);
-    --ios-text: var(--text-primary);
-    --ios-secondary: var(--text-secondary);
-    --ios-tertiary: var(--text-tertiary);
-    --ios-separator: var(--separator);
-    --ios-tint: var(--tint);
-    --ios-pill: var(--control-fill);
-    --ios-blur-bg: var(--overlay-fill);
-    --ios-sheet-bg: var(--sheet-fill);
     --glass-highlight: rgba(255, 255, 255, 0.06);
-    --liquid-glass-bg: color-mix(in srgb, var(--ios-bg-elevated) 64%, transparent);
-    --liquid-glass-strong-bg: color-mix(in srgb, var(--ios-bg-elevated) 78%, transparent);
-    --liquid-glass-border: color-mix(in srgb, var(--ios-separator) 56%, transparent);
+    --liquid-glass-bg: color-mix(in srgb, var(--surface-primary) 64%, transparent);
+    --liquid-glass-strong-bg: color-mix(in srgb, var(--surface-primary) 78%, transparent);
+    --liquid-glass-border: color-mix(in srgb, var(--separator) 56%, transparent);
     --liquid-glass-shadow: 0 8px 22px rgba(0, 0, 0, 0.2), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
-    --liquid-glass-tint: color-mix(in srgb, var(--ios-tint) 12%, transparent);
+    --liquid-glass-tint: color-mix(in srgb, var(--tint) 12%, transparent);
   }
 }
 
@@ -154,16 +133,6 @@ button:disabled {
   --control-fill: rgba(118, 118, 128, 0.14);
   --overlay-fill: rgba(255, 255, 255, 0.72);
   --sheet-fill: rgba(255, 255, 255, 0.96);
-  --ios-bg: var(--app-bg);
-  --ios-bg-elevated: var(--surface-primary);
-  --ios-text: var(--text-primary);
-  --ios-secondary: var(--text-secondary);
-  --ios-tertiary: var(--text-tertiary);
-  --ios-separator: var(--separator);
-  --ios-tint: var(--tint);
-  --ios-pill: var(--control-fill);
-  --ios-blur-bg: var(--overlay-fill);
-  --ios-sheet-bg: var(--sheet-fill);
   --glass-highlight: rgba(255, 255, 255, 0.64);
   --liquid-glass-bg: rgba(255, 255, 255, 0.58);
   --liquid-glass-strong-bg: rgba(255, 255, 255, 0.78);
@@ -192,16 +161,6 @@ button:disabled {
   --control-fill: rgba(130, 105, 66, 0.14);
   --overlay-fill: rgba(244, 236, 216, 0.72);
   --sheet-fill: rgba(244, 236, 216, 0.96);
-  --ios-bg: var(--app-bg);
-  --ios-bg-elevated: var(--surface-primary);
-  --ios-text: var(--text-primary);
-  --ios-secondary: var(--text-secondary);
-  --ios-tertiary: var(--text-tertiary);
-  --ios-separator: var(--separator);
-  --ios-tint: var(--tint);
-  --ios-pill: var(--control-fill);
-  --ios-blur-bg: var(--overlay-fill);
-  --ios-sheet-bg: var(--sheet-fill);
   --glass-highlight: rgba(255, 255, 255, 0.35);
   --liquid-glass-bg: rgba(244, 236, 216, 0.58);
   --liquid-glass-strong-bg: rgba(244, 236, 216, 0.78);
@@ -230,21 +189,11 @@ button:disabled {
   --control-fill: #2c2c2e;
   --overlay-fill: rgba(28, 28, 30, 0.72);
   --sheet-fill: rgba(28, 28, 30, 0.98);
-  --ios-bg: var(--app-bg);
-  --ios-bg-elevated: var(--surface-primary);
-  --ios-text: var(--text-primary);
-  --ios-secondary: var(--text-secondary);
-  --ios-tertiary: var(--text-tertiary);
-  --ios-separator: var(--separator);
-  --ios-tint: var(--tint);
-  --ios-pill: var(--control-fill);
-  --ios-blur-bg: var(--overlay-fill);
-  --ios-sheet-bg: var(--sheet-fill);
   --glass-highlight: rgba(255, 255, 255, 0.06);
-  --liquid-glass-bg: color-mix(in srgb, var(--ios-bg-elevated) 64%, transparent);
-  --liquid-glass-strong-bg: color-mix(in srgb, var(--ios-bg-elevated) 78%, transparent);
-  --liquid-glass-border: color-mix(in srgb, var(--ios-separator) 56%, transparent);
+  --liquid-glass-bg: color-mix(in srgb, var(--surface-primary) 64%, transparent);
+  --liquid-glass-strong-bg: color-mix(in srgb, var(--surface-primary) 78%, transparent);
+  --liquid-glass-border: color-mix(in srgb, var(--separator) 56%, transparent);
   --liquid-glass-shadow: 0 8px 22px rgba(0, 0, 0, 0.2), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
-  --liquid-glass-tint: color-mix(in srgb, var(--ios-tint) 12%, transparent);
+  --liquid-glass-tint: color-mix(in srgb, var(--tint) 12%, transparent);
   color-scheme: dark;
 }

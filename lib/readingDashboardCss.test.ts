@@ -27,6 +27,6 @@ describe("reading dashboard composition", () => {
 
   it("keeps section separation through hairlines", () => {
     expect(css).toContain(".readingDashboardSection");
-    expect(css).toContain("var(--ios-separator)");
+    expect(rule(".readingDashboardSection")).toContain("var(--separator)");
   });
 });

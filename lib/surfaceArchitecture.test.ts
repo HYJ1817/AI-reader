@@ -11,6 +11,8 @@ describe("surface architecture", () => {
     "LibrarySurface",
     "ReadingDashboard",
     "SettingsSurface",
+    "AppNavigation",
+    "ReadingSession",
     "AppOverlays",
   ])("renders <%s> from Home", (component) => {
     expect(
@@ -23,11 +25,30 @@ describe("surface architecture", () => {
     "styles.collectionList",
     "styles.readingGoalCard",
     "styles.settingsNativeList",
+    "styles.tabIndicator",
+    "styles.readerShell",
     "styles.bookActionHero",
   ])("keeps %s out of the orchestration page", (styleReference) => {
     expect(
       pageSource.includes(styleReference),
       `Home should not contain ${styleReference}`
     ).toBe(false);
+  });
+
+  it.each([
+    "ReaderSettingsPanel",
+    "TocDrawer",
+    "AiSettingsSheet",
+    "ReadingGoalSheet",
+    "BottomSheet",
+  ])("keeps <%s> inside AppOverlays", (component) => {
+    expect(
+      pageSource.includes(`<${component}`),
+      `Home should not render <${component}> directly`
+    ).toBe(false);
+  });
+
+  it("keeps Home within the orchestration size target", () => {
+    expect(pageSource.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(1900);
   });
 });

@@ -1,5 +1,4 @@
 "use client";
-
 import {
   useCallback,
   useEffect,
@@ -36,8 +35,8 @@ import {
   scrollLeftFromProgress,
   scrollTopFromProgress,
 } from "@/lib/txtReader";
+import AppNavigation from "@/app/AppNavigation";
 import AppOverlays from "@/app/AppOverlays";
-import EpubReader from "@/app/EpubReader";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import LibrarySurface from "@/app/LibrarySurface";
 import {
@@ -70,15 +69,9 @@ import {
   shouldPublishProgressPercent,
 } from "@/lib/readerProgress";
 import type { EpubTocItem } from "@/lib/epubNavigation";
-import ReaderControls from "@/app/ReaderControls";
 import ReadingDashboard from "@/app/ReadingDashboard";
-import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
+import ReadingSession from "@/app/ReadingSession";
 import SettingsSurface from "@/app/SettingsSurface";
-import TocDrawer from "@/app/TocDrawer";
-import AskAiPanel from "@/app/AskAiPanel";
-import AiSettingsSheet from "@/app/AiSettingsSheet";
-import ReadingGoalSheet from "@/app/ReadingGoalSheet";
-import BottomSheet from "@/app/BottomSheet";
 import { UI_TEXT } from "@/lib/uiText";
 import {
   DEFAULT_READER_MODE,
@@ -121,11 +114,7 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
-import {
-  getNavigationSurfaceState,
-  getNavigationTabIndex,
-  type NavigationTab,
-} from "@/lib/navigationMotion";
+import { getNavigationSurfaceState, type NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
   getInitialVisibleItemCount,
@@ -834,7 +823,7 @@ export default function Home() {
   const todayGoalProgress = readingGoal.targetMinutes > 0
     ? Math.min(todayMinutesValue / readingGoal.targetMinutes, 1)
     : 0;
-  const goalRingBackground = `conic-gradient(var(--ios-tint) ${Math.round(todayGoalProgress * 360)}deg, rgba(120, 130, 160, 0.18) 0deg)`;
+  const goalRingBackground = `conic-gradient(var(--tint) ${Math.round(todayGoalProgress * 360)}deg, rgba(120, 130, 160, 0.18) 0deg)`;
   const readerThemeLabel =
     readerPrefs.theme === "system"
       ? "\u8ddf\u968f\u7cfb\u7edf"
@@ -1706,99 +1695,55 @@ export default function Home() {
           }}
         />
         {openBook && (
-            <div
-              ref={readerShellRef}
-              className={`${styles.readerShell} ${
-                activeTab === "reading" ? styles.readerSessionActive : styles.readerSessionInactive
-              } ${readerChromeVisible ? "" : styles.readerChromeHidden}`}
-              aria-hidden={activeTab !== "reading"}
-            >
-              <div
-                className={styles.readerStage}
-                onPointerDown={handleReaderPointerDown}
-                onPointerMove={handleReaderPointerMove}
-                onPointerUp={handleReaderPointerUp}
-                onPointerCancel={() => {
-                  const pointerDown = readerPointerDownRef.current;
-                  readerPointerDownRef.current = null;
-                  const reader = readerRef.current;
-                  const viewportWidth = reader?.clientWidth ?? 0;
-                  settleReaderSwipe(
-                    "none",
-                    pointerDown?.baseOffset ?? 0,
-                    viewportWidth
-                  );
-                }}
-              >
-                {openBook.format === "epub" ? (
-                  <EpubReader
-                    ref={epubReaderRef}
-                    bookId={openBook.id}
-                    fileBlob={openBook.fileBlob}
-                    mode={readerMode}
-                    getReadingPosition={getReadingPosition}
-                    saveReadingPosition={saveReadingPosition}
-                    onTextSelect={(text) => setSelectedText(text)}
-                    onReaderTap={() => dispatchReaderChrome({ type: "tap", at: performance.now() })}
-                    onReaderScrollStart={() => dispatchReaderChrome({ type: "scroll", at: performance.now() })}
-                    onSwipeTurn={(direction) =>
-                      turnReaderPage(direction, { instant: true })
-                    }
-                    onTocChange={(items) => setTocItems(items)}
-                    onProgressChange={handleEpubProgressChange}
-                    preferences={readerPrefs}
-                  />
-                ) : readerLoading ? (
-                  <div className={styles.emptyState}>
-                    <p className={styles.emptyText}>{UI_TEXT.LOADING}</p>
-                  </div>
-                ) : (
-                  <div
-                    ref={readerRef}
-                    className={`${styles.readerBody} ${
-                      readerMode === "paged" ? styles.readerBodyPaged : ""
-                    }`}
-                    onScroll={handleReaderScroll}
-                    onTransitionEnd={handleReaderSwipeTransitionEnd}
-                    style={{
-                      fontSize: `${readerPrefs.fontSizePx}px`,
-                      lineHeight: readerPrefs.lineHeight,
-                      maxWidth: `${readerPrefs.contentWidth}px`,
-                      margin: "0 auto",
-                      width: "100%",
-                    }}
-                  >
-                    {paragraphChunks.map((chunk, chunkIndex) => (
-                      <section
-                        key={chunkIndex}
-                        className={styles.paragraphChunk}
-                      >
-                        {chunk.map((paragraph, paragraphIndex) => (
-                          <p
-                            key={`${chunkIndex}-${paragraphIndex}`}
-                            className={styles.paragraph}
-                          >
-                            {paragraph}
-                          </p>
-                        ))}
-                      </section>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <ReaderControls
-                onBack={handleToolbarBack}
-                onContents={() => setTocDrawerOpen(true)}
-                hasToc={tocItems.length > 0 && openBook.format === "epub"}
-                progressPercent={readerProgressPercent}
-                onOpenSettings={() => setReaderSettingsOpen(true)}
-                onAsk={() => setAskSheetOpen(true)}
-                onOpenGoal={handleOpenGoalSheet}
-                readerMode={readerMode}
-                onReaderModeChange={handleReaderModeChange}
-                visible={readerChromeVisible}
-              />
-            </div>
+          <ReadingSession
+            active={activeTab === "reading"}
+            book={openBook}
+            loading={readerLoading}
+            mode={readerMode}
+            preferences={readerPrefs}
+            paragraphChunks={paragraphChunks}
+            chromeVisible={readerChromeVisible}
+            tocItems={tocItems}
+            progressPercent={readerProgressPercent}
+            shellRef={readerShellRef}
+            textReaderRef={readerRef}
+            epubReaderRef={epubReaderRef}
+            getReadingPosition={getReadingPosition}
+            saveReadingPosition={saveReadingPosition}
+            onPointerDown={handleReaderPointerDown}
+            onPointerMove={handleReaderPointerMove}
+            onPointerUp={handleReaderPointerUp}
+            onPointerCancel={() => {
+              const pointerDown = readerPointerDownRef.current;
+              readerPointerDownRef.current = null;
+              const viewportWidth = readerRef.current?.clientWidth ?? 0;
+              settleReaderSwipe(
+                "none",
+                pointerDown?.baseOffset ?? 0,
+                viewportWidth
+              );
+            }}
+            onTextSelect={setSelectedText}
+            onReaderTap={() =>
+              dispatchReaderChrome({ type: "tap", at: performance.now() })
+            }
+            onReaderScrollStart={() =>
+              dispatchReaderChrome({ type: "scroll", at: performance.now() })
+            }
+            onSwipeTurn={(direction) =>
+              void turnReaderPage(direction, { instant: true })
+            }
+            onTocChange={setTocItems}
+            onProgressChange={handleEpubProgressChange}
+            onTextReaderScroll={handleReaderScroll}
+            onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
+            onBack={handleToolbarBack}
+            onOpenContents={() => setTocDrawerOpen(true)}
+            onOpenSettings={() => setReaderSettingsOpen(true)}
+            onAsk={() => setAskSheetOpen(true)}
+            onOpenGoal={handleOpenGoalSheet}
+            onModeChange={handleReaderModeChange}
+          />
         )}
 
         <ReadingDashboard
@@ -1840,340 +1785,58 @@ export default function Home() {
         />
       </main>
 
-      {showBottomTabs && (
-        <nav className={styles.tabBar}>
-          <span
-            className={styles.tabIndicator}
-            style={{
-              "--tab-index": getNavigationTabIndex(activeTab),
-            } as React.CSSProperties}
-            aria-hidden="true"
-          />
-          <button
-            className={`${styles.tab} ${activeTab === "library" ? styles.activeTab : ""}`}
-            onClick={() => {
-              setActiveTab("library");
-              setLibraryScreen("library");
-              setCollectionsEditing(false);
-            }}
-          >
-            <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
-              <rect className={styles.tabIconFill} x="3.5" y="5.2" width="4.6" height="16" rx="1.5" />
-              <rect className={styles.tabIconFill} x="10.4" y="4.2" width="4.8" height="17" rx="1.5" />
-              <rect className={styles.tabIconFill} x="17.7" y="6.6" width="4.2" height="14.2" rx="1.4" transform="rotate(-7 19.8 13.7)" />
-              <rect className={styles.tabIconStroke} x="3.5" y="5.2" width="4.6" height="16" rx="1.5" />
-              <rect className={styles.tabIconStroke} x="10.4" y="4.2" width="4.8" height="17" rx="1.5" />
-              <rect className={styles.tabIconStroke} x="17.7" y="6.6" width="4.2" height="14.2" rx="1.4" transform="rotate(-7 19.8 13.7)" />
-              <path className={styles.tabIconStroke} d="M5.8 9.2v7.6M12.8 8.1v9.2M19.9 10.4l.8 6.1" />
-            </svg>
-            <span>{UI_TEXT.LIBRARY}</span>
-          </button>
-          <button
-            className={`${styles.tab} ${activeTab === "reading" ? styles.activeTab : ""}`}
-            onClick={() => setActiveTab("reading")}
-          >
-            <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
-              <path className={styles.tabIconFill} d="M4.4 5.6c3.3-.4 6 .3 8.6 2.1v14.1c-2.4-1.6-5.2-2.3-8.6-1.8V5.6Z" />
-              <path className={styles.tabIconFill} d="M13 7.7c2.6-1.8 5.3-2.5 8.6-2.1V20c-3.4-.5-6.2.2-8.6 1.8V7.7Z" />
-              <path className={styles.tabIconStroke} d="M4.4 5.6c3.3-.4 6 .3 8.6 2.1v14.1c-2.4-1.6-5.2-2.3-8.6-1.8V5.6Z" />
-              <path className={styles.tabIconStroke} d="M21.6 5.6c-3.3-.4-6 .3-8.6 2.1v14.1c2.4-1.6 5.2-2.3 8.6-1.8V5.6Z" />
-              <path className={styles.tabIconStroke} d="M13 7.7v14.1" />
-            </svg>
-            <span>{UI_TEXT.READING}</span>
-          </button>
-          <button
-            className={`${styles.tab} ${activeTab === "settings" ? styles.activeTab : ""}`}
-            onClick={switchToSettings}
-          >
-            <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
-              <path className={styles.tabIconStroke} d="M5.2 7.4h15.6M5.2 13h15.6M5.2 18.6h15.6" />
-              <circle className={styles.tabIconFill} cx="10" cy="7.4" r="2.2" />
-              <circle className={styles.tabIconFill} cx="16.2" cy="13" r="2.2" />
-              <circle className={styles.tabIconFill} cx="11.8" cy="18.6" r="2.2" />
-              <circle className={styles.tabIconStroke} cx="10" cy="7.4" r="2.2" />
-              <circle className={styles.tabIconStroke} cx="16.2" cy="13" r="2.2" />
-              <circle className={styles.tabIconStroke} cx="11.8" cy="18.6" r="2.2" />
-            </svg>
-            <span>{UI_TEXT.SETTINGS}</span>
-          </button>
-        </nav>
-      )}
-
-      {activeTab === "library" && libraryEditing && books.length > 0 && (
-        <div className={styles.libraryBatchBar}>
-          <button className={styles.batchTextButton} onClick={handleSelectAllVisible}>
-            {allVisibleSelected ? UI_TEXT.CLEAR_SELECTION : UI_TEXT.SELECT_ALL}
-          </button>
-          <span>{selectedCountLabel}</span>
-          <button
-            className={styles.batchTextButton}
-            onClick={openBatchGroupSheet}
-            disabled={selectedBookIds.length === 0}
-          >
-            {UI_TEXT.BATCH_ADD_TO_GROUP}
-          </button>
-          <button
-            className={styles.batchDangerButton}
-            onClick={() => setBatchDeleteConfirmOpen(true)}
-            disabled={selectedBookIds.length === 0}
-          >
-            {UI_TEXT.BATCH_DELETE}
-          </button>
-        </div>
-      )}
-
-      {readerSettingsOpen && (
-        <ReaderSettingsPanel
-          preferences={readerPrefs}
-          onChange={handleReaderPrefsChange}
-          onClose={() => setReaderSettingsOpen(false)}
-        />
-      )}
-
-      {tocDrawerOpen && (
-        <TocDrawer
-          items={tocItems}
-          onSelect={handleTocSelect}
-          onClose={() => setTocDrawerOpen(false)}
-        />
-      )}
-
-      {aiSettingsSheetOpen && (
-        <AiSettingsSheet
-          settings={aiProviderSettings}
-          onSave={handleAiProviderSettingsSave}
-          onClose={() => setAiSettingsSheetOpen(false)}
-        />
-      )}
-
-      {askSheetOpen && (
-        <BottomSheet
-          onClose={() => setAskSheetOpen(false)}
-          ariaLabel={UI_TEXT.ASK_AI}
-        >
-          {(close) => (
-            <>
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>{UI_TEXT.ASK_AI}</h2>
-              <button
-                className={styles.iconButton}
-                onClick={() => close()}
-                title={UI_TEXT.CLOSE}
-                aria-label={UI_TEXT.CLOSE}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div className={styles.sheetBody}>
-              <div className={styles.askSheetInner}>
-                <AskAiPanel
-                  selectedText={selectedText}
-                  question={question}
-                  onQuestionChange={setQuestion}
-                  answer={answer}
-                  loading={askLoading}
-                  error={askError}
-                  onAsk={handleAsk}
-                  onClearSelection={handleClearSelection}
-                  aiSettingsUsable={aiProviderUsable}
-                  bookTitle={openBook?.title ?? null}
-                  onOpenSettings={() => {
-                    close(() => {
-                      switchToSettings();
-                      setAiSettingsSheetOpen(true);
-                    });
-                  }}
-                />
-              </div>
-            </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {goalSheetOpen && (
-        <ReadingGoalSheet
-          todayMinutes={formatReadingMinutes(todaySeconds)}
-          targetMinutes={readingGoal.targetMinutes}
-          goalInputValue={goalInputValue}
-          bookTitle={openBook?.title ?? null}
-          onGoalInputChange={setGoalInputValue}
-          onSaveGoal={handleSaveGoal}
-          onClose={() => setGoalSheetOpen(false)}
-          onContinue={() => setGoalSheetOpen(false)}
-        />
-      )}
-
-      {batchGroupSheetOpen && (
-        <BottomSheet
-          onClose={() => setBatchGroupSheetOpen(false)}
-          ariaLabel={UI_TEXT.ADD_SELECTED_TO_GROUP}
-        >
-          {(close) => (
-            <>
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>{UI_TEXT.ADD_SELECTED_TO_GROUP}</h2>
-              <button
-                className={styles.iconButton}
-                onClick={() => close()}
-                title={UI_TEXT.CLOSE}
-                aria-label={UI_TEXT.CLOSE}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div className={styles.sheetBody}>
-              <div className={styles.groupSheetBookTitle}>
-                {selectedCountLabel}
-              </div>
-
-              {groups.length === 0 ? (
-                <div className={styles.groupEmpty}>
-                  <p className={styles.emptyText}>{UI_TEXT.NO_GROUPS_YET}</p>
-                  <p className={styles.groupEmptyHint}>{UI_TEXT.CREATE_FIRST_GROUP_HINT}</p>
-                </div>
-              ) : (
-                <div className={styles.actionListGroup}>
-                  {groups.map((group) => (
-                    <button
-                      key={group.id}
-                      className={styles.actionListRow}
-                      onClick={() => close(() => void handleAddSelectedBooksToGroup(group.id))}
-                    >
-                      <span className={styles.actionIcon}>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                          <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
-                        </svg>
-                      </span>
-                      <span>{group.name}</span>
-                      <small>{UI_TEXT.ADD_TO_THIS_GROUP}</small>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className={styles.groupCreateRow}>
-                <input
-                  type="text"
-                  className={styles.groupCreateInput}
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") close(() => void handleCreateBatchGroup());
-                  }}
-                  placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-                />
-                <button
-                  className={styles.groupCreateButton}
-                  onClick={() => close(() => void handleCreateBatchGroup())}
-                  disabled={!newGroupName.trim()}
-                >
-                  {UI_TEXT.NEW_GROUP}
-                </button>
-              </div>
-            </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {batchDeleteConfirmOpen && (
-        <BottomSheet
-          onClose={() => setBatchDeleteConfirmOpen(false)}
-          ariaLabel={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}
-        >
-          {(close) => (
-            <>
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>{UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}</h2>
-              <button
-                className={styles.iconButton}
-                onClick={() => close()}
-                title={UI_TEXT.CLOSE}
-                aria-label={UI_TEXT.CLOSE}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div className={styles.sheetBody}>
-              <div className={styles.deleteConfirmBox}>
-                <strong>{selectedCountLabel}</strong>
-                <p>{UI_TEXT.BATCH_DELETE_CONFIRM_HINT}</p>
-                <div>
-                  <button
-                    className={styles.secondaryButton}
-                    onClick={() => close()}
-                  >
-                    {UI_TEXT.CANCEL}
-                  </button>
-                  <button
-                    className={styles.dangerButton}
-                    onClick={() => close(() => void handleDeleteSelectedBooks())}
-                  >
-                    {UI_TEXT.BATCH_DELETE}
-                  </button>
-                </div>
-              </div>
-            </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {collectionCreateSheetOpen && (
-        <BottomSheet
-          onClose={() => setCollectionCreateSheetOpen(false)}
-          ariaLabel="新建藏书"
-        >
-          {(close) => (
-            <>
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>新建藏书</h2>
-              <button
-                className={styles.iconButton}
-                onClick={() => close()}
-                title={UI_TEXT.CLOSE}
-                aria-label={UI_TEXT.CLOSE}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-            <div className={styles.sheetBody}>
-              <div className={styles.groupCreateRow}>
-                <input
-                  type="text"
-                  className={styles.groupCreateInput}
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") close(() => void handleCreateCollectionGroup());
-                  }}
-                  placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-                  autoFocus
-                />
-                <button
-                  className={styles.groupCreateButton}
-                  onClick={() => close(() => void handleCreateCollectionGroup())}
-                  disabled={!newGroupName.trim()}
-                >
-                  {UI_TEXT.NEW_GROUP}
-                </button>
-              </div>
-            </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
+      <AppNavigation
+        activeTab={activeTab}
+        showBottomTabs={showBottomTabs}
+        showLibraryBatchBar={
+          activeTab === "library" && libraryEditing && books.length > 0
+        }
+        allVisibleSelected={allVisibleSelected}
+        selectedCountLabel={selectedCountLabel}
+        hasSelection={selectedBookIds.length > 0}
+        onOpenLibrary={() => {
+          setActiveTab("library");
+          setLibraryScreen("library");
+          setCollectionsEditing(false);
+        }}
+        onOpenReading={() => setActiveTab("reading")}
+        onOpenSettings={switchToSettings}
+        onToggleSelectAll={handleSelectAllVisible}
+        onOpenBatchGroup={openBatchGroupSheet}
+        onOpenBatchDelete={() => setBatchDeleteConfirmOpen(true)}
+      />
 
       <AppOverlays
+        reader={{
+          settingsOpen: readerSettingsOpen,
+          preferences: readerPrefs,
+          tocOpen: tocDrawerOpen,
+          tocItems,
+          askOpen: askSheetOpen,
+          selectedText,
+          question,
+          answer,
+          askLoading,
+          askError,
+          aiUsable: aiProviderUsable,
+          bookTitle: openBook?.title ?? null,
+          goalOpen: goalSheetOpen,
+          todayMinutes: formatReadingMinutes(todaySeconds),
+          targetMinutes: readingGoal.targetMinutes,
+          goalInputValue,
+        }}
+        ai={{
+          settingsOpen: aiSettingsSheetOpen,
+          settings: aiProviderSettings,
+        }}
+        library={{
+          groups,
+          selectedCountLabel,
+          newGroupName,
+          batchGroupOpen: batchGroupSheetOpen,
+          batchDeleteOpen: batchDeleteConfirmOpen,
+          createCollectionOpen: collectionCreateSheetOpen,
+        }}
         bookAction={{
           book: bookActionSheetBook,
           progress: actionSheetBookProgress,
@@ -2188,6 +1851,31 @@ export default function Home() {
           newGroupName,
         }}
         actions={{
+          closeReaderSettings: () => setReaderSettingsOpen(false),
+          changeReaderPreferences: handleReaderPrefsChange,
+          closeToc: () => setTocDrawerOpen(false),
+          selectTocItem: handleTocSelect,
+          closeAiSettings: () => setAiSettingsSheetOpen(false),
+          saveAiSettings: handleAiProviderSettingsSave,
+          closeAsk: () => setAskSheetOpen(false),
+          setQuestion,
+          ask: () => void handleAsk(),
+          clearSelection: handleClearSelection,
+          openAiSettingsFromAsk: () => {
+            switchToSettings();
+            setAiSettingsSheetOpen(true);
+          },
+          closeGoal: () => setGoalSheetOpen(false),
+          setGoalInputValue,
+          saveGoal: handleSaveGoal,
+          closeBatchGroup: () => setBatchGroupSheetOpen(false),
+          addSelectedBooksToGroup: (groupId) =>
+            void handleAddSelectedBooksToGroup(groupId),
+          createBatchGroup: () => void handleCreateBatchGroup(),
+          closeBatchDelete: () => setBatchDeleteConfirmOpen(false),
+          deleteSelectedBooks: () => void handleDeleteSelectedBooks(),
+          closeCreateCollection: () => setCollectionCreateSheetOpen(false),
+          createCollection: () => void handleCreateCollectionGroup(),
           closeBookActions: closeBookActionSheet,
           openBook: (book) => void openBookForReading(book),
           openGroupSheet,

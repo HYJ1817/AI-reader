@@ -13,6 +13,10 @@ const controlsSource = readFileSync(
   new URL("../app/ReaderControls.tsx", import.meta.url),
   "utf8"
 );
+const readingSessionSource = readFileSync(
+  new URL("../app/ReadingSession.tsx", import.meta.url),
+  "utf8"
+);
 
 describe("reader chrome event integration", () => {
   it("reserves a stationary TXT tap for chrome instead of edge page turns", () => {
@@ -28,8 +32,9 @@ describe("reader chrome event integration", () => {
     expect(pageSource).toContain("reduceReaderChromeState");
     expect(pageSource).toContain('dispatchReaderChrome({ type: "tap"');
     expect(pageSource).toContain('dispatchReaderChrome({ type: "scroll"');
-    expect(pageSource).toContain(
-      'onReaderTap={() => dispatchReaderChrome({ type: "tap"'
+    expect(readingSessionSource).toContain("onReaderTap={onReaderTap}");
+    expect(readingSessionSource).toContain(
+      "onReaderScrollStart={onReaderScrollStart}"
     );
   });
 

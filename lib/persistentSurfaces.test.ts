@@ -6,6 +6,10 @@ const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8"
 );
+const navigationSource = readFileSync(
+  new URL("../app/AppNavigation.tsx", import.meta.url),
+  "utf8"
+);
 const pageAst = ts.createSourceFile(
   "page.tsx",
   pageSource,
@@ -125,7 +129,9 @@ describe("persistent app surfaces", () => {
   );
 
   it("renders one shared bottom-tab indicator", () => {
-    expect(pageSource).toContain("styles.tabIndicator");
-    expect(pageSource).toContain('"--tab-index": getNavigationTabIndex(activeTab)');
+    expect(navigationSource).toContain("styles.tabIndicator");
+    expect(navigationSource).toContain(
+      '"--tab-index": getNavigationTabIndex(activeTab)'
+    );
   });
 });

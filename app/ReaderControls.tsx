@@ -124,8 +124,8 @@ export default function ReaderControls({
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M4 19h6M7 5v14M14 8h6M17 8v11" strokeLinecap="round" />
-            <circle cx="7" cy="8" r="2" fill="var(--ios-bg-elevated)" />
-            <circle cx="17" cy="16" r="2" fill="var(--ios-bg-elevated)" />
+            <circle cx="7" cy="8" r="2" fill="var(--surface-primary)" />
+            <circle cx="17" cy="16" r="2" fill="var(--surface-primary)" />
           </svg>
           <span>{UI_TEXT.READER_APPEARANCE}</span>
         </button>
