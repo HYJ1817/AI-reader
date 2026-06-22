@@ -762,7 +762,8 @@ export default function Home() {
     try {
       const record = await createBookRecordFromFile(file);
       await saveBook(record);
-      await openBookForReading(record);
+      autoOpenAttemptedRef.current = true;
+      setBooks(await listBooks());
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED
@@ -1067,7 +1068,6 @@ export default function Home() {
 
   const handleReaderScroll = useCallback(() => {
     if (!openBook || !readerRef.current) return;
-    dispatchReaderChrome({ type: "scroll", at: performance.now() });
     if (readerScrollFrameRef.current !== null) return;
 
     readerScrollFrameRef.current = window.requestAnimationFrame(() => {
@@ -1480,7 +1480,7 @@ export default function Home() {
   const handleReaderPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     const pointerDown = readerPointerDownRef.current;
     const reader = readerRef.current;
-    if (!pointerDown || !reader || !appPrefs.swipeToTurn) return;
+    if (!pointerDown || !reader) return;
 
     const dx = e.clientX - pointerDown.x;
     const dy = e.clientY - pointerDown.y;
@@ -1488,7 +1488,10 @@ export default function Home() {
     const absY = Math.abs(dy);
 
     if (pointerDown.axis === "pending" && (absX >= 13 || absY >= 13)) {
-      pointerDown.axis = absX > absY * 1.25 ? "horizontal" : "vertical";
+      pointerDown.axis =
+        appPrefs.swipeToTurn && absX > absY * 1.25
+          ? "horizontal"
+          : "vertical";
       if (pointerDown.axis === "horizontal") {
         e.currentTarget.setPointerCapture(e.pointerId);
         reader.classList.remove(styles.readerSwipeSettling);
@@ -1564,7 +1567,6 @@ export default function Home() {
       target.closest(`.${styles.readerBottomPill}`) ||
       target.closest(`.${styles.readerBottomProgress}`) ||
       target.closest(`.${styles.readerOverlayBack}`) ||
-      target.closest(`.${styles.readerCornerMenuButton}`) ||
       target.closest(`.${styles.readerFloatingTools}`) ||
       target.closest(`.${styles.readerModeMenu}`)
     ) {
@@ -1702,7 +1704,6 @@ export default function Home() {
           paragraphChunks={paragraphChunks}
           chromeVisible={readerChromeVisible}
           tocItems={tocItems}
-          progressPercent={readerProgressPercent}
           shellRef={readerShellRef}
           textReaderRef={readerRef}
           epubReaderRef={epubReaderRef}
@@ -1739,7 +1740,6 @@ export default function Home() {
           onOpenContents={() => setTocDrawerOpen(true)}
           onOpenSettings={() => setReaderSettingsOpen(true)}
           onAsk={() => setAskSheetOpen(true)}
-          onOpenGoal={handleOpenGoalSheet}
           onModeChange={handleReaderModeChange}
         />
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import BookCover from "@/app/BookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
 import type { CollectionListItem } from "@/lib/collectionList";
@@ -84,6 +84,28 @@ export default function LibrarySurface({
     loading,
     importError,
   } = data;
+  const [screenMotion, setScreenMotion] = useState<
+    "forward" | "backward" | null
+  >(null);
+  const screenMotionClass =
+    screenMotion === "forward"
+      ? styles.subviewEnterForward
+      : screenMotion === "backward"
+        ? styles.subviewEnterBackward
+        : "";
+
+  const openCollections = () => {
+    setScreenMotion("forward");
+    actions.openCollections();
+  };
+  const closeCollections = () => {
+    setScreenMotion("backward");
+    actions.closeCollections();
+  };
+  const selectCollection = (filter: string | null) => {
+    setScreenMotion("backward");
+    actions.selectCollection(filter);
+  };
 
   return (
     <div className={className} aria-hidden={ariaHidden}>
@@ -115,9 +137,11 @@ export default function LibrarySurface({
       </div>
 
       {view.screen === "collections" ? (
-        <div className={styles.collectionsScreen}>
+        <div
+          className={`${styles.collectionsScreen} ${screenMotionClass}`}
+        >
           <div className={styles.collectionsTopBar}>
-            <button className={styles.collectionBackButton} onClick={actions.closeCollections}>
+            <button className={styles.collectionBackButton} onClick={closeCollections}>
               <span aria-hidden="true">‹</span>
               {UI_TEXT.LIBRARY}
             </button>
@@ -147,7 +171,7 @@ export default function LibrarySurface({
                   <button
                     className={styles.collectionRowMain}
                     onClick={() => {
-                      if (!editing.collections) actions.selectCollection(item.filter);
+                      if (!editing.collections) selectCollection(item.filter);
                     }}
                   >
                     <span className={styles.collectionRowIcon}>
@@ -225,8 +249,8 @@ export default function LibrarySurface({
           </div>
         </div>
       ) : (
-        <>
-          <button className={styles.collectionEntryRow} onClick={actions.openCollections}>
+        <div className={screenMotionClass}>
+          <button className={styles.collectionEntryRow} onClick={openCollections}>
             <span className={styles.collectionEntryIcon}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
                 <path d="M4 6.5h6.5c1.1 0 2 .9 2 2v9.5H6a2 2 0 0 1-2-2V6.5Z" />
@@ -409,7 +433,7 @@ export default function LibrarySurface({
               )}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

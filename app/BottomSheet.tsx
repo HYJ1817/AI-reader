@@ -60,8 +60,14 @@ export default function BottomSheet({
   const closeCompletedRef = useRef(false);
 
   useEffect(() => {
-    const frame = window.requestAnimationFrame(() => setPhase("open"));
-    return () => window.cancelAnimationFrame(frame);
+    let openFrame: number | null = null;
+    const paintFrame = window.requestAnimationFrame(() => {
+      openFrame = window.requestAnimationFrame(() => setPhase("open"));
+    });
+    return () => {
+      window.cancelAnimationFrame(paintFrame);
+      if (openFrame !== null) window.cancelAnimationFrame(openFrame);
+    };
   }, []);
 
   const close = useCallback<CloseSheet>(

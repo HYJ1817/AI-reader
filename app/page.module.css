@@ -1906,7 +1906,6 @@
 }
 
 .readerOverlayBack,
-.readerCornerMenuButton,
 .readerFloatingTools,
 .readerModeMenu {
   position: absolute;
@@ -1935,33 +1934,10 @@
   opacity: 0.55;
 }
 
-.readerCornerMenuButton {
-  right: 18px;
-  bottom: calc(var(--safe-bottom) + 20px);
-  width: 50px;
-  height: 50px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  color: color-mix(in srgb, var(--foreground) 88%, transparent);
-  background: color-mix(in srgb, var(--background) 96%, transparent);
-  border: 0.5px solid color-mix(in srgb, var(--foreground) 12%, transparent);
-  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
-}
-
-.readerCornerMenuButton:active {
-  transform: scale(0.96);
-}
-
-.readerCornerMenuButtonOpen {
-  transform: rotate(90deg);
-}
-
 .readerFloatingTools {
   --reader-tool-delay: 35ms;
   right: 18px;
-  bottom: calc(var(--safe-bottom) + 82px);
+  bottom: calc(var(--safe-bottom) + 20px);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -2014,7 +1990,7 @@
 
 .readerModeMenu {
   right: 150px;
-  bottom: calc(var(--safe-bottom) + 174px);
+  bottom: calc(var(--safe-bottom) + 112px);
   display: flex;
   gap: 6px;
   opacity: 0;
@@ -2052,12 +2028,6 @@
   pointer-events: none;
 }
 
-.readerChromeControlsHidden .readerCornerMenuButton {
-  opacity: 0;
-  transform: translateY(8px);
-  pointer-events: none;
-}
-
 .readerChromeControlsHidden .readerFloatingTools {
   opacity: 0;
   transform: translateY(8px);
@@ -2071,7 +2041,6 @@
 }
 
 .readerChromeControlsHidden .readerOverlayBack,
-.readerChromeControlsHidden .readerCornerMenuButton,
 .readerChromeControlsHidden .readerFloatingTools,
 .readerChromeControlsHidden .readerModeMenu {
   transition-duration: var(--motion-chrome-exit);
@@ -2650,13 +2619,13 @@
 .motionSheetOverlay {
   opacity: 0;
   animation: none;
-  transition: opacity 220ms var(--ease-standard);
+  transition: opacity var(--motion-navigation) var(--ease-navigation);
 }
 
 .motionSheetOverlay .bottomSheet {
   animation: none;
   transform: translate3d(0, var(--sheet-drag-y, 0), 0);
-  transition: transform 240ms var(--ease-emphasized);
+  transition: transform var(--motion-navigation) var(--ease-navigation);
 }
 
 .motionSheetOpen {
@@ -2664,7 +2633,8 @@
 }
 
 .motionSheetEntering .bottomSheet {
-  transform: translate3d(0, 24px, 0);
+  transform: translate3d(0, 36px, 0);
+  will-change: transform;
 }
 
 .motionSheetClosing {
@@ -2676,6 +2646,7 @@
   transform: translate3d(0, 100%, 0);
   transition-duration: 180ms;
   transition-timing-function: var(--ease-standard);
+  will-change: transform;
 }
 
 .motionSheetDragging {
@@ -2689,6 +2660,41 @@
 
 .motionSheetDragging::before {
   transition: none;
+}
+
+.subviewEnterForward,
+.subviewEnterBackward {
+  will-change: transform, opacity;
+}
+
+.subviewEnterForward {
+  animation: subviewInForward var(--motion-navigation) var(--ease-navigation) both;
+}
+
+.subviewEnterBackward {
+  animation: subviewInBackward var(--motion-navigation) var(--ease-navigation) both;
+}
+
+@keyframes subviewInForward {
+  from {
+    opacity: 0;
+    transform: translate3d(36px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes subviewInBackward {
+  from {
+    opacity: 0;
+    transform: translate3d(-36px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .sheetDragHandle {
@@ -4091,6 +4097,13 @@
   border: 0.5px solid var(--hairline);
   box-shadow: none;
   opacity: 0.72;
+}
+
+.providerSubview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .providerSheetHeader {

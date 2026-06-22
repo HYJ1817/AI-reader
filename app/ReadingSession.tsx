@@ -24,7 +24,6 @@ type ReadingSessionProps = {
   paragraphChunks: string[][];
   chromeVisible: boolean;
   tocItems: EpubTocItem[];
-  progressPercent: number;
   shellRef: RefObject<HTMLDivElement | null>;
   textReaderRef: RefObject<HTMLDivElement | null>;
   epubReaderRef: RefObject<EpubReaderHandle | null>;
@@ -46,7 +45,6 @@ type ReadingSessionProps = {
   onOpenContents: () => void;
   onOpenSettings: () => void;
   onAsk: () => void;
-  onOpenGoal: () => void;
   onModeChange: (mode: ReaderMode) => void;
 };
 
@@ -59,7 +57,6 @@ export default function ReadingSession({
   paragraphChunks,
   chromeVisible,
   tocItems,
-  progressPercent,
   shellRef,
   textReaderRef,
   epubReaderRef,
@@ -81,7 +78,6 @@ export default function ReadingSession({
   onOpenContents,
   onOpenSettings,
   onAsk,
-  onOpenGoal,
   onModeChange,
 }: ReadingSessionProps) {
   return (
@@ -126,6 +122,7 @@ export default function ReadingSession({
               mode === "paged" ? styles.readerBodyPaged : ""
             }`}
             onScroll={onTextReaderScroll}
+            onWheel={onReaderScrollStart}
             onTransitionEnd={onSwipeTransitionEnd}
             style={{
               fontSize: `${preferences.fontSizePx}px`,
@@ -155,10 +152,8 @@ export default function ReadingSession({
           onBack={onBack}
           onContents={onOpenContents}
           hasToc={tocItems.length > 0 && book.format === "epub"}
-          progressPercent={progressPercent}
           onOpenSettings={onOpenSettings}
           onAsk={onAsk}
-          onOpenGoal={onOpenGoal}
           readerMode={mode}
           onReaderModeChange={onModeChange}
           visible={chromeVisible}

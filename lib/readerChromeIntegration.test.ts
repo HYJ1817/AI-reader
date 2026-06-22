@@ -21,8 +21,28 @@ const readerPresentationUrl = new URL(
   "../app/useReaderPresentation.ts",
   import.meta.url
 );
+const globalsSource = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8"
+);
+const epubPreferencesSource = readFileSync(
+  new URL("../lib/epubReaderPreferences.ts", import.meta.url),
+  "utf8"
+);
 
 describe("reader chrome event integration", () => {
+  it("keeps imported books in the library instead of opening them immediately", () => {
+    const importStart = pageSource.indexOf("async function handleImport");
+    const importEnd = pageSource.indexOf(
+      "const groupFilteredBooks",
+      importStart
+    );
+    const importSource = pageSource.slice(importStart, importEnd);
+
+    expect(importSource).toContain("setBooks(await listBooks())");
+    expect(importSource).not.toContain("openBookForReading(record)");
+  });
+
   it("reserves a stationary TXT tap for chrome instead of edge page turns", () => {
     expect(pageSource).not.toContain("getReaderTapAction");
     expect(pageSource).not.toContain("appPrefs.edgeTapToTurn &&");
@@ -42,6 +62,37 @@ describe("reader chrome event integration", () => {
     );
   });
 
+  it("hides TXT chrome only for explicit movement or wheel intent", () => {
+    const scrollStart = pageSource.indexOf(
+      "const handleReaderScroll = useCallback"
+    );
+    const scrollEnd = pageSource.indexOf(
+      "const handleEpubProgressChange",
+      scrollStart
+    );
+    const scrollSource = pageSource.slice(scrollStart, scrollEnd);
+    const pointerMoveStart = pageSource.indexOf(
+      "const handleReaderPointerMove = useCallback"
+    );
+    const pointerMoveEnd = pageSource.indexOf(
+      "const handleReaderPointerUp",
+      pointerMoveStart
+    );
+    const pointerMoveSource = pageSource.slice(
+      pointerMoveStart,
+      pointerMoveEnd
+    );
+
+    expect(scrollSource).not.toContain('type: "scroll"');
+    expect(pointerMoveSource).toContain('type: "scroll"');
+    expect(pointerMoveSource).not.toContain(
+      "!appPrefs.swipeToTurn) return"
+    );
+    expect(readingSessionSource).toContain(
+      "onWheel={onReaderScrollStart}"
+    );
+  });
+
   it("prevents an EPUB scroll gesture from also completing as a tap", () => {
     expect(epubSource).toContain("if (scrollIntentFired) return;");
     expect(epubSource).toContain("isTapGesture({");
@@ -50,10 +101,22 @@ describe("reader chrome event integration", () => {
   it("uses unframed floating tools instead of the old top and bottom chrome", () => {
     expect(controlsSource).toContain("readerFloatingTools");
     expect(controlsSource).toContain("readerOverlayBack");
+    expect(controlsSource).toContain("const toolsVisible = visible");
+    expect(controlsSource).not.toContain("readerCornerMenuButton");
+    expect(controlsSource).not.toContain("menuOpen");
     expect(controlsSource).not.toContain("readerTopHint");
     expect(controlsSource).not.toContain("readerPageBadge");
     expect(controlsSource).not.toContain("readerGoalMini");
     expect(controlsSource).not.toContain("readerActionPanel");
+    expect(controlsSource).not.toContain("onOpenGoal");
+    expect(controlsSource).not.toContain("UI_TEXT.READING_GOAL");
+  });
+
+  it("suppresses Safari tap highlights in the app and EPUB document", () => {
+    expect(globalsSource).toContain("-webkit-tap-highlight-color: transparent");
+    expect(epubPreferencesSource).toContain(
+      "-webkit-tap-highlight-color: transparent"
+    );
   });
 
   it("exposes both scroll and paged reading modes", () => {

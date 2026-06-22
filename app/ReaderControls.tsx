@@ -9,10 +9,8 @@ type Props = {
   onBack: () => void;
   onContents: () => void;
   hasToc: boolean;
-  progressPercent: number;
   onOpenSettings: () => void;
   onAsk: () => void;
-  onOpenGoal: () => void;
   readerMode: ReaderMode;
   onReaderModeChange: (mode: ReaderMode) => void;
   visible?: boolean;
@@ -30,29 +28,24 @@ export default function ReaderControls({
   onBack,
   onContents,
   hasToc,
-  progressPercent,
   onOpenSettings,
   onAsk,
-  onOpenGoal,
   readerMode,
   onReaderModeChange,
   visible = true,
 }: Props) {
-  const [menuOpen, setMenuOpen] = useState(false);
   const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const toolsVisible = visible && menuOpen;
+  const toolsVisible = visible;
 
   useEffect(() => {
     if (visible) return;
     const frame = window.requestAnimationFrame(() => {
-      setMenuOpen(false);
       setModeMenuOpen(false);
     });
     return () => window.cancelAnimationFrame(frame);
   }, [visible]);
 
   const closeMenu = () => {
-    setMenuOpen(false);
     setModeMenuOpen(false);
   };
 
@@ -162,21 +155,6 @@ export default function ReaderControls({
           <span>{UI_TEXT.ASK_AI}</span>
         </button>
 
-        <button
-          className={styles.readerFloatingTool}
-          style={toolStyle(4)}
-          onClick={() => {
-            closeMenu();
-            onOpenGoal();
-          }}
-          title={UI_TEXT.READING_GOAL}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <circle cx="12" cy="12" r="8" />
-            <path d="M12 7v5l3 2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>{UI_TEXT.READING_GOAL}</span>
-        </button>
       </div>
 
       <div
@@ -200,24 +178,6 @@ export default function ReaderControls({
         </button>
       </div>
 
-      <button
-        className={`${styles.readerCornerMenuButton} ${
-          toolsVisible ? styles.readerCornerMenuButtonOpen : ""
-        }`}
-        onClick={() => {
-          setMenuOpen((open) => !open);
-          setModeMenuOpen(false);
-        }}
-        title={UI_TEXT.MORE_OPTIONS}
-        aria-label={`${UI_TEXT.MORE_OPTIONS} · ${Math.round(progressPercent)}%`}
-        aria-expanded={toolsVisible}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <circle cx="5" cy="12" r="1.6" />
-          <circle cx="12" cy="12" r="1.6" />
-          <circle cx="19" cy="12" r="1.6" />
-        </svg>
-      </button>
     </div>
   );
 }

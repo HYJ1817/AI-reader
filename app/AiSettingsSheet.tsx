@@ -70,14 +70,24 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
   const [manualModel, setManualModel] = useState("");
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [modelRefreshStatus, setModelRefreshStatus] = useState("");
+  const [modeMotion, setModeMotion] = useState<
+    "forward" | "backward" | null
+  >(null);
   const activeProvider = useMemo(
     () =>
       settings.providers.find((provider) => provider.id === settings.activeProviderId) ??
       null,
     [settings]
   );
+  const modeMotionClass =
+    modeMotion === "forward"
+      ? styles.subviewEnterForward
+      : modeMotion === "backward"
+        ? styles.subviewEnterBackward
+        : "";
 
   function openAddProvider() {
+    setModeMotion("forward");
     setEditingProviderId(null);
     setDraft(createDraft());
     setManualModel("");
@@ -86,6 +96,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
   }
 
   function openEditProvider(provider: AiProviderConfig) {
+    setModeMotion("forward");
     setEditingProviderId(provider.id);
     setDraft(toDraft(provider));
     setManualModel("");
@@ -201,6 +212,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
     );
     setEditingProviderId(normalized.id);
     setDraft(null);
+    setModeMotion("backward");
     setMode("list");
   }
 
@@ -218,6 +230,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
     );
     setDraft(null);
     setEditingProviderId(null);
+    if (providers.length > 0) setModeMotion("backward");
     setMode(providers.length > 0 ? "list" : "configure");
     if (providers.length === 0) {
       setDraft(createDraft());
@@ -243,6 +256,10 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
       {(close) => (
         <>
         <div className={styles.providerSheetChrome} />
+        <div
+          key={mode}
+          className={`${styles.providerSubview} ${modeMotionClass}`}
+        >
         <div className={styles.providerSheetHeader}>
           {mode === "list" ? (
             <button type="button" className={styles.providerNavButton} onClick={() => close()}>
@@ -256,6 +273,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
                 if (settings.providers.length > 0) {
                   setDraft(null);
                   setEditingProviderId(null);
+                  setModeMotion("backward");
                   setMode("list");
                 } else {
                   close();
@@ -477,6 +495,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
               )}
             </>
           )}
+        </div>
         </div>
         </>
       )}

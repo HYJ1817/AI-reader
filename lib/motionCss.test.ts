@@ -114,7 +114,6 @@ describe("motion CSS", () => {
     for (const selector of [
       ".readerOverlayBack {",
       ".readerFloatingTool {",
-      ".readerCornerMenuButton {",
     ]) {
       const start = css.indexOf(selector);
       const end = css.indexOf("}", start);
