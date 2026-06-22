@@ -1633,6 +1633,7 @@
 
 @media (min-width: 640px) {
   .content {
+    width: 100%;
     max-width: 600px;
     margin: 0 auto;
   }
