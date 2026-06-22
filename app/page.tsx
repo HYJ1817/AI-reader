@@ -72,6 +72,7 @@ import type { EpubTocItem } from "@/lib/epubNavigation";
 import ReaderControls from "@/app/ReaderControls";
 import ReadingDashboard from "@/app/ReadingDashboard";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
+import SettingsSurface from "@/app/SettingsSurface";
 import TocDrawer from "@/app/TocDrawer";
 import AskAiPanel from "@/app/AskAiPanel";
 import AiSettingsSheet from "@/app/AiSettingsSheet";
@@ -2171,166 +2172,28 @@ export default function Home() {
           onImport={() => fileInputRef.current?.click()}
         />
 
-        <div
+        <SettingsSurface
           className={`${styles.settingsPage} ${getNavigationSurfaceClass("settings")}`}
-          aria-hidden={activeTab !== "settings"}
-        >
-            <h1 className={styles.libraryTitle}>{UI_TEXT.SETTINGS}</h1>
-
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.APP_PREFERENCES}</h2>
-              <div className={styles.settingsNativeList}>
-                <label className={styles.settingsSwitchRow}>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.AUTO_OPEN_LAST_BOOK}</strong>
-                    <small>{UI_TEXT.AUTO_OPEN_LAST_BOOK_HINT}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    className={styles.iosSwitch}
-                    checked={appPrefs.autoOpenLastBook}
-                    onChange={(e) =>
-                      handleAppPreferencesChange({ autoOpenLastBook: e.target.checked })
-                    }
-                  />
-                </label>
-
-                <label className={styles.settingsSwitchRow}>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.KEEP_SCREEN_AWAKE}</strong>
-                    <small>{UI_TEXT.KEEP_SCREEN_AWAKE_HINT}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    className={styles.iosSwitch}
-                    checked={appPrefs.keepScreenAwake}
-                    onChange={(e) =>
-                      handleAppPreferencesChange({ keepScreenAwake: e.target.checked })
-                    }
-                  />
-                </label>
-
-                <label className={styles.settingsSwitchRow}>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.REDUCE_MOTION}</strong>
-                    <small>{UI_TEXT.REDUCE_MOTION_HINT}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    className={styles.iosSwitch}
-                    checked={appPrefs.reduceMotion}
-                    onChange={(e) =>
-                      handleAppPreferencesChange({ reduceMotion: e.target.checked })
-                    }
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.READING_GESTURES}</h2>
-              <div className={styles.settingsNativeList}>
-                <label className={styles.settingsSwitchRow}>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.SWIPE_TO_TURN}</strong>
-                    <small>{UI_TEXT.SWIPE_TO_TURN_HINT}</small>
-                  </span>
-                  <input
-                    type="checkbox"
-                    className={styles.iosSwitch}
-                    checked={appPrefs.swipeToTurn}
-                    onChange={(e) =>
-                      handleAppPreferencesChange({ swipeToTurn: e.target.checked })
-                    }
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.AI_SETTINGS_TITLE}</h2>
-              <div className={styles.settingsNativeList}>
-                <button
-                  className={styles.settingsNavRow}
-                  onClick={() => setAiSettingsSheetOpen(true)}
-                >
-                  <span className={styles.settingsRowText}>
-                    <strong>AI 服务商</strong>
-                    <small>
-                      {activeAiProvider
-                        ? `${activeAiProvider.label} · ${activeAiProvider.model}`
-                        : "未配置"}
-                    </small>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-              </div>
-            </section>
-
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.BACKUP}</h2>
-              <div className={styles.settingsNativeList}>
-                <button
-                  className={styles.settingsNavRow}
-                  onClick={handleExportBackup}
-                >
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.EXPORT_BACKUP}</strong>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-                <button
-                  className={styles.settingsNavRow}
-                  onClick={() => backupInputRef.current?.click()}
-                >
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.IMPORT_BACKUP}</strong>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-                <input
-                  ref={backupInputRef}
-                  type="file"
-                  accept=".json"
-                  className={styles.hiddenInput}
-                  onChange={handleImportBackup}
-                />
-              </div>
-              {backupStatus && (
-                <p className={`${styles.settingsStatusText} ${styles.settingsStatusOk}`}>{backupStatus}</p>
-              )}
-              {backupError && (
-                <p className={`${styles.settingsStatusText} ${styles.settingsStatusErr}`}>{backupError}</p>
-              )}
-            </section>
-
-            <section className={styles.settingsSection}>
-              <h2 className={styles.settingsSectionTitle}>{UI_TEXT.READING}</h2>
-              <div className={styles.settingsNativeList}>
-                <button
-                  className={styles.settingsNavRow}
-                  onClick={() => setReaderSettingsOpen(true)}
-                >
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.READER_APPEARANCE}</strong>
-                    <small>{readerThemeLabel}</small>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-                <button
-                  className={styles.settingsNavRow}
-                  onClick={handleOpenGoalSheet}
-                >
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.READING_GOAL}</strong>
-                    <small>{UI_TEXT.TODAY_READING} {todayMinutesValue}/{readingGoal.targetMinutes} {UI_TEXT.MINUTES}</small>
-                  </span>
-                  <span className={styles.continueChevron}>{"\u203a"}</span>
-                </button>
-              </div>
-            </section>
-
-        </div>
+          ariaHidden={activeTab !== "settings"}
+          appPreferences={appPrefs}
+          activeProviderLabel={
+            activeAiProvider
+              ? `${activeAiProvider.label} · ${activeAiProvider.model}`
+              : null
+          }
+          readerThemeLabel={readerThemeLabel}
+          todayMinutes={todayMinutesValue}
+          targetMinutes={readingGoal.targetMinutes}
+          backupStatus={backupStatus}
+          backupError={backupError}
+          backupInputRef={backupInputRef}
+          onPreferencesChange={handleAppPreferencesChange}
+          onOpenAiSettings={() => setAiSettingsSheetOpen(true)}
+          onExportBackup={handleExportBackup}
+          onImportBackup={handleImportBackup}
+          onOpenReaderSettings={() => setReaderSettingsOpen(true)}
+          onOpenGoal={handleOpenGoalSheet}
+        />
       </main>
 
       {showBottomTabs && (
