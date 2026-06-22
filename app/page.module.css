@@ -94,6 +94,7 @@
   padding-bottom: calc(76px + 12px + 24px + var(--safe-bottom));
   opacity: 0;
   visibility: hidden;
+  transform: translate3d(36px, 0, 0);
   pointer-events: none;
   will-change: transform, opacity;
   transition:

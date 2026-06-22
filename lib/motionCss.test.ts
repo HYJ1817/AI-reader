@@ -53,6 +53,9 @@ describe("motion CSS", () => {
 
   it("uses a visible 36 pixel horizontal push for tabs and reader presentation", () => {
     expect(css).toMatch(
+      /\.appSurface\s*\{[^}]*transform:\s*translate3d\(36px,\s*0,\s*0\)/s
+    );
+    expect(css).toMatch(
       /\.appSurfaceBefore\s*\{[^}]*translate3d\(-36px,\s*0,\s*0\)/s
     );
     expect(css).toMatch(
