@@ -28,12 +28,44 @@ describe("motion CSS", () => {
     expect(positiveLinear).toEqual([]);
   });
 
-  it("uses a restrained horizontal push for the persistent reader session", () => {
-    expect(css).toMatch(
-      /\.readerSessionInactive\s*\{[^}]*transform:\s*translate3d\(18px,\s*0,\s*0\)/s
+  it("uses one navigation timing and easing protocol", () => {
+    expect(css).toContain("--motion-navigation: 210ms;");
+    expect(css).toContain(
+      "--ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);"
     );
     expect(css).toMatch(
-      /\.readerShell\s*\{[^}]*transition:[^}]*transform\s+220ms\s+var\(--ease-emphasized\)/s
+      /\.appSurface\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
+    );
+    expect(css).toMatch(
+      /\.tabIndicator\s*\{[^}]*transition:\s*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
+    );
+    expect(css).toMatch(
+      /\.readerShell\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
+    );
+    for (const selector of [".appSurface {", ".tabIndicator {", ".readerShell {"]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      expect(css.slice(start, end)).toContain(
+        "will-change: transform, opacity"
+      );
+    }
+  });
+
+  it("uses a visible 36 pixel horizontal push for tabs and reader presentation", () => {
+    expect(css).toMatch(
+      /\.appSurfaceBefore\s*\{[^}]*translate3d\(-36px,\s*0,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.appSurfaceAfter\s*\{[^}]*translate3d\(36px,\s*0,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.readerSessionInactive\s*\{[^}]*transform:\s*translate3d\(36px,\s*0,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.readingDashboardReaderOpen\s*\{[^}]*transform:\s*translate3d\(-36px,\s*0,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.readingDashboardReaderOpen\s*\{[^}]*transition-delay:\s*0s,\s*0s,\s*var\(--motion-navigation\)/s
     );
   });
 
@@ -46,12 +78,6 @@ describe("motion CSS", () => {
     expect(css).not.toContain("@keyframes pageFadeIn");
     expect(css).toMatch(
       /\.appSurface\s*\{[^}]*transition:[^}]*opacity[^}]*transform/s
-    );
-    expect(css).toMatch(
-      /\.appSurfaceBefore\s*\{[^}]*translate3d\(-8px,\s*0,\s*0\)/s
-    );
-    expect(css).toMatch(
-      /\.appSurfaceAfter\s*\{[^}]*translate3d\(8px,\s*0,\s*0\)/s
     );
   });
 

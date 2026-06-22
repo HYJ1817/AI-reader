@@ -134,4 +134,16 @@ describe("persistent app surfaces", () => {
       '"--tab-index": getNavigationTabIndex(activeTab)'
     );
   });
+
+  it("keeps the reader session mounted so its initial offset can be painted", () => {
+    const opening = findComponentOpening("ReadingSession");
+
+    expect(opening, "Home should render <ReadingSession>").toBeDefined();
+    if (!opening) return;
+
+    expect(
+      hasConditionalMountingAncestor(opening),
+      "<ReadingSession> should not have a conditional mounting ancestor"
+    ).toBe(false);
+  });
 });

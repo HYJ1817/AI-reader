@@ -4,11 +4,13 @@
   --row-min: 58px;
   --motion-fast: 140ms;
   --motion-standard: 190ms;
+  --motion-navigation: 210ms;
   --motion-sheet: 230ms;
   --motion-chrome-enter: 220ms;
   --motion-chrome-exit: 180ms;
   --ease-standard: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);
   --hairline: color-mix(in srgb, var(--separator) 72%, transparent);
   --shadow-soft: 0 7px 18px rgba(0, 0, 0, 0.1);
   --shadow-float: 0 12px 34px rgba(0, 0, 0, 0.14);
@@ -93,10 +95,11 @@
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+  will-change: transform, opacity;
   transition:
-    opacity var(--motion-standard) var(--ease-standard),
-    transform 210ms var(--ease-emphasized),
-    visibility 0s linear var(--motion-standard);
+    opacity var(--motion-navigation) var(--ease-navigation),
+    transform var(--motion-navigation) var(--ease-navigation),
+    visibility 0s linear var(--motion-navigation);
 }
 
 .appSurfaceActive {
@@ -108,11 +111,11 @@
 }
 
 .appSurfaceBefore {
-  transform: translate3d(-8px, 0, 0);
+  transform: translate3d(-36px, 0, 0);
 }
 
 .appSurfaceAfter {
-  transform: translate3d(8px, 0, 0);
+  transform: translate3d(36px, 0, 0);
 }
 
 .libraryPage {
@@ -1084,7 +1087,8 @@
     inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 46%, transparent),
     0 3px 8px rgba(0, 0, 0, 0.08);
   transform: translate3d(calc(var(--tab-index) * 100%), 0, 0);
-  transition: transform 210ms var(--ease-emphasized);
+  transition: transform var(--motion-navigation) var(--ease-navigation);
+  will-change: transform, opacity;
   pointer-events: none;
 }
 
@@ -1696,6 +1700,14 @@
   padding-top: calc(var(--safe-top) + 8px);
 }
 
+.readingDashboardReaderOpen {
+  opacity: 0;
+  visibility: hidden;
+  transform: translate3d(-36px, 0, 0);
+  pointer-events: none;
+  transition-delay: 0s, 0s, var(--motion-navigation);
+}
+
 .readingDashboardSection {
   padding: 18px 0;
   border-bottom: 0.5px solid var(--separator);
@@ -1848,10 +1860,11 @@
   color: var(--foreground);
   isolation: isolate;
   touch-action: pan-y pinch-zoom;
+  will-change: transform, opacity;
   transition:
-    opacity 200ms var(--ease-standard),
-    transform 220ms var(--ease-emphasized),
-    visibility 0s linear 0s,
+    opacity var(--motion-navigation) var(--ease-navigation),
+    transform var(--motion-navigation) var(--ease-navigation),
+    visibility 0s linear var(--motion-navigation),
     background-color 180ms var(--ease-standard),
     color 180ms var(--ease-standard);
 }
@@ -1861,15 +1874,14 @@
   transform: translate3d(0, 0, 0);
   visibility: visible;
   pointer-events: auto;
+  transition-delay: 0s;
 }
 
 .readerSessionInactive {
   opacity: 0;
-  transform: translate3d(18px, 0, 0);
+  transform: translate3d(36px, 0, 0);
   visibility: hidden;
   pointer-events: none;
-  transition-duration: 180ms, 180ms, 0s, 180ms, 180ms;
-  transition-delay: 0s, 0s, 180ms, 0s, 0s;
 }
 
 .readerStage {

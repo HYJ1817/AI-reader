@@ -17,7 +17,7 @@ import styles from "./page.module.css";
 
 type ReadingSessionProps = {
   active: boolean;
-  book: BookRecord;
+  book: BookRecord | null;
   loading: boolean;
   mode: ReaderMode;
   preferences: ReaderPreferences;
@@ -99,7 +99,7 @@ export default function ReadingSession({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       >
-        {book.format === "epub" ? (
+        {!book ? null : book.format === "epub" ? (
           <EpubReader
             ref={epubReaderRef}
             bookId={book.id}
@@ -150,18 +150,20 @@ export default function ReadingSession({
           </div>
         )}
       </div>
-      <ReaderControls
-        onBack={onBack}
-        onContents={onOpenContents}
-        hasToc={tocItems.length > 0 && book.format === "epub"}
-        progressPercent={progressPercent}
-        onOpenSettings={onOpenSettings}
-        onAsk={onAsk}
-        onOpenGoal={onOpenGoal}
-        readerMode={mode}
-        onReaderModeChange={onModeChange}
-        visible={chromeVisible}
-      />
+      {book && (
+        <ReaderControls
+          onBack={onBack}
+          onContents={onOpenContents}
+          hasToc={tocItems.length > 0 && book.format === "epub"}
+          progressPercent={progressPercent}
+          onOpenSettings={onOpenSettings}
+          onAsk={onAsk}
+          onOpenGoal={onOpenGoal}
+          readerMode={mode}
+          onReaderModeChange={onModeChange}
+          visible={chromeVisible}
+        />
+      )}
     </div>
   );
 }

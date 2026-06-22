@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const pageSource = readFileSync(
@@ -16,6 +16,10 @@ const controlsSource = readFileSync(
 const readingSessionSource = readFileSync(
   new URL("../app/ReadingSession.tsx", import.meta.url),
   "utf8"
+);
+const readerPresentationUrl = new URL(
+  "../app/useReaderPresentation.ts",
+  import.meta.url
 );
 
 describe("reader chrome event integration", () => {
@@ -55,5 +59,23 @@ describe("reader chrome event integration", () => {
   it("exposes both scroll and paged reading modes", () => {
     expect(controlsSource).toContain('handleReaderModeChange("scroll")');
     expect(controlsSource).toContain('handleReaderModeChange("paged")');
+  });
+
+  it("presents the reader independently from the active reading tab", () => {
+    expect(existsSync(readerPresentationUrl)).toBe(true);
+    if (!existsSync(readerPresentationUrl)) return;
+    const presentationSource = readFileSync(readerPresentationUrl, "utf8");
+
+    expect(pageSource).toContain("useReaderPresentation(setActiveTab)");
+    expect(pageSource).toContain(
+      'active={readerPresented && activeTab === "reading"}'
+    );
+    expect(pageSource).toContain("styles.readingDashboardReaderOpen");
+    expect(presentationSource).toContain(
+      "const [readerPresented, setReaderPresented] = useState(false)"
+    );
+    expect(presentationSource).toContain("setReaderPresented(true)");
+    expect(presentationSource).toContain("setReaderPresented(false)");
+    expect(presentationSource.match(/requestAnimationFrame/g)?.length).toBe(2);
   });
 });
