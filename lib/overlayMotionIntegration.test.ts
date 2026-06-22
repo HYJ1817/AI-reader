@@ -25,6 +25,9 @@ describe("overlay and nested view motion", () => {
     const entranceEffect = bottomSheetSource.slice(effectStart, effectEnd);
 
     expect(entranceEffect.match(/requestAnimationFrame/g)?.length).toBe(2);
+    expect(bottomSheetSource).toContain(
+      "window.setTimeout(finishClose, 380)"
+    );
   });
 
   it("animates library and AI nested views in both directions", () => {

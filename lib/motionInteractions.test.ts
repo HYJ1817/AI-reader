@@ -24,6 +24,21 @@ describe("isTapGesture", () => {
     ).toBe(true);
   });
 
+  it("accepts natural finger drift below the shared scroll threshold", () => {
+    const gesture = {
+      deltaX: 9,
+      deltaY: 12,
+    };
+
+    expect(
+      isTapGesture({
+        durationMs: 180,
+        ...gesture,
+      })
+    ).toBe(true);
+    expect(isScrollIntent(gesture)).toBe(false);
+  });
+
   it("rejects a scroll-like movement", () => {
     expect(
       isTapGesture({
@@ -95,7 +110,7 @@ describe("getSheetDragTranslation", () => {
 
 describe("isScrollIntent", () => {
   it("recognizes deliberate finger movement", () => {
-    expect(isScrollIntent({ deltaX: 3, deltaY: 14 })).toBe(true);
+    expect(isScrollIntent({ deltaX: 3, deltaY: 19 })).toBe(true);
   });
 
   it("ignores the small movement of a stationary tap", () => {

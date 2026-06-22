@@ -458,7 +458,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
         if (
           start.axis === "pending" &&
-          isScrollIntent({ deltaX: dx, deltaY: dy, thresholdPx: 13 })
+          isScrollIntent({ deltaX: dx, deltaY: dy })
         ) {
           start.axis = absX > absY * 1.25 ? "horizontal" : "vertical";
         }

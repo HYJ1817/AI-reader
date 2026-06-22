@@ -105,7 +105,7 @@ export default function BottomSheet({
       finishClose();
       return;
     }
-    const timer = window.setTimeout(finishClose, 280);
+    const timer = window.setTimeout(finishClose, 380);
     return () => window.clearTimeout(timer);
   }, [finishClose, phase]);
 

@@ -121,10 +121,7 @@ import {
   getInitialVisibleItemCount,
   getNextVisibleItemCount,
 } from "@/lib/incrementalList";
-import {
-  isTapGesture,
-  shouldReduceReaderMotion,
-} from "@/lib/motionInteractions";
+import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
 import {
   createReaderChromeState,
   reduceReaderChromeState,
@@ -1487,7 +1484,10 @@ export default function Home() {
     const absX = Math.abs(dx);
     const absY = Math.abs(dy);
 
-    if (pointerDown.axis === "pending" && (absX >= 13 || absY >= 13)) {
+    if (
+      pointerDown.axis === "pending" &&
+      isScrollIntent({ deltaX: dx, deltaY: dy })
+    ) {
       pointerDown.axis =
         appPrefs.swipeToTurn && absX > absY * 1.25
           ? "horizontal"

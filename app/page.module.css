@@ -4,8 +4,8 @@
   --row-min: 58px;
   --motion-fast: 140ms;
   --motion-standard: 190ms;
-  --motion-navigation: 210ms;
-  --motion-sheet: 230ms;
+  --motion-navigation: 340ms;
+  --motion-sheet: 300ms;
   --motion-chrome-enter: 220ms;
   --motion-chrome-exit: 180ms;
   --ease-standard: cubic-bezier(0.25, 1, 0.5, 1);
@@ -2619,13 +2619,13 @@
 .motionSheetOverlay {
   opacity: 0;
   animation: none;
-  transition: opacity var(--motion-navigation) var(--ease-navigation);
+  transition: opacity var(--motion-sheet) var(--ease-navigation);
 }
 
 .motionSheetOverlay .bottomSheet {
   animation: none;
   transform: translate3d(0, var(--sheet-drag-y, 0), 0);
-  transition: transform var(--motion-navigation) var(--ease-navigation);
+  transition: transform var(--motion-sheet) var(--ease-navigation);
 }
 
 .motionSheetOpen {
@@ -2639,13 +2639,14 @@
 
 .motionSheetClosing {
   opacity: 0;
-  transition-duration: 180ms;
+  transition-duration: var(--motion-sheet);
+  transition-timing-function: var(--ease-navigation);
 }
 
 .motionSheetClosing .bottomSheet {
   transform: translate3d(0, 100%, 0);
-  transition-duration: 180ms;
-  transition-timing-function: var(--ease-standard);
+  transition-duration: var(--motion-sheet);
+  transition-timing-function: var(--ease-navigation);
   will-change: transform;
 }
 

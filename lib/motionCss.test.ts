@@ -29,7 +29,8 @@ describe("motion CSS", () => {
   });
 
   it("uses one navigation timing and easing protocol", () => {
-    expect(css).toContain("--motion-navigation: 210ms;");
+    expect(css).toContain("--motion-navigation: 340ms;");
+    expect(css).toContain("--motion-sheet: 300ms;");
     expect(css).toContain(
       "--ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);"
     );
@@ -41,6 +42,12 @@ describe("motion CSS", () => {
     );
     expect(css).toMatch(
       /\.readerShell\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
+    );
+    expect(css).toMatch(
+      /\.motionSheetOverlay\s*\{[^}]*opacity\s+var\(--motion-sheet\)\s+var\(--ease-navigation\)/s
+    );
+    expect(css).toMatch(
+      /\.motionSheetOverlay\s+\.bottomSheet\s*\{[^}]*transform\s+var\(--motion-sheet\)\s+var\(--ease-navigation\)/s
     );
     for (const selector of [".appSurface {", ".tabIndicator {", ".readerShell {"]) {
       const start = css.indexOf(selector);

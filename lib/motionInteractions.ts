@@ -6,12 +6,14 @@ export type TapGestureInput = {
   maxDistancePx?: number;
 };
 
+export const READER_GESTURE_MOVEMENT_THRESHOLD_PX = 18;
+
 export function isTapGesture({
   durationMs,
   deltaX,
   deltaY,
   maxDurationMs = 420,
-  maxDistancePx = 12,
+  maxDistancePx = READER_GESTURE_MOVEMENT_THRESHOLD_PX,
 }: TapGestureInput): boolean {
   if (!Number.isFinite(durationMs) || durationMs < 0 || durationMs > maxDurationMs) {
     return false;
@@ -29,7 +31,7 @@ export type ScrollIntentInput = {
 export function isScrollIntent({
   deltaX,
   deltaY,
-  thresholdPx = 8,
+  thresholdPx = READER_GESTURE_MOVEMENT_THRESHOLD_PX,
 }: ScrollIntentInput): boolean {
   return Math.hypot(deltaX, deltaY) >= thresholdPx;
 }
