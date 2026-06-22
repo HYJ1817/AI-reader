@@ -70,6 +70,7 @@ import {
 } from "@/lib/readerProgress";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import ReaderControls from "@/app/ReaderControls";
+import ReadingDashboard from "@/app/ReadingDashboard";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import TocDrawer from "@/app/TocDrawer";
 import AskAiPanel from "@/app/AskAiPanel";
@@ -2155,94 +2156,20 @@ export default function Home() {
             </div>
         )}
 
-        <div
+        <ReadingDashboard
           className={`${styles.readingDashboard} ${getNavigationSurfaceClass("reading")}`}
-          aria-hidden={activeTab !== "reading" || Boolean(openBook)}
-        >
-              <div className={styles.pageHeader}>
-                <h1 className={styles.libraryTitle}>{UI_TEXT.READING}</h1>
-              </div>
-
-              <button className={styles.readingGoalCard} onClick={handleOpenGoalSheet}>
-                <span
-                  className={styles.dashboardGoalRing}
-                  style={{ background: goalRingBackground }}
-                >
-                  <span>{todayMinutesValue}</span>
-                  <small>{readingGoal.targetMinutes}</small>
-                </span>
-                <span className={styles.readingGoalText}>
-                  <strong>{UI_TEXT.TODAY_READING}</strong>
-                  <small>
-                    {UI_TEXT.TODAY_READING_PROGRESS} · {todayMinutesValue}/{readingGoal.targetMinutes} {UI_TEXT.MINUTES}
-                  </small>
-                </span>
-                <span className={styles.continueChevron}>{"\u203a"}</span>
-              </button>
-
-              <section className={styles.dashboardSection}>
-                <div className={styles.sectionHeader}>
-                  <h2>{UI_TEXT.CONTINUE_READING}</h2>
-                </div>
-                {latestBook ? (
-                  <button
-                    className={styles.featureBookCard}
-                    onClick={() => openBookForReading(latestBook)}
-                  >
-                    <BookCover
-                      title={latestBook.title}
-                      format={latestBook.format}
-                      coverImageBlob={latestBook.coverImageBlob}
-                    />
-                    <span className={styles.featureBookText}>
-                      <strong>{latestBook.title}</strong>
-                      <small>{latestBook.format.toUpperCase()}{" \u00b7 "}{formatBookSize(latestBook.size)}</small>
-                      <span className={styles.libraryProgressRow}>
-                        <span className={styles.libraryProgressTrack} aria-hidden="true">
-                          <span style={{ width: `${latestBookProgress}%` }} />
-                        </span>
-                        <span>{formatLibraryProgressLabel(latestBookProgress)}</span>
-                      </span>
-                    </span>
-                    <span className={styles.continueChevron}>{"\u203a"}</span>
-                  </button>
-                ) : (
-                  <button
-                    className={styles.featureBookCard}
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    <span className={styles.emptyCoverMini}>
-                      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M5 4h7v18H5V4zm9 0h7v18h-7V4z" />
-                        <path d="M12 8h2M12 18h2" />
-                      </svg>
-                    </span>
-                    <span className={styles.featureBookText}>
-                      <strong>{UI_TEXT.NO_BOOK_OPEN}</strong>
-                      <small>{UI_TEXT.SELECT_BOOK_HINT}</small>
-                    </span>
-                    <span className={styles.continueChevron}>{"\u203a"}</span>
-                  </button>
-                )}
-              </section>
-
-              <section className={styles.readingWeekCard}>
-                <div className={styles.sectionHeader}>
-                  <h2>{UI_TEXT.LAST_SEVEN_DAYS}</h2>
-                  <span>{UI_TEXT.TOTAL_READING}: {totalMinutesValue} {UI_TEXT.MINUTES}</span>
-                </div>
-                <div className={styles.weekBars}>
-                  {weeklyReadingInsights.map((day) => (
-                    <div key={day.date} className={day.isToday ? styles.weekBarToday : ""}>
-                      <span className={styles.weekBarTrack}>
-                        <span style={{ height: `${Math.max(day.progress * 100, day.minutes > 0 ? 10 : 0)}%` }} />
-                      </span>
-                      <small>{day.label}</small>
-                    </div>
-                  ))}
-                </div>
-              </section>
-        </div>
+          ariaHidden={activeTab !== "reading" || Boolean(openBook)}
+          todayMinutes={todayMinutesValue}
+          targetMinutes={readingGoal.targetMinutes}
+          goalRingBackground={goalRingBackground}
+          totalMinutes={totalMinutesValue}
+          insights={weeklyReadingInsights}
+          latestBook={latestBook ?? null}
+          latestBookProgress={latestBookProgress}
+          onOpenGoal={handleOpenGoalSheet}
+          onOpenBook={(book) => void openBookForReading(book)}
+          onImport={() => fileInputRef.current?.click()}
+        />
 
         <div
           className={`${styles.settingsPage} ${getNavigationSurfaceClass("settings")}`}
