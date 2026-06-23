@@ -29,8 +29,9 @@
 .ambientBookBackground {
   position: fixed;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   overflow: hidden;
+  background: var(--app-bg);
   pointer-events: none;
 }
 
@@ -54,7 +55,7 @@
   filter: blur(42px) saturate(var(--ambient-saturate));
   opacity: 0;
   will-change: opacity;
-  transition: opacity 340ms var(--ease-navigation);
+  transition: opacity var(--motion-navigation) var(--ease-navigation);
 }
 
 .ambientBookLayer[data-layer="current"] {
@@ -149,7 +150,6 @@
 
 .content {
   position: relative;
-  z-index: 1;
   flex: 1;
   min-height: 0;
   overflow: hidden;

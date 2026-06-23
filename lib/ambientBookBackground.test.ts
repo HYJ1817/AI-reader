@@ -325,11 +325,12 @@ describe("ambient book background state", () => {
     expect(appRule).toContain("background: transparent");
     expect(backgroundRule).toContain("position: fixed");
     expect(backgroundRule).toContain("inset: 0");
-    expect(backgroundRule).toContain("z-index: 0");
+    expect(backgroundRule).toContain("z-index: -1");
+    expect(backgroundRule).toContain("background: var(--app-bg)");
     expect(backgroundRule).toContain("pointer-events: none");
     expect(backgroundRule).toContain("overflow: hidden");
     expect(veilRule).toContain("background: var(--ambient-veil)");
-    expect(contentRule).toContain("z-index: 1");
+    expect(contentRule).not.toContain("z-index:");
     expect(tabBarRule).toContain("z-index: 10");
     expect(readerRule).toContain("z-index: 20");
   });
@@ -353,7 +354,7 @@ describe("ambient book background state", () => {
     );
     expect(layerRule).toContain("transition:");
     expect(layerRule).toContain(
-      "opacity 340ms var(--ease-navigation)"
+      "opacity var(--motion-navigation) var(--ease-navigation)"
     );
     expect(layerRule).not.toMatch(/transition:[^;]*(?:filter|transform)/s);
     expect(layerRule).not.toContain("animation:");
