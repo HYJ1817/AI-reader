@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  classifyEpubTouchEnd,
+  cancelEpubSyntheticClickToken,
   consumeEpubSyntheticClick,
-  createEpubSyntheticClickToken,
   normalizeEpubSelectionText,
+  resolveEpubSelectionUpdate,
+  resolveEpubTouchEnd,
 } from "./epubTapInteractions";
 
 describe("normalizeEpubSelectionText", () => {
@@ -14,89 +15,158 @@ describe("normalizeEpubSelectionText", () => {
   });
 });
 
-describe("classifyEpubTouchEnd", () => {
-  it("treats a new non-empty selection as selection instead of a tap", () => {
+describe("resolveEpubSelectionUpdate", () => {
+  it("clears stale AI selection state without showing selection chrome", () => {
+    expect(resolveEpubSelectionUpdate(" \n\t ")).toEqual({
+      selectedText: null,
+      shouldShowChrome: false,
+    });
+  });
+
+  it("normalizes selected text and requests selection chrome", () => {
+    expect(resolveEpubSelectionUpdate("  first \n second  ")).toEqual({
+      selectedText: "first second",
+      shouldShowChrome: true,
+    });
+  });
+});
+
+describe("resolveEpubTouchEnd", () => {
+  it("creates a synthetic-click token only for a real tap", () => {
+    const target = new EventTarget();
+    const result = resolveEpubTouchEnd({
+      startSelectionText: "",
+      endSelectionText: "",
+      isInteractiveTarget: false,
+      scrollIntentFired: false,
+      isTapGesture: true,
+      target,
+      at: 100,
+    });
+
+    expect(result.classification).toBe("tap");
+    expect(result.fireTap).toBe(true);
+    expect(result.syntheticClickToken?.target).toBe(target);
+  });
+
+  it("treats a new non-empty selection as selection without a token", () => {
     expect(
-      classifyEpubTouchEnd({
+      resolveEpubTouchEnd({
         startSelectionText: "",
         endSelectionText: "selected text",
         isInteractiveTarget: false,
         scrollIntentFired: false,
         isTapGesture: true,
+        target: new EventTarget(),
+        at: 100,
       })
-    ).toBe("selection");
+    ).toEqual({
+      classification: "selection",
+      fireTap: false,
+      syntheticClickToken: null,
+    });
   });
 
   it("allows a stationary tap when the non-empty selection is unchanged", () => {
-    expect(
-      classifyEpubTouchEnd({
-        startSelectionText: "stale selection",
-        endSelectionText: "stale selection",
-        isInteractiveTarget: false,
-        scrollIntentFired: false,
-        isTapGesture: true,
-      })
-    ).toBe("tap");
+    const result = resolveEpubTouchEnd({
+      startSelectionText: "stale selection",
+      endSelectionText: "stale selection",
+      isInteractiveTarget: false,
+      scrollIntentFired: false,
+      isTapGesture: true,
+      target: new EventTarget(),
+      at: 100,
+    });
+
+    expect(result.classification).toBe("tap");
+    expect(result.fireTap).toBe(true);
+    expect(result.syntheticClickToken).not.toBeNull();
   });
 
-  it("ignores interactive targets, scrolls, and non-tap gestures", () => {
+  it("does not create a token for interactive, scroll, or swipe gestures", () => {
     const base = {
       startSelectionText: "",
       endSelectionText: "",
+      target: new EventTarget(),
+      at: 100,
     };
 
     expect(
-      classifyEpubTouchEnd({
+      resolveEpubTouchEnd({
         ...base,
         isInteractiveTarget: true,
         scrollIntentFired: false,
         isTapGesture: true,
       })
-    ).toBe("ignore");
+    ).toMatchObject({
+      classification: "ignore",
+      fireTap: false,
+      syntheticClickToken: null,
+    });
     expect(
-      classifyEpubTouchEnd({
+      resolveEpubTouchEnd({
         ...base,
         isInteractiveTarget: false,
         scrollIntentFired: true,
         isTapGesture: true,
       })
-    ).toBe("ignore");
+    ).toMatchObject({
+      classification: "ignore",
+      fireTap: false,
+      syntheticClickToken: null,
+    });
     expect(
-      classifyEpubTouchEnd({
+      resolveEpubTouchEnd({
         ...base,
         isInteractiveTarget: false,
         scrollIntentFired: false,
         isTapGesture: false,
       })
-    ).toBe("ignore");
+    ).toMatchObject({
+      classification: "ignore",
+      fireTap: false,
+      syntheticClickToken: null,
+    });
   });
 });
 
 describe("EPUB synthetic click suppression", () => {
-  it("suppresses one matching delayed click after a classified touch", () => {
+  it("runs a touchend and matching click sequence as exactly one tap", () => {
     const target = new EventTarget();
-    const token = createEpubSyntheticClickToken(target, 100);
+    const touchEnd = resolveEpubTouchEnd({
+      startSelectionText: "",
+      endSelectionText: "",
+      isInteractiveTarget: false,
+      scrollIntentFired: false,
+      isTapGesture: true,
+      target,
+      at: 100,
+    });
+    let tapCount = touchEnd.fireTap ? 1 : 0;
     const consumed = consumeEpubSyntheticClick({
-      token,
+      token: touchEnd.syntheticClickToken,
       target,
       at: 950,
     });
+    if (!consumed.suppress) tapCount += 1;
 
+    expect(tapCount).toBe(1);
     expect(consumed.suppress).toBe(true);
     expect(consumed.token).toBeNull();
-    expect(
-      consumeEpubSyntheticClick({
-        token: consumed.token,
-        target,
-        at: 960,
-      }).suppress
-    ).toBe(false);
   });
 
-  it("does not suppress a click for a different target", () => {
+  it("allows a different target click and clears the stale token", () => {
     const touchTarget = new EventTarget();
     const clickTarget = new EventTarget();
-    const token = createEpubSyntheticClickToken(touchTarget, 100);
+    const token = resolveEpubTouchEnd({
+      startSelectionText: "",
+      endSelectionText: "",
+      isInteractiveTarget: false,
+      scrollIntentFired: false,
+      isTapGesture: true,
+      target: touchTarget,
+      at: 100,
+    }).syntheticClickToken;
     const result = consumeEpubSyntheticClick({
       token,
       target: clickTarget,
@@ -104,6 +174,52 @@ describe("EPUB synthetic click suppression", () => {
     });
 
     expect(result.suppress).toBe(false);
-    expect(result.token).toBe(token);
+    expect(result.token).toBeNull();
+  });
+
+  it("allows an expired click and clears the token", () => {
+    const target = new EventTarget();
+    const token = resolveEpubTouchEnd({
+      startSelectionText: "",
+      endSelectionText: "",
+      isInteractiveTarget: false,
+      scrollIntentFired: false,
+      isTapGesture: true,
+      target,
+      at: 100,
+    }).syntheticClickToken;
+
+    expect(
+      consumeEpubSyntheticClick({
+        token,
+        target,
+        at: 1601,
+      })
+    ).toEqual({ suppress: false, token: null });
+  });
+
+  it("clears a pending token when the touch sequence is cancelled", () => {
+    const target = new EventTarget();
+    const token = resolveEpubTouchEnd({
+      startSelectionText: "",
+      endSelectionText: "",
+      isInteractiveTarget: false,
+      scrollIntentFired: false,
+      isTapGesture: true,
+      target,
+      at: 100,
+    }).syntheticClickToken;
+
+    const cancelledToken = cancelEpubSyntheticClickToken();
+
+    expect(token).not.toBeNull();
+    expect(cancelledToken).toBeNull();
+    expect(
+      consumeEpubSyntheticClick({
+        token: cancelledToken,
+        target,
+        at: 200,
+      })
+    ).toEqual({ suppress: false, token: null });
   });
 });

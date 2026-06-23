@@ -16,10 +16,10 @@ import {
   type EpubThemeController,
 } from "@/lib/epubReaderPreferences";
 import {
-  classifyEpubTouchEnd,
+  cancelEpubSyntheticClickToken,
   consumeEpubSyntheticClick,
-  createEpubSyntheticClickToken,
   normalizeEpubSelectionText,
+  resolveEpubTouchEnd,
   type EpubSyntheticClickToken,
 } from "@/lib/epubTapInteractions";
 import {
@@ -370,6 +370,22 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       return normalizeEpubSelectionText(selection?.toString() ?? "");
     };
 
+    let selectionChangeTimer: number | null = null;
+    const reportSelectionChange = () => {
+      const view = c?.window ?? doc.defaultView;
+      if (selectionChangeTimer !== null) {
+        view?.clearTimeout(selectionChangeTimer);
+      }
+      if (!view) {
+        onTextSelectRef.current?.(getSelectionText());
+        return;
+      }
+      selectionChangeTimer = view.setTimeout(() => {
+        selectionChangeTimer = null;
+        onTextSelectRef.current?.(getSelectionText());
+      }, 260);
+    };
+
     const fireReaderTap = (target: EventTarget | null) => {
       if (isInteractiveTarget(target) || getSelectionText()) return;
       onReaderTapRef.current?.();
@@ -420,6 +436,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       (event) => {
         const touch = event.touches[0];
         if (!touch) return;
+        syntheticClickToken = cancelEpubSyntheticClickToken();
         const shell = shellRef.current;
         let baseOffset = 0;
         if (shell) {
@@ -516,10 +533,6 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         if (!start || !touch) return;
         const dx = touch.clientX - start.x;
         const dy = touch.clientY - start.y;
-        syntheticClickToken = createEpubSyntheticClickToken(
-          start.target,
-          Date.now()
-        );
         if (start.axis === "horizontal") {
           const action = getReaderSwipeAction({
             startX: start.x,
@@ -545,7 +558,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             doc.documentElement.clientWidth || shell?.clientWidth || 0
           );
         }
-        const classification = classifyEpubTouchEnd({
+        const touchEnd = resolveEpubTouchEnd({
           startSelectionText: start.selectionText,
           endSelectionText: getSelectionText(),
           isInteractiveTarget: isInteractiveTarget(start.target),
@@ -555,8 +568,11 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             deltaX: dx,
             deltaY: dy,
           }),
+          target: start.target,
+          at: Date.now(),
         });
-        if (classification === "tap") {
+        syntheticClickToken = touchEnd.syntheticClickToken;
+        if (touchEnd.fireTap) {
           onReaderTapRef.current?.();
         }
       },
@@ -568,11 +584,14 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       () => {
         const start = touchStart;
         touchStart = null;
+        syntheticClickToken = cancelEpubSyntheticClickToken();
         const shell = shellRef.current;
         settleSwipe("none", start?.baseOffset ?? 0, shell?.clientWidth ?? 0);
       },
       { passive: true }
     );
+
+    doc.addEventListener("selectionchange", reportSelectionChange);
 
     doc.addEventListener("click", (event) => {
       const clickResult = consumeEpubSyntheticClick({

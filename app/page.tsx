@@ -69,6 +69,7 @@ import {
   shouldPublishProgressPercent,
 } from "@/lib/readerProgress";
 import type { EpubTocItem } from "@/lib/epubNavigation";
+import { resolveEpubSelectionUpdate } from "@/lib/epubTapInteractions";
 import ReadingDashboard from "@/app/ReadingDashboard";
 import ReadingSession from "@/app/ReadingSession";
 import SettingsSurface from "@/app/SettingsSurface";
@@ -1722,7 +1723,7 @@ export default function Home() {
               viewportWidth
             );
           }}
-          onTextSelect={(text) => { setSelectedText(text); dispatchReaderChrome({ type: "selection" }); }}
+          onTextSelect={(text) => { const selectionUpdate = resolveEpubSelectionUpdate(text); setSelectedText(selectionUpdate.selectedText); if (selectionUpdate.shouldShowChrome) dispatchReaderChrome({ type: "selection" }); }}
           onReaderTap={() =>
             dispatchReaderChrome({ type: "tap", at: performance.now() })
           }

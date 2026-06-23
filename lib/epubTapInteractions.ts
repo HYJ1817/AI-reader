@@ -4,6 +4,17 @@ export function normalizeEpubSelectionText(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
 
+export function resolveEpubSelectionUpdate(value: string): {
+  selectedText: string | null;
+  shouldShowChrome: boolean;
+} {
+  const selectedText = normalizeEpubSelectionText(value) || null;
+  return {
+    selectedText,
+    shouldShowChrome: selectedText !== null,
+  };
+}
+
 export function classifyEpubTouchEnd({
   startSelectionText,
   endSelectionText,
@@ -47,6 +58,48 @@ export function createEpubSyntheticClickToken(
   };
 }
 
+export function resolveEpubTouchEnd({
+  startSelectionText,
+  endSelectionText,
+  isInteractiveTarget,
+  scrollIntentFired,
+  isTapGesture,
+  target,
+  at,
+}: {
+  startSelectionText: string;
+  endSelectionText: string;
+  isInteractiveTarget: boolean;
+  scrollIntentFired: boolean;
+  isTapGesture: boolean;
+  target: EventTarget | null;
+  at: number;
+}): {
+  classification: EpubTouchEndClassification;
+  fireTap: boolean;
+  syntheticClickToken: EpubSyntheticClickToken | null;
+} {
+  const classification = classifyEpubTouchEnd({
+    startSelectionText,
+    endSelectionText,
+    isInteractiveTarget,
+    scrollIntentFired,
+    isTapGesture,
+  });
+  const fireTap = classification === "tap";
+  return {
+    classification,
+    fireTap,
+    syntheticClickToken: fireTap
+      ? createEpubSyntheticClickToken(target, at)
+      : null,
+  };
+}
+
+export function cancelEpubSyntheticClickToken(): null {
+  return null;
+}
+
 export function consumeEpubSyntheticClick({
   token,
   target,
@@ -66,7 +119,7 @@ export function consumeEpubSyntheticClick({
     return { suppress: false, token: null };
   }
   if (target !== token.target) {
-    return { suppress: false, token };
+    return { suppress: false, token: null };
   }
   return { suppress: true, token: null };
 }

@@ -95,27 +95,37 @@ describe("reader chrome event integration", () => {
 
   it("prevents an EPUB scroll gesture from also completing as a tap", () => {
     expect(epubSource).toContain("scrollIntentFired,");
-    expect(epubSource).toContain('if (classification === "tap")');
+    expect(epubSource).toContain("if (touchEnd.fireTap)");
     expect(epubSource).toContain("isTapGesture({");
   });
 
   it("routes EPUB touch selection and synthetic click arbitration through the tested helper", () => {
     expect(epubSource).toContain("normalizeEpubSelectionText");
-    expect(epubSource).toContain("classifyEpubTouchEnd");
-    expect(epubSource).toContain("createEpubSyntheticClickToken");
+    expect(epubSource).toContain("resolveEpubTouchEnd");
     expect(epubSource).toContain("consumeEpubSyntheticClick");
+    expect(epubSource).toContain("cancelEpubSyntheticClickToken");
     expect(epubSource).not.toContain("lastTouchTapAt");
   });
 
-  it("shows reader controls when EPUB text is selected", () => {
+  it("clears stale EPUB selection and only shows chrome for non-empty text", () => {
     const sessionStart = pageSource.indexOf("<ReadingSession");
     const sessionEnd = pageSource.indexOf("</main>", sessionStart);
     const sessionSource = pageSource.slice(sessionStart, sessionEnd);
 
     expect(sessionSource).toContain("onTextSelect={(text) => {");
-    expect(sessionSource).toContain("setSelectedText(text);");
+    expect(sessionSource).toContain("resolveEpubSelectionUpdate(text)");
+    expect(sessionSource).toContain("setSelectedText(selectionUpdate.selectedText)");
     expect(sessionSource).toContain(
-      'dispatchReaderChrome({ type: "selection" });'
+      "if (selectionUpdate.shouldShowChrome)"
+    );
+  });
+
+  it("reports selection changes from the EPUB document, including clears", () => {
+    expect(epubSource).toContain(
+      'doc.addEventListener("selectionchange", reportSelectionChange)'
+    );
+    expect(epubSource).toContain(
+      "onTextSelectRef.current?.(getSelectionText())"
     );
   });
 
