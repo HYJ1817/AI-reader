@@ -9,13 +9,12 @@ import {
 } from "react";
 import {
   AMBIENT_CROSSFADE_MS,
-  acquireAmbientBlobUrl,
   completeAmbientTransition,
+  createAmbientBlobUrlRegistry,
   createAmbientLayer,
   createInitialAmbientTransitionState,
-  releaseAmbientBlobUrls,
-  selectAmbientBlobsToRelease,
   startAmbientTransition,
+  type AmbientBlobUrlRegistry,
   type AmbientLayer,
   type AmbientTransitionState,
 } from "@/lib/ambientBookBackground";
@@ -43,12 +42,19 @@ export default function AmbientBookBackground({
 }: AmbientBookBackgroundProps) {
   const [layers, setLayers] = useState(createInitialAmbientTransitionState);
   const layersRef = useRef(layers);
-  const acquiredUrlsRef = useRef(new Map<Blob, string>());
+  const registryRef = useRef<AmbientBlobUrlRegistry | null>(null);
 
   const commitLayers = useCallback((nextState: AmbientTransitionState) => {
     if (layersRef.current === nextState) return;
     layersRef.current = nextState;
     setLayers(nextState);
+  }, []);
+
+  const getRegistry = useCallback(() => {
+    if (!registryRef.current) {
+      registryRef.current = createAmbientBlobUrlRegistry();
+    }
+    return registryRef.current;
   }, []);
 
   useEffect(() => {
@@ -57,10 +63,7 @@ export default function AmbientBookBackground({
       let imageUrl: string | null = null;
 
       if (coverBlob) {
-        imageUrl = acquireAmbientBlobUrl(
-          coverBlob,
-          acquiredUrlsRef.current
-        );
+        imageUrl = getRegistry().acquire(coverBlob);
       }
 
       const nextLayer = createAmbientLayer(book, imageUrl);
@@ -70,16 +73,10 @@ export default function AmbientBookBackground({
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [book, commitLayers, reduceMotion]);
+  }, [book, commitLayers, getRegistry, reduceMotion]);
 
   useEffect(() => {
-    releaseAmbientBlobUrls(
-      selectAmbientBlobsToRelease(
-        acquiredUrlsRef.current.keys(),
-        layersRef.current
-      ),
-      acquiredUrlsRef.current
-    );
+    registryRef.current?.releaseUnretained(layersRef.current);
   }, [layers]);
 
   useEffect(() => {
@@ -102,10 +99,9 @@ export default function AmbientBookBackground({
 
   useEffect(
     () => () => {
-      releaseAmbientBlobUrls(
-        selectAmbientBlobsToRelease(acquiredUrlsRef.current.keys(), null),
-        acquiredUrlsRef.current
-      );
+      const registry = registryRef.current;
+      registryRef.current = null;
+      registry?.dispose();
     },
     []
   );

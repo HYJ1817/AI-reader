@@ -111,25 +111,80 @@ export function selectAmbientBlobsToRelease(
   return [...acquired].filter((blob) => !retained.has(blob));
 }
 
-export function acquireAmbientBlobUrl(
+function acquireAmbientBlobUrl(
   blob: Blob,
-  acquiredUrls: Map<Blob, string>
+  acquiredUrls: Map<Blob, string>,
+  acquire: (blob: Blob) => string
 ): string {
   const existingUrl = acquiredUrls.get(blob);
   if (existingUrl) return existingUrl;
 
-  const imageUrl = acquireBlobUrl(blob);
+  const imageUrl = acquire(blob);
   acquiredUrls.set(blob, imageUrl);
   return imageUrl;
 }
 
-export function releaseAmbientBlobUrls(
+function releaseAmbientBlobUrls(
   blobs: Iterable<Blob>,
-  acquiredUrls: Map<Blob, string>
+  acquiredUrls: Map<Blob, string>,
+  release: (blob: Blob) => void
 ): void {
   for (const blob of new Set(blobs)) {
     if (!acquiredUrls.has(blob)) continue;
-    releaseBlobUrl(blob);
+    release(blob);
     acquiredUrls.delete(blob);
   }
+}
+
+type AmbientBlobUrlRegistryDependencies = {
+  acquire: (blob: Blob) => string;
+  release: (blob: Blob) => void;
+};
+
+export class AmbientBlobUrlRegistry {
+  private readonly acquiredUrls = new Map<Blob, string>();
+  private disposed = false;
+
+  constructor(
+    private readonly dependencies: AmbientBlobUrlRegistryDependencies
+  ) {}
+
+  acquire(blob: Blob): string {
+    if (this.disposed) {
+      throw new Error("Ambient blob URL registry is disposed.");
+    }
+    return acquireAmbientBlobUrl(
+      blob,
+      this.acquiredUrls,
+      this.dependencies.acquire
+    );
+  }
+
+  releaseUnretained(state: AmbientTransitionState): void {
+    if (this.disposed) return;
+    releaseAmbientBlobUrls(
+      selectAmbientBlobsToRelease(this.acquiredUrls.keys(), state),
+      this.acquiredUrls,
+      this.dependencies.release
+    );
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    releaseAmbientBlobUrls(
+      selectAmbientBlobsToRelease(this.acquiredUrls.keys(), null),
+      this.acquiredUrls,
+      this.dependencies.release
+    );
+  }
+}
+
+export function createAmbientBlobUrlRegistry(
+  dependencies: AmbientBlobUrlRegistryDependencies = {
+    acquire: acquireBlobUrl,
+    release: releaseBlobUrl,
+  }
+): AmbientBlobUrlRegistry {
+  return new AmbientBlobUrlRegistry(dependencies);
 }

@@ -2,16 +2,19 @@ import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AMBIENT_CROSSFADE_MS,
-  acquireAmbientBlobUrl,
   completeAmbientTransition,
+  createAmbientBlobUrlRegistry,
   createAmbientLayer,
   createInitialAmbientTransitionState,
-  releaseAmbientBlobUrls,
   selectAmbientBlobsToRelease,
   startAmbientTransition,
   type AmbientTransitionState,
 } from "./ambientBookBackground";
-import { resetBlobUrlCacheForTests } from "./blobUrlCache";
+import {
+  acquireBlobUrl,
+  releaseBlobUrl,
+  resetBlobUrlCacheForTests,
+} from "./blobUrlCache";
 import { createFallbackCoverStyle } from "./bookCoverStyle";
 import type { BookRecord } from "./db";
 
@@ -136,54 +139,92 @@ describe("ambient book background state", () => {
     ).toEqual([oldBlob]);
   });
 
-  it("releases every acquired blob on unmount", () => {
-    const blobA = new Blob(["a"]);
-    const blobB = new Blob(["b"]);
+  it("owns acquired URLs through releaseUnretained and dispose", () => {
+    vi.useFakeTimers();
+    let nextUrl = 0;
+    const createObjectURL = vi.fn(() => `blob:ambient-${++nextUrl}`);
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
+    const blobA = new Blob(["cover-a"]);
+    const blobB = new Blob(["cover-b"]);
+    const acquire = vi.fn(acquireBlobUrl);
+    const release = vi.fn(releaseBlobUrl);
+    const registry = createAmbientBlobUrlRegistry({ acquire, release });
+    const layerA = createAmbientLayer(
+      makeBook({ id: "a", coverImageBlob: blobA }),
+      registry.acquire(blobA)
+    );
+    registry.acquire(blobA);
+    registry.acquire(blobB);
 
-    expect(selectAmbientBlobsToRelease([blobA, blobB], null)).toEqual([
-      blobA,
-      blobB,
-    ]);
+    expect(acquire).toHaveBeenCalledTimes(2);
+    registry.releaseUnretained({
+      current: layerA,
+      previous: null,
+      generation: 2,
+    });
+    vi.runOnlyPendingTimers();
+
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:ambient-2");
+    expect(release).toHaveBeenCalledTimes(1);
+    expect(release).toHaveBeenCalledWith(blobB);
+
+    registry.dispose();
+    registry.dispose();
+    vi.runOnlyPendingTimers();
+
+    expect(createObjectURL).toHaveBeenCalledTimes(2);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:ambient-1");
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(release).toHaveBeenCalledWith(blobA);
+    expect(() => registry.acquire(blobA)).toThrow(/disposed/i);
   });
 
-  it("acquires each blob once and balances release decisions", () => {
+  it("supports StrictMode-style registry replacement without double release", () => {
     vi.useFakeTimers();
-    const createObjectURL = vi.fn(() => "blob:ambient-cover");
+    const createObjectURL = vi.fn(() => "blob:strict-cover");
     const revokeObjectURL = vi.fn();
     vi.stubGlobal("URL", { createObjectURL, revokeObjectURL });
     const blob = new Blob(["cover"]);
-    const acquiredUrls = new Map<Blob, string>();
+    const acquire = vi.fn(acquireBlobUrl);
+    const release = vi.fn(releaseBlobUrl);
 
-    expect(acquireAmbientBlobUrl(blob, acquiredUrls)).toBe(
-      "blob:ambient-cover"
-    );
-    expect(acquireAmbientBlobUrl(blob, acquiredUrls)).toBe(
-      "blob:ambient-cover"
-    );
-    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const firstRegistry = createAmbientBlobUrlRegistry({ acquire, release });
+    expect(firstRegistry.acquire(blob)).toBe("blob:strict-cover");
+    firstRegistry.dispose();
+    expect(() => firstRegistry.acquire(blob)).toThrow(/disposed/i);
 
-    releaseAmbientBlobUrls(
-      selectAmbientBlobsToRelease(acquiredUrls.keys(), null),
-      acquiredUrls
-    );
+    const secondRegistry = createAmbientBlobUrlRegistry({ acquire, release });
+    expect(secondRegistry.acquire(blob)).toBe("blob:strict-cover");
+    firstRegistry.dispose();
+    secondRegistry.dispose();
     vi.runAllTimers();
 
-    expect(acquiredUrls.size).toBe(0);
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(release).toHaveBeenCalledTimes(2);
+    expect(createObjectURL).toHaveBeenCalledOnce();
     expect(revokeObjectURL).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:strict-cover");
   });
 
-  it("keeps the component decorative and wired to the shared lib state machine", () => {
+  it("keeps the component decorative and wired to the resource owner", () => {
     const source = readFileSync(
       new URL("../app/AmbientBookBackground.tsx", import.meta.url),
       "utf8"
     );
 
     expect(source).toContain('from "@/lib/ambientBookBackground"');
+    expect(source).toContain("createAmbientBlobUrlRegistry");
     expect(source).toMatch(
       /completeAmbientTransition\(\s*layersRef\.current,\s*generation\s*\)/
     );
     expect(source).toMatch(
-      /selectAmbientBlobsToRelease\(\s*acquiredUrlsRef\.current\.keys\(\),\s*layersRef\.current\s*\)/
+      /registryRef\.current\?\.releaseUnretained\(\s*layersRef\.current\s*\)/
+    );
+    expect(source).toMatch(
+      /useEffect\(\s*\(\) => \(\) => \{[\s\S]*?registryRef\.current = null;[\s\S]*?registry\?\.dispose\(\);[\s\S]*?\},\s*\[\]\s*\)/
     );
     expect(source).not.toContain("URL.createObjectURL");
     expect(source).toContain('aria-hidden="true"');
