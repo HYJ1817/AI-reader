@@ -16,12 +16,76 @@
   --shadow-float: 0 12px 34px rgba(0, 0, 0, 0.14);
   --shadow-sheet: 0 -8px 18px rgba(0, 0, 0, 0.16);
   --elevated-shadow: var(--shadow-soft);
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: var(--app-bg);
+  background: transparent;
   color: var(--text-primary);
+  isolation: isolate;
+}
+
+.ambientBookBackground {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.ambientBookBackground::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--ambient-veil);
+  pointer-events: none;
+}
+
+.ambientBookLayer {
+  position: absolute;
+  inset: -42px;
+  z-index: 0;
+  background-color: var(--app-bg);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  filter: blur(42px) saturate(var(--ambient-saturate));
+  opacity: 0;
+  will-change: opacity;
+  transition: opacity 340ms var(--ease-navigation);
+}
+
+.ambientBookLayer[data-layer="current"] {
+  opacity: var(--ambient-strength);
+}
+
+.ambientBookLayer[data-layer="previous"] {
+  opacity: 0;
+}
+
+.ambientBookLayer[data-kind="fallback"] {
+  background-image:
+    linear-gradient(
+      90deg,
+      var(--ambient-cover-spine) 0 14%,
+      transparent 14% 100%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--ambient-cover-paper) 82%, white),
+      var(--ambient-cover-paper) 58%,
+      color-mix(in srgb, var(--ambient-cover-spine) 72%, black)
+    );
+}
+
+.app[data-reduce-motion="true"] .ambientBookLayer {
+  transition: none;
+}
+
+.ambientBookBackground[data-reduce-motion="true"] .ambientBookLayer {
+  transition: none;
 }
 
 .app[data-reduce-motion="true"],
@@ -43,6 +107,10 @@
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+
+  .ambientBookLayer {
+    transition: none;
   }
 }
 
@@ -79,6 +147,7 @@
 
 .content {
   position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   overflow: hidden;
@@ -1857,7 +1926,7 @@
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   isolation: isolate;
   touch-action: pan-y pinch-zoom;
@@ -1893,7 +1962,7 @@
   min-height: 0;
   overflow: hidden;
   padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
-  background: var(--background);
+  background: transparent;
   transition: background-color 180ms var(--ease-standard);
 }
 

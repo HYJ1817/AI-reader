@@ -21,6 +21,9 @@
   --control-fill: rgba(118, 118, 128, 0.14);
   --overlay-fill: rgba(255, 255, 255, 0.72);
   --sheet-fill: rgba(255, 255, 255, 0.96);
+  --ambient-veil: rgba(245, 245, 247, 0.54);
+  --ambient-strength: 0.34;
+  --ambient-saturate: 132%;
 
   --glass-saturate: 160%;
   --glass-blur: 18px;
@@ -52,6 +55,9 @@
     --control-fill: #2c2c2e;
     --overlay-fill: rgba(28, 28, 30, 0.72);
     --sheet-fill: rgba(28, 28, 30, 0.98);
+    --ambient-veil: rgba(0, 0, 0, 0.48);
+    --ambient-strength: 0.36;
+    --ambient-saturate: 128%;
     --glass-highlight: rgba(255, 255, 255, 0.06);
     --liquid-glass-bg: color-mix(in srgb, var(--surface-primary) 64%, transparent);
     --liquid-glass-strong-bg: color-mix(in srgb, var(--surface-primary) 78%, transparent);
@@ -134,6 +140,9 @@ button:disabled {
   --control-fill: rgba(118, 118, 128, 0.14);
   --overlay-fill: rgba(255, 255, 255, 0.72);
   --sheet-fill: rgba(255, 255, 255, 0.96);
+  --ambient-veil: rgba(245, 245, 247, 0.54);
+  --ambient-strength: 0.34;
+  --ambient-saturate: 132%;
   --glass-highlight: rgba(255, 255, 255, 0.64);
   --liquid-glass-bg: rgba(255, 255, 255, 0.58);
   --liquid-glass-strong-bg: rgba(255, 255, 255, 0.78);
@@ -162,6 +171,9 @@ button:disabled {
   --control-fill: rgba(130, 105, 66, 0.14);
   --overlay-fill: rgba(244, 236, 216, 0.72);
   --sheet-fill: rgba(244, 236, 216, 0.96);
+  --ambient-veil: rgba(244, 236, 216, 0.6);
+  --ambient-strength: 0.31;
+  --ambient-saturate: 120%;
   --glass-highlight: rgba(255, 255, 255, 0.35);
   --liquid-glass-bg: rgba(244, 236, 216, 0.58);
   --liquid-glass-strong-bg: rgba(244, 236, 216, 0.78);
@@ -190,6 +202,9 @@ button:disabled {
   --control-fill: #2c2c2e;
   --overlay-fill: rgba(28, 28, 30, 0.72);
   --sheet-fill: rgba(28, 28, 30, 0.98);
+  --ambient-veil: rgba(0, 0, 0, 0.48);
+  --ambient-strength: 0.36;
+  --ambient-saturate: 128%;
   --glass-highlight: rgba(255, 255, 255, 0.06);
   --liquid-glass-bg: color-mix(in srgb, var(--surface-primary) 64%, transparent);
   --liquid-glass-strong-bg: color-mix(in srgb, var(--surface-primary) 78%, transparent);

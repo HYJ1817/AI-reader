@@ -18,6 +18,21 @@ import {
 import { createFallbackCoverStyle } from "./bookCoverStyle";
 import type { BookRecord } from "./db";
 
+const globalsCss = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8"
+);
+const moduleCss = readFileSync(
+  new URL("../app/page.module.css", import.meta.url),
+  "utf8"
+);
+
+function cssRule(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  const end = css.indexOf("}", start);
+  return start < 0 || end < 0 ? "" : css.slice(start, end);
+}
+
 function makeBook(overrides: Partial<BookRecord> = {}): BookRecord {
   return {
     id: "book-1",
@@ -264,6 +279,125 @@ describe("ambient book background state", () => {
     expect(ambientMount).toContain("book={latestBook ?? null}");
     expect(ambientMount).toContain(
       "reduceMotion={appPrefs.reduceMotion}"
+    );
+  });
+
+  it("defines theme-specific ambient veil, strength, and saturation tokens", () => {
+    const tokens = [
+      "--ambient-veil",
+      "--ambient-strength",
+      "--ambient-saturate",
+    ];
+    const themeSelectors = [
+      ":root",
+      '[data-reader-theme="light"]',
+      '[data-reader-theme="sepia"]',
+      '[data-reader-theme="dark"]',
+    ];
+
+    for (const token of tokens) {
+      expect(
+        globalsCss.match(new RegExp(`${token}:`, "g"))?.length ?? 0
+      ).toBeGreaterThanOrEqual(4);
+      for (const selector of themeSelectors) {
+        expect(
+          cssRule(globalsCss, selector),
+          `${selector} should define ${token}`
+        ).toContain(`${token}:`);
+      }
+    }
+
+    expect(globalsCss).toMatch(
+      /\nbody\s*\{[^}]*background:\s*var\(--background\)/s
+    );
+  });
+
+  it("keeps the ambient cover fixed behind interactive content", () => {
+    const appRule = cssRule(moduleCss, ".app");
+    const backgroundRule = cssRule(moduleCss, ".ambientBookBackground");
+    const veilRule = cssRule(moduleCss, ".ambientBookBackground::after");
+    const contentRule = cssRule(moduleCss, ".content");
+    const tabBarRule = cssRule(moduleCss, ".tabBar");
+    const readerRule = cssRule(moduleCss, ".readerShell");
+
+    expect(appRule).toContain("position: relative");
+    expect(appRule).toContain("isolation: isolate");
+    expect(appRule).toContain("background: transparent");
+    expect(backgroundRule).toContain("position: fixed");
+    expect(backgroundRule).toContain("inset: 0");
+    expect(backgroundRule).toContain("z-index: 0");
+    expect(backgroundRule).toContain("pointer-events: none");
+    expect(backgroundRule).toContain("overflow: hidden");
+    expect(veilRule).toContain("background: var(--ambient-veil)");
+    expect(contentRule).toContain("z-index: 1");
+    expect(tabBarRule).toContain("z-index: 10");
+    expect(readerRule).toContain("z-index: 20");
+  });
+
+  it("renders bounded blurred cover layers with an opacity-only crossfade", () => {
+    const layerRule = cssRule(moduleCss, ".ambientBookLayer");
+    const currentRule = cssRule(
+      moduleCss,
+      '.ambientBookLayer[data-layer="current"]'
+    );
+    const previousRule = cssRule(
+      moduleCss,
+      '.ambientBookLayer[data-layer="previous"]'
+    );
+
+    expect(layerRule).toMatch(/inset:\s*-(?:3[6-9]|4[0-8])px/);
+    expect(layerRule).toContain("background-size: cover");
+    expect(layerRule).toContain("background-position: center");
+    expect(layerRule).toMatch(
+      /filter:\s*blur\((?:3[6-9]|4[0-8])px\)\s+saturate\(var\(--ambient-saturate\)\)/
+    );
+    expect(layerRule).toContain("transition:");
+    expect(layerRule).toContain(
+      "opacity 340ms var(--ease-navigation)"
+    );
+    expect(layerRule).not.toMatch(/transition:[^;]*(?:filter|transform)/s);
+    expect(layerRule).not.toContain("animation:");
+    expect(layerRule).not.toContain("scale(");
+    expect(currentRule).toContain("opacity: var(--ambient-strength)");
+    expect(previousRule).toContain("opacity: 0");
+  });
+
+  it("uses the generated paper and spine colors for the CSS fallback field", () => {
+    const fallbackRule = cssRule(
+      moduleCss,
+      '.ambientBookLayer[data-kind="fallback"]'
+    );
+
+    expect(fallbackRule).toContain("linear-gradient(");
+    expect(fallbackRule).toContain("var(--ambient-cover-paper)");
+    expect(fallbackRule).toContain("var(--ambient-cover-spine)");
+    expect(fallbackRule).not.toContain("url(");
+  });
+
+  it("keeps app and reader canvases transparent without glassifying content", () => {
+    for (const selector of [".app", ".readerShell", ".readerStage"]) {
+      expect(cssRule(moduleCss, selector)).toContain(
+        "background: transparent"
+      );
+    }
+
+    for (const selector of [
+      ".settingsNativeList",
+      ".collectionList",
+      ".readerSettingsList",
+    ]) {
+      const surfaceRule = cssRule(moduleCss, selector);
+      expect(surfaceRule).toContain("background: var(--surface-primary)");
+      expect(surfaceRule).not.toContain("backdrop-filter");
+    }
+  });
+
+  it("disables ambient layer transitions for both motion preferences", () => {
+    expect(moduleCss).toMatch(
+      /\.app\[data-reduce-motion="true"\]\s+\.ambientBookLayer\s*\{[^}]*transition:\s*none/s
+    );
+    expect(moduleCss).toMatch(
+      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.ambientBookLayer\s*\{[^}]*transition:\s*none/s
     );
   });
 });
