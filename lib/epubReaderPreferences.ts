@@ -4,10 +4,16 @@ import {
 } from "./readerPreferences";
 
 export type EpubThemeController = {
-  register: (name: string, rules: Record<string, string>) => void;
+  register: (name: string, rules: EpubThemeRules) => void;
   select: (name: string) => void;
   override: (property: string, value: string) => void;
 };
+
+export type EpubThemeRule =
+  | Record<string, string>
+  | Array<Record<string, string>>;
+
+export type EpubThemeRules = Record<string, EpubThemeRule>;
 
 export type EpubThemeColors = {
   foreground: string;
@@ -45,10 +51,25 @@ export function applyEpubReaderPreferences(
     previousState.themeSignature !== themeSignature
   ) {
     controller.register("reader-prefs", {
-      "html, body":
-        "background: transparent !important; touch-action: pan-y pinch-zoom; overscroll-behavior-inline: contain; -webkit-tap-highlight-color: transparent;",
-      body: `color: ${colors.foreground} !important; background: transparent !important; transition: color 180ms cubic-bezier(0.25, 1, 0.5, 1);`,
-      "p, div, span, li, h1, h2, h3, h4, h5, h6": `color: ${colors.foreground} !important; transition: color 180ms cubic-bezier(0.25, 1, 0.5, 1);`,
+      "html, body": {
+        background: "transparent !important",
+        "touch-action": "pan-y pinch-zoom",
+        "overscroll-behavior-inline": "contain",
+        "-webkit-tap-highlight-color": "transparent",
+      },
+      body: {
+        color: `${colors.foreground} !important`,
+        background: "transparent !important",
+        transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
+      },
+      // Only clear common top-level publisher canvases, leaving nested callouts and code blocks intact.
+      "body > div, body > main, body > section, body > article": {
+        background: "transparent !important",
+      },
+      "p, div, span, li, h1, h2, h3, h4, h5, h6": {
+        color: `${colors.foreground} !important`,
+        transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
+      },
     });
     controller.select("reader-prefs");
   }

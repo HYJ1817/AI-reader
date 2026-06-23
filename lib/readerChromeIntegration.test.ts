@@ -146,7 +146,7 @@ describe("reader chrome event integration", () => {
   it("suppresses Safari tap highlights in the app and EPUB document", () => {
     expect(globalsSource).toContain("-webkit-tap-highlight-color: transparent");
     expect(epubPreferencesSource).toContain(
-      "-webkit-tap-highlight-color: transparent"
+      '"-webkit-tap-highlight-color": "transparent"'
     );
   });
 

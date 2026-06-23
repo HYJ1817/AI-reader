@@ -647,6 +647,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           attachTapHandlers(contents);
         });
 
+        if (preferencesRef.current) {
+          applyPreferences(rendition as Rendition, preferencesRef.current);
+        }
+
         try {
           const navigation = await book.loaded?.navigation;
           if (!cancelled) {
@@ -670,10 +674,6 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           await rendition.display(resumeLocator);
         } else {
           await rendition.display();
-        }
-
-        if (!cancelled && preferencesRef.current) {
-          applyPreferences(rendition as Rendition, preferencesRef.current);
         }
 
         const renderedContents = (rendition as { getContents?: () => unknown }).getContents?.();

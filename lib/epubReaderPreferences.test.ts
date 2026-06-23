@@ -3,6 +3,7 @@ import {
   applyEpubReaderPreferences,
   EMPTY_EPUB_PREFERENCE_STATE,
   type EpubThemeController,
+  type EpubThemeRules,
 } from "./epubReaderPreferences";
 import { DEFAULT_READER_PREFERENCES } from "./readerPreferences";
 
@@ -12,6 +13,21 @@ function createController(): EpubThemeController {
     select: vi.fn(),
     override: vi.fn(),
   };
+}
+
+function serializeRulesLikeEpubJs(rules: EpubThemeRules): string[] {
+  return Object.entries(rules).flatMap(([selector, definition]) => {
+    const definitions = Array.isArray(definition)
+      ? definition
+      : [definition];
+
+    return definitions.map((item) => {
+      const properties = Object.keys(item)
+        .map((property) => `${property}:${item[property]}`)
+        .join(";");
+      return `${selector}{${properties}}`;
+    });
+  });
 }
 
 describe("applyEpubReaderPreferences", () => {
@@ -42,22 +58,57 @@ describe("applyEpubReaderPreferences", () => {
       EMPTY_EPUB_PREFERENCE_STATE
     );
 
-    const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
+    const rules = vi.mocked(controller.register).mock.calls[0]?.[1] as
+      | EpubThemeRules
+      | undefined;
 
-    expect(rules?.["html, body"]).toContain(
-      "background: transparent !important;"
+    expect(rules?.["html, body"]).toEqual({
+      background: "transparent !important",
+      "touch-action": "pan-y pinch-zoom",
+      "overscroll-behavior-inline": "contain",
+      "-webkit-tap-highlight-color": "transparent",
+    });
+    expect(rules?.body).toEqual({
+      color: "#111111 !important",
+      background: "transparent !important",
+      transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
+    });
+    expect(
+      rules?.["body > div, body > main, body > section, body > article"]
+    ).toEqual({
+      background: "transparent !important",
+    });
+    expect(rules?.["p, div, span, li, h1, h2, h3, h4, h5, h6"]).toEqual({
+      color: "#111111 !important",
+      transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
+    });
+  });
+
+  it("serializes theme rules through the epub.js property-object contract", () => {
+    const controller = createController();
+
+    applyEpubReaderPreferences(
+      controller,
+      DEFAULT_READER_PREFERENCES,
+      { foreground: "#111111", background: "#ffffff" },
+      EMPTY_EPUB_PREFERENCE_STATE
     );
-    expect(rules?.["html, body"]).toContain("touch-action: pan-y pinch-zoom;");
-    expect(rules?.body).toContain("color: #111111 !important;");
-    expect(rules?.body).toContain("background: transparent !important;");
-    expect(rules?.body).not.toContain("background: #ffffff");
-    expect(rules?.body).not.toContain("background-color");
-    expect(rules?.body).toContain(
-      "transition: color 180ms cubic-bezier(0.25, 1, 0.5, 1);"
+
+    const rules = vi.mocked(controller.register).mock.calls[0]?.[1] as
+      | EpubThemeRules
+      | undefined;
+    expect(rules).toBeDefined();
+    if (!rules) return;
+
+    const serialized = serializeRulesLikeEpubJs(rules);
+
+    expect(serialized).toContain(
+      "html, body{background:transparent !important;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
     );
-    expect(rules?.["p, div, span, li, h1, h2, h3, h4, h5, h6"]).toBe(
-      "color: #111111 !important; transition: color 180ms cubic-bezier(0.25, 1, 0.5, 1);"
+    expect(serialized).toContain(
+      "body > div, body > main, body > section, body > article{background:transparent !important}"
     );
+    expect(serialized.join("\n")).not.toMatch(/\{0:/);
   });
 
   it("reinstalls the transparent theme when only the background signature changes", () => {

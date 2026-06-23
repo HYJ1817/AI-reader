@@ -1763,6 +1763,13 @@
   opacity: 0.88;
 }
 
+.epubReaderViewport,
+.epubReaderViewport :global(.epub-container),
+.epubReaderViewport :global(.epub-view),
+.epubReaderViewport :global(iframe) {
+  background: transparent !important;
+}
+
 .epubReaderViewport {
   border-radius: 2px;
 }
