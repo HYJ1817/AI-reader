@@ -5,6 +5,7 @@ import type { ReadingPosition } from "@/lib/db";
 import { progressPercentFromEpubLocation } from "@/lib/epubProgress";
 import { normalizeEpubNavigation } from "@/lib/epubNavigation";
 import type { EpubTocItem } from "@/lib/epubNavigation";
+import { applyEpubAmbientCanvas } from "@/lib/epubAmbientCanvas";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import { shouldObserveSystemReaderTheme } from "@/lib/readerPreferences";
 import { getEpubRenditionOptions } from "@/lib/epubReaderMode";
@@ -611,6 +612,14 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     );
   }, [finishSwipeSettle]);
 
+  const handleRenderedContents = useCallback(
+    (contents: unknown) => {
+      applyEpubAmbientCanvas(contents);
+      attachTapHandlers(contents);
+    },
+    [attachTapHandlers]
+  );
+
   useEffect(() => {
     let cancelled = false;
     const container = containerRef.current;
@@ -644,7 +653,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         rendition.on("selected", handleSelected);
         rendition.on("rendered", (_section: unknown, view: unknown) => {
           const contents = (view as { contents?: unknown } | null)?.contents;
-          attachTapHandlers(contents);
+          handleRenderedContents(contents);
         });
 
         if (preferencesRef.current) {
@@ -678,9 +687,9 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
         const renderedContents = (rendition as { getContents?: () => unknown }).getContents?.();
         if (Array.isArray(renderedContents)) {
-          renderedContents.forEach(attachTapHandlers);
+          renderedContents.forEach(handleRenderedContents);
         } else {
-          attachTapHandlers(renderedContents);
+          handleRenderedContents(renderedContents);
         }
 
         if (!cancelled) {
@@ -736,7 +745,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         objectUrlRef.current = null;
       }
     };
-  }, [bookId, fileBlob, mode, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, attachTapHandlers, applyPreferences]);
+  }, [bookId, fileBlob, mode, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences]);
 
   useEffect(() => {
     if (!renditionRef.current || !preferences) return;

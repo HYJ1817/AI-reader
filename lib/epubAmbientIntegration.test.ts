@@ -50,4 +50,58 @@ describe("EPUB ambient background integration", () => {
       /\.epubReaderViewport,\s*\.epubReaderViewport :global\(\.epub-container\),\s*\.epubReaderViewport :global\(\.epub-view\),\s*\.epubReaderViewport :global\(iframe\)\s*\{[^}]*background:\s*transparent !important;/s
     );
   });
+
+  it("applies the inline ambient canvas override before attaching tap handlers", () => {
+    const handlerStart = epubSource.indexOf(
+      "const handleRenderedContents = useCallback"
+    );
+    const handlerEnd = epubSource.indexOf(
+      "useEffect(() => {",
+      handlerStart
+    );
+    const handlerSource = epubSource.slice(handlerStart, handlerEnd);
+    const ambientIndex = handlerSource.indexOf(
+      "applyEpubAmbientCanvas(contents)"
+    );
+    const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
+
+    expect(epubSource).toContain(
+      'import { applyEpubAmbientCanvas } from "@/lib/epubAmbientCanvas";'
+    );
+    expect(handlerStart).toBeGreaterThanOrEqual(0);
+    expect(ambientIndex).toBeGreaterThanOrEqual(0);
+    expect(tapIndex).toBeGreaterThanOrEqual(0);
+    expect(ambientIndex).toBeLessThan(tapIndex);
+  });
+
+  it("uses the shared rendered-content handler for events and post-display contents", () => {
+    const initializationStart = epubSource.indexOf(
+      "const rendition = book.renderTo"
+    );
+    const initializationEnd = epubSource.indexOf(
+      "if (!cancelled) {",
+      epubSource.indexOf("const renderedContents", initializationStart)
+    );
+    const initializationSource = epubSource.slice(
+      initializationStart,
+      initializationEnd
+    );
+    const displayIndex = initializationSource.indexOf(
+      "await rendition.display"
+    );
+    const getContentsIndex = initializationSource.indexOf(
+      "const renderedContents"
+    );
+
+    expect(initializationSource).toContain(
+      "handleRenderedContents(contents)"
+    );
+    expect(initializationSource).toContain(
+      "renderedContents.forEach(handleRenderedContents)"
+    );
+    expect(initializationSource).toContain(
+      "handleRenderedContents(renderedContents)"
+    );
+    expect(getContentsIndex).toBeGreaterThan(displayIndex);
+  });
 });
