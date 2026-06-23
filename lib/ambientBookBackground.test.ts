@@ -1,15 +1,16 @@
 import { readFileSync } from "node:fs";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import AmbientBookBackground, {
+import {
+  AMBIENT_CROSSFADE_MS,
   acquireAmbientBlobUrl,
+  completeAmbientTransition,
   createAmbientLayer,
-  findRetiredAmbientBlobs,
+  createInitialAmbientTransitionState,
   releaseAmbientBlobUrls,
-  transitionAmbientLayers,
-  type AmbientLayerState,
-} from "../app/AmbientBookBackground";
+  selectAmbientBlobsToRelease,
+  startAmbientTransition,
+  type AmbientTransitionState,
+} from "./ambientBookBackground";
 import { resetBlobUrlCacheForTests } from "./blobUrlCache";
 import { createFallbackCoverStyle } from "./bookCoverStyle";
 import type { BookRecord } from "./db";
@@ -27,14 +28,14 @@ function makeBook(overrides: Partial<BookRecord> = {}): BookRecord {
   };
 }
 
-describe("ambient book background", () => {
+describe("ambient book background state", () => {
   afterEach(() => {
     resetBlobUrlCacheForTests();
     vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
-  it("creates a normal background layer when no book is selected", () => {
+  it("creates normal and deterministic fallback layers", () => {
     expect(createAmbientLayer(null, null)).toEqual({
       key: "ambient:none",
       kind: "empty",
@@ -43,78 +44,109 @@ describe("ambient book background", () => {
       spine: null,
       blob: null,
     });
-  });
 
-  it("reuses the deterministic fallback cover palette", () => {
     const book = makeBook({ title: "A Wizard of Earthsea", format: "txt" });
-    const layer = createAmbientLayer(book, null);
-
-    expect(layer.kind).toBe("fallback");
-    expect({ paper: layer.paper, spine: layer.spine }).toEqual(
+    const fallback = createAmbientLayer(book, null);
+    expect(fallback.kind).toBe("fallback");
+    expect({ paper: fallback.paper, spine: fallback.spine }).toEqual(
       createFallbackCoverStyle(book.title, book.format)
     );
   });
 
-  it("keeps only the outgoing and incoming layers for one crossfade", () => {
-    const first = createAmbientLayer(makeBook(), null);
-    const second = createAmbientLayer(
-      makeBook({
-        id: "book-2",
-        title: "The Dispossessed",
-        coverImageBlob: new Blob(["cover"]),
-      }),
-      "blob:cover-2"
+  it("ignores an old generation completing during a fast A to B to A sequence", () => {
+    vi.useFakeTimers();
+    const blobA = new Blob(["cover-a"]);
+    const blobB = new Blob(["cover-b"]);
+    const layerA = createAmbientLayer(
+      makeBook({ id: "a", coverImageBlob: blobA }),
+      "blob:a"
     );
-    const initial: AmbientLayerState = {
-      current: createAmbientLayer(null, null),
-      previous: null,
-    };
-
-    const firstState = transitionAmbientLayers(initial, first, false);
-    const secondState = transitionAmbientLayers(firstState, second, false);
-
-    expect(secondState).toEqual({ current: second, previous: first });
-  });
-
-  it("replaces immediately when reduced motion is enabled", () => {
-    const first = createAmbientLayer(makeBook(), null);
-    const second = createAmbientLayer(
-      makeBook({ id: "book-2", title: "The Dispossessed" }),
-      null
+    const layerB = createAmbientLayer(
+      makeBook({ id: "b", coverImageBlob: blobB }),
+      "blob:b"
     );
-    const state: AmbientLayerState = { current: first, previous: null };
+    let state = startAmbientTransition(
+      createInitialAmbientTransitionState(),
+      layerA,
+      false
+    );
 
-    expect(transitionAmbientLayers(state, second, true)).toEqual({
-      current: second,
-      previous: null,
-    });
+    state = startAmbientTransition(state, layerB, false);
+    const generationAB = state.generation;
+    setTimeout(() => {
+      state = completeAmbientTransition(state, generationAB);
+    }, AMBIENT_CROSSFADE_MS);
+
+    vi.advanceTimersByTime(100);
+    state = startAmbientTransition(state, layerA, false);
+    const generationBA = state.generation;
+    setTimeout(() => {
+      state = completeAmbientTransition(state, generationBA);
+    }, AMBIENT_CROSSFADE_MS);
+
+    vi.advanceTimersByTime(AMBIENT_CROSSFADE_MS - 100);
+    expect(state.current).toBe(layerA);
+    expect(state.previous).toBe(layerB);
+    expect(state.generation).toBe(generationBA);
+    expect(
+      selectAmbientBlobsToRelease([blobA, blobB], state)
+    ).toEqual([]);
+
+    vi.advanceTimersByTime(100);
+    expect(state.current).toBe(layerA);
+    expect(state.previous).toBeNull();
+    expect(selectAmbientBlobsToRelease([blobA, blobB], state)).toEqual([
+      blobB,
+    ]);
   });
 
-  it("retires only blobs that are no longer displayed", () => {
-    const sharedBlob = new Blob(["shared cover"]);
-    const oldBlob = new Blob(["old cover"]);
-    const before: AmbientLayerState = {
-      current: createAmbientLayer(
-        makeBook({ coverImageBlob: sharedBlob }),
-        "blob:shared"
-      ),
-      previous: createAmbientLayer(
-        makeBook({ id: "old", coverImageBlob: oldBlob }),
-        "blob:old"
-      ),
-    };
-    const after: AmbientLayerState = {
-      current: createAmbientLayer(
-        makeBook({ id: "new", coverImageBlob: sharedBlob }),
-        "blob:shared"
-      ),
-      previous: null,
-    };
+  it("converges immediately and invalidates pending motion when reduceMotion turns on", () => {
+    const first = createAmbientLayer(makeBook({ id: "a" }), null);
+    const second = createAmbientLayer(makeBook({ id: "b" }), null);
+    let state = startAmbientTransition(
+      createInitialAmbientTransitionState(),
+      first,
+      false
+    );
+    state = startAmbientTransition(state, second, false);
+    const movingGeneration = state.generation;
 
-    expect(findRetiredAmbientBlobs(before, after)).toEqual([oldBlob]);
+    state = startAmbientTransition(state, state.current, true);
+
+    expect(state.previous).toBeNull();
+    expect(state.generation).toBeGreaterThan(movingGeneration);
+    expect(completeAmbientTransition(state, movingGeneration)).toBe(state);
   });
 
-  it("acquires each displayed blob once and balances its release", () => {
+  it("never releases a different blob that is still current", () => {
+    const oldBlob = new Blob(["old"]);
+    const currentBlob = new Blob(["current"]);
+    const current = createAmbientLayer(
+      makeBook({ id: "current", coverImageBlob: currentBlob }),
+      "blob:current"
+    );
+    const state: AmbientTransitionState = {
+      current,
+      previous: null,
+      generation: 4,
+    };
+
+    expect(
+      selectAmbientBlobsToRelease([oldBlob, currentBlob], state)
+    ).toEqual([oldBlob]);
+  });
+
+  it("releases every acquired blob on unmount", () => {
+    const blobA = new Blob(["a"]);
+    const blobB = new Blob(["b"]);
+
+    expect(selectAmbientBlobsToRelease([blobA, blobB], null)).toEqual([
+      blobA,
+      blobB,
+    ]);
+  });
+
+  it("acquires each blob once and balances release decisions", () => {
     vi.useFakeTimers();
     const createObjectURL = vi.fn(() => "blob:ambient-cover");
     const revokeObjectURL = vi.fn();
@@ -130,34 +162,29 @@ describe("ambient book background", () => {
     );
     expect(createObjectURL).toHaveBeenCalledTimes(1);
 
-    releaseAmbientBlobUrls([blob], acquiredUrls);
+    releaseAmbientBlobUrls(
+      selectAmbientBlobsToRelease(acquiredUrls.keys(), null),
+      acquiredUrls
+    );
     vi.runAllTimers();
 
     expect(acquiredUrls.size).toBe(0);
     expect(revokeObjectURL).toHaveBeenCalledOnce();
   });
 
-  it("renders decorative current-layer markup", () => {
-    const markup = renderToStaticMarkup(
-      createElement(AmbientBookBackground, {
-        book: null,
-        reduceMotion: false,
-      })
-    );
-
-    expect(markup).toContain('aria-hidden="true"');
-    expect(markup).toContain('data-layer="current"');
-  });
-
-  it("uses the shared URL cache and exposes the CSS layer contract", () => {
+  it("keeps the component decorative and wired to the shared lib state machine", () => {
     const source = readFileSync(
       new URL("../app/AmbientBookBackground.tsx", import.meta.url),
       "utf8"
     );
 
-    expect(source).toContain("acquireBlobUrl");
-    expect(source).toContain("releaseBlobUrl");
-    expect(source).toContain("createFallbackCoverStyle");
+    expect(source).toContain('from "@/lib/ambientBookBackground"');
+    expect(source).toMatch(
+      /completeAmbientTransition\(\s*layersRef\.current,\s*generation\s*\)/
+    );
+    expect(source).toMatch(
+      /selectAmbientBlobsToRelease\(\s*acquiredUrlsRef\.current\.keys\(\),\s*layersRef\.current\s*\)/
+    );
     expect(source).not.toContain("URL.createObjectURL");
     expect(source).toContain('aria-hidden="true"');
     expect(source).toContain("styles.ambientBookBackground");
