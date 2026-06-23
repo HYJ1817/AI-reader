@@ -358,8 +358,13 @@ describe("ambient book background state", () => {
     expect(layerRule).not.toMatch(/transition:[^;]*(?:filter|transform)/s);
     expect(layerRule).not.toContain("animation:");
     expect(layerRule).not.toContain("scale(");
+    expect(currentRule).toContain("z-index: 0");
     expect(currentRule).toContain("opacity: var(--ambient-strength)");
+    expect(previousRule).toContain("z-index: 1");
     expect(previousRule).toContain("opacity: 0");
+    expect(cssRule(moduleCss, ".ambientBookBackground::after")).toContain(
+      "z-index: 2"
+    );
   });
 
   it("uses the generated paper and spine colors for the CSS fallback field", () => {

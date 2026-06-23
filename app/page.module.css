@@ -38,7 +38,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   background: var(--ambient-veil);
   pointer-events: none;
 }
@@ -58,10 +58,12 @@
 }
 
 .ambientBookLayer[data-layer="current"] {
+  z-index: 0;
   opacity: var(--ambient-strength);
 }
 
 .ambientBookLayer[data-layer="previous"] {
+  z-index: 1;
   opacity: 0;
 }
 
