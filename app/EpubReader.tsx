@@ -16,6 +16,13 @@ import {
   type EpubThemeController,
 } from "@/lib/epubReaderPreferences";
 import {
+  classifyEpubTouchEnd,
+  consumeEpubSyntheticClick,
+  createEpubSyntheticClickToken,
+  normalizeEpubSelectionText,
+  type EpubSyntheticClickToken,
+} from "@/lib/epubTapInteractions";
+import {
   isTapGesture,
   isScrollIntent,
   shouldReduceReaderMotion,
@@ -340,8 +347,9 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       target: EventTarget | null;
       axis: "pending" | "horizontal" | "vertical";
       baseOffset: number;
+      selectionText: string;
     } | null = null;
-    let lastTouchTapAt = 0;
+    let syntheticClickToken: EpubSyntheticClickToken | null = null;
     let scrollIntentFired = false;
 
     const isInteractiveTarget = (target: EventTarget | null) => {
@@ -357,13 +365,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       );
     };
 
-    const hasSelection = () => {
+    const getSelectionText = () => {
       const selection = c?.window?.getSelection?.() ?? doc.getSelection?.();
-      return Boolean(selection && selection.toString().trim().length > 0);
+      return normalizeEpubSelectionText(selection?.toString() ?? "");
     };
 
     const fireReaderTap = (target: EventTarget | null) => {
-      if (isInteractiveTarget(target) || hasSelection()) return;
+      if (isInteractiveTarget(target) || getSelectionText()) return;
       onReaderTapRef.current?.();
     };
 
@@ -439,6 +447,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           target: event.target,
           axis: "pending",
           baseOffset,
+          selectionText: getSelectionText(),
         };
         scrollIntentFired = false;
       },
@@ -507,6 +516,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         if (!start || !touch) return;
         const dx = touch.clientX - start.x;
         const dy = touch.clientY - start.y;
+        syntheticClickToken = createEpubSyntheticClickToken(
+          start.target,
+          Date.now()
+        );
         if (start.axis === "horizontal") {
           const action = getReaderSwipeAction({
             startX: start.x,
@@ -514,7 +527,6 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             endX: touch.clientX,
             endY: touch.clientY,
           });
-          lastTouchTapAt = Date.now();
           const shell = shellRef.current;
           const viewportWidth =
             doc.documentElement.clientWidth || shell?.clientWidth || 0;
@@ -533,18 +545,20 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             doc.documentElement.clientWidth || shell?.clientWidth || 0
           );
         }
-        if (scrollIntentFired) return;
-        if (
-          !isTapGesture({
+        const classification = classifyEpubTouchEnd({
+          startSelectionText: start.selectionText,
+          endSelectionText: getSelectionText(),
+          isInteractiveTarget: isInteractiveTarget(start.target),
+          scrollIntentFired,
+          isTapGesture: isTapGesture({
             durationMs: Date.now() - start.time,
             deltaX: dx,
             deltaY: dy,
-          })
-        ) {
-          return;
+          }),
+        });
+        if (classification === "tap") {
+          onReaderTapRef.current?.();
         }
-        lastTouchTapAt = Date.now();
-        fireReaderTap(start.target);
       },
       { passive: true }
     );
@@ -561,7 +575,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     );
 
     doc.addEventListener("click", (event) => {
-      if (Date.now() - lastTouchTapAt < 600) return;
+      const clickResult = consumeEpubSyntheticClick({
+        token: syntheticClickToken,
+        target: event.target,
+        at: Date.now(),
+      });
+      syntheticClickToken = clickResult.token;
+      if (clickResult.suppress) return;
       fireReaderTap(event.target);
     });
 

@@ -1722,7 +1722,7 @@ export default function Home() {
               viewportWidth
             );
           }}
-          onTextSelect={setSelectedText}
+          onTextSelect={(text) => { setSelectedText(text); dispatchReaderChrome({ type: "selection" }); }}
           onReaderTap={() =>
             dispatchReaderChrome({ type: "tap", at: performance.now() })
           }

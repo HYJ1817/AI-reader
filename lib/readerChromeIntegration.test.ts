@@ -94,8 +94,29 @@ describe("reader chrome event integration", () => {
   });
 
   it("prevents an EPUB scroll gesture from also completing as a tap", () => {
-    expect(epubSource).toContain("if (scrollIntentFired) return;");
+    expect(epubSource).toContain("scrollIntentFired,");
+    expect(epubSource).toContain('if (classification === "tap")');
     expect(epubSource).toContain("isTapGesture({");
+  });
+
+  it("routes EPUB touch selection and synthetic click arbitration through the tested helper", () => {
+    expect(epubSource).toContain("normalizeEpubSelectionText");
+    expect(epubSource).toContain("classifyEpubTouchEnd");
+    expect(epubSource).toContain("createEpubSyntheticClickToken");
+    expect(epubSource).toContain("consumeEpubSyntheticClick");
+    expect(epubSource).not.toContain("lastTouchTapAt");
+  });
+
+  it("shows reader controls when EPUB text is selected", () => {
+    const sessionStart = pageSource.indexOf("<ReadingSession");
+    const sessionEnd = pageSource.indexOf("</main>", sessionStart);
+    const sessionSource = pageSource.slice(sessionStart, sessionEnd);
+
+    expect(sessionSource).toContain("onTextSelect={(text) => {");
+    expect(sessionSource).toContain("setSelectedText(text);");
+    expect(sessionSource).toContain(
+      'dispatchReaderChrome({ type: "selection" });'
+    );
   });
 
   it("uses unframed floating tools instead of the old top and bottom chrome", () => {
