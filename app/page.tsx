@@ -1617,6 +1617,7 @@ export default function Home() {
         className={styles.hiddenInput}
         onChange={handleImport}
       />
+
       <main
         className={`${styles.content} ${
           activeTab === "reading" && readerPresented ? styles.readingContent : ""
@@ -1744,6 +1745,7 @@ export default function Home() {
           onAsk={() => setAskSheetOpen(true)}
           onModeChange={handleReaderModeChange}
         />
+
         <ReadingDashboard
           className={`${styles.readingDashboard} ${getNavigationSurfaceClass("reading")} ${
             readerPresented ? styles.readingDashboardReaderOpen : ""

@@ -244,10 +244,13 @@ describe("ambient book background state", () => {
       "<AmbientBookBackground",
       appRootContentStart
     );
-    const firstInteractiveContent = source.indexOf(
+    const firstInput = source.indexOf(
       "<input",
       appRootContentStart
     );
+    const firstMain = source.indexOf("<main", appRootContentStart);
+    const ambientEnd = source.indexOf("/>", ambientStart) + 2;
+    const ambientMount = source.slice(ambientStart, ambientEnd);
 
     expect(source).toContain(
       'import AmbientBookBackground from "@/app/AmbientBookBackground";'
@@ -255,9 +258,12 @@ describe("ambient book background state", () => {
     expect(ambientMounts).toHaveLength(1);
     expect(appRootStart).toBeGreaterThanOrEqual(0);
     expect(ambientStart).toBeGreaterThan(appRootContentStart);
-    expect(ambientStart).toBeLessThan(firstInteractiveContent);
-    expect(source.slice(ambientStart, firstInteractiveContent)).toMatch(
-      /<AmbientBookBackground\s+book=\{latestBook \?\? null\}\s+reduceMotion=\{appPrefs\.reduceMotion\}\s*\/>/
+    expect(ambientStart).toBeLessThan(firstInput);
+    expect(ambientStart).toBeLessThan(firstMain);
+    expect(ambientEnd).toBeGreaterThan(ambientStart);
+    expect(ambientMount).toContain("book={latestBook ?? null}");
+    expect(ambientMount).toContain(
+      "reduceMotion={appPrefs.reduceMotion}"
     );
   });
 });
