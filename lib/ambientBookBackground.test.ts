@@ -231,4 +231,33 @@ describe("ambient book background state", () => {
     expect(source).toContain("styles.ambientBookBackground");
     expect(source).toContain("styles.ambientBookLayer");
   });
+
+  it("mounts the shared ambient background once at the app root", () => {
+    const source = readFileSync(
+      new URL("../app/page.tsx", import.meta.url),
+      "utf8"
+    );
+    const appRootStart = source.indexOf("className={styles.app}");
+    const appRootContentStart = source.indexOf(">", appRootStart) + 1;
+    const ambientMounts = source.match(/<AmbientBookBackground\b/g) ?? [];
+    const ambientStart = source.indexOf(
+      "<AmbientBookBackground",
+      appRootContentStart
+    );
+    const firstInteractiveContent = source.indexOf(
+      "<input",
+      appRootContentStart
+    );
+
+    expect(source).toContain(
+      'import AmbientBookBackground from "@/app/AmbientBookBackground";'
+    );
+    expect(ambientMounts).toHaveLength(1);
+    expect(appRootStart).toBeGreaterThanOrEqual(0);
+    expect(ambientStart).toBeGreaterThan(appRootContentStart);
+    expect(ambientStart).toBeLessThan(firstInteractiveContent);
+    expect(source.slice(ambientStart, firstInteractiveContent)).toMatch(
+      /<AmbientBookBackground\s+book=\{latestBook \?\? null\}\s+reduceMotion=\{appPrefs\.reduceMotion\}\s*\/>/
+    );
+  });
 });

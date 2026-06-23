@@ -37,6 +37,7 @@ import {
 } from "@/lib/txtReader";
 import AppNavigation from "@/app/AppNavigation";
 import AppOverlays from "@/app/AppOverlays";
+import AmbientBookBackground from "@/app/AmbientBookBackground";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import LibrarySurface from "@/app/LibrarySurface";
 import {
@@ -1608,6 +1609,7 @@ export default function Home() {
       {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
       {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
     >
+      <AmbientBookBackground book={latestBook ?? null} reduceMotion={appPrefs.reduceMotion} />
       <input
         ref={fileInputRef}
         type="file"
@@ -1615,7 +1617,6 @@ export default function Home() {
         className={styles.hiddenInput}
         onChange={handleImport}
       />
-
       <main
         className={`${styles.content} ${
           activeTab === "reading" && readerPresented ? styles.readingContent : ""
@@ -1743,7 +1744,6 @@ export default function Home() {
           onAsk={() => setAskSheetOpen(true)}
           onModeChange={handleReaderModeChange}
         />
-
         <ReadingDashboard
           className={`${styles.readingDashboard} ${getNavigationSurfaceClass("reading")} ${
             readerPresented ? styles.readingDashboardReaderOpen : ""
