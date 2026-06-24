@@ -1,44 +1,97 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { UI_TEXT } from "@/lib/uiText";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  formatReadingGoalDuration,
   getReadingGoalArcPercent,
-  getReadingGoalContinueSubtitle,
+  getReadingGoalDisplay,
 } from "@/lib/readingGoalDisplay";
-import BottomSheet from "./BottomSheet";
+import { UI_TEXT } from "@/lib/uiText";
+import ReadingGoalWheel from "./ReadingGoalWheel";
 import styles from "./page.module.css";
 
 type Props = {
   todayMinutes: number;
   targetMinutes: number;
   goalInputValue: number;
-  bookTitle?: string | null;
   onGoalInputChange: (value: number) => void;
   onSaveGoal: () => void;
   onClose: () => void;
-  onContinue: () => void;
 };
+
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "[href]",
+  "input:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 export default function ReadingGoalSheet({
   todayMinutes,
   targetMinutes,
   goalInputValue,
-  bookTitle,
   onGoalInputChange,
   onSaveGoal,
   onClose,
-  onContinue,
 }: Props) {
   const [editingTarget, setEditingTarget] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const progressPercent = useMemo(
     () => getReadingGoalArcPercent(todayMinutes, targetMinutes),
     [targetMinutes, todayMinutes]
   );
-  const continueSubtitle = useMemo(
-    () => getReadingGoalContinueSubtitle(bookTitle),
-    [bookTitle]
+  const duration = useMemo(
+    () => formatReadingGoalDuration(todayMinutes),
+    [todayMinutes]
   );
+  const display = useMemo(
+    () => getReadingGoalDisplay(todayMinutes, targetMinutes),
+    [targetMinutes, todayMinutes]
+  );
+
+  const closeGoal = useCallback(() => {
+    onGoalInputChange(targetMinutes);
+    onClose();
+  }, [onClose, onGoalInputChange, targetMinutes]);
+
+  useEffect(() => {
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    closeButtonRef.current?.focus();
+
+    function handleDialogKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeGoal();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const focusableElements =
+        dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
+      if (!focusableElements?.length) return;
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleDialogKeyDown);
+    return () => {
+      document.removeEventListener("keydown", handleDialogKeyDown);
+      previousFocusRef.current?.focus();
+    };
+  }, [closeGoal]);
 
   function openTargetEditor() {
     onGoalInputChange(targetMinutes);
@@ -51,84 +104,119 @@ export default function ReadingGoalSheet({
   }
 
   return (
-    <BottomSheet onClose={onClose} className={styles.goalSheet} ariaLabel={UI_TEXT.READING_GOAL}>
-      {(close) => (
-        <>
+    <div className={styles.goalOverlay}>
+      <div
+        ref={dialogRef}
+        className={styles.goalScreen}
+        role="dialog"
+        aria-modal="true"
+        aria-label={UI_TEXT.READING_GOAL}
+      >
         <button
+          ref={closeButtonRef}
           className={styles.goalCloseButton}
-          onClick={() => close()}
+          onClick={closeGoal}
           title={UI_TEXT.CLOSE}
           aria-label={UI_TEXT.CLOSE}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.8">
-            <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 22 22"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            aria-hidden="true"
+          >
+            <path d="M5 5l12 12M17 5L5 17" strokeLinecap="round" />
           </svg>
         </button>
 
-        <div className={styles.goalHero}>
-          <h2 className={styles.goalHeroTitle}>{UI_TEXT.READING_GOAL}</h2>
-          <p className={styles.goalHeroSubtitle}>{UI_TEXT.READING_GOAL_SUBTITLE}</p>
-
-          <div className={styles.goalArcWrap} aria-label={UI_TEXT.TODAY_READING_PROGRESS}>
-            <svg className={styles.goalArc} viewBox="0 0 320 220" aria-hidden="true">
+        <div className={styles.goalProgressRegion}>
+          <div
+            className={styles.goalArcWrap}
+            role="progressbar"
+            aria-label={UI_TEXT.TODAY_READING_PROGRESS}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progressPercent}
+          >
+            <svg
+              className={styles.goalArc}
+              viewBox="0 0 320 205"
+              aria-hidden="true"
+            >
               <path
                 className={styles.goalArcTrack}
-                d="M38 170 A122 122 0 1 1 282 170"
-                pathLength={100}
+                d="M22 180 A138 138 0 0 1 298 180"
+                pathLength="100"
               />
-              <path
-                className={styles.goalArcProgress}
-                d="M38 170 A122 122 0 1 1 282 170"
-                pathLength={100}
-                style={{ strokeDasharray: `${progressPercent} 100` }}
-              />
+              {progressPercent > 0 && (
+                <path
+                  className={styles.goalArcProgress}
+                  d="M22 180 A138 138 0 0 1 298 180"
+                  pathLength="100"
+                  style={{ strokeDasharray: `${progressPercent} 100` }}
+                />
+              )}
             </svg>
 
             <div className={styles.goalArcCenter}>
-              <span className={styles.goalArcLabel}>{UI_TEXT.TODAY_READING_PROGRESS}</span>
-              <span className={styles.goalArcNumber}>{todayMinutes}</span>
-              <button className={styles.goalTargetButton} onClick={openTargetEditor}>
-                <span>
-                  {`(${UI_TEXT.TARGET} ${targetMinutes} ${UI_TEXT.MINUTES})`}
-                </span>
-                <span className={styles.goalChevron}>›</span>
-              </button>
+              <strong className={styles.goalDuration}>{duration}</strong>
+              <span className={styles.goalTargetText}>
+                （目标 {targetMinutes} 分钟）
+              </span>
             </div>
           </div>
 
-          {editingTarget && (
-            <div className={styles.goalTargetEditor}>
-              <label className={styles.goalRangeLabel}>
-                <span>{UI_TEXT.TARGET} ({UI_TEXT.MINUTES})</span>
-                <span className={styles.goalRangeValue}>{goalInputValue}</span>
-              </label>
-              <input
-                type="range"
-                className={styles.goalRangeInput}
-                min={1}
-                max={1440}
-                step={1}
-                value={goalInputValue}
-                onChange={(e) => onGoalInputChange(Number(e.target.value))}
-              />
-              <div className={styles.goalTargetActions}>
-                <button className={styles.secondaryButton} onClick={() => setEditingTarget(false)}>
-                  {UI_TEXT.CANCEL}
-                </button>
-                <button className={styles.primaryButton} onClick={saveTarget}>
-                  {UI_TEXT.SAVE_GOAL}
-                </button>
-              </div>
-            </div>
-          )}
+          <div className={styles.goalDivider} />
 
-          <button className={styles.goalContinueButton} onClick={() => close(onContinue)}>
-            <span>{UI_TEXT.CONTINUE_READING}</span>
-            <small>{continueSubtitle}</small>
-          </button>
+          <div className={styles.goalProgressCopy} aria-live="polite">
+            <h2 className={styles.goalProgressHeading}>今日阅读进度</h2>
+            <p
+              className={[
+                styles.goalRemaining,
+                display.completed ? styles.goalRemainingComplete : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {display.completed
+                ? "今日目标已完成"
+                : `还需 ${display.remainingMinutes} 分钟`}
+            </p>
+            <p className={styles.goalStatus}>
+              {display.completed
+                ? "继续保持阅读节奏"
+                : "你正朝着每日目标奋进"}
+            </p>
+          </div>
         </div>
-        </>
-      )}
-    </BottomSheet>
+
+        {editingTarget ? (
+          <div className={styles.goalEditor}>
+            <h3 className={styles.goalEditorHeading}>每日阅读目标</h3>
+            <span className={styles.goalEditorUnit}>分钟/天</span>
+            <ReadingGoalWheel
+              value={goalInputValue}
+              onChange={onGoalInputChange}
+              ariaLabel="每日阅读目标分钟数"
+            />
+            <button className={styles.goalBottomAction} onClick={saveTarget}>
+              {UI_TEXT.DONE}
+            </button>
+          </div>
+        ) : (
+          <div className={styles.goalActionArea}>
+            <button
+              className={styles.goalBottomAction}
+              onClick={openTargetEditor}
+            >
+              调整目标
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

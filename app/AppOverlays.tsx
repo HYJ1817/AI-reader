@@ -173,11 +173,9 @@ export default function AppOverlays({
           todayMinutes={reader.todayMinutes}
           targetMinutes={reader.targetMinutes}
           goalInputValue={reader.goalInputValue}
-          bookTitle={reader.bookTitle}
           onGoalInputChange={actions.setGoalInputValue}
           onSaveGoal={actions.saveGoal}
           onClose={actions.closeGoal}
-          onContinue={actions.closeGoal}
         />
       )}
 
