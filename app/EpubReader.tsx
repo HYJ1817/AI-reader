@@ -21,6 +21,7 @@ import {
   consumeEpubSyntheticClick,
   normalizeEpubSelectionText,
   resolveEpubTouchEnd,
+  shouldReportEpubSelectionChange,
   type EpubSyntheticClickToken,
 } from "@/lib/epubTapInteractions";
 import {
@@ -352,6 +353,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     } | null = null;
     let syntheticClickToken: EpubSyntheticClickToken | null = null;
     let scrollIntentFired = false;
+    let suppressNonEmptySelectionUntil = Number.NEGATIVE_INFINITY;
 
     const isInteractiveTarget = (target: EventTarget | null) => {
       const view = doc.defaultView;
@@ -372,19 +374,44 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     };
 
     let selectionChangeTimer: number | null = null;
+    const publishSelectionChange = () => {
+      const selectionText = getSelectionText();
+      if (
+        !shouldReportEpubSelectionChange({
+          value: selectionText,
+          at: Date.now(),
+          suppressNonEmptyUntil: suppressNonEmptySelectionUntil,
+        })
+      ) {
+        return;
+      }
+      onTextSelectRef.current?.(selectionText);
+    };
     const reportSelectionChange = () => {
       const view = c?.window ?? doc.defaultView;
       if (selectionChangeTimer !== null) {
         view?.clearTimeout(selectionChangeTimer);
       }
       if (!view) {
-        onTextSelectRef.current?.(getSelectionText());
+        publishSelectionChange();
         return;
       }
       selectionChangeTimer = view.setTimeout(() => {
         selectionChangeTimer = null;
-        onTextSelectRef.current?.(getSelectionText());
+        publishSelectionChange();
       }, 260);
+    };
+
+    const clearSelectionForTap = (at: number) => {
+      suppressNonEmptySelectionUntil = at + 420;
+      const view = c?.window ?? doc.defaultView;
+      if (selectionChangeTimer !== null) {
+        view?.clearTimeout(selectionChangeTimer);
+        selectionChangeTimer = null;
+      }
+      const selection = c?.window?.getSelection?.() ?? doc.getSelection?.();
+      selection?.removeAllRanges();
+      onTextSelectRef.current?.("");
     };
 
     const fireReaderTap = (target: EventTarget | null) => {
@@ -559,6 +586,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             doc.documentElement.clientWidth || shell?.clientWidth || 0
           );
         }
+        const touchEndAt = Date.now();
         const touchEnd = resolveEpubTouchEnd({
           startSelectionText: start.selectionText,
           endSelectionText: getSelectionText(),
@@ -570,10 +598,11 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             deltaY: dy,
           }),
           target: start.target,
-          at: Date.now(),
+          at: touchEndAt,
         });
         syntheticClickToken = touchEnd.syntheticClickToken;
         if (touchEnd.fireTap) {
+          clearSelectionForTap(touchEndAt);
           onReaderTapRef.current?.();
         }
       },

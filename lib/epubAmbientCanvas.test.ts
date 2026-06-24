@@ -72,6 +72,25 @@ describe("applyEpubAmbientCanvas", () => {
     }
   });
 
+  it("clears a nested single-wrapper publisher canvas chain", () => {
+    const paragraph = createElement("P");
+    const article = createElement("ARTICLE", [paragraph]);
+    const section = createElement("SECTION", [article]);
+    const wrapper = createElement("DIV", [section]);
+    const document = createDocument([wrapper]);
+
+    applyEpubAmbientCanvas({ document });
+
+    for (const element of [wrapper, section, article]) {
+      expect(element.style.setProperty).toHaveBeenCalledWith(
+        "background",
+        "transparent",
+        "important"
+      );
+    }
+    expect(paragraph.style.setProperty).not.toHaveBeenCalled();
+  });
+
   it("uses the content owner document when contents.document is unavailable", () => {
     const document = createDocument([createElement("SECTION")]);
     const content = createElement("BODY");

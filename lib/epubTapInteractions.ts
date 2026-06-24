@@ -15,6 +15,21 @@ export function resolveEpubSelectionUpdate(value: string): {
   };
 }
 
+export function shouldReportEpubSelectionChange({
+  value,
+  at,
+  suppressNonEmptyUntil,
+}: {
+  value: string;
+  at: number;
+  suppressNonEmptyUntil: number;
+}): boolean {
+  return (
+    normalizeEpubSelectionText(value).length === 0 ||
+    at > suppressNonEmptyUntil
+  );
+}
+
 export function classifyEpubTouchEnd({
   startSelectionText,
   endSelectionText,

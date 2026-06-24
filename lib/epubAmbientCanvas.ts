@@ -31,6 +31,18 @@ function setTransparentBackground(element: EpubAmbientElement | undefined) {
   element?.style?.setProperty("background", "transparent", "important");
 }
 
+function clearPublisherCanvasChain(element: EpubAmbientElement): void {
+  setTransparentBackground(element);
+
+  const children = Array.from(element.children ?? []);
+  if (children.length !== 1) return;
+
+  const child = children[0];
+  if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
+    clearPublisherCanvasChain(child);
+  }
+}
+
 export function applyEpubAmbientCanvas(contents: unknown): void {
   if (!contents || typeof contents !== "object") return;
 
@@ -48,7 +60,7 @@ export function applyEpubAmbientCanvas(contents: unknown): void {
 
   for (const child of Array.from(body.children ?? [])) {
     if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-      setTransparentBackground(child);
+      clearPublisherCanvasChain(child);
     }
   }
 }

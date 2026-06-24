@@ -4,6 +4,7 @@ import {
   consumeEpubSyntheticClick,
   normalizeEpubSelectionText,
   resolveEpubSelectionUpdate,
+  shouldReportEpubSelectionChange,
   resolveEpubTouchEnd,
 } from "./epubTapInteractions";
 
@@ -28,6 +29,35 @@ describe("resolveEpubSelectionUpdate", () => {
       selectedText: "first second",
       shouldShowChrome: true,
     });
+  });
+});
+
+describe("shouldReportEpubSelectionChange", () => {
+  it("suppresses Safari replaying a stale non-empty selection after a tap", () => {
+    expect(
+      shouldReportEpubSelectionChange({
+        value: "stale selection",
+        at: 1200,
+        suppressNonEmptyUntil: 1300,
+      })
+    ).toBe(false);
+  });
+
+  it("still reports clears and later genuine selections", () => {
+    expect(
+      shouldReportEpubSelectionChange({
+        value: "",
+        at: 1200,
+        suppressNonEmptyUntil: 1300,
+      })
+    ).toBe(true);
+    expect(
+      shouldReportEpubSelectionChange({
+        value: "new selection",
+        at: 1400,
+        suppressNonEmptyUntil: 1300,
+      })
+    ).toBe(true);
   });
 });
 

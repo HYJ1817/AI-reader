@@ -124,9 +124,16 @@ describe("reader chrome event integration", () => {
     expect(epubSource).toContain(
       'doc.addEventListener("selectionchange", reportSelectionChange)'
     );
+    expect(epubSource).toContain("const selectionText = getSelectionText()");
     expect(epubSource).toContain(
-      "onTextSelectRef.current?.(getSelectionText())"
+      "onTextSelectRef.current?.(selectionText)"
     );
+  });
+
+  it("clears stale selection before toggling chrome for a real EPUB tap", () => {
+    expect(epubSource).toContain("selection?.removeAllRanges()");
+    expect(epubSource).toContain('onTextSelectRef.current?.("")');
+    expect(epubSource).toContain("shouldReportEpubSelectionChange");
   });
 
   it("uses unframed floating tools instead of the old top and bottom chrome", () => {
