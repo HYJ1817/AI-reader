@@ -57,7 +57,6 @@ export default function SettingsSurface({
           <label className={styles.settingsSwitchRow}>
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.AUTO_OPEN_LAST_BOOK}</strong>
-              <small>{UI_TEXT.AUTO_OPEN_LAST_BOOK_HINT}</small>
             </span>
             <input
               type="checkbox"
@@ -74,7 +73,6 @@ export default function SettingsSurface({
           <label className={styles.settingsSwitchRow}>
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.KEEP_SCREEN_AWAKE}</strong>
-              <small>{UI_TEXT.KEEP_SCREEN_AWAKE_HINT}</small>
             </span>
             <input
               type="checkbox"
@@ -91,7 +89,6 @@ export default function SettingsSurface({
           <label className={styles.settingsSwitchRow}>
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.REDUCE_MOTION}</strong>
-              <small>{UI_TEXT.REDUCE_MOTION_HINT}</small>
             </span>
             <input
               type="checkbox"
@@ -113,7 +110,6 @@ export default function SettingsSurface({
           <label className={styles.settingsSwitchRow}>
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.SWIPE_TO_TURN}</strong>
-              <small>{UI_TEXT.SWIPE_TO_TURN_HINT}</small>
             </span>
             <input
               type="checkbox"
