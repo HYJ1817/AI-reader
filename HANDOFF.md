@@ -159,7 +159,20 @@ Safari normal tabs, the in-app browser, and an installed home-screen PWA can com
 
 Cloudflare quick-tunnel URLs are temporary and may expire when the local process stops. Verify an existing link before sharing it and do not treat it as permanent deployment.
 
-## 9. Prompt for the Next Conversation
+## 9. Deferred Roadmap
+
+- `ROADMAP.md` records a future in-app web browser that lets the user browse
+  arbitrary websites and import downloaded EPUB/TXT files directly into the
+  existing bookshelf.
+- This work is intentionally deferred. A reliable implementation requires a
+  thin iOS native shell using `WKWebView` and `WKDownload`; it is not a pure
+  PWA feature.
+- Do not start the native shell until the user explicitly resumes this roadmap
+  item and a Mac/Xcode/signing/device-testing workflow is available.
+- Preserve the current Next.js reader and local data model. This is a hybrid
+  wrapper plan, not approval for a native rewrite.
+
+## 10. Prompt for the Next Conversation
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
