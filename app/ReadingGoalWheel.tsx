@@ -98,7 +98,7 @@ export default function ReadingGoalWheel({
           const offset = visibleValue - value;
           const distance = Math.abs(offset);
           const rowStyle = {
-            "--goal-wheel-offset": offset,
+            "--goal-wheel-offset": `${offset * ROW_HEIGHT}px`,
           } as CSSProperties;
 
           return (
