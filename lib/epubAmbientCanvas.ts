@@ -27,12 +27,15 @@ const TOP_LEVEL_CANVAS_TAGS = new Set([
   "ARTICLE",
 ]);
 
-function setTransparentBackground(element: EpubAmbientElement | undefined) {
-  element?.style?.setProperty("background", "transparent", "important");
+function setBackground(
+  element: EpubAmbientElement | undefined,
+  background: string
+) {
+  element?.style?.setProperty("background", background, "important");
 }
 
 function clearPublisherCanvasChain(element: EpubAmbientElement): void {
-  setTransparentBackground(element);
+  setBackground(element, "transparent");
 
   const children = Array.from(element.children ?? []);
   if (children.length !== 1) return;
@@ -43,7 +46,10 @@ function clearPublisherCanvasChain(element: EpubAmbientElement): void {
   }
 }
 
-export function applyEpubAmbientCanvas(contents: unknown): void {
+export function applyEpubAmbientCanvas(
+  contents: unknown,
+  background: string
+): void {
   if (!contents || typeof contents !== "object") return;
 
   const candidate = contents as EpubAmbientContents;
@@ -55,8 +61,8 @@ export function applyEpubAmbientCanvas(contents: unknown): void {
   const body = document?.body;
   if (!document || !body) return;
 
-  setTransparentBackground(document.documentElement);
-  setTransparentBackground(body);
+  setBackground(document.documentElement, background);
+  setBackground(body, background);
 
   for (const child of Array.from(body.children ?? [])) {
     if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {

@@ -61,7 +61,7 @@ describe("EPUB ambient background integration", () => {
     );
     const handlerSource = epubSource.slice(handlerStart, handlerEnd);
     const ambientIndex = handlerSource.indexOf(
-      "applyEpubAmbientCanvas(contents)"
+      "applyEpubAmbientCanvas(contents, background)"
     );
     const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
 
@@ -72,6 +72,23 @@ describe("EPUB ambient background integration", () => {
     expect(ambientIndex).toBeGreaterThanOrEqual(0);
     expect(tapIndex).toBeGreaterThanOrEqual(0);
     expect(ambientIndex).toBeLessThan(tapIndex);
+  });
+
+  it("reapplies the iframe canvas color when reader preferences change", () => {
+    const preferencesEffectStart = epubSource.indexOf(
+      "if (!renditionRef.current || !preferences) return"
+    );
+    const preferencesEffectEnd = epubSource.indexOf(
+      "}, [preferences, applyPreferences, systemThemeRevision])",
+      preferencesEffectStart
+    );
+    const preferencesEffect = epubSource.slice(
+      preferencesEffectStart,
+      preferencesEffectEnd
+    );
+
+    expect(preferencesEffect).toContain("applyPreferences");
+    expect(preferencesEffect).toContain("applyRenderedCanvas");
   });
 
   it("uses the shared rendered-content handler for events and post-display contents", () => {
