@@ -52,14 +52,14 @@ export function applyEpubReaderPreferences(
   ) {
     controller.register("reader-prefs", {
       "html, body": {
-        background: `${colors.background} !important`,
+        background: "transparent !important",
         "touch-action": "pan-y pinch-zoom",
         "overscroll-behavior-inline": "contain",
         "-webkit-tap-highlight-color": "transparent",
       },
       body: {
         color: `${colors.foreground} !important`,
-        background: `${colors.background} !important`,
+        background: "transparent !important",
         transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
       },
       // Only clear common top-level publisher canvases, leaving nested callouts and code blocks intact.

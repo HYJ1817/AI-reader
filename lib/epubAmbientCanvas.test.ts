@@ -15,7 +15,10 @@ type FakeDocument = {
   body: FakeElement;
 };
 
-function createElement(tagName: string, children: FakeElement[] = []): FakeElement {
+function createElement(
+  tagName: string,
+  children: FakeElement[] = []
+): FakeElement {
   return {
     tagName,
     style: {
@@ -47,13 +50,13 @@ describe("applyEpubAmbientCanvas", () => {
       topLevelCode,
     ]);
 
-    applyEpubAmbientCanvas({ document }, "#171717");
+    applyEpubAmbientCanvas({ document });
 
     for (const element of [document.documentElement, document.body]) {
       expect(element.style.setProperty).toHaveBeenCalledOnce();
       expect(element.style.setProperty).toHaveBeenCalledWith(
         "background",
-        "#171717",
+        "transparent",
         "important"
       );
     }
@@ -82,7 +85,7 @@ describe("applyEpubAmbientCanvas", () => {
     const wrapper = createElement("DIV", [section]);
     const document = createDocument([wrapper]);
 
-    applyEpubAmbientCanvas({ document }, "#171717");
+    applyEpubAmbientCanvas({ document });
 
     for (const element of [wrapper, section, article]) {
       expect(element.style.setProperty).toHaveBeenCalledWith(
@@ -99,11 +102,11 @@ describe("applyEpubAmbientCanvas", () => {
     const content = createElement("BODY");
     content.ownerDocument = document;
 
-    applyEpubAmbientCanvas({ content }, "#171717");
+    applyEpubAmbientCanvas({ content });
 
     expect(document.documentElement.style.setProperty).toHaveBeenCalledWith(
       "background",
-      "#171717",
+      "transparent",
       "important"
     );
     expect(document.body.children[0]?.style.setProperty).toHaveBeenCalledWith(
@@ -114,31 +117,31 @@ describe("applyEpubAmbientCanvas", () => {
   });
 
   it("is a safe no-op without a usable document or body", () => {
-    expect(() => applyEpubAmbientCanvas(null, "#171717")).not.toThrow();
-    expect(() => applyEpubAmbientCanvas({}, "#171717")).not.toThrow();
+    expect(() => applyEpubAmbientCanvas(null)).not.toThrow();
+    expect(() => applyEpubAmbientCanvas({})).not.toThrow();
     expect(() =>
       applyEpubAmbientCanvas({
         document: {
           documentElement: createElement("HTML"),
         },
-      }, "#171717")
+      })
     ).not.toThrow();
   });
 
-  it("updates the document canvas when the reader theme changes", () => {
+  it("keeps the document canvas transparent when the reader theme changes", () => {
     const document = createDocument([]);
 
-    applyEpubAmbientCanvas({ document }, "#ffffff");
-    applyEpubAmbientCanvas({ document }, "#171717");
+    applyEpubAmbientCanvas({ document });
+    applyEpubAmbientCanvas({ document });
 
     expect(document.documentElement.style.setProperty).toHaveBeenLastCalledWith(
       "background",
-      "#171717",
+      "transparent",
       "important"
     );
     expect(document.body.style.setProperty).toHaveBeenLastCalledWith(
       "background",
-      "#171717",
+      "transparent",
       "important"
     );
   });

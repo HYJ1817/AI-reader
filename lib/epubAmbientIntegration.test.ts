@@ -61,7 +61,7 @@ describe("EPUB ambient background integration", () => {
     );
     const handlerSource = epubSource.slice(handlerStart, handlerEnd);
     const ambientIndex = handlerSource.indexOf(
-      "applyEpubAmbientCanvas(contents, background)"
+      "applyEpubAmbientCanvas(contents)"
     );
     const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
 
@@ -74,7 +74,7 @@ describe("EPUB ambient background integration", () => {
     expect(ambientIndex).toBeLessThan(tapIndex);
   });
 
-  it("reapplies the iframe canvas color when reader preferences change", () => {
+  it("reapplies the transparent iframe canvas when reader preferences change", () => {
     const preferencesEffectStart = epubSource.indexOf(
       "if (!renditionRef.current || !preferences) return"
     );

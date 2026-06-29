@@ -48,7 +48,7 @@ describe("applyEpubReaderPreferences", () => {
     expect(state.preferences).toEqual(DEFAULT_READER_PREFERENCES);
   });
 
-  it("registers the selected theme background while preserving forced foreground colors", () => {
+  it("registers a transparent reading canvas while preserving forced foreground colors", () => {
     const controller = createController();
 
     applyEpubReaderPreferences(
@@ -63,14 +63,14 @@ describe("applyEpubReaderPreferences", () => {
       | undefined;
 
     expect(rules?.["html, body"]).toEqual({
-      background: "#ffffff !important",
+      background: "transparent !important",
       "touch-action": "pan-y pinch-zoom",
       "overscroll-behavior-inline": "contain",
       "-webkit-tap-highlight-color": "transparent",
     });
     expect(rules?.body).toEqual({
       color: "#111111 !important",
-      background: "#ffffff !important",
+      background: "transparent !important",
       transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
     });
     expect(
@@ -103,7 +103,7 @@ describe("applyEpubReaderPreferences", () => {
     const serialized = serializeRulesLikeEpubJs(rules);
 
     expect(serialized).toContain(
-      "html, body{background:#ffffff !important;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
+      "html, body{background:transparent !important;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
     );
     expect(serialized).toContain(
       "body > div, body > main, body > section, body > article{background:transparent !important}"
@@ -201,11 +201,11 @@ describe("applyEpubReaderPreferences", () => {
     expect(controller.override).not.toHaveBeenCalled();
     const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
     expect(rules?.["html, body"]).toMatchObject({
-      background: "#111111 !important",
+      background: "transparent !important",
     });
     expect(rules?.body).toMatchObject({
       color: "#f4f4f4 !important",
-      background: "#111111 !important",
+      background: "transparent !important",
     });
   });
 });

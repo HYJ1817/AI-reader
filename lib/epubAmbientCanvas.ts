@@ -47,8 +47,7 @@ function clearPublisherCanvasChain(element: EpubAmbientElement): void {
 }
 
 export function applyEpubAmbientCanvas(
-  contents: unknown,
-  background: string
+  contents: unknown
 ): void {
   if (!contents || typeof contents !== "object") return;
 
@@ -61,8 +60,8 @@ export function applyEpubAmbientCanvas(
   const body = document?.body;
   if (!document || !body) return;
 
-  setBackground(document.documentElement, background);
-  setBackground(body, background);
+  setBackground(document.documentElement, "transparent");
+  setBackground(body, "transparent");
 
   for (const child of Array.from(body.children ?? [])) {
     if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {

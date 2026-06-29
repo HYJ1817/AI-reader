@@ -387,6 +387,12 @@ describe("ambient book background state", () => {
       );
     }
 
+    for (const selector of [".readerBody", ".epubReaderShell"]) {
+      const rule = cssRule(moduleCss, selector);
+      expect(rule).not.toMatch(/(?:^|\n)\s*background\s*:/);
+      expect(rule).not.toMatch(/(?:^|\n)\s*background-color\s*:/);
+    }
+
     for (const selector of [
       ".settingsNativeList",
       ".collectionList",

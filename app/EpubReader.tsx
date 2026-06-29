@@ -232,19 +232,18 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
   const applyRenderedCanvas = useCallback(
     (r: Rendition) => {
-      const background = getThemeColors().background;
       const renderedContents = (
         r as Rendition & { getContents?: () => unknown }
       ).getContents?.();
       if (Array.isArray(renderedContents)) {
         renderedContents.forEach((contents) =>
-          applyEpubAmbientCanvas(contents, background)
+          applyEpubAmbientCanvas(contents)
         );
       } else {
-        applyEpubAmbientCanvas(renderedContents, background);
+        applyEpubAmbientCanvas(renderedContents);
       }
     },
-    [getThemeColors]
+    []
   );
 
   const handleRelocated = useCallback(
@@ -666,11 +665,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
   const handleRenderedContents = useCallback(
     (contents: unknown) => {
-      const background = getThemeColors().background;
-      applyEpubAmbientCanvas(contents, background);
+      applyEpubAmbientCanvas(contents);
       attachTapHandlers(contents);
     },
-    [attachTapHandlers, getThemeColors]
+    [attachTapHandlers]
   );
 
   useEffect(() => {
