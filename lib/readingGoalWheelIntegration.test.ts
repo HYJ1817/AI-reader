@@ -27,6 +27,13 @@ describe("ReadingGoalWheel integration", () => {
     expect(source).toContain("getReadingGoalWheelValueForKey");
   });
 
+  it("keeps pointer dragging visually continuous between selected minutes", () => {
+    expect(source).toContain("getReadingGoalWheelDragState");
+    expect(source).toContain("setDragOffsetPx");
+    expect(source).toContain("--goal-wheel-drag-offset");
+    expect(source).toContain("goalWheelDragging");
+  });
+
   it("renders only the bounded visible window", () => {
     expect(source).not.toContain("1440).map");
     expect(source).not.toContain("Array.from({ length: 1440");

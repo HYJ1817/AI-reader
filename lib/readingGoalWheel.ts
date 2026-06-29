@@ -21,6 +21,42 @@ export function getReadingGoalWheelValues(value: number): number[] {
   return Array.from({ length: 5 }, (_, index) => start + index);
 }
 
+export type ReadingGoalWheelDragState = {
+  value: number;
+  offsetPx: number;
+};
+
+export function getReadingGoalWheelDragState(
+  startValue: number,
+  dragDeltaPx: number,
+  rowHeightPx: number
+): ReadingGoalWheelDragState {
+  const selectedStart = clampReadingGoalMinutes(startValue);
+  if (
+    !Number.isFinite(dragDeltaPx) ||
+    !Number.isFinite(rowHeightPx) ||
+    rowHeightPx <= 0
+  ) {
+    return { value: selectedStart, offsetPx: 0 };
+  }
+
+  const rawValue = selectedStart + dragDeltaPx / rowHeightPx;
+  const value = clampReadingGoalMinutes(rawValue);
+  if (
+    (value === READING_GOAL_MIN_MINUTES &&
+      rawValue < READING_GOAL_MIN_MINUTES) ||
+    (value === READING_GOAL_MAX_MINUTES &&
+      rawValue > READING_GOAL_MAX_MINUTES)
+  ) {
+    return { value, offsetPx: 0 };
+  }
+
+  return {
+    value,
+    offsetPx: (value - selectedStart) * rowHeightPx - dragDeltaPx,
+  };
+}
+
 export function getReadingGoalWheelValueForKey(
   value: number,
   key: string

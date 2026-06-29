@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   clampReadingGoalMinutes,
+  getReadingGoalWheelDragState,
   getReadingGoalWheelValues,
   getReadingGoalWheelValueForKey,
 } from "./readingGoalWheel";
@@ -42,5 +43,40 @@ describe("getReadingGoalWheelValueForKey", () => {
     expect(getReadingGoalWheelValueForKey(120, "Enter")).toBeNull();
     expect(getReadingGoalWheelValueForKey(1, "ArrowUp")).toBe(1);
     expect(getReadingGoalWheelValueForKey(1440, "ArrowDown")).toBe(1440);
+  });
+});
+
+describe("getReadingGoalWheelDragState", () => {
+  it("keeps fractional drag offset before the next minute is selected", () => {
+    expect(getReadingGoalWheelDragState(120, 10, 34)).toEqual({
+      value: 120,
+      offsetPx: -10,
+    });
+    expect(getReadingGoalWheelDragState(120, -10, 34)).toEqual({
+      value: 120,
+      offsetPx: 10,
+    });
+  });
+
+  it("keeps visual continuity after crossing the selection midpoint", () => {
+    expect(getReadingGoalWheelDragState(120, 20, 34)).toEqual({
+      value: 121,
+      offsetPx: 14,
+    });
+    expect(getReadingGoalWheelDragState(120, -20, 34)).toEqual({
+      value: 119,
+      offsetPx: -14,
+    });
+  });
+
+  it("does not pull beyond supported boundaries", () => {
+    expect(getReadingGoalWheelDragState(1, -40, 34)).toEqual({
+      value: 1,
+      offsetPx: 0,
+    });
+    expect(getReadingGoalWheelDragState(1440, 40, 34)).toEqual({
+      value: 1440,
+      offsetPx: 0,
+    });
   });
 });

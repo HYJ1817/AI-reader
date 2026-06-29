@@ -3357,7 +3357,19 @@
   font-size: 18px;
   font-weight: 450;
   line-height: 1;
-  transform: translateY(calc(-50% + var(--goal-wheel-offset)));
+  transform: translateY(
+    calc(
+      -50% + var(--goal-wheel-offset) + var(--goal-wheel-drag-offset, 0px)
+    )
+  );
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    font-size var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform 120ms var(--ease-standard);
+}
+
+.goalWheelDragging .goalWheelRow {
   transition:
     color var(--motion-fast) var(--ease-standard),
     font-size var(--motion-fast) var(--ease-standard),

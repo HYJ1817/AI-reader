@@ -2,6 +2,7 @@
 
 import {
   useRef,
+  useState,
   type CSSProperties,
   type KeyboardEvent,
   type PointerEvent,
@@ -9,6 +10,7 @@ import {
 } from "react";
 import {
   clampReadingGoalMinutes,
+  getReadingGoalWheelDragState,
   getReadingGoalWheelValues,
   getReadingGoalWheelValueForKey,
   READING_GOAL_MAX_MINUTES,
@@ -26,6 +28,7 @@ type PointerDrag = {
   pointerId: number;
   startY: number;
   startValue: number;
+  lastValue: number;
 };
 
 const ROW_HEIGHT = 34;
@@ -36,18 +39,24 @@ export default function ReadingGoalWheel({
   ariaLabel,
 }: ReadingGoalWheelProps) {
   const dragRef = useRef<PointerDrag | null>(null);
+  const [dragOffsetPx, setDragOffsetPx] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
   const visibleValues = getReadingGoalWheelValues(value);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const nextValue = getReadingGoalWheelValueForKey(value, event.key);
     if (nextValue === null) return;
     event.preventDefault();
+    setDragOffsetPx(0);
+    setIsDragging(false);
     onChange(nextValue);
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
     if (event.deltaY === 0) return;
     event.preventDefault();
+    setDragOffsetPx(0);
+    setIsDragging(false);
     onChange(clampReadingGoalMinutes(value + (event.deltaY > 0 ? 1 : -1)));
   };
 
@@ -56,15 +65,25 @@ export default function ReadingGoalWheel({
       pointerId: event.pointerId,
       startY: event.clientY,
       startValue: value,
+      lastValue: value,
     };
+    setDragOffsetPx(0);
+    setIsDragging(true);
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const handlePointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const steps = Math.round((drag.startY - event.clientY) / ROW_HEIGHT);
-    onChange(clampReadingGoalMinutes(drag.startValue + steps));
+    const dragState = getReadingGoalWheelDragState(
+      drag.startValue,
+      drag.startY - event.clientY,
+      ROW_HEIGHT
+    );
+    setDragOffsetPx(dragState.offsetPx);
+    if (dragState.value === drag.lastValue) return;
+    drag.lastValue = dragState.value;
+    onChange(dragState.value);
   };
 
   const finishPointerDrag = (event: PointerEvent<HTMLDivElement>) => {
@@ -73,11 +92,15 @@ export default function ReadingGoalWheel({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
     dragRef.current = null;
+    setIsDragging(false);
+    setDragOffsetPx(0);
   };
 
   return (
     <div
-      className={styles.goalWheel}
+      className={[styles.goalWheel, isDragging ? styles.goalWheelDragging : ""]
+        .filter(Boolean)
+        .join(" ")}
       role="spinbutton"
       tabIndex={0}
       aria-label={ariaLabel}
@@ -99,6 +122,7 @@ export default function ReadingGoalWheel({
           const distance = Math.abs(offset);
           const rowStyle = {
             "--goal-wheel-offset": `${offset * ROW_HEIGHT}px`,
+            "--goal-wheel-drag-offset": `${dragOffsetPx}px`,
           } as CSSProperties;
 
           return (
