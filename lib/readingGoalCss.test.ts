@@ -39,6 +39,14 @@ describe("reading goal fullscreen CSS", () => {
     );
   });
 
+  it("keeps all five wheel rows visible on short screens", () => {
+    const shortScreenRules =
+      css.match(
+        /@media \(max-height: 760px\)\s*\{([\s\S]*?)\n\}\n\n@media \(prefers-reduced-motion/
+      )?.[1] ?? "";
+    expect(shortScreenRules).not.toContain("height: 150px");
+  });
+
   it("removes obsolete bottom-sheet goal styles", () => {
     expect(css).not.toContain(".goalSheet {");
     expect(css).not.toContain(".goalContinueButton");
