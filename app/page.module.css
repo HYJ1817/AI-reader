@@ -513,8 +513,8 @@
 
 .customBackgroundPanel {
   display: grid;
-  gap: 16px;
-  padding: 14px;
+  gap: 18px;
+  padding: 16px;
   border-bottom: 0.5px solid var(--hairline);
 }
 
@@ -523,8 +523,8 @@
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: min(62dvh, 560px);
-  min-height: 300px;
+  height: min(58dvh, 620px);
+  min-height: 360px;
   margin: 0;
   padding: 10px;
   border-radius: 12px;
@@ -556,17 +556,23 @@
 }
 
 .customBackgroundSettingsSheet {
-  max-width: 520px;
-  max-height: min(92dvh, 860px);
   background: var(--sheet-fill);
+}
+
+.bottomSheet.customBackgroundSettingsSheet {
+  width: min(100%, 560px);
+  max-width: min(100%, 560px);
+  height: min(90dvh, 900px);
+  max-height: calc(100dvh - var(--safe-top) - 18px);
+  padding-bottom: 0;
 }
 
 .customBackgroundSheetHeader {
   display: grid;
-  grid-template-columns: 64px minmax(0, 1fr) 64px;
+  grid-template-columns: 72px minmax(0, 1fr) 72px;
   align-items: center;
   gap: 8px;
-  padding: 14px 18px 8px;
+  padding: 18px 26px 14px;
 }
 
 .customBackgroundSheetHeader h2 {
@@ -582,9 +588,9 @@
 .customBackgroundSheetHeader button {
   grid-column: 3;
   justify-self: end;
-  min-width: 52px;
-  height: 36px;
-  border-radius: 18px;
+  min-width: 58px;
+  height: 42px;
+  border-radius: 21px;
   color: var(--tint);
   background: var(--control-fill);
   font-size: 15px;
@@ -592,7 +598,9 @@
 }
 
 .customBackgroundSheetBody {
-  padding: 10px 18px calc(var(--safe-bottom) + 18px);
+  flex: 1;
+  min-height: 0;
+  padding: 12px 28px calc(var(--safe-bottom) + 28px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }

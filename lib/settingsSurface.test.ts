@@ -72,6 +72,10 @@ describe("settings surface copy", () => {
     expect(backgroundSheetSource).not.toContain("opacity: appPreferences.customBackgroundOpacity");
     expect(cssSource).toContain(".customBackgroundPreview");
     expect(cssSource).toContain(".customBackgroundPreviewImage");
+    expect(cssSource).toContain(".bottomSheet.customBackgroundSettingsSheet");
+    expect(
+      cssRule(cssSource, ".bottomSheet.customBackgroundSettingsSheet")
+    ).toContain("height: min(90dvh, 900px)");
     expect(cssRule(cssSource, ".customBackgroundPreviewImage")).toContain(
       "object-fit: contain"
     );
