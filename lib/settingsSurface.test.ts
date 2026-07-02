@@ -75,7 +75,13 @@ describe("settings surface copy", () => {
     expect(cssSource).toContain(".bottomSheet.customBackgroundSettingsSheet");
     expect(
       cssRule(cssSource, ".bottomSheet.customBackgroundSettingsSheet")
-    ).toContain("height: min(90dvh, 900px)");
+    ).toContain("height: calc(100dvh - var(--safe-top) - 12px)");
+    expect(cssRule(cssSource, ".customBackgroundSettingsSheet")).toContain(
+      "background: var(--app-bg)"
+    );
+    expect(cssRule(cssSource, ".customBackgroundSheetCard")).toContain(
+      "background: var(--surface-primary)"
+    );
     expect(cssRule(cssSource, ".customBackgroundPreviewImage")).toContain(
       "object-fit: contain"
     );
