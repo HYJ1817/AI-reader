@@ -44,12 +44,21 @@ export type BookGroup = {
   updatedAt: string;
 };
 
+export type CustomBackgroundRecord = {
+  id: "app-background";
+  imageBlob: Blob;
+  updatedAt: string;
+};
+
+const CUSTOM_BACKGROUND_ID: CustomBackgroundRecord["id"] = "app-background";
+
 type AiReaderDb = Dexie & {
   books: EntityTable<BookRecord, "id">;
   readingPositions: EntityTable<ReadingPosition, "bookId">;
   annotations: EntityTable<AnnotationRecord, "id">;
   dailyReadingStats: EntityTable<DailyReadingStat, "date">;
   bookGroups: EntityTable<BookGroup, "id">;
+  customBackgrounds: EntityTable<CustomBackgroundRecord, "id">;
 };
 
 function createDb(): AiReaderDb {
@@ -67,6 +76,10 @@ function createDb(): AiReaderDb {
 
   db.version(3).stores({
     bookGroups: "id, createdAt, name",
+  });
+
+  db.version(4).stores({
+    customBackgrounds: "id, updatedAt",
   });
 
   return db;
@@ -182,14 +195,32 @@ export async function updateBookGroupMembership(bookId: string, groupIds: string
   await db.books.update(bookId, { groupIds: deduped });
 }
 
+export async function saveCustomBackgroundImage(imageBlob: Blob): Promise<void> {
+  await getDb().customBackgrounds.put({
+    id: CUSTOM_BACKGROUND_ID,
+    imageBlob,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function getCustomBackgroundImage(): Promise<Blob | null> {
+  const record = await getDb().customBackgrounds.get(CUSTOM_BACKGROUND_ID);
+  return record?.imageBlob ?? null;
+}
+
+export async function deleteCustomBackgroundImage(): Promise<void> {
+  await getDb().customBackgrounds.delete(CUSTOM_BACKGROUND_ID);
+}
+
 export async function clearAllReaderData(): Promise<void> {
   const db = getDb();
-  await db.transaction("rw", [db.books, db.readingPositions, db.annotations, db.dailyReadingStats, db.bookGroups], async () => {
+  await db.transaction("rw", [db.books, db.readingPositions, db.annotations, db.dailyReadingStats, db.bookGroups, db.customBackgrounds], async () => {
     await db.books.clear();
     await db.readingPositions.clear();
     await db.annotations.clear();
     await db.dailyReadingStats.clear();
     await db.bookGroups.clear();
+    await db.customBackgrounds.clear();
   });
 }
 

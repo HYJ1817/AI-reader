@@ -13,6 +13,10 @@ const controlsSource = readFileSync(
   new URL("../app/ReaderControls.tsx", import.meta.url),
   "utf8"
 );
+const readerSettingsSource = readFileSync(
+  new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
+  "utf8"
+);
 const readingSessionSource = readFileSync(
   new URL("../app/ReadingSession.tsx", import.meta.url),
   "utf8"
@@ -136,10 +140,11 @@ describe("reader chrome event integration", () => {
     expect(epubSource).toContain("shouldReportEpubSelectionChange");
   });
 
-  it("uses unframed floating tools instead of the old top and bottom chrome", () => {
-    expect(controlsSource).toContain("readerFloatingTools");
+  it("uses the bottom reader action menu instead of the old top and bottom chrome", () => {
+    expect(controlsSource).toContain("readerActionMenu");
+    expect(controlsSource).toContain("readerPagePill");
     expect(controlsSource).toContain("readerOverlayBack");
-    expect(controlsSource).toContain("const toolsVisible = visible");
+    expect(controlsSource).not.toContain("readerFloatingTools");
     expect(controlsSource).not.toContain("readerCornerMenuButton");
     expect(controlsSource).not.toContain("menuOpen");
     expect(controlsSource).not.toContain("readerTopHint");
@@ -158,8 +163,8 @@ describe("reader chrome event integration", () => {
   });
 
   it("exposes both scroll and paged reading modes", () => {
-    expect(controlsSource).toContain('handleReaderModeChange("scroll")');
-    expect(controlsSource).toContain('handleReaderModeChange("paged")');
+    expect(readerSettingsSource).toContain('onModeChange("scroll")');
+    expect(readerSettingsSource).toContain('onModeChange("paged")');
   });
 
   it("presents the reader independently from the active reading tab", () => {

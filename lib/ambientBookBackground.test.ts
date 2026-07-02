@@ -5,6 +5,7 @@ import {
   completeAmbientTransition,
   createAmbientBlobUrlRegistry,
   createAmbientLayer,
+  createCustomAmbientLayer,
   createInitialAmbientTransitionState,
   selectAmbientBlobsToRelease,
   startAmbientTransition,
@@ -68,6 +69,22 @@ describe("ambient book background state", () => {
     expect(fallback.kind).toBe("fallback");
     expect({ paper: fallback.paper, spine: fallback.spine }).toEqual(
       createFallbackCoverStyle(book.title, book.format)
+    );
+  });
+
+  it("creates a custom image layer from a selected background blob", () => {
+    const blob = new Blob(["background"], { type: "image/png" });
+
+    expect(createCustomAmbientLayer(blob, "blob:custom")).toEqual({
+      key: "ambient:custom:blob:custom",
+      kind: "image",
+      imageUrl: "blob:custom",
+      paper: null,
+      spine: null,
+      blob,
+    });
+    expect(createCustomAmbientLayer(null, null)).toEqual(
+      createAmbientLayer(null, null)
     );
   });
 
@@ -232,6 +249,13 @@ describe("ambient book background state", () => {
 
     expect(source).toContain('from "@/lib/ambientBookBackground"');
     expect(source).toContain("createAmbientBlobUrlRegistry");
+    expect(source).toContain("createCustomAmbientLayer");
+    expect(source).toContain("customBackgroundOpacity");
+    expect(source).toContain('"--ambient-custom-effect"');
+    expect(source).toContain('"--ambient-custom-blur"');
+    expect(source).toContain('"--ambient-custom-inset"');
+    expect(source).toContain("data-custom-active={isCustomLayer(layers.current)");
+    expect(source).toContain("data-custom={isCustomLayer(");
     expect(source).toMatch(
       /completeAmbientTransition\(\s*layersRef\.current,\s*generation\s*\)/
     );
@@ -276,7 +300,8 @@ describe("ambient book background state", () => {
     expect(ambientStart).toBeLessThan(firstInput);
     expect(ambientStart).toBeLessThan(firstMain);
     expect(ambientEnd).toBeGreaterThan(ambientStart);
-    expect(ambientMount).toContain("book={latestBook ?? null}");
+    expect(ambientMount).toContain("customBackgroundBlob={");
+    expect(ambientMount).toContain("customBackgroundOpacity={");
     expect(ambientMount).toContain(
       "reduceMotion={appPrefs.reduceMotion}"
     );
@@ -361,6 +386,13 @@ describe("ambient book background state", () => {
     expect(layerRule).not.toContain("scale(");
     expect(currentRule).toContain("z-index: 0");
     expect(currentRule).toContain("opacity: var(--ambient-strength)");
+    expect(moduleCss).toContain('[data-custom="true"]');
+    expect(moduleCss).toContain("filter: blur(var(--ambient-custom-blur)) saturate(1)");
+    expect(moduleCss).toContain("inset: var(--ambient-custom-inset)");
+    expect(moduleCss).toContain('.ambientBookBackground[data-custom-active="true"]::after');
+    expect(moduleCss).toContain("opacity: var(--ambient-custom-effect)");
+    expect(moduleCss).not.toContain("var(--ambient-custom-opacity)");
+    expect(moduleCss).not.toContain("calc(var(--ambient-strength) *");
     expect(previousRule).toContain("z-index: 1");
     expect(previousRule).toContain("opacity: 0");
     expect(cssRule(moduleCss, ".ambientBookBackground::after")).toContain(
@@ -386,6 +418,12 @@ describe("ambient book background state", () => {
         "background: transparent"
       );
     }
+    expect(cssRule(moduleCss, ".readerEpubLightCanvas")).toContain(
+      "background: var(--app-bg)"
+    );
+    expect(
+      cssRule(moduleCss, ".readerEpubLightCanvas .readerStage")
+    ).toContain("background: var(--app-bg)");
 
     for (const selector of [".readerBody", ".epubReaderShell"]) {
       const rule = cssRule(moduleCss, selector);
@@ -393,14 +431,14 @@ describe("ambient book background state", () => {
       expect(rule).not.toMatch(/(?:^|\n)\s*background-color\s*:/);
     }
 
-    for (const selector of [
-      ".settingsNativeList",
-      ".collectionList",
-      ".readerSettingsList",
-    ]) {
-      const surfaceRule = cssRule(moduleCss, selector);
-      expect(surfaceRule).toContain("background: var(--surface-primary)");
-      expect(surfaceRule).not.toContain("backdrop-filter");
+    const settingsSurfaceRule = cssRule(moduleCss, ".settingsNativeList");
+    expect(settingsSurfaceRule).toContain("background: var(--liquid-glass-bg)");
+    expect(settingsSurfaceRule).toContain("backdrop-filter:");
+
+    for (const selector of [".collectionList", ".readerSettingsList"]) {
+      expect(cssRule(moduleCss, selector)).toContain(
+        "background: var(--surface-primary)"
+      );
     }
   });
 

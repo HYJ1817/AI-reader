@@ -2,31 +2,32 @@
 
 ## 1. Current Checkout
 
-- Repository and active checkout: `C:\aaa\ai-reader-pwa`
-- GitHub: https://github.com/HYJ1817/AI-reader
+- Repository: `C:\aaa\ai-reader-pwa`
+- GitHub: `https://github.com/HYJ1817/AI-reader`
 - Branch: `main`
-- Latest code commit: `0029694` (`fix: preserve epub theme canvas on ios`)
-- `main` has been fast-forwarded to the completed `codex/surface-visual-system` work and pushed to `origin/main`.
-- The old feature worktree still exists at `C:\aaa\ai-reader-pwa\.worktrees\surface-visual-system`, but new work should start from the root `main` checkout unless the user explicitly asks otherwise.
+- Latest pushed commit: `2c19fe3` (`fix: let reader background follow ambient surface`)
+- `main`, `origin/main`, and `origin/HEAD` currently point at `2c19fe3`.
+- The working tree is **dirty**. Do not run `git reset`, `git clean`, or overwrite local changes.
 
-Start every new session with:
+Start the next session with:
 
 ```powershell
 cd C:\aaa\ai-reader-pwa
 git status -sb
 git log -5 --oneline --decorate
-npm.cmd run test
-npm.cmd run build
-npm.cmd exec -- eslint app lib
+Get-Content HANDOFF.md
 ```
 
-Do not reset, clean, remove the feature worktree, or overwrite changes you did not create.
+Then inspect the current diff before editing:
+
+```powershell
+git diff --stat
+git diff -- app/EpubReader.tsx lib/epubAmbientCanvas.ts lib/epubReaderPreferences.ts
+```
 
 ## 2. Product and Stack
 
-AI Reader is a local-first EPUB/TXT reader primarily used on an iPhone in Safari or as a home-screen PWA.
-
-The intended experience is quiet, focused, Chinese-language, one-handed, and close to a mature iOS utility without copying Apple trademarks or private APIs.
+AI Reader is a local-first EPUB/TXT reader primarily tested on iPhone Safari and home-screen PWA.
 
 Current stack:
 
@@ -37,149 +38,202 @@ Current stack:
 - Vitest and ESLint
 - Service worker and web app manifest
 
-This is still a Next.js PWA. Do not begin a native iOS rewrite without explicit approval.
+Important product direction:
 
-## 3. Important Constraints
-
+- Keep the app as a Next.js PWA unless the user explicitly resumes the deferred native iOS shell plan.
 - Preserve existing IndexedDB books, groups, progress, settings, and backups.
-- Do not export API keys in backups.
-- AI requests may include only the book title, format, selected passage, and user question. Never send the full book.
-- Keep custom OpenAI-compatible, Anthropic-compatible, Gemini, DeepSeek, and other third-party endpoints.
-- Do not hard-code a short fixed model catalog.
-- Keep bottom navigation as `书库 / 阅读 / 设置`.
-- Do not reintroduce a bottom AI tab.
-- Keep horizontal swipe page turning and vertical scrolling available.
-- Respect iPhone safe areas and reduced-motion preferences.
-- EPUB content is rendered in an iframe. Parent-page pointer handlers and CSS alone do not cover EPUB behavior.
-- Do not claim a mobile interaction is fixed solely because desktop tests pass.
+- EPUB content renders inside an iframe; parent CSS and parent pointer handlers alone are not enough.
+- Do not claim a mobile EPUB behavior is fixed solely because desktop tests pass.
 
-## 4. Latest Completed Work
+## 3. Current Dirty Work
 
-The `codex/surface-visual-system` branch was merged into `main` and pushed on June 24, 2026.
+As of June 29, 2026, `git status -sb` shows modified files:
 
-Important recent commits:
-
-- `0029694`: preserves the selected EPUB theme canvas on iOS.
-- `b7558c8`: stabilizes EPUB dark theme switching and repeated menu toggling.
-- `90f5912`: overrides publisher EPUB canvas colors inline.
-- `cd033e5`: registers valid EPUB ambient theme rules.
-- `805254c`: reveals the ambient background through EPUB content.
-- `16a9d94`: adds the shared `AmbientBookBackground` component.
-- `df5e1ac` and `cd2a5d6`: stabilize EPUB tap/menu interaction lifecycle.
-
-Current behavior:
-
-- `AmbientBookBackground` is shared across the main surfaces and remains visible when entering reading.
-- The ambient background is derived from the active book cover, supports fallback covers, crossfades between books, and respects reduced motion.
-- EPUB publisher wrappers are cleared so the ambient layer can show through where appropriate.
-- EPUB `html` and `body` retain the active reading-theme background instead of becoming transparent white on iOS Safari.
-- Changing light/dark/system appearance reapplies both epub.js theme colors and the rendered EPUB canvas.
-- A stationary tap on a non-interactive EPUB reading area toggles the floating reader menu.
-- Tapping again hides the menu.
-- Horizontal page swipes, vertical scrolling, links, selections, and interactive content are excluded from accidental menu toggles.
-- Reader tools remain directly available as `目录 / 阅读外观 / 阅读方式 / 问 AI`.
-- Surface architecture has been split into focused components such as `LibrarySurface`, `ReadingDashboard`, `ReadingSession`, `SettingsSurface`, `AppNavigation`, and `AppOverlays`.
-
-## 5. Important Files
-
-- `app/page.tsx`: application orchestration and shared state.
-- `app/AmbientBookBackground.tsx`: cover-led ambient visual layer.
-- `app/EpubReader.tsx`: epub.js lifecycle, theme canvas, iframe interactions.
-- `app/ReaderControls.tsx`: floating reader controls.
-- `app/ReadingSession.tsx`: TXT/EPUB reading surface.
-- `app/ReadingDashboard.tsx`: reading home surface.
-- `app/LibrarySurface.tsx`: library and collections.
-- `app/SettingsSurface.tsx`: settings surface.
-- `app/AppNavigation.tsx`: primary navigation.
-- `app/AppOverlays.tsx`: sheets and overlays.
-- `app/useReaderPresentation.ts`: reader presentation state.
-- `app/page.module.css`: layout, ambient visuals, reader surfaces, and motion.
-- `lib/ambientBookBackground.ts`: ambient palette and transition helpers.
-- `lib/epubAmbientCanvas.ts`: EPUB canvas and wrapper styling.
-- `lib/epubTapInteractions.ts`: iframe tap/gesture classification.
-- `lib/epubReaderPreferences.ts`: EPUB preference/theme behavior.
-
-High-value tests:
-
-- `lib/ambientBookBackground.test.ts`
+- `app/AppOverlays.tsx`
+- `app/EpubReader.tsx`
+- `app/LibrarySurface.tsx`
+- `app/ReaderControls.tsx`
+- `app/ReaderSettingsPanel.tsx`
+- `app/ReadingSession.tsx`
+- `app/TocDrawer.tsx`
+- `app/page.module.css`
+- `app/page.tsx`
 - `lib/epubAmbientCanvas.test.ts`
-- `lib/epubAmbientIntegration.test.ts`
-- `lib/epubTapInteractions.test.ts`
+- `lib/epubAmbientCanvas.ts`
 - `lib/epubReaderPreferences.test.ts`
+- `lib/epubReaderPreferences.ts`
+- `lib/libraryProgress.ts`
+- `lib/motionCss.test.ts`
 - `lib/readerChromeIntegration.test.ts`
+- `lib/readingGoalCss.test.ts`
 - `lib/surfaceArchitecture.test.ts`
 
-## 6. Latest Verification
+Untracked files:
 
-At `0029694`, verification on June 24, 2026 reported:
+- `lib/libraryBookActionsIntegration.test.ts`
+- `lib/readerMenuIntegration.test.ts`
+- `lib/readerPageInfo.ts`
 
-- Feature worktree: 54 test files and 544 tests passed.
-- Merged `main`: 108 test files and 1088 tests passed because Vitest also discovered the retained worktree tests.
-- Production `next build` passed.
-- Source ESLint passed with `npm.cmd exec -- eslint app lib`.
-- Local `main`, `origin/main`, and GitHub `refs/heads/main` all resolved to `0029694299f55248760b35bb218121aee8cec680`.
-- The root worktree was clean and synchronized with `origin/main`.
+Do not discard these. They include the latest user-requested changes and tests.
 
-Important lint note:
+## 4. Recent User Requests and State
 
-`npm.cmd run lint` from the repository root currently scans generated files under `.worktrees\surface-visual-system\.next` and produces thousands of false errors. This is not a source-code failure. Until the ESLint ignores are hardened or the old worktree is removed with explicit approval, use:
+The user has been iterating quickly on mobile UI details:
+
+- Settings page: removed explanatory small text below switches.
+- Reading goal modal: redesigned toward the provided fullscreen iOS-style reference and changed the goal picker to wheel-like dragging.
+- Book list: removed progress bars and kept numeric progress.
+- Book delete: changed from inline destructive area toward a popup/sheet flow.
+- Reader menu: added page number display and began redesigning the reader controls around entries for table of contents, AI, theme/design, and related panels.
+- Reader theme/settings: added a separate custom settings sheet opened from the theme sheet. The visible settings portion now closely follows the provided Apple Books reference: `文本`, font row, bold row, `无障碍与布局选项`, custom toggle, line/character/word/page-margin sliders, column row, justify toggle, and reset button.
+- Deferred roadmap: in-app browser and direct book download/import is recorded in `ROADMAP.md`; do not start it now.
+- Latest active bug: EPUB dark mode still shows a white EPUB paper/page while text is dark-mode colored. The user asked to stop experimenting and restore the original light-mode behavior.
+
+## 5. EPUB Dark-Mode Background Bug Record
+
+The user showed repeated iPhone screenshots where:
+
+1. Dark mode text became light.
+2. A white EPUB page rectangle remained.
+3. A later attempted fix changed the rectangle to a flat dark background.
+4. A later attempted fix made light mode look different by leaking the outer ambient background into the EPUB area.
+5. The user then asked to stop changing it and restore the original light-mode behavior.
+
+Current recorded interpretation as of June 30, 2026:
+
+- Treat current light mode as the baseline/reference.
+- Light mode is effectively: app ambient background outside + a white EPUB paper/page + black text.
+- A future dark-mode fix should mirror that structure: app ambient background outside + a dark EPUB paper/page + light text.
+- Do **not** make EPUB transparent to the app ambient background as the primary strategy.
+- Do **not** globally force `.epubReaderViewport`, `.epub-container`, `.epub-view`, or `iframe` to `background: transparent !important`.
+- Do **not** clear all publisher/layout backgrounds in light mode.
+- If revisiting the bug, scope the change to dark/system-dark only and inspect real iPhone iframe computed styles before guessing.
+
+Relevant files:
+
+- `app/EpubReader.tsx`
+- `lib/epubAmbientCanvas.ts`
+- `lib/epubAmbientCanvas.test.ts`
+- `lib/epubReaderPreferences.ts`
+- `lib/epubReaderPreferences.test.ts`
+- `lib/epubAmbientIntegration.test.ts`
+- `app/page.module.css`
+
+State after rollback requested by the user:
+
+- Experimental `epubAmbientBackdrop` files were removed.
+- `EpubReader` no longer passes cover/ambient canvas options into EPUB rendering.
+- `page.module.css` no longer forces the outer epub.js canvas/iframe transparent.
+- `applyEpubReaderPreferences` registers EPUB body background as the theme background again.
+- `applyEpubAmbientCanvas` is back to the narrower direct-canvas helper behavior.
+- Dark-mode EPUB background bug remains unresolved by design; the user asked to stop and record it.
+
+## 6. Verification Already Run
+
+After the rollback to original light-mode behavior, these passed:
 
 ```powershell
+npm.cmd run test -- lib/epubAmbientCanvas.test.ts lib/epubReaderPreferences.test.ts lib/epubAmbientIntegration.test.ts
+npm.cmd exec -- eslint app\EpubReader.tsx app\ReadingSession.tsx lib\epubAmbientCanvas.ts lib\epubAmbientCanvas.test.ts lib\epubReaderPreferences.ts lib\epubReaderPreferences.test.ts lib\epubAmbientIntegration.test.ts
+npm.cmd run test
 npm.cmd exec -- eslint app lib
+npm.cmd run build
+git diff --check
 ```
 
-After code changes, run:
+Observed results:
+
+- Related tests: 6 files, 32 tests passed.
+- Full test suite: 115 files, 1132 tests passed.
+- ESLint on touched source/test files and `eslint app lib` passed.
+- Production `next build` passed.
+- `git diff --check` reported only existing CRLF warnings.
+
+Before committing or pushing, run again:
 
 ```powershell
 npm.cmd run test
 npm.cmd exec -- eslint app lib
 npm.cmd run build
-npm.cmd audit --json
 git diff --check
+git status -sb
 ```
 
-## 7. Remaining Real-Device Checks
+`npm.cmd run lint` may still scan unwanted generated files in retained worktrees; prefer `npm.cmd exec -- eslint app lib` unless the lint config is fixed.
 
-The latest EPUB fixes have automated coverage and a production build, but the exact iPhone Safari behavior should still be checked with an imported EPUB.
+## 7. Temporary Phone Test Link
 
-Acceptance sequence:
+Latest temporary Cloudflare quick tunnel shared to the user:
 
-1. Open an EPUB and switch between light, dark, and system appearance.
-2. Confirm the page background and text remain readable after every switch.
-3. Tap a blank/non-interactive reading area repeatedly and confirm the menu alternates visible/hidden.
-4. Swipe horizontally and confirm page turning does not also toggle the menu.
-5. Scroll vertically where supported and confirm scrolling does not toggle the menu.
-6. Select text and confirm selection and the AI action remain available.
-7. Change books and confirm the ambient background crossfades to the new cover.
-8. Enter and leave the reading surface and confirm the ambient background persists without a white flash.
+```text
+https://bargains-directory-marco-acting.trycloudflare.com
+```
 
-Safari normal tabs, the in-app browser, and an installed home-screen PWA can composite EPUB iframes differently. Record which environment is being tested.
+It points to a local production server on port `3010` at the time it was created. This tunnel was started with `--protocol http2` after the default QUIC quick tunnel registered but failed local TLS verification.
 
-## 8. Temporary Phone Testing
+Cloudflare quick-tunnel URLs are temporary. They may expire or point at an old local process if the process stops. If the next session needs a phone link, start a fresh production server on a new port and create a new tunnel.
 
-Cloudflare quick-tunnel URLs are temporary and may expire when the local process stops. Verify an existing link before sharing it and do not treat it as permanent deployment.
+Useful pattern:
+
+```powershell
+npm.cmd run build
+npm.cmd run start -- --hostname 127.0.0.1 --port 3005
+C:\tmp\cloudflared.exe tunnel --url http://127.0.0.1:3005
+```
+
+Verify the public URL before sharing:
+
+```powershell
+Invoke-WebRequest -Uri "https://<new-url>.trycloudflare.com" -UseBasicParsing -TimeoutSec 20
+```
+
+## 8. Real-Device Acceptance Checks
+
+Use the user's iPhone screenshot feedback as the source of truth for the EPUB background issue.
+
+Acceptance checks:
+
+1. Open an EPUB in dark mode.
+2. Confirm whether the white EPUB paper remains; this bug is currently recorded but not fixed.
+3. If fixing later, confirm the dark mode keeps the same layout model as light mode: ambient outside + EPUB paper inside.
+4. Confirm light mode stays visually unchanged from the original baseline.
+5. Confirm text contrast is readable.
+6. Switch light/dark/system appearance and confirm the background remains correct.
+7. Tap reading area to show the reader menu and confirm controls still work.
+8. Swipe/page-turn and scroll where supported; these should not accidentally toggle the menu.
+9. Select text and confirm the AI action path still works.
+
+If the issue persists, inspect runtime iframe computed styles instead of guessing:
+
+- Outer `.epubReaderViewport`
+- epub.js `.epub-container`
+- `.epub-view`
+- `iframe`
+- iframe `documentElement`
+- iframe `body`
+- first visible publisher wrappers and paragraphs
 
 ## 9. Deferred Roadmap
 
-- `ROADMAP.md` records a future in-app web browser that lets the user browse
-  arbitrary websites and import downloaded EPUB/TXT files directly into the
-  existing bookshelf.
-- This work is intentionally deferred. A reliable implementation requires a
-  thin iOS native shell using `WKWebView` and `WKDownload`; it is not a pure
-  PWA feature.
-- Do not start the native shell until the user explicitly resumes this roadmap
-  item and a Mac/Xcode/signing/device-testing workflow is available.
-- Preserve the current Next.js reader and local data model. This is a hybrid
-  wrapper plan, not approval for a native rewrite.
+`ROADMAP.md` records a future in-app web browser that lets the user browse websites and import downloaded EPUB/TXT files directly into the bookshelf.
 
-## 10. Prompt for the Next Conversation
+Status:
+
+- Deferred.
+- Requires a thin iOS native shell using `WKWebView` and `WKDownload`.
+- Not a pure PWA feature.
+- Do not start it until the user explicitly resumes the roadmap item and a Mac/Xcode/signing/device-testing workflow is available.
+
+## 10. Next Conversation Prompt
+
+Use this exact opener in the new conversation:
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 
-从根目录 main 分支继续，先检查 git 状态、最新提交和现有工作树。当前 main 和 origin/main 应指向 0029694。不要 reset、clean、删除旧功能工作树或覆盖现有修改。
+当前在根目录 main 分支继续，不要 reset、clean 或覆盖未提交修改。先执行 git status -sb 和 git log -5 --oneline --decorate，然后阅读当前 diff。
 
-上一轮已经完成 AmbientBookBackground、阅读界面视觉架构调整、EPUB 菜单重复点击切换，以及 iOS Safari 下 EPUB 深色主题画布修复，并已合并推送到 GitHub main。
+重点记录 EPUB 深色模式背景 bug：用户确认浅色模式是参考基准，浅色结构是 ambient 外背景 + 白色 EPUB 纸面 + 黑字。不要再把 EPUB 透明化来融合 ambient；之前透明 iframe / 透明 EPUB 文档 / 大范围清 publisher 白底的方向已经导致浅色变样，已按用户要求回退。若以后继续修，只做深色/系统深色路径，目标是 ambient 外背景 + 深色 EPUB 纸面 + 浅字，并先在 iPhone 上检查 iframe 内外 computed style。
 
-先听取我的新问题。若仍涉及 EPUB 显示或点击交互，先区分普通 Safari、Codex 内置浏览器和主屏幕 PWA，再复现和定位。修改后运行测试、源代码 ESLint、生产构建、npm audit 和 git diff --check；涉及手机行为时，不要只凭桌面测试声称修复。
+最新已跑过 npm.cmd run test、npm.cmd exec -- eslint app lib、npm.cmd run build、git diff --check；提交前需要再跑这些验证。
 ```

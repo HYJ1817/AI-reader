@@ -5,6 +5,10 @@ const epubSource = readFileSync(
   new URL("../app/EpubReader.tsx", import.meta.url),
   "utf8"
 );
+const readingSessionSource = readFileSync(
+  new URL("../app/ReadingSession.tsx", import.meta.url),
+  "utf8"
+);
 const moduleCss = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -51,6 +55,16 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
+  it("renders EPUB sessions on the same light canvas variables as light mode", () => {
+    expect(readingSessionSource).toContain("styles.readerEpubLightCanvas");
+    expect(readingSessionSource).toContain('book?.format === "epub"');
+    expect(moduleCss).toContain(".readerEpubLightCanvas");
+    expect(moduleCss).toContain("--background: #ffffff;");
+    expect(moduleCss).toContain("--foreground: #1a1a1a;");
+    expect(moduleCss).toContain("--app-bg: #f5f5f7;");
+    expect(moduleCss).toContain("background: var(--app-bg);");
+  });
+
   it("applies the inline ambient canvas override before attaching tap handlers", () => {
     const handlerStart = epubSource.indexOf(
       "const handleRenderedContents = useCallback"
@@ -79,7 +93,7 @@ describe("EPUB ambient background integration", () => {
       "if (!renditionRef.current || !preferences) return"
     );
     const preferencesEffectEnd = epubSource.indexOf(
-      "}, [preferences, applyPreferences, systemThemeRevision])",
+      "}, [",
       preferencesEffectStart
     );
     const preferencesEffect = epubSource.slice(

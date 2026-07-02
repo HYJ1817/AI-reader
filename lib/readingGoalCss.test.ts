@@ -54,11 +54,10 @@ describe("reading goal fullscreen CSS", () => {
   });
 
   it("uses theme tokens for the fullscreen surface", () => {
-    expect(css).toMatch(
-      /\.goalOverlay\s*\{[\s\S]*?background:\s*var\(--app-bg\);/
-    );
-    expect(css).not.toMatch(
-      /\.goalOverlay\s*\{[\s\S]*?background:\s*(?:#fff|#ffffff|white);/
-    );
+    const start = css.indexOf(".goalOverlay {");
+    const end = css.indexOf("}", start);
+    const rule = css.slice(start, end);
+    expect(rule).toContain("background: var(--app-bg);");
+    expect(rule).not.toMatch(/background:\s*(?:#fff|#ffffff|white);/);
   });
 });

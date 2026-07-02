@@ -19,7 +19,13 @@ export type SettingsSurfaceProps = {
   backupStatus: string | null;
   backupError: string | null;
   backupInputRef: RefObject<HTMLInputElement | null>;
+  backgroundInputRef: RefObject<HTMLInputElement | null>;
+  customBackgroundAvailable: boolean;
+  customBackgroundPreviewUrl: string | null;
   onPreferencesChange: (next: Partial<AppPreferences>) => void;
+  onBackgroundModeChange: (mode: AppPreferences["backgroundMode"]) => void;
+  onImportBackground: ChangeEventHandler<HTMLInputElement>;
+  onClearBackground: () => void;
   onOpenAiSettings: () => void;
   onExportBackup: () => void;
   onImportBackup: ChangeEventHandler<HTMLInputElement>;
@@ -38,13 +44,26 @@ export default function SettingsSurface({
   backupStatus,
   backupError,
   backupInputRef,
+  backgroundInputRef,
+  customBackgroundAvailable,
+  customBackgroundPreviewUrl,
   onPreferencesChange,
+  onBackgroundModeChange,
+  onImportBackground,
+  onClearBackground,
   onOpenAiSettings,
   onExportBackup,
   onImportBackup,
   onOpenReaderSettings,
   onOpenGoal,
 }: SettingsSurfaceProps) {
+  const customBackgroundStatus = customBackgroundAvailable
+    ? UI_TEXT.BACKGROUND_CUSTOM_READY
+    : UI_TEXT.BACKGROUND_CUSTOM_EMPTY;
+  const customBackgroundOpacityPercent = Math.round(
+    appPreferences.customBackgroundOpacity * 100
+  );
+
   return (
     <div className={className} aria-hidden={ariaHidden}>
       <h1 className={styles.libraryTitle}>{UI_TEXT.SETTINGS}</h1>
@@ -120,6 +139,107 @@ export default function SettingsSurface({
               }
             />
           </label>
+        </div>
+      </section>
+
+      <section className={styles.settingsSection}>
+        <h2 className={styles.settingsSectionTitle}>{UI_TEXT.BACKGROUND}</h2>
+        <div className={styles.settingsNativeList}>
+          <button
+            className={styles.settingsNavRow}
+            aria-pressed={appPreferences.backgroundMode === "auto"}
+            onClick={() => onBackgroundModeChange("auto")}
+          >
+            <span className={styles.settingsRowText}>
+              <strong>{UI_TEXT.BACKGROUND_AUTO}</strong>
+              <small>{UI_TEXT.BACKGROUND_AUTO_HINT}</small>
+            </span>
+            <span className={styles.continueChevron}>
+              {appPreferences.backgroundMode === "auto" ? "\u2713" : "\u203a"}
+            </span>
+          </button>
+
+          <button
+            className={styles.settingsNavRow}
+            aria-pressed={appPreferences.backgroundMode === "custom"}
+            onClick={() => {
+              if (customBackgroundAvailable) {
+                onBackgroundModeChange("custom");
+                return;
+              }
+              backgroundInputRef.current?.click();
+            }}
+          >
+            <span className={styles.settingsRowText}>
+              <strong>{UI_TEXT.BACKGROUND_CUSTOM}</strong>
+              <small>{customBackgroundStatus}</small>
+            </span>
+            <span className={styles.continueChevron}>
+              {appPreferences.backgroundMode === "custom" ? "\u2713" : "\u203a"}
+            </span>
+          </button>
+
+          <input
+            ref={backgroundInputRef}
+            type="file"
+            accept="image/*"
+            className={styles.hiddenInput}
+            onChange={onImportBackground}
+          />
+
+          {customBackgroundAvailable ? (
+            <>
+              <div className={styles.customBackgroundPanel}>
+                {customBackgroundPreviewUrl ? (
+                  <div
+                    className={styles.customBackgroundPreview}
+                    role="img"
+                    aria-label={UI_TEXT.BACKGROUND_PREVIEW}
+                    style={{
+                      backgroundImage: `url(${customBackgroundPreviewUrl})`,
+                    }}
+                  />
+                ) : null}
+                <label className={styles.backgroundOpacityControl}>
+                  <span className={styles.settingsRowText}>
+                    <strong>{UI_TEXT.BACKGROUND_OPACITY}</strong>
+                    <small>{customBackgroundOpacityPercent}%</small>
+                  </span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    className={styles.backgroundOpacitySlider}
+                    value={appPreferences.customBackgroundOpacity}
+                    onChange={(event) =>
+                      onPreferencesChange({
+                        customBackgroundOpacity: Number(event.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                className={styles.settingsNavRow}
+                onClick={() => backgroundInputRef.current?.click()}
+              >
+                <span className={styles.settingsRowText}>
+                  <strong>{UI_TEXT.CHANGE_BACKGROUND_IMAGE}</strong>
+                </span>
+                <span className={styles.continueChevron}>{"\u203a"}</span>
+              </button>
+              <button
+                className={styles.settingsNavRow}
+                onClick={onClearBackground}
+              >
+                <span className={styles.settingsRowText}>
+                  <strong>{UI_TEXT.REMOVE_BACKGROUND_IMAGE}</strong>
+                </span>
+                <span className={styles.continueChevron}>{"\u203a"}</span>
+              </button>
+            </>
+          ) : null}
         </div>
       </section>
 

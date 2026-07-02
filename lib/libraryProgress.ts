@@ -23,6 +23,10 @@ export function buildReadingProgressMap(
   );
 }
 
+export function formatLibraryProgressValue(progressPercent: number): string {
+  return `${normalizeProgressPercent(progressPercent)}%`;
+}
+
 export function getBookProgressPercent(
   progressMap: ReadingProgressMap,
   bookId: string

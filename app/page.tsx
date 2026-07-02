@@ -20,9 +20,7 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  type BookRecord,
-  type BookGroup,
-  type DailyReadingStat,
+  type BookRecord, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
 import { extractEpubCoverImage } from "@/lib/epubCover";
@@ -30,6 +28,7 @@ import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
   chunkParagraphs,
   parseTxtParagraphs,
+  getHorizontalPageInfo,
   progressFromHorizontalScroll,
   progressFromScroll,
   scrollLeftFromProgress,
@@ -62,13 +61,17 @@ import {
   DEFAULT_APP_PREFERENCES,
   loadAppPreferences,
   saveAppPreferencesToStorage,
-  type AppPreferences,
-  type LibraryViewMode,
+  type AppPreferences, type LibraryViewMode,
 } from "@/lib/appPreferences";
 import {
   normalizeProgressPercent,
   shouldPublishProgressPercent,
 } from "@/lib/readerProgress";
+import {
+  estimateReaderPageInfo,
+  getScrollPageInfo,
+  type ReaderPageInfo,
+} from "@/lib/readerPageInfo";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import { resolveEpubSelectionUpdate } from "@/lib/epubTapInteractions";
 import ReadingDashboard from "@/app/ReadingDashboard";
@@ -82,11 +85,7 @@ import {
   type ReaderMode,
 } from "@/lib/readerMode";
 import { filterBooksByQuery } from "@/lib/libraryFilters";
-import {
-  getDailyReadingStat,
-  incrementDailyReadingSeconds,
-  listDailyReadingStats,
-} from "@/lib/db";
+import { getDailyReadingStat, incrementDailyReadingSeconds, listDailyReadingStats } from "@/lib/db";
 import {
   loadReadingGoal,
   saveReadingGoalToStorage,
@@ -124,10 +123,8 @@ import {
   getNextVisibleItemCount,
 } from "@/lib/incrementalList";
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
-import {
-  createReaderChromeState,
-  reduceReaderChromeState,
-} from "@/lib/readerChromeState";
+import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
+import useCustomBackground from "@/app/useCustomBackground";
 
 type Tab = NavigationTab;
 type ReaderTurnDirection = "prev" | "next";
@@ -199,6 +196,10 @@ export default function Home() {
   const [tocItems, setTocItems] = useState<EpubTocItem[]>([]);
   const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [readerProgressPercent, setReaderProgressPercent] = useState(0);
+  const [readerPageInfo, setReaderPageInfo] = useState<ReaderPageInfo>({
+    current: 1,
+    total: 1,
+  });
   const [readerMode, setReaderMode] = useState<ReaderMode>(DEFAULT_READER_MODE);
   const readerModeRestoreProgressRef = useRef<number | null>(null);
   const epubReaderRef = useRef<EpubReaderHandle>(null);
@@ -530,6 +531,8 @@ export default function Home() {
     }
   }
 
+  const background = useCustomBackground(handleAppPreferencesChange);
+
   function handleLibraryViewChange(view: LibraryViewMode) {
     setLibraryView(view);
     handleAppPreferencesChange({ libraryView: view });
@@ -676,6 +679,7 @@ export default function Home() {
       setOpenBook(null);
       setParagraphs([]);
       setReaderProgressPercent(0);
+      setReaderPageInfo({ current: 1, total: 1 });
       setSelectedText(null);
       setActiveTab("library");
     }
@@ -743,6 +747,7 @@ export default function Home() {
       setOpenBook(null);
       setParagraphs([]);
       setReaderProgressPercent(0);
+      setReaderPageInfo({ current: 1, total: 1 });
       setSelectedText(null);
       setActiveTab("library");
     }
@@ -917,6 +922,7 @@ export default function Home() {
     setTocItems([]);
     setTocDrawerOpen(false);
     setReaderProgressPercent(0);
+    setReaderPageInfo({ current: 1, total: 1 });
     dispatchReaderChrome({ type: "hide" });
 
     if (book.format === "txt") {
@@ -1022,6 +1028,11 @@ export default function Home() {
           el.clientHeight
         );
       }
+      setReaderPageInfo(
+        readerMode === "paged"
+          ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
+          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight)
+      );
 
       if (pos || restoreProgress > 0) {
         const progress = restoreProgress;
@@ -1086,6 +1097,11 @@ export default function Home() {
               el.scrollHeight,
               el.clientHeight
             );
+      setReaderPageInfo(
+        readerMode === "paged"
+          ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
+          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight)
+      );
       setReaderProgressPercent((current) =>
         shouldPublishProgressPercent(current, progressPercent)
           ? progressPercent
@@ -1124,6 +1140,7 @@ export default function Home() {
         pendingEpubProgressRef.current = null;
         if (progress === null || !openBook) return;
 
+        setReaderPageInfo(estimateReaderPageInfo(progress, 100));
         setReaderProgressPercent((current) =>
           shouldPublishProgressPercent(current, progress)
             ? progress
@@ -1569,8 +1586,8 @@ export default function Home() {
       target.closest(`.${styles.readerBottomPill}`) ||
       target.closest(`.${styles.readerBottomProgress}`) ||
       target.closest(`.${styles.readerOverlayBack}`) ||
-      target.closest(`.${styles.readerFloatingTools}`) ||
-      target.closest(`.${styles.readerModeMenu}`)
+      target.closest(`.${styles.readerActionMenu}`) ||
+      target.closest(`.${styles.readerPagePill}`)
     ) {
       return;
     }
@@ -1603,13 +1620,16 @@ export default function Home() {
     toggleReaderChrome();
   }, [appPrefs.swipeToTurn, handleTextSelect, settleReaderSwipe, toggleReaderChrome, turnReaderPage]);
 
+  const useCustomBackgroundImage =
+    appPrefs.backgroundMode === "custom" && background.customBackgroundBlob !== null;
+
   return (
     <div
       className={styles.app}
       {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
       {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
     >
-      <AmbientBookBackground book={latestBook ?? null} reduceMotion={appPrefs.reduceMotion} />
+      <AmbientBookBackground book={useCustomBackgroundImage ? null : latestBook ?? null} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
       <input
         ref={fileInputRef}
         type="file"
@@ -1704,6 +1724,7 @@ export default function Home() {
           loading={readerLoading}
           mode={readerMode}
           preferences={readerPrefs}
+          pageInfo={readerPageInfo}
           paragraphChunks={paragraphChunks}
           chromeVisible={readerChromeVisible}
           tocItems={tocItems}
@@ -1743,7 +1764,6 @@ export default function Home() {
           onOpenContents={() => setTocDrawerOpen(true)}
           onOpenSettings={() => setReaderSettingsOpen(true)}
           onAsk={() => setAskSheetOpen(true)}
-          onModeChange={handleReaderModeChange}
         />
 
         <ReadingDashboard
@@ -1778,7 +1798,13 @@ export default function Home() {
           backupStatus={backupStatus}
           backupError={backupError}
           backupInputRef={backupInputRef}
+          backgroundInputRef={background.backgroundInputRef}
+          customBackgroundAvailable={background.customBackgroundAvailable}
+          customBackgroundPreviewUrl={background.customBackgroundPreviewUrl}
           onPreferencesChange={handleAppPreferencesChange}
+          onBackgroundModeChange={background.handleBackgroundModeChange}
+          onImportBackground={background.handleCustomBackgroundImport}
+          onClearBackground={background.handleClearCustomBackground}
           onOpenAiSettings={() => setAiSettingsSheetOpen(true)}
           onExportBackup={handleExportBackup}
           onImportBackup={handleImportBackup}
@@ -1822,6 +1848,8 @@ export default function Home() {
           askError,
           aiUsable: aiProviderUsable,
           bookTitle: openBook?.title ?? null,
+          mode: readerMode,
+          pageInfo: readerPageInfo,
           goalOpen: goalSheetOpen,
           todayMinutes: formatReadingMinutes(todaySeconds),
           targetMinutes: readingGoal.targetMinutes,
@@ -1855,6 +1883,7 @@ export default function Home() {
         actions={{
           closeReaderSettings: () => setReaderSettingsOpen(false),
           changeReaderPreferences: handleReaderPrefsChange,
+          changeReaderMode: handleReaderModeChange,
           closeToc: () => setTocDrawerOpen(false),
           selectTocItem: handleTocSelect,
           closeAiSettings: () => setAiSettingsSheetOpen(false),

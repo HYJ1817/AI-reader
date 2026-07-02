@@ -41,6 +41,8 @@ describe("sanitizeAppPreferences", () => {
         keepScreenAwake: true,
         edgeTapToTurn: false,
         swipeToTurn: false,
+        backgroundMode: "custom",
+        customBackgroundOpacity: 0.65,
       })
     ).toEqual({
       libraryView: "list",
@@ -49,6 +51,8 @@ describe("sanitizeAppPreferences", () => {
       keepScreenAwake: true,
       edgeTapToTurn: false,
       swipeToTurn: false,
+      backgroundMode: "custom",
+      customBackgroundOpacity: 0.65,
     });
   });
 
@@ -61,6 +65,8 @@ describe("sanitizeAppPreferences", () => {
         keepScreenAwake: null,
         edgeTapToTurn: "no",
         swipeToTurn: 0,
+        backgroundMode: "photo",
+        customBackgroundOpacity: 2,
       })
     ).toEqual(DEFAULT_APP_PREFERENCES);
   });
@@ -80,6 +86,8 @@ describe("sanitizeAppPreferences", () => {
       keepScreenAwake: true,
       edgeTapToTurn: true,
       swipeToTurn: true,
+      backgroundMode: "auto",
+      customBackgroundOpacity: 1,
     });
   });
 });
@@ -101,6 +109,8 @@ describe("app preferences storage", () => {
       keepScreenAwake: true,
       edgeTapToTurn: false,
       swipeToTurn: false,
+      backgroundMode: "custom",
+      customBackgroundOpacity: 0.5,
     });
 
     expect(loadAppPreferences()).toEqual({
@@ -110,6 +120,8 @@ describe("app preferences storage", () => {
       keepScreenAwake: true,
       edgeTapToTurn: false,
       swipeToTurn: false,
+      backgroundMode: "custom",
+      customBackgroundOpacity: 0.5,
     });
   });
 

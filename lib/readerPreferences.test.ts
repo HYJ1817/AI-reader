@@ -59,6 +59,16 @@ describe("DEFAULT_READER_PREFERENCES", () => {
   it("has contentWidth 720", () => {
     expect(DEFAULT_READER_PREFERENCES.contentWidth).toBe(720);
   });
+
+  it("keeps custom typography disabled by default", () => {
+    expect(DEFAULT_READER_PREFERENCES.fontFamily).toBe("default");
+    expect(DEFAULT_READER_PREFERENCES.boldText).toBe(false);
+    expect(DEFAULT_READER_PREFERENCES.customLayoutEnabled).toBe(true);
+    expect(DEFAULT_READER_PREFERENCES.letterSpacingPercent).toBe(0);
+    expect(DEFAULT_READER_PREFERENCES.wordSpacingPercent).toBe(0);
+    expect(DEFAULT_READER_PREFERENCES.pageMarginPx).toBe(0);
+    expect(DEFAULT_READER_PREFERENCES.justifyText).toBe(false);
+  });
 });
 
 describe("sanitizeReaderPreferences", () => {
@@ -184,12 +194,60 @@ describe("sanitizeReaderPreferences", () => {
     ).toBe(720);
   });
 
+  it("preserves valid custom typography values", () => {
+    const result = sanitizeReaderPreferences({
+      fontFamily: "serif",
+      boldText: true,
+      customLayoutEnabled: false,
+      letterSpacingPercent: 8,
+      wordSpacingPercent: 24,
+      pageMarginPx: 32,
+      justifyText: true,
+    });
+
+    expect(result.fontFamily).toBe("serif");
+    expect(result.boldText).toBe(true);
+    expect(result.customLayoutEnabled).toBe(false);
+    expect(result.letterSpacingPercent).toBe(8);
+    expect(result.wordSpacingPercent).toBe(24);
+    expect(result.pageMarginPx).toBe(32);
+    expect(result.justifyText).toBe(true);
+  });
+
+  it("sanitizes invalid custom typography values", () => {
+    const result = sanitizeReaderPreferences({
+      fontFamily: "comic",
+      boldText: "yes",
+      customLayoutEnabled: "no",
+      letterSpacingPercent: 50,
+      wordSpacingPercent: -5,
+      pageMarginPx: 100,
+      justifyText: "true",
+    });
+
+    expect(result.fontFamily).toBe("default");
+    expect(result.boldText).toBe(false);
+    expect(result.customLayoutEnabled).toBe(true);
+    expect(result.letterSpacingPercent).toBe(12);
+    expect(result.wordSpacingPercent).toBe(0);
+    expect(result.pageMarginPx).toBe(40);
+    expect(result.justifyText).toBe(false);
+  });
+
   it("preserves a full valid object", () => {
     const input = {
+      ...DEFAULT_READER_PREFERENCES,
       theme: "dark" as const,
       fontSizePx: 22,
       lineHeight: 2.0,
       contentWidth: 800,
+      fontFamily: "system" as const,
+      boldText: true,
+      customLayoutEnabled: false,
+      letterSpacingPercent: 6,
+      wordSpacingPercent: 20,
+      pageMarginPx: 24,
+      justifyText: true,
     };
     expect(sanitizeReaderPreferences(input)).toEqual(input);
   });
@@ -217,10 +275,12 @@ describe("loadReaderPreferences", () => {
 
   it("loads a valid stored preferences object", () => {
     const prefs = {
+      ...DEFAULT_READER_PREFERENCES,
       theme: "sepia",
       fontSizePx: 20,
       lineHeight: 1.8,
       contentWidth: 640,
+      boldText: true,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
     expect(loadReaderPreferences()).toEqual(prefs);
@@ -230,10 +290,12 @@ describe("loadReaderPreferences", () => {
 describe("saveReaderPreferencesToStorage", () => {
   it("saves sanitized preferences to localStorage", () => {
     const prefs = {
+      ...DEFAULT_READER_PREFERENCES,
       theme: "light" as const,
       fontSizePx: 16,
       lineHeight: 1.5,
       contentWidth: 600,
+      pageMarginPx: 16,
     };
     saveReaderPreferencesToStorage(prefs);
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
@@ -242,25 +304,33 @@ describe("saveReaderPreferencesToStorage", () => {
 
   it("sanitizes before saving", () => {
     saveReaderPreferencesToStorage({
+      ...DEFAULT_READER_PREFERENCES,
       theme: "dark" as const,
       fontSizePx: 99,
       lineHeight: 5,
       contentWidth: 2000,
+      letterSpacingPercent: 50,
+      pageMarginPx: 100,
     });
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(stored.fontSizePx).toBe(28);
     expect(stored.lineHeight).toBe(2.2);
     expect(stored.contentWidth).toBe(960);
+    expect(stored.letterSpacingPercent).toBe(12);
+    expect(stored.pageMarginPx).toBe(40);
   });
 });
 
 describe("save/load roundtrip", () => {
   it("persists preferences across save and load", () => {
     const prefs = {
+      ...DEFAULT_READER_PREFERENCES,
       theme: "sepia" as const,
       fontSizePx: 22,
       lineHeight: 1.9,
       contentWidth: 800,
+      fontFamily: "serif" as const,
+      wordSpacingPercent: 18,
     };
     saveReaderPreferencesToStorage(prefs);
     expect(loadReaderPreferences()).toEqual(prefs);
@@ -313,12 +383,21 @@ describe("getReaderPreferenceChanges", () => {
         ...DEFAULT_READER_PREFERENCES,
         fontSizePx: 21,
         lineHeight: 1.9,
+        boldText: true,
+        customLayoutEnabled: false,
       })
     ).toEqual({
       theme: false,
       fontSizePx: true,
       lineHeight: true,
       contentWidth: false,
+      fontFamily: false,
+      boldText: true,
+      customLayoutEnabled: true,
+      letterSpacingPercent: false,
+      wordSpacingPercent: false,
+      pageMarginPx: false,
+      justifyText: false,
     });
   });
 
@@ -333,6 +412,13 @@ describe("getReaderPreferenceChanges", () => {
       fontSizePx: false,
       lineHeight: false,
       contentWidth: false,
+      fontFamily: false,
+      boldText: false,
+      customLayoutEnabled: false,
+      letterSpacingPercent: false,
+      wordSpacingPercent: false,
+      pageMarginPx: false,
+      justifyText: false,
     });
   });
 });

@@ -120,7 +120,8 @@ describe("motion CSS", () => {
   it("does not move multiple live backdrop-filter layers with reader chrome", () => {
     for (const selector of [
       ".readerOverlayBack {",
-      ".readerFloatingTool {",
+      ".readerMenuRow {",
+      ".readerPagePill {",
     ]) {
       const start = css.indexOf(selector);
       const end = css.indexOf("}", start);
@@ -129,28 +130,36 @@ describe("motion CSS", () => {
     }
   });
 
-  it("keeps reader chrome travel within eight pixels", () => {
-    const start = css.indexOf(".readerFloatingTool {");
-    const end = css.indexOf("}", start);
-    const rule = css.slice(start, end);
-    expect(rule).toContain("translateY(8px)");
-
+  it("keeps reader chrome travel compact", () => {
     const hiddenStart = css.indexOf(
-      ".readerChromeControlsHidden .readerFloatingTools {"
+      ".readerChromeControlsHidden .readerMenuRow {"
     );
     const hiddenEnd = css.indexOf("}", hiddenStart);
     const hiddenRule = css.slice(hiddenStart, hiddenEnd);
-    expect(hiddenRule).toContain("translateY(8px)");
+    expect(hiddenRule).toContain("translate3d(0, 18px, 0)");
+
+    const pageStart = css.indexOf(
+      ".readerChromeControlsHidden .readerPagePill {"
+    );
+    const pageEnd = css.indexOf("}", pageStart);
+    const pageRule = css.slice(pageStart, pageEnd);
+    expect(pageRule).toContain("translateX(-50%) translateY(10px)");
   });
 
-  it("staggers individual reader tools by 35 milliseconds", () => {
-    expect(css).toContain("--reader-tool-delay: 35ms");
-    expect(css).toContain("calc(var(--tool-order) * var(--reader-tool-delay))");
-  });
-
-  it("removes reader tool travel and stagger when motion is reduced", () => {
+  it("stagers individual reader menu capsules", () => {
+    expect(css).toContain(".readerActionMenu");
+    expect(css).toContain(".readerMenuRow:nth-child(2)");
+    expect(css).toContain(".readerMenuRow:nth-child(3)");
+    expect(css).toContain("90ms, 90ms");
+    expect(css).toContain("180ms, 180ms");
     expect(css).toMatch(
-      /\[data-reduce-motion="true"\]\s+\.readerFloatingTool\s*\{[^}]*transition-delay:\s*0ms[^}]*transform:\s*none/s
+      /\.readerMenuRow\s*\{[^}]*border-radius:\s*999px;[^}]*opacity\s+320ms\s+var\(--ease-emphasized\)[^}]*transform\s+320ms\s+var\(--ease-emphasized\)/s
+    );
+  });
+
+  it("removes reader menu travel when motion is reduced", () => {
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerPagePill,[\s\S]*?\.readerOverlayBack,[\s\S]*?\.readerMenuRow\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
     );
   });
 });
