@@ -4,8 +4,10 @@ import type {
   ChangeEventHandler,
   RefObject,
 } from "react";
+import { useState } from "react";
 import type { AppPreferences } from "@/lib/appPreferences";
 import { UI_TEXT } from "@/lib/uiText";
+import CustomBackgroundSettingsSheet from "./CustomBackgroundSettingsSheet";
 import styles from "./page.module.css";
 
 export type SettingsSurfaceProps = {
@@ -57,12 +59,11 @@ export default function SettingsSurface({
   onOpenReaderSettings,
   onOpenGoal,
 }: SettingsSurfaceProps) {
+  const [customBackgroundSettingsOpen, setCustomBackgroundSettingsOpen] =
+    useState(false);
   const customBackgroundStatus = customBackgroundAvailable
     ? UI_TEXT.BACKGROUND_CUSTOM_READY
     : UI_TEXT.BACKGROUND_CUSTOM_EMPTY;
-  const customBackgroundOpacityPercent = Math.round(
-    appPreferences.customBackgroundOpacity * 100
-  );
 
   return (
     <div className={className} aria-hidden={ariaHidden}>
@@ -165,6 +166,7 @@ export default function SettingsSurface({
             onClick={() => {
               if (customBackgroundAvailable) {
                 onBackgroundModeChange("custom");
+                setCustomBackgroundSettingsOpen(true);
                 return;
               }
               backgroundInputRef.current?.click();
@@ -184,64 +186,25 @@ export default function SettingsSurface({
             type="file"
             accept="image/*"
             className={styles.hiddenInput}
-            onChange={onImportBackground}
+            onChange={(event) => {
+              const hasFile = Boolean(event.target.files?.[0]);
+              onImportBackground(event);
+              if (hasFile) setCustomBackgroundSettingsOpen(true);
+            }}
           />
-
-          {customBackgroundAvailable ? (
-            <>
-              <div className={styles.customBackgroundPanel}>
-                {customBackgroundPreviewUrl ? (
-                  <div
-                    className={styles.customBackgroundPreview}
-                    role="img"
-                    aria-label={UI_TEXT.BACKGROUND_PREVIEW}
-                    style={{
-                      backgroundImage: `url(${customBackgroundPreviewUrl})`,
-                    }}
-                  />
-                ) : null}
-                <label className={styles.backgroundOpacityControl}>
-                  <span className={styles.settingsRowText}>
-                    <strong>{UI_TEXT.BACKGROUND_OPACITY}</strong>
-                    <small>{customBackgroundOpacityPercent}%</small>
-                  </span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    className={styles.backgroundOpacitySlider}
-                    value={appPreferences.customBackgroundOpacity}
-                    onChange={(event) =>
-                      onPreferencesChange({
-                        customBackgroundOpacity: Number(event.target.value),
-                      })
-                    }
-                  />
-                </label>
-              </div>
-              <button
-                className={styles.settingsNavRow}
-                onClick={() => backgroundInputRef.current?.click()}
-              >
-                <span className={styles.settingsRowText}>
-                  <strong>{UI_TEXT.CHANGE_BACKGROUND_IMAGE}</strong>
-                </span>
-                <span className={styles.continueChevron}>{"\u203a"}</span>
-              </button>
-              <button
-                className={styles.settingsNavRow}
-                onClick={onClearBackground}
-              >
-                <span className={styles.settingsRowText}>
-                  <strong>{UI_TEXT.REMOVE_BACKGROUND_IMAGE}</strong>
-                </span>
-                <span className={styles.continueChevron}>{"\u203a"}</span>
-              </button>
-            </>
-          ) : null}
         </div>
       </section>
+
+      {customBackgroundSettingsOpen && customBackgroundAvailable ? (
+        <CustomBackgroundSettingsSheet
+          appPreferences={appPreferences}
+          backgroundInputRef={backgroundInputRef}
+          customBackgroundPreviewUrl={customBackgroundPreviewUrl}
+          onPreferencesChange={onPreferencesChange}
+          onClearBackground={onClearBackground}
+          onClose={() => setCustomBackgroundSettingsOpen(false)}
+        />
+      ) : null}
 
       <section className={styles.settingsSection}>
         <h2 className={styles.settingsSectionTitle}>

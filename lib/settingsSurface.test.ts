@@ -5,6 +5,10 @@ const source = readFileSync(
   new URL("../app/SettingsSurface.tsx", import.meta.url),
   "utf8"
 );
+const backgroundSheetSource = readFileSync(
+  new URL("../app/CustomBackgroundSettingsSheet.tsx", import.meta.url),
+  "utf8"
+);
 const hookSource = readFileSync(
   new URL("../app/useCustomBackground.ts", import.meta.url),
   "utf8"
@@ -37,23 +41,26 @@ describe("settings surface copy", () => {
     expect(source).toContain("UI_TEXT.BACKGROUND");
     expect(source).toContain('onBackgroundModeChange("auto")');
     expect(source).toContain('onBackgroundModeChange("custom")');
+    expect(source).toContain("setCustomBackgroundSettingsOpen(true)");
     expect(source).toContain("backgroundInputRef.current?.click()");
     expect(source).toContain('accept="image/*"');
     expect(source).toContain("customBackgroundAvailable");
-    expect(source).toContain("onClearBackground");
+    expect(source).not.toContain("styles.customBackgroundPanel");
   });
 
-  it("shows custom background preview and opacity controls", () => {
-    expect(source).toContain("customBackgroundPreviewUrl");
-    expect(source).toContain("styles.customBackgroundPreview");
-    expect(source).toContain("UI_TEXT.BACKGROUND_PREVIEW");
-    expect(source).toContain('type="range"');
-    expect(source).toContain('min="0"');
-    expect(source).toContain('max="1"');
-    expect(source).toContain('step="0.05"');
-    expect(source).toContain("customBackgroundOpacity");
-    expect(source).toContain("UI_TEXT.BACKGROUND_OPACITY");
-    expect(source).not.toContain("opacity: appPreferences.customBackgroundOpacity");
+  it("shows custom background preview and opacity controls in a sheet", () => {
+    expect(backgroundSheetSource).toContain("<BottomSheet");
+    expect(backgroundSheetSource).toContain("customBackgroundPreviewUrl");
+    expect(backgroundSheetSource).toContain("styles.customBackgroundPreview");
+    expect(backgroundSheetSource).toContain("UI_TEXT.BACKGROUND_PREVIEW");
+    expect(backgroundSheetSource).toContain('type="range"');
+    expect(backgroundSheetSource).toContain('min="0"');
+    expect(backgroundSheetSource).toContain('max="1"');
+    expect(backgroundSheetSource).toContain('step="0.05"');
+    expect(backgroundSheetSource).toContain("customBackgroundOpacity");
+    expect(backgroundSheetSource).toContain("UI_TEXT.BACKGROUND_OPACITY");
+    expect(backgroundSheetSource).toContain("onClearBackground");
+    expect(backgroundSheetSource).not.toContain("opacity: appPreferences.customBackgroundOpacity");
     expect(cssSource).toContain(".customBackgroundPreview");
     expect(cssSource).toContain(".backgroundOpacitySlider");
   });
