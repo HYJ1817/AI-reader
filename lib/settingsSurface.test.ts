@@ -18,6 +18,12 @@ const cssSource = readFileSync(
   "utf8"
 );
 
+function cssRule(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  const end = css.indexOf("}", start);
+  return start < 0 || end < 0 ? "" : css.slice(start, end);
+}
+
 describe("settings surface copy", () => {
   it("omits explanatory hints from switch rows", () => {
     for (const hint of [
@@ -52,6 +58,9 @@ describe("settings surface copy", () => {
     expect(backgroundSheetSource).toContain("<BottomSheet");
     expect(backgroundSheetSource).toContain("customBackgroundPreviewUrl");
     expect(backgroundSheetSource).toContain("styles.customBackgroundPreview");
+    expect(backgroundSheetSource).toContain("styles.customBackgroundPreviewImage");
+    expect(backgroundSheetSource).toContain("<img");
+    expect(backgroundSheetSource).toContain("src={customBackgroundPreviewUrl}");
     expect(backgroundSheetSource).toContain("UI_TEXT.BACKGROUND_PREVIEW");
     expect(backgroundSheetSource).toContain('type="range"');
     expect(backgroundSheetSource).toContain('min="0"');
@@ -62,6 +71,13 @@ describe("settings surface copy", () => {
     expect(backgroundSheetSource).toContain("onClearBackground");
     expect(backgroundSheetSource).not.toContain("opacity: appPreferences.customBackgroundOpacity");
     expect(cssSource).toContain(".customBackgroundPreview");
+    expect(cssSource).toContain(".customBackgroundPreviewImage");
+    expect(cssRule(cssSource, ".customBackgroundPreviewImage")).toContain(
+      "object-fit: contain"
+    );
+    expect(cssRule(cssSource, ".customBackgroundPreview")).not.toContain(
+      "background-size: cover"
+    );
     expect(cssSource).toContain(".backgroundOpacitySlider");
   });
 

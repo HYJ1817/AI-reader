@@ -37,24 +37,24 @@ export default function CustomBackgroundSettingsSheet({
     >
       {(close) => (
         <>
-          <div className={styles.sheetHeader}>
-            <h2 className={styles.sheetTitle}>{UI_TEXT.BACKGROUND_CUSTOM}</h2>
+          <div className={styles.customBackgroundSheetHeader}>
+            <h2>{UI_TEXT.BACKGROUND_CUSTOM}</h2>
             <button onClick={() => close()} aria-label={UI_TEXT.CLOSE}>
               {UI_TEXT.CLOSE}
             </button>
           </div>
-          <div className={styles.sheetBody}>
-            <div className={styles.settingsNativeList}>
+          <div className={styles.customBackgroundSheetBody}>
+            <div className={styles.customBackgroundSheetCard}>
               <div className={styles.customBackgroundPanel}>
                 {customBackgroundPreviewUrl ? (
-                  <div
-                    className={styles.customBackgroundPreview}
-                    role="img"
-                    aria-label={UI_TEXT.BACKGROUND_PREVIEW}
-                    style={{
-                      backgroundImage: `url(${customBackgroundPreviewUrl})`,
-                    }}
-                  />
+                  <figure className={styles.customBackgroundPreview}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      className={styles.customBackgroundPreviewImage}
+                      src={customBackgroundPreviewUrl}
+                      alt={UI_TEXT.BACKGROUND_PREVIEW}
+                    />
+                  </figure>
                 ) : null}
                 <label className={styles.backgroundOpacityControl}>
                   <span className={styles.settingsRowText}>
@@ -76,24 +76,14 @@ export default function CustomBackgroundSettingsSheet({
                   />
                 </label>
               </div>
-              <button
-                className={styles.settingsNavRow}
-                onClick={() => backgroundInputRef.current?.click()}
-              >
-                <span className={styles.settingsRowText}>
-                  <strong>{UI_TEXT.CHANGE_BACKGROUND_IMAGE}</strong>
-                </span>
-                <span className={styles.continueChevron}>{"\u203a"}</span>
-              </button>
-              <button
-                className={styles.settingsNavRow}
-                onClick={() => close(onClearBackground)}
-              >
-                <span className={styles.settingsRowText}>
-                  <strong>{UI_TEXT.REMOVE_BACKGROUND_IMAGE}</strong>
-                </span>
-                <span className={styles.continueChevron}>{"\u203a"}</span>
-              </button>
+              <div className={styles.customBackgroundActions}>
+                <button onClick={() => backgroundInputRef.current?.click()}>
+                  {UI_TEXT.CHANGE_BACKGROUND_IMAGE}
+                </button>
+                <button onClick={() => close(onClearBackground)}>
+                  {UI_TEXT.REMOVE_BACKGROUND_IMAGE}
+                </button>
+              </div>
             </div>
           </div>
         </>
