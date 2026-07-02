@@ -6,11 +6,13 @@
   --motion-standard: 190ms;
   --motion-navigation: 340ms;
   --motion-sheet: 300ms;
+  --motion-sheet-exit: 260ms;
   --motion-chrome-enter: 220ms;
   --motion-chrome-exit: 180ms;
   --ease-standard: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-sheet-settle: cubic-bezier(0.2, 0.86, 0.18, 1);
   --hairline: color-mix(in srgb, var(--separator) 72%, transparent);
   --shadow-soft: 0 7px 18px rgba(0, 0, 0, 0.1);
   --shadow-float: 0 12px 34px rgba(0, 0, 0, 0.14);
@@ -296,6 +298,8 @@
 }
 
 .iosSwitch {
+  --switch-x: 0px;
+  --switch-press-scale: 1;
   flex-shrink: 0;
   appearance: none;
   position: relative;
@@ -304,7 +308,13 @@
   border-radius: 999px;
   background: var(--control-fill);
   border: 0.5px solid var(--hairline);
-  transition: background var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.iosSwitch:active {
+  --switch-press-scale: 0.94;
 }
 
 .iosSwitch::after {
@@ -317,16 +327,14 @@
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.24);
+  transform: translateX(var(--switch-x)) scale(var(--switch-press-scale));
   transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .iosSwitch:checked {
+  --switch-x: 20px;
   background: #34c759;
   border-color: #34c759;
-}
-
-.iosSwitch:checked::after {
-  transform: translateX(20px);
 }
 
 .settingsSegmentControl {
@@ -500,7 +508,11 @@
   background: transparent;
   color: var(--text-primary);
   text-align: left;
-  transition: background var(--motion-fast) var(--ease-standard);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .settingsNavRow:last-child {
@@ -509,6 +521,7 @@
 
 .settingsNavRow:active {
   background: var(--control-fill);
+  transform: translate3d(0, 1px, 0);
 }
 
 .customBackgroundPanel {
@@ -646,6 +659,15 @@
   text-align: left;
   font-size: 16px;
   font-weight: 600;
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.customBackgroundActions button:active {
+  background: var(--control-fill);
+  transform: scale(0.985);
 }
 
 .customBackgroundActions button:last-child {
@@ -725,11 +747,18 @@
   color: var(--tint);
   font-size: 14px;
   font-weight: 600;
-  transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .libraryActionButton:not(:disabled):hover {
   opacity: 0.7;
+}
+
+.libraryActionButton:not(:disabled):active {
+  opacity: 0.82;
+  transform: scale(0.96);
 }
 
 .libraryActionButton svg {
@@ -744,11 +773,16 @@
   color: var(--tint);
   font-size: 15px;
   font-weight: 700;
-  transition: background var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .libraryTextButton:not(:disabled):active {
   background: color-mix(in srgb, var(--tint) 10%, transparent);
+  transform: scale(0.96);
 }
 
 .selectionSummary {
@@ -1341,7 +1375,12 @@
   font-size: 11.5px;
   font-weight: 500;
   color: var(--text-tertiary);
-  transition: color var(--motion-fast) var(--ease-standard), background var(--motion-fast) var(--ease-standard);
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
   padding: 6px 4px;
   border-radius: 999px;
 }
@@ -1360,6 +1399,8 @@
   height: 29px;
   display: block;
   overflow: visible;
+  transform: scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .tabIconStroke {
@@ -1390,6 +1431,14 @@
 
 .tab:not(:disabled):hover {
   color: var(--text-secondary);
+}
+
+.tab:not(:disabled):active {
+  transform: translate3d(0, 1px, 0) scale(0.96);
+}
+
+.tab:not(:disabled):active .tabIcon {
+  transform: scale(0.92);
 }
 
 .activeTab:hover {
@@ -2865,14 +2914,14 @@
 
 .motionSheetClosing {
   opacity: 0;
-  transition-duration: var(--motion-sheet);
-  transition-timing-function: var(--ease-navigation);
+  transition-duration: var(--motion-sheet-exit);
+  transition-timing-function: var(--ease-sheet-settle);
 }
 
 .motionSheetClosing .bottomSheet {
   transform: translate3d(0, 100%, 0);
-  transition-duration: var(--motion-sheet);
-  transition-timing-function: var(--ease-navigation);
+  transition-duration: var(--motion-sheet-exit);
+  transition-timing-function: var(--ease-sheet-settle);
   will-change: transform;
 }
 
@@ -2939,6 +2988,10 @@
   cursor: grabbing;
 }
 
+.sheetDragHandle:active .sheetGrabber {
+  transform: scaleX(1.2);
+}
+
 @keyframes sheetBackdropIn {
   from {
     opacity: 0;
@@ -2964,6 +3017,10 @@
   background: var(--text-tertiary);
   margin: 0 auto;
   flex-shrink: 0;
+  transform: scaleX(1);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .sheetHeader {
@@ -5209,6 +5266,15 @@
   font-size: 17px;
   font-weight: 500;
   padding: 4px 0;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerNavButton:active {
+  opacity: 0.72;
+  transform: translate3d(0, 1px, 0);
 }
 
 .providerHeaderSpacer {
@@ -5250,7 +5316,16 @@
   background: var(--control-fill);
   font-size: 14px;
   font-weight: 500;
-  transition: background var(--motion-fast) var(--ease-standard), opacity var(--motion-fast) var(--ease-standard);
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerRefreshButton:active {
+  opacity: 0.78;
+  transform: scale(0.96);
 }
 
 .providerListCard {
@@ -5274,6 +5349,20 @@
   border-bottom: 0.5px solid var(--hairline);
   color: var(--text-primary);
   background: transparent;
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerChoiceRow:active {
+  background: var(--control-fill);
+  transform: translate3d(0, 1px, 0);
+}
+
+.providerModelRow:active {
+  background: var(--control-fill);
+  transform: translate3d(0, 1px, 0);
 }
 
 .providerChoiceRow:last-child,
@@ -5446,6 +5535,15 @@
   background: var(--tint);
   font-size: 14px;
   font-weight: 600;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerManualModelRow button:active {
+  opacity: 0.82;
+  transform: scale(0.96);
 }
 
 .providerSwitchRow {
@@ -5480,6 +5578,18 @@
   border-radius: 13px;
   font-size: 17px;
   font-weight: 650;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard);
+}
+
+.providerPrimaryButton:not(:disabled):active,
+.providerSecondaryButton:not(:disabled):active,
+.providerDangerButton:not(:disabled):active {
+  opacity: 0.84;
+  transform: scale(0.98);
 }
 
 .providerPrimaryButton {

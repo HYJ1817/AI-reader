@@ -5,10 +5,15 @@ import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
 import {
   AI_API_FORMATS,
+  AI_PROVIDER_PRESETS,
   createEmptyAiProvider,
+  createAiProviderFromPreset,
   getAiApiFormat,
+  materializeAiProviderBaseUrl,
+  resolveAiProviderFormatBaseUrl,
   sanitizeAiProviderSettings,
   type AiProviderConfig,
+  type AiProviderKind,
   type AiProviderModel,
   type AiProviderProtocol,
   type AiProviderSettings,
@@ -109,6 +114,33 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
     setDraft({ ...draft, ...next });
   }
 
+  function changeProviderKind(kind: Exclude<AiProviderKind, "custom">) {
+    if (!draft) return;
+    const preset = materializeAiProviderBaseUrl(
+      createAiProviderFromPreset(kind, {
+        id: draft.id,
+        apiKey: draft.apiKey,
+        model: "",
+        models: [],
+        createdAt: draft.createdAt,
+        updatedAt: draft.updatedAt,
+      })
+    );
+    setDraft({
+      ...draft,
+      kind: preset.kind,
+      protocol: preset.protocol,
+      label: preset.label,
+      baseUrl: preset.baseUrl,
+      defaultPath: preset.defaultPath,
+      appendDefaultPath: preset.appendDefaultPath,
+      model: "",
+      models: [],
+    });
+    setManualModel("");
+    setModelRefreshStatus("");
+  }
+
   function changeProtocol(protocol: AiProviderProtocol) {
     const format = getAiApiFormat(protocol);
     if (!draft) return;
@@ -116,10 +148,32 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
       ...draft,
       protocol,
       defaultPath: format.defaultPath,
-      baseUrl: draft.baseUrl || format.defaultBaseUrl,
+      baseUrl: resolveAiProviderFormatBaseUrl({
+        currentBaseUrl: draft.baseUrl,
+        protocol,
+        appendDefaultPath: true,
+      }),
       appendDefaultPath: true,
     });
     setModelRefreshStatus("");
+  }
+
+  function toggleAppendDefaultPath(appendDefaultPath: boolean) {
+    if (!draft || !draft.protocol) return;
+    const format = getAiApiFormat(draft.protocol);
+    const baseUrl = appendDefaultPath
+      ? resolveAiProviderFormatBaseUrl({
+          currentBaseUrl: draft.baseUrl,
+          protocol: draft.protocol,
+          appendDefaultPath: true,
+        })
+      : draft.baseUrl.trim().replace(/\/+$/, "");
+    setDraft({
+      ...draft,
+      defaultPath: format.defaultPath,
+      baseUrl,
+      appendDefaultPath,
+    });
   }
 
   function addManualModel() {
@@ -188,7 +242,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
   function saveDraft() {
     if (!draft || !draft.protocol) return;
     const now = new Date().toISOString();
-    const normalized: AiProviderConfig = {
+    const normalized: AiProviderConfig = materializeAiProviderBaseUrl({
       ...draft,
       protocol: draft.protocol,
       label: draft.label.trim(),
@@ -197,7 +251,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
       model: draft.model.trim(),
       models: dedupeModels(draft.models),
       updatedAt: now,
-    };
+    });
     const providers = editingProviderId
       ? settings.providers.map((provider) =>
           provider.id === editingProviderId ? normalized : provider
@@ -333,6 +387,33 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
 
           {mode === "configure" && draft && (
             <>
+              <p className={styles.providerGroupLabel}>服务商</p>
+              <div className={styles.providerListCard}>
+                {AI_PROVIDER_PRESETS.map((preset) => (
+                  <button
+                    key={preset.kind}
+                    type="button"
+                    className={styles.providerModelRow}
+                    onClick={() => changeProviderKind(preset.kind)}
+                  >
+                    <span
+                      className={`${styles.providerChoiceIcon} ${
+                        styles[`providerIcon${preset.kind}`]
+                      }`}
+                    >
+                      {preset.label.slice(0, 1)}
+                    </span>
+                    <span className={styles.providerChoiceText}>
+                      <strong>{preset.label}</strong>
+                      <small>{preset.defaultBaseUrl}</small>
+                    </span>
+                    <span className={styles.providerModelCheck}>
+                      {draft.kind === preset.kind ? "✓" : ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
               <p className={styles.providerGroupLabel}>名称</p>
               <div className={styles.providerListCard}>
                 <label className={styles.providerFormRow}>
@@ -375,7 +456,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
                       className={styles.iosSwitch}
                       checked={draft.appendDefaultPath}
                       onChange={(event) =>
-                        updateDraft({ appendDefaultPath: event.target.checked })
+                        toggleAppendDefaultPath(event.target.checked)
                       }
                     />
                   </label>

@@ -175,6 +175,26 @@ describe("shouldDismissSheet", () => {
     ).toBe(true);
   });
 
+  it("dismisses a confident medium drag before it reaches the old hard threshold", () => {
+    expect(
+      shouldDismissSheet({
+        translationY: 128,
+        velocityY: 520,
+        sheetHeight: 700,
+      })
+    ).toBe(true);
+  });
+
+  it("keeps a short indecisive drag open even with moderate velocity", () => {
+    expect(
+      shouldDismissSheet({
+        translationY: 40,
+        velocityY: 620,
+        sheetHeight: 700,
+      })
+    ).toBe(false);
+  });
+
   it("returns a slow short drag to the open position", () => {
     expect(
       shouldDismissSheet({
@@ -192,8 +212,8 @@ describe("getSheetBackdropOpacity", () => {
   });
 
   it("lightens the backdrop as the sheet follows the finger", () => {
-    expect(getSheetBackdropOpacity(300, 600)).toBeCloseTo(0.725);
-    expect(getSheetBackdropOpacity(600, 600)).toBeCloseTo(0.45);
+    expect(getSheetBackdropOpacity(300, 600)).toBeCloseTo(0.645, 2);
+    expect(getSheetBackdropOpacity(600, 600)).toBeCloseTo(0.36);
   });
 
   it("sanitizes invalid dimensions", () => {

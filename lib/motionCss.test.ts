@@ -31,6 +31,10 @@ describe("motion CSS", () => {
   it("uses one navigation timing and easing protocol", () => {
     expect(css).toContain("--motion-navigation: 340ms;");
     expect(css).toContain("--motion-sheet: 300ms;");
+    expect(css).toContain("--motion-sheet-exit: 260ms;");
+    expect(css).toContain(
+      "--ease-sheet-settle: cubic-bezier(0.2, 0.86, 0.18, 1);"
+    );
     expect(css).toContain(
       "--ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);"
     );
@@ -48,6 +52,9 @@ describe("motion CSS", () => {
     );
     expect(css).toMatch(
       /\.motionSheetOverlay\s+\.bottomSheet\s*\{[^}]*transform\s+var\(--motion-sheet\)\s+var\(--ease-navigation\)/s
+    );
+    expect(css).toMatch(
+      /\.motionSheetClosing\s+\.bottomSheet\s*\{[^}]*transition-duration:\s*var\(--motion-sheet-exit\)[^}]*transition-timing-function:\s*var\(--ease-sheet-settle\)/s
     );
     for (const selector of [".appSurface {", ".tabIndicator {", ".readerShell {"]) {
       const start = css.indexOf(selector);
@@ -161,5 +168,103 @@ describe("motion CSS", () => {
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerPagePill,[\s\S]*?\.readerOverlayBack,[\s\S]*?\.readerMenuRow\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
     );
+  });
+
+  it("gives touch rows and sheet actions compositor-only pressed feedback", () => {
+    const navStart = css.indexOf(".settingsNavRow {");
+    const navEnd = css.indexOf("}", navStart);
+    const navRule = css.slice(navStart, navEnd);
+    expect(navRule).toContain("transform");
+    expect(navRule).toContain("will-change: transform");
+
+    const navActiveStart = css.indexOf(".settingsNavRow:active {");
+    const navActiveEnd = css.indexOf("}", navActiveStart);
+    const navActiveRule = css.slice(navActiveStart, navActiveEnd);
+    expect(navActiveRule).toContain("translate3d(0, 1px, 0)");
+
+    const actionStart = css.indexOf(".customBackgroundActions button {");
+    const actionEnd = css.indexOf("}", actionStart);
+    const actionRule = css.slice(actionStart, actionEnd);
+    expect(actionRule).toContain("transform");
+
+    const actionActiveStart = css.indexOf(".customBackgroundActions button:active {");
+    const actionActiveEnd = css.indexOf("}", actionActiveStart);
+    const actionActiveRule = css.slice(actionActiveStart, actionActiveEnd);
+    expect(actionActiveRule).toContain("scale(0.985)");
+  });
+
+  it("gives primary touch controls consistent pressed motion", () => {
+    const tabStart = css.indexOf(".tab {");
+    const tabEnd = css.indexOf("}", tabStart);
+    const tabRule = css.slice(tabStart, tabEnd);
+    expect(tabRule).toContain("transform");
+    expect(tabRule).toContain("will-change: transform");
+
+    const tabActiveStart = css.indexOf(".tab:not(:disabled):active {");
+    const tabActiveEnd = css.indexOf("}", tabActiveStart);
+    const tabActiveRule = css.slice(tabActiveStart, tabActiveEnd);
+    expect(tabActiveRule).toContain("scale(0.96)");
+
+    const tabIconStart = css.indexOf(".tabIcon {");
+    const tabIconEnd = css.indexOf("}", tabIconStart);
+    const tabIconRule = css.slice(tabIconStart, tabIconEnd);
+    expect(tabIconRule).toContain("transform");
+
+    const switchStart = css.indexOf(".iosSwitch {");
+    const switchEnd = css.indexOf("}", switchStart);
+    const switchRule = css.slice(switchStart, switchEnd);
+    expect(switchRule).toContain("--switch-press-scale: 1");
+
+    const switchKnobStart = css.indexOf(".iosSwitch::after {");
+    const switchKnobEnd = css.indexOf("}", switchKnobStart);
+    const switchKnobRule = css.slice(switchKnobStart, switchKnobEnd);
+    expect(switchKnobRule).toContain("scale(var(--switch-press-scale))");
+
+    const libraryActionActiveStart = css.indexOf(
+      ".libraryActionButton:not(:disabled):active {"
+    );
+    const libraryActionActiveEnd = css.indexOf(
+      "}",
+      libraryActionActiveStart
+    );
+    const libraryActionActiveRule = css.slice(
+      libraryActionActiveStart,
+      libraryActionActiveEnd
+    );
+    expect(libraryActionActiveRule).toContain("scale(0.96)");
+  });
+
+  it("gives provider sheet controls consistent pressed motion", () => {
+    for (const selector of [
+      ".providerNavButton {",
+      ".providerRefreshButton {",
+      ".providerChoiceRow,",
+      ".providerManualModelRow button {",
+      ".providerPrimaryButton,",
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain("transform");
+    }
+
+    for (const selector of [
+      ".providerNavButton:active {",
+      ".providerRefreshButton:active {",
+      ".providerChoiceRow:active {",
+      ".providerModelRow:active {",
+      ".providerManualModelRow button:active {",
+      ".providerPrimaryButton:not(:disabled):active,",
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toMatch(/scale\(0\.9[4-8]\)|translate3d\(0,\s*1px,\s*0\)/);
+    }
+
+    const grabberStart = css.indexOf(".sheetDragHandle:active .sheetGrabber {");
+    const grabberEnd = css.indexOf("}", grabberStart);
+    const grabberRule = css.slice(grabberStart, grabberEnd);
+    expect(grabberRule).toContain("scaleX(1.2)");
   });
 });
