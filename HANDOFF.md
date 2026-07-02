@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `53438e9` (`fix: sync custom background preview effect`)
-- If branch HEAD is newer than `53438e9`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `de02470` (`feat: improve ai provider configuration`)
+- If branch HEAD is newer than `de02470`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - both at `53438e9`
+  - local branch includes `de02470`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -103,11 +103,53 @@ Current intended preview behavior:
 
 Do not change the slider to control image opacity. The user explicitly clarified that the slider controls the actual background effect, not the source image opacity.
 
+## Latest AI Settings Work
+
+The same PR now also improves AI provider setup.
+
+Implemented behavior:
+
+- AI provider configuration has a top-level provider preset section before the lower-level API format section.
+- Presets currently include:
+  - OpenAI / Compatible API
+  - Anthropic / Compatible API
+  - Google Gemini
+  - OpenRouter
+  - xAI
+- Choosing a preset immediately updates the provider name, protocol, API address, default path, and visible input value.
+- Known default API addresses are replaced when switching formats or presets.
+- Custom proxy hosts are preserved when switching API format, with the selected format path appended.
+- `自动附加 /v1` now materializes the path into the visible/saved API address.
+- Old saved OpenAI configs like `https://api.openai.com` plus auto-append enabled load as `https://api.openai.com/v1`.
+
+Important files:
+
+- `app/AiSettingsSheet.tsx`
+- `lib/aiProviders.ts`
+- `lib/aiProviders.test.ts`
+- `lib/aiSettingsSheetIntegration.test.ts`
+- `lib/aiChat.ts`
+- `lib/aiModelList.ts`
+
+Recent browser smoke evidence:
+
+- Anthropic preset updates the visible API address to `https://api.anthropic.com/v1`.
+- Gemini preset updates it to `https://generativelanguage.googleapis.com/v1beta`.
+- OpenRouter preset updates it to `https://openrouter.ai/api/v1`.
+
+Motion polish added in the same work:
+
+- Sheet close uses a shorter settle timing.
+- Drag/backdrop dismissal feels less abrupt.
+- Main settings rows, tab controls, custom background actions, provider rows, API format rows, model rows, provider buttons, and iOS switches now have consistent transform-based pressed feedback.
+
 ## Recent Commit Trail
 
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+de02470 feat: improve ai provider configuration
+3c26242 docs: refresh custom background handoff
 53438e9 fix: sync custom background preview effect
 52f8a19 style: anchor custom background sheet
 2941e4e style: enlarge custom background sheet
@@ -120,10 +162,10 @@ Useful recent commits on `codex/custom-background-settings`:
 
 ## Verification Already Run
 
-After the latest code commit `53438e9`, these passed:
+After the latest code commit `de02470`, these passed:
 
 ```powershell
-npm.cmd run test -- lib/settingsSurface.test.ts
+npm.cmd run test -- lib/aiSettingsSheetIntegration.test.ts lib/aiProviders.test.ts lib/motionCss.test.ts
 npm.cmd exec -- eslint app lib
 npm.cmd run test
 npm.cmd run build
@@ -132,8 +174,8 @@ git diff --check
 
 Observed results:
 
-- Target settings test: 1 file, 5 tests passed.
-- Full suite: 115 files, 1148 tests passed.
+- Target AI/motion tests: 5 files, 59 tests passed.
+- Full suite: 116 files, 1161 tests passed.
 - ESLint `app lib` passed.
 - Production `next build` passed.
 - `git diff --check` reported only CRLF warnings.
@@ -153,36 +195,36 @@ git status -sb
 Current local production server:
 
 ```text
-http://127.0.0.1:3015
+http://127.0.0.1:3032
 ```
 
 Current Cloudflare quick tunnel:
 
 ```text
-https://cleaner-writer-poster-celtic.trycloudflare.com
+https://type-relationship-activation-los.trycloudflare.com
 ```
 
 It is backed by:
 
 ```powershell
-npm.cmd run start -- --hostname 127.0.0.1 --port 3015
-C:\tmp\cloudflared.exe tunnel --protocol http2 --url http://127.0.0.1:3015
+npm.cmd run start -- --hostname 127.0.0.1 --port 3032
+C:\tmp\cloudflared.exe tunnel --protocol http2 --url http://127.0.0.1:3032
 ```
 
 Cloudflare quick-tunnel URLs are temporary. If the next session sees stale CSS or naked HTML:
 
 1. Rebuild with `npm.cmd run build`.
-2. Restart `next start` on port `3015` or a new free port.
+2. Restart `next start` on port `3032` or a new free port.
 3. Restart `cloudflared`.
 4. Verify the HTML's `/_next/static/chunks/*.css` URLs return `200`.
 
 Example CSS verification:
 
 ```powershell
-$html=(Invoke-WebRequest -UseBasicParsing https://cleaner-writer-poster-celtic.trycloudflare.com).Content
+$html=(Invoke-WebRequest -UseBasicParsing https://type-relationship-activation-los.trycloudflare.com).Content
 $css=$html | Select-String -Pattern '/_next/static/chunks/[^"'']+\.css' -AllMatches | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
 $css
-foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://cleaner-writer-poster-celtic.trycloudflare.com$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
+foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://type-relationship-activation-los.trycloudflare.com$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
 ```
 
 ## Known History and Cautions
@@ -211,5 +253,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 53438e9，主要内容是自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览，以及预览跟随背景虚化/强度滑条变化。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://cleaner-writer-poster-celtic.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
+最新代码提交是 de02470，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，以及 AI 服务商预设、API 地址自动随服务商/格式切换、自动附加路径可见化、旧 OpenAI 地址迁移和触控动效优化。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://type-relationship-activation-los.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
 ```
