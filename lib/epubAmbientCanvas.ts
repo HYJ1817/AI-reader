@@ -27,28 +27,11 @@ const TOP_LEVEL_CANVAS_TAGS = new Set([
   "ARTICLE",
 ]);
 
-function setBackground(
-  element: EpubAmbientElement | undefined,
-  background: string
-) {
-  element?.style?.setProperty("background", background, "important");
+function setTransparentBackground(element: EpubAmbientElement | undefined) {
+  element?.style?.setProperty("background", "transparent", "important");
 }
 
-function clearPublisherCanvasChain(element: EpubAmbientElement): void {
-  setBackground(element, "transparent");
-
-  const children = Array.from(element.children ?? []);
-  if (children.length !== 1) return;
-
-  const child = children[0];
-  if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-    clearPublisherCanvasChain(child);
-  }
-}
-
-export function applyEpubAmbientCanvas(
-  contents: unknown
-): void {
+export function applyEpubAmbientCanvas(contents: unknown): void {
   if (!contents || typeof contents !== "object") return;
 
   const candidate = contents as EpubAmbientContents;
@@ -60,12 +43,12 @@ export function applyEpubAmbientCanvas(
   const body = document?.body;
   if (!document || !body) return;
 
-  setBackground(document.documentElement, "transparent");
-  setBackground(body, "transparent");
+  setTransparentBackground(document.documentElement);
+  setTransparentBackground(body);
 
   for (const child of Array.from(body.children ?? [])) {
     if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-      clearPublisherCanvasChain(child);
+      setTransparentBackground(child);
     }
   }
 }

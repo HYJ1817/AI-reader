@@ -179,6 +179,45 @@ describe("applyEpubReaderPreferences", () => {
     expect(controller.override).not.toHaveBeenCalled();
   });
 
+  it("applies custom typography overrides after custom settings change", () => {
+    const controller = createController();
+    const initialState = applyEpubReaderPreferences(
+      controller,
+      DEFAULT_READER_PREFERENCES,
+      { foreground: "#111111", background: "#ffffff" },
+      EMPTY_EPUB_PREFERENCE_STATE
+    );
+    vi.clearAllMocks();
+
+    applyEpubReaderPreferences(
+      controller,
+      {
+        ...DEFAULT_READER_PREFERENCES,
+        fontFamily: "serif",
+        boldText: true,
+        letterSpacingPercent: 6,
+        wordSpacingPercent: 18,
+        pageMarginPx: 20,
+        justifyText: true,
+      },
+      { foreground: "#111111", background: "#ffffff" },
+      initialState
+    );
+
+    expect(controller.register).not.toHaveBeenCalled();
+    expect(controller.select).not.toHaveBeenCalled();
+    expect(controller.override).toHaveBeenCalledWith(
+      "font-family",
+      '"Songti SC", "STSong", "Noto Serif CJK SC", serif'
+    );
+    expect(controller.override).toHaveBeenCalledWith("font-weight", "700");
+    expect(controller.override).toHaveBeenCalledWith("letter-spacing", "0.06em");
+    expect(controller.override).toHaveBeenCalledWith("word-spacing", "0.18em");
+    expect(controller.override).toHaveBeenCalledWith("padding-left", "20px");
+    expect(controller.override).toHaveBeenCalledWith("padding-right", "20px");
+    expect(controller.override).toHaveBeenCalledWith("text-align", "justify");
+  });
+
   it("reinstalls colors without reapplying typography when theme colors changed", () => {
     const controller = createController();
     const initialState = applyEpubReaderPreferences(
@@ -204,8 +243,28 @@ describe("applyEpubReaderPreferences", () => {
       background: "transparent !important",
     });
     expect(rules?.body).toMatchObject({
-      color: "#f4f4f4 !important",
+      color: "#1a1a1a !important",
       background: "transparent !important",
+    });
+  });
+
+  it("keeps EPUB text on the light-mode foreground when the app theme is dark", () => {
+    const controller = createController();
+
+    applyEpubReaderPreferences(
+      controller,
+      { ...DEFAULT_READER_PREFERENCES, theme: "dark" },
+      { foreground: "#f3f4f6", background: "#171717" },
+      EMPTY_EPUB_PREFERENCE_STATE
+    );
+
+    const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
+    expect(rules?.body).toMatchObject({
+      color: "#1a1a1a !important",
+      background: "transparent !important",
+    });
+    expect(rules?.["p, div, span, li, h1, h2, h3, h4, h5, h6"]).toMatchObject({
+      color: "#1a1a1a !important",
     });
   });
 });

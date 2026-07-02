@@ -1,32 +1,31 @@
-# AI Reader Agent Handoff
+﻿# AI Reader Agent Handoff
 
-## 1. Current Checkout
+## Current Checkout
 
-- Repository and active checkout: `C:\aaa\ai-reader-pwa`
-- GitHub: https://github.com/HYJ1817/AI-reader
-- Branch: `main`
-- Latest code commit: `0029694` (`fix: preserve epub theme canvas on ios`)
-- `main` has been fast-forwarded to the completed `codex/surface-visual-system` work and pushed to `origin/main`.
-- The old feature worktree still exists at `C:\aaa\ai-reader-pwa\.worktrees\surface-visual-system`, but new work should start from the root `main` checkout unless the user explicitly asks otherwise.
+- Repository: `C:\aaa\ai-reader-pwa`
+- GitHub remote: `https://github.com/HYJ1817/AI-reader.git`
+- Active branch: `codex/custom-background-settings`
+- Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
+- Base branch: `main`
+- Latest code commit: `de02470` (`feat: improve ai provider configuration`)
+- If branch HEAD is newer than `de02470`, that newer commit should be this handoff-only documentation update.
+- Latest pushed branch state before this handoff update:
+  - `codex/custom-background-settings`
+  - `origin/codex/custom-background-settings`
+  - local branch includes `de02470`; push it before handing off if not already pushed
 
-Start every new session with:
+Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
 ```powershell
 cd C:\aaa\ai-reader-pwa
 git status -sb
-git log -5 --oneline --decorate
-npm.cmd run test
-npm.cmd run build
-npm.cmd exec -- eslint app lib
+git log -8 --oneline --decorate
+Get-Content HANDOFF.md
 ```
 
-Do not reset, clean, remove the feature worktree, or overwrite changes you did not create.
+## Product and Stack
 
-## 2. Product and Stack
-
-AI Reader is a local-first EPUB/TXT reader primarily used on an iPhone in Safari or as a home-screen PWA.
-
-The intended experience is quiet, focused, Chinese-language, one-handed, and close to a mature iOS utility without copying Apple trademarks or private APIs.
+AI Reader is a local-first EPUB/TXT reader focused on iPhone Safari and home-screen PWA use.
 
 Current stack:
 
@@ -37,149 +36,222 @@ Current stack:
 - Vitest and ESLint
 - Service worker and web app manifest
 
-This is still a Next.js PWA. Do not begin a native iOS rewrite without explicit approval.
+Product direction:
 
-## 3. Important Constraints
+- Keep the app as a Next.js PWA unless the user explicitly resumes the deferred native iOS shell plan.
+- Preserve IndexedDB books, groups, progress, settings, custom backgrounds, and backups.
+- Prefer restrained iOS-like product UI: simple lists, large tap targets, bottom sheets, no marketing-style screens.
+- Real iPhone screenshots from the user are the acceptance source for visual bugs.
 
-- Preserve existing IndexedDB books, groups, progress, settings, and backups.
-- Do not export API keys in backups.
-- AI requests may include only the book title, format, selected passage, and user question. Never send the full book.
-- Keep custom OpenAI-compatible, Anthropic-compatible, Gemini, DeepSeek, and other third-party endpoints.
-- Do not hard-code a short fixed model catalog.
-- Keep bottom navigation as `书库 / 阅读 / 设置`.
-- Do not reintroduce a bottom AI tab.
-- Keep horizontal swipe page turning and vertical scrolling available.
-- Respect iPhone safe areas and reduced-motion preferences.
-- EPUB content is rendered in an iframe. Parent-page pointer handlers and CSS alone do not cover EPUB behavior.
-- Do not claim a mobile interaction is fixed solely because desktop tests pass.
+## Current Feature Work
 
-## 4. Latest Completed Work
+The active PR adds and iterates custom reader backgrounds.
 
-The `codex/surface-visual-system` branch was merged into `main` and pushed on June 24, 2026.
+Implemented behavior:
 
-Important recent commits:
+- Settings > Background now supports:
+  - `跟随图书`
+  - `自选图片`
+- User can choose an image from settings.
+- Custom background image is stored locally through the existing IndexedDB flow.
+- The app can remove or replace the selected background image.
+- Custom background mode feeds `AmbientBookBackground` through:
+  - `customBackgroundBlob`
+  - `customBackgroundOpacity`
+- Existing book-cover ambient background logic still works when `跟随图书` is selected.
 
-- `0029694`: preserves the selected EPUB theme canvas on iOS.
-- `b7558c8`: stabilizes EPUB dark theme switching and repeated menu toggling.
-- `90f5912`: overrides publisher EPUB canvas colors inline.
-- `cd033e5`: registers valid EPUB ambient theme rules.
-- `805254c`: reveals the ambient background through EPUB content.
-- `16a9d94`: adds the shared `AmbientBookBackground` component.
-- `df5e1ac` and `cd2a5d6`: stabilize EPUB tap/menu interaction lifecycle.
+Important files:
 
-Current behavior:
-
-- `AmbientBookBackground` is shared across the main surfaces and remains visible when entering reading.
-- The ambient background is derived from the active book cover, supports fallback covers, crossfades between books, and respects reduced motion.
-- EPUB publisher wrappers are cleared so the ambient layer can show through where appropriate.
-- EPUB `html` and `body` retain the active reading-theme background instead of becoming transparent white on iOS Safari.
-- Changing light/dark/system appearance reapplies both epub.js theme colors and the rendered EPUB canvas.
-- A stationary tap on a non-interactive EPUB reading area toggles the floating reader menu.
-- Tapping again hides the menu.
-- Horizontal page swipes, vertical scrolling, links, selections, and interactive content are excluded from accidental menu toggles.
-- Reader tools remain directly available as `目录 / 阅读外观 / 阅读方式 / 问 AI`.
-- Surface architecture has been split into focused components such as `LibrarySurface`, `ReadingDashboard`, `ReadingSession`, `SettingsSurface`, `AppNavigation`, and `AppOverlays`.
-
-## 5. Important Files
-
-- `app/page.tsx`: application orchestration and shared state.
-- `app/AmbientBookBackground.tsx`: cover-led ambient visual layer.
-- `app/EpubReader.tsx`: epub.js lifecycle, theme canvas, iframe interactions.
-- `app/ReaderControls.tsx`: floating reader controls.
-- `app/ReadingSession.tsx`: TXT/EPUB reading surface.
-- `app/ReadingDashboard.tsx`: reading home surface.
-- `app/LibrarySurface.tsx`: library and collections.
-- `app/SettingsSurface.tsx`: settings surface.
-- `app/AppNavigation.tsx`: primary navigation.
-- `app/AppOverlays.tsx`: sheets and overlays.
-- `app/useReaderPresentation.ts`: reader presentation state.
-- `app/page.module.css`: layout, ambient visuals, reader surfaces, and motion.
-- `lib/ambientBookBackground.ts`: ambient palette and transition helpers.
-- `lib/epubAmbientCanvas.ts`: EPUB canvas and wrapper styling.
-- `lib/epubTapInteractions.ts`: iframe tap/gesture classification.
-- `lib/epubReaderPreferences.ts`: EPUB preference/theme behavior.
-
-High-value tests:
-
+- `app/SettingsSurface.tsx`
+- `app/CustomBackgroundSettingsSheet.tsx`
+- `app/useCustomBackground.ts`
+- `app/AmbientBookBackground.tsx`
+- `app/page.tsx`
+- `app/page.module.css`
+- `lib/appPreferences.ts`
+- `lib/db.ts`
+- `lib/settingsSurface.test.ts`
 - `lib/ambientBookBackground.test.ts`
-- `lib/epubAmbientCanvas.test.ts`
-- `lib/epubAmbientIntegration.test.ts`
-- `lib/epubTapInteractions.test.ts`
-- `lib/epubReaderPreferences.test.ts`
-- `lib/readerChromeIntegration.test.ts`
-- `lib/surfaceArchitecture.test.ts`
+- `lib/appPreferences.test.ts`
 
-## 6. Latest Verification
+## Latest UI Decisions
 
-At `0029694`, verification on June 24, 2026 reported:
+The user asked for the custom-background controls to be moved out of the main settings list into a separate sheet.
 
-- Feature worktree: 54 test files and 544 tests passed.
-- Merged `main`: 108 test files and 1088 tests passed because Vitest also discovered the retained worktree tests.
-- Production `next build` passed.
-- Source ESLint passed with `npm.cmd exec -- eslint app lib`.
-- Local `main`, `origin/main`, and GitHub `refs/heads/main` all resolved to `0029694299f55248760b35bb218121aee8cec680`.
-- The root worktree was clean and synchronized with `origin/main`.
+Current intended sheet behavior:
 
-Important lint note:
+- The main settings list only shows the background mode rows.
+- Tapping an already-selected `自选图片` row opens a dedicated custom background sheet.
+- The custom background sheet is a near-full-height bottom sheet, not a floating card.
+- It uses an opaque `var(--app-bg)` page background so the settings page underneath does not show through.
+- It uses a solid `var(--surface-primary)` card for the controls.
+- Header stays at the top; body scrolls internally.
+- It should feel closer to iOS Settings than a decorative modal.
 
-`npm.cmd run lint` from the repository root currently scans generated files under `.worktrees\surface-visual-system\.next` and produces thousands of false errors. This is not a source-code failure. Until the ESLint ignores are hardened or the old worktree is removed with explicit approval, use:
+Current intended preview behavior:
 
-```powershell
-npm.cmd exec -- eslint app lib
+- The preview image is rendered as an `<img>`, not a cropped CSS background.
+- `object-fit: contain` is required so the selected image is fully visible.
+- The preview must respond to the opacity slider.
+- The slider meaning is the actual background effect strength:
+  - `0%`: image is clear, no blur, no ambient veil.
+  - `100%`: image uses the same 42px blur and veil effect as the actual app background.
+  - Intermediate values update in real time.
+- The latest fix adds `customBackgroundPreviewStyle` with:
+  - `--custom-background-preview-blur`
+  - `--custom-background-preview-veil-opacity`
+
+Do not change the slider to control image opacity. The user explicitly clarified that the slider controls the actual background effect, not the source image opacity.
+
+## Latest AI Settings Work
+
+The same PR now also improves AI provider setup.
+
+Implemented behavior:
+
+- AI provider configuration has a top-level provider preset section before the lower-level API format section.
+- Presets currently include:
+  - OpenAI / Compatible API
+  - Anthropic / Compatible API
+  - Google Gemini
+  - OpenRouter
+  - xAI
+- Choosing a preset immediately updates the provider name, protocol, API address, default path, and visible input value.
+- Known default API addresses are replaced when switching formats or presets.
+- Custom proxy hosts are preserved when switching API format, with the selected format path appended.
+- `自动附加 /v1` now materializes the path into the visible/saved API address.
+- Old saved OpenAI configs like `https://api.openai.com` plus auto-append enabled load as `https://api.openai.com/v1`.
+
+Important files:
+
+- `app/AiSettingsSheet.tsx`
+- `lib/aiProviders.ts`
+- `lib/aiProviders.test.ts`
+- `lib/aiSettingsSheetIntegration.test.ts`
+- `lib/aiChat.ts`
+- `lib/aiModelList.ts`
+
+Recent browser smoke evidence:
+
+- Anthropic preset updates the visible API address to `https://api.anthropic.com/v1`.
+- Gemini preset updates it to `https://generativelanguage.googleapis.com/v1beta`.
+- OpenRouter preset updates it to `https://openrouter.ai/api/v1`.
+
+Motion polish added in the same work:
+
+- Sheet close uses a shorter settle timing.
+- Drag/backdrop dismissal feels less abrupt.
+- Main settings rows, tab controls, custom background actions, provider rows, API format rows, model rows, provider buttons, and iOS switches now have consistent transform-based pressed feedback.
+
+## Recent Commit Trail
+
+Useful recent commits on `codex/custom-background-settings`:
+
+```text
+de02470 feat: improve ai provider configuration
+3c26242 docs: refresh custom background handoff
+53438e9 fix: sync custom background preview effect
+52f8a19 style: anchor custom background sheet
+2941e4e style: enlarge custom background sheet
+4dbfe76 style: expand custom background preview
+674fdfb style: improve custom background sheet preview
+266d8d1 refactor: move custom background controls to sheet
+99b446c feat: add custom reader backgrounds
+2c19fe3 main baseline, fix: let reader background follow ambient surface
 ```
 
-After code changes, run:
+## Verification Already Run
+
+After the latest code commit `de02470`, these passed:
+
+```powershell
+npm.cmd run test -- lib/aiSettingsSheetIntegration.test.ts lib/aiProviders.test.ts lib/motionCss.test.ts
+npm.cmd exec -- eslint app lib
+npm.cmd run test
+npm.cmd run build
+git diff --check
+```
+
+Observed results:
+
+- Target AI/motion tests: 5 files, 59 tests passed.
+- Full suite: 116 files, 1161 tests passed.
+- ESLint `app lib` passed.
+- Production `next build` passed.
+- `git diff --check` reported only CRLF warnings.
+
+Before making another code commit, rerun:
 
 ```powershell
 npm.cmd run test
 npm.cmd exec -- eslint app lib
 npm.cmd run build
-npm.cmd audit --json
 git diff --check
+git status -sb
 ```
 
-## 7. Remaining Real-Device Checks
+## Current Preview Link
 
-The latest EPUB fixes have automated coverage and a production build, but the exact iPhone Safari behavior should still be checked with an imported EPUB.
+Current local production server:
 
-Acceptance sequence:
+```text
+http://127.0.0.1:3032
+```
 
-1. Open an EPUB and switch between light, dark, and system appearance.
-2. Confirm the page background and text remain readable after every switch.
-3. Tap a blank/non-interactive reading area repeatedly and confirm the menu alternates visible/hidden.
-4. Swipe horizontally and confirm page turning does not also toggle the menu.
-5. Scroll vertically where supported and confirm scrolling does not toggle the menu.
-6. Select text and confirm selection and the AI action remain available.
-7. Change books and confirm the ambient background crossfades to the new cover.
-8. Enter and leave the reading surface and confirm the ambient background persists without a white flash.
+Current Cloudflare quick tunnel:
 
-Safari normal tabs, the in-app browser, and an installed home-screen PWA can composite EPUB iframes differently. Record which environment is being tested.
+```text
+https://type-relationship-activation-los.trycloudflare.com
+```
 
-## 8. Temporary Phone Testing
+It is backed by:
 
-Cloudflare quick-tunnel URLs are temporary and may expire when the local process stops. Verify an existing link before sharing it and do not treat it as permanent deployment.
+```powershell
+npm.cmd run start -- --hostname 127.0.0.1 --port 3032
+C:\tmp\cloudflared.exe tunnel --protocol http2 --url http://127.0.0.1:3032
+```
 
-## 9. Deferred Roadmap
+Cloudflare quick-tunnel URLs are temporary. If the next session sees stale CSS or naked HTML:
 
-- `ROADMAP.md` records a future in-app web browser that lets the user browse
-  arbitrary websites and import downloaded EPUB/TXT files directly into the
-  existing bookshelf.
-- This work is intentionally deferred. A reliable implementation requires a
-  thin iOS native shell using `WKWebView` and `WKDownload`; it is not a pure
-  PWA feature.
-- Do not start the native shell until the user explicitly resumes this roadmap
-  item and a Mac/Xcode/signing/device-testing workflow is available.
-- Preserve the current Next.js reader and local data model. This is a hybrid
-  wrapper plan, not approval for a native rewrite.
+1. Rebuild with `npm.cmd run build`.
+2. Restart `next start` on port `3032` or a new free port.
+3. Restart `cloudflared`.
+4. Verify the HTML's `/_next/static/chunks/*.css` URLs return `200`.
 
-## 10. Prompt for the Next Conversation
+Example CSS verification:
+
+```powershell
+$html=(Invoke-WebRequest -UseBasicParsing https://type-relationship-activation-los.trycloudflare.com).Content
+$css=$html | Select-String -Pattern '/_next/static/chunks/[^"'']+\.css' -AllMatches | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
+$css
+foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://type-relationship-activation-los.trycloudflare.com$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
+```
+
+## Known History and Cautions
+
+The prior EPUB dark-mode background issue is still relevant project context:
+
+- User's baseline for EPUB light mode was ambient outside + white EPUB paper/page + black text.
+- Do not globally make EPUB iframes or publisher backgrounds transparent to force blending with ambient backgrounds.
+- If revisiting EPUB dark mode, scope changes to dark/system-dark and inspect real iPhone iframe computed styles before guessing.
+- Do not repeat broad transparent-background experiments that changed light mode.
+
+Files related to EPUB background work:
+
+- `app/EpubReader.tsx`
+- `lib/epubAmbientCanvas.ts`
+- `lib/epubAmbientCanvas.test.ts`
+- `lib/epubReaderPreferences.ts`
+- `lib/epubReaderPreferences.test.ts`
+- `lib/epubAmbientIntegration.test.ts`
+- `app/page.module.css`
+
+## Next Conversation Prompt
+
+Use this opener in the new conversation:
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
-
-从根目录 main 分支继续，先检查 git 状态、最新提交和现有工作树。当前 main 和 origin/main 应指向 0029694。不要 reset、clean、删除旧功能工作树或覆盖现有修改。
-
-上一轮已经完成 AmbientBookBackground、阅读界面视觉架构调整、EPUB 菜单重复点击切换，以及 iOS Safari 下 EPUB 深色主题画布修复，并已合并推送到 GitHub main。
-
-先听取我的新问题。若仍涉及 EPUB 显示或点击交互，先区分普通 Safari、Codex 内置浏览器和主屏幕 PWA，再复现和定位。修改后运行测试、源代码 ESLint、生产构建、npm audit 和 git diff --check；涉及手机行为时，不要只凭桌面测试声称修复。
+当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
+最新代码提交是 de02470，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，以及 AI 服务商预设、API 地址自动随服务商/格式切换、自动附加路径可见化、旧 OpenAI 地址迁移和触控动效优化。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://type-relationship-activation-los.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
 ```

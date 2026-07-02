@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties } from "react";
-import type { ReaderMode } from "@/lib/readerMode";
-import styles from "./page.module.css";
+import type { ReaderPageInfo } from "@/lib/readerPageInfo";
+import { formatReaderPageLabel } from "@/lib/readerPageInfo";
 import { UI_TEXT } from "@/lib/uiText";
+import styles from "./page.module.css";
 
 type Props = {
   onBack: () => void;
@@ -11,18 +11,9 @@ type Props = {
   hasToc: boolean;
   onOpenSettings: () => void;
   onAsk: () => void;
-  readerMode: ReaderMode;
-  onReaderModeChange: (mode: ReaderMode) => void;
+  pageInfo: ReaderPageInfo;
   visible?: boolean;
 };
-
-type ToolStyle = CSSProperties & {
-  "--tool-order": number;
-};
-
-function toolStyle(order: number): ToolStyle {
-  return { "--tool-order": order };
-}
 
 export default function ReaderControls({
   onBack,
@@ -30,34 +21,12 @@ export default function ReaderControls({
   hasToc,
   onOpenSettings,
   onAsk,
-  readerMode,
-  onReaderModeChange,
+  pageInfo,
   visible = true,
 }: Props) {
-  const [modeMenuOpen, setModeMenuOpen] = useState(false);
-  const toolsVisible = visible;
-
-  useEffect(() => {
-    if (visible) return;
-    const frame = window.requestAnimationFrame(() => {
-      setModeMenuOpen(false);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [visible]);
-
-  const closeMenu = () => {
-    setModeMenuOpen(false);
-  };
-
   const handleContents = () => {
     if (!hasToc) return;
-    closeMenu();
     onContents();
-  };
-
-  const handleReaderModeChange = (mode: ReaderMode) => {
-    onReaderModeChange(mode);
-    closeMenu();
   };
 
   return (
@@ -78,106 +47,45 @@ export default function ReaderControls({
           viewBox="0 0 28 28"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2.4"
+          strokeWidth="2.2"
           aria-hidden="true"
         >
-          <path d="M17 6l-8 8 8 8" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 8l12 12M20 8 8 20" strokeLinecap="round" />
         </svg>
       </button>
 
-      <div
-        className={`${styles.readerFloatingTools} ${
-          toolsVisible ? styles.readerFloatingToolsOpen : ""
-        }`}
-      >
+      <div className={styles.readerPagePill}>
+        {formatReaderPageLabel(pageInfo)}
+      </div>
+
+      <div className={styles.readerActionMenu}>
         <button
-          className={styles.readerFloatingTool}
-          style={toolStyle(0)}
+          className={styles.readerMenuRow}
           onClick={handleContents}
           disabled={!hasToc}
-          title={UI_TEXT.CONTENTS}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <span>{UI_TEXT.CONTENTS}</span>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
             <path d="M8 6h13M8 12h13M8 18h13" strokeLinecap="round" />
             <circle cx="3.5" cy="6" r="1" fill="currentColor" stroke="none" />
             <circle cx="3.5" cy="12" r="1" fill="currentColor" stroke="none" />
             <circle cx="3.5" cy="18" r="1" fill="currentColor" stroke="none" />
           </svg>
-          <span>{UI_TEXT.CONTENTS}</span>
         </button>
 
-        <button
-          className={styles.readerFloatingTool}
-          style={toolStyle(1)}
-          onClick={() => {
-            closeMenu();
-            onOpenSettings();
-          }}
-          title={UI_TEXT.READER_APPEARANCE}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M4 19h6M7 5v14M14 8h6M17 8v11" strokeLinecap="round" />
-            <circle cx="7" cy="8" r="2" fill="var(--surface-primary)" />
-            <circle cx="17" cy="16" r="2" fill="var(--surface-primary)" />
-          </svg>
-          <span>{UI_TEXT.READER_APPEARANCE}</span>
-        </button>
-
-        <button
-          className={`${styles.readerFloatingTool} ${
-            modeMenuOpen ? styles.readerFloatingToolActive : ""
-          }`}
-          style={toolStyle(2)}
-          onClick={() => setModeMenuOpen((open) => !open)}
-          title={UI_TEXT.READING_MODE}
-          aria-expanded={modeMenuOpen}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <rect x="3" y="4" width="18" height="16" rx="2" />
-            <path d="M12 4v16" />
-          </svg>
-          <span>{UI_TEXT.READING_MODE}</span>
-        </button>
-
-        <button
-          className={styles.readerFloatingTool}
-          style={toolStyle(3)}
-          onClick={() => {
-            closeMenu();
-            onAsk();
-          }}
-          title={UI_TEXT.ASK_AI}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-            <path d="M12 3a7 7 0 0 0-4 12.7V21l4-2 4 2v-5.3A7 7 0 0 0 12 3z" strokeLinejoin="round" />
-            <path d="M9 10h6M9 13h4" strokeLinecap="round" />
-          </svg>
+        <button className={styles.readerMenuRow} onClick={onAsk}>
           <span>{UI_TEXT.ASK_AI}</span>
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" />
+            <path d="m16.5 16.5 4 4" strokeLinecap="round" />
+          </svg>
         </button>
 
-      </div>
-
-      <div
-        className={`${styles.readerModeMenu} ${
-          toolsVisible && modeMenuOpen ? styles.readerModeMenuOpen : ""
-        }`}
-      >
-        <button
-          className={readerMode === "scroll" ? styles.readerModeOptionActive : ""}
-          onClick={() => handleReaderModeChange("scroll")}
-          aria-pressed={readerMode === "scroll"}
-        >
-          {UI_TEXT.SCROLL_MODE}
-        </button>
-        <button
-          className={readerMode === "paged" ? styles.readerModeOptionActive : ""}
-          onClick={() => handleReaderModeChange("paged")}
-          aria-pressed={readerMode === "paged"}
-        >
-          {UI_TEXT.PAGED_MODE}
+        <button className={styles.readerMenuRow} onClick={onOpenSettings}>
+          <span>主题与设置</span>
+          <span className={styles.readerMenuTrailing}>大小</span>
         </button>
       </div>
-
     </div>
   );
 }

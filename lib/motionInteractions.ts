@@ -106,7 +106,7 @@ export function getSheetBackdropOpacity(
   }
 
   const progress = clampSheetDrag(translationY, sheetHeight) / sheetHeight;
-  return 1 - progress * 0.55;
+  return 1 - Math.pow(progress, 0.85) * 0.64;
 }
 
 export type SheetCloseTransitionInput = {
@@ -138,7 +138,10 @@ export function shouldDismissSheet({
 }: SheetDismissInput): boolean {
   const safeHeight = Math.max(1, sheetHeight);
   const distanceThreshold = Math.min(140, safeHeight * 0.28);
+  const intentDistanceThreshold = Math.min(120, safeHeight * 0.18);
   const fastFlick = velocityY >= 900 && translationY >= 24;
+  const committedDrag =
+    velocityY >= 480 && translationY >= intentDistanceThreshold;
 
-  return translationY >= distanceThreshold || fastFlick;
+  return translationY >= distanceThreshold || committedDrag || fastFlick;
 }

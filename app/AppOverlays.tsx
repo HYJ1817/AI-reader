@@ -15,6 +15,8 @@ import {
   formatBookDate,
   formatBookSize,
 } from "@/lib/libraryPresentation";
+import type { ReaderMode } from "@/lib/readerMode";
+import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
@@ -33,6 +35,8 @@ export type AppOverlaysProps = {
     askError: string | null;
     aiUsable: boolean;
     bookTitle: string | null;
+    mode: ReaderMode;
+    pageInfo: ReaderPageInfo;
     goalOpen: boolean;
     todayMinutes: number;
     targetMinutes: number;
@@ -66,6 +70,7 @@ export type AppOverlaysProps = {
   actions: {
     closeReaderSettings: () => void;
     changeReaderPreferences: (preferences: ReaderPreferences) => void;
+    changeReaderMode: (mode: ReaderMode) => void;
     closeToc: () => void;
     selectTocItem: (href: string) => void;
     closeAiSettings: () => void;
@@ -118,7 +123,9 @@ export default function AppOverlays({
       {reader.settingsOpen && (
         <ReaderSettingsPanel
           preferences={reader.preferences}
+          mode={reader.mode}
           onChange={actions.changeReaderPreferences}
+          onModeChange={actions.changeReaderMode}
           onClose={actions.closeReaderSettings}
         />
       )}
@@ -126,6 +133,8 @@ export default function AppOverlays({
       {reader.tocOpen && (
         <TocDrawer
           items={reader.tocItems}
+          bookTitle={reader.bookTitle}
+          pageInfo={reader.pageInfo}
           onSelect={actions.selectTocItem}
           onClose={actions.closeToc}
         />
@@ -401,46 +410,56 @@ export default function AppOverlays({
                 </div>
 
                 <div className={styles.actionListGroup}>
-                  {bookAction.deleteConfirmOpen ? (
-                    <div className={styles.deleteConfirmBox}>
-                      <strong>{UI_TEXT.DELETE_BOOK_CONFIRM_TITLE}</strong>
-                      <p>{UI_TEXT.DELETE_BOOK_CONFIRM_HINT}</p>
-                      <div>
-                        <button
-                          className={styles.secondaryButton}
-                          onClick={() => actions.setDeleteConfirmOpen(false)}
-                        >
-                          {UI_TEXT.CANCEL}
-                        </button>
-                        <button
-                          className={styles.dangerButton}
-                          onClick={() => {
-                            const book = actionBook;
-                            close(() => actions.deleteBook(book));
-                          }}
-                        >
-                          {UI_TEXT.DELETE_BOOK}
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <button
-                      className={`${styles.actionListRow} ${styles.actionListDanger}`}
-                      onClick={() => actions.setDeleteConfirmOpen(true)}
-                    >
-                      <span className={styles.actionIcon}>
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                          <path d="M5 6h10M8 6V4h4v2m-6 0 .7 10h6.6L14 6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </span>
-                      <span>{UI_TEXT.DELETE_BOOK}</span>
-                    </button>
-                  )}
+                  <button
+                    className={`${styles.actionListRow} ${styles.actionListDanger}`}
+                    onClick={() => actions.setDeleteConfirmOpen(true)}
+                  >
+                    <span className={styles.actionIcon}>
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+                        <path d="M5 6h10M8 6V4h4v2m-6 0 .7 10h6.6L14 6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    <span>{UI_TEXT.DELETE_BOOK}</span>
+                  </button>
                 </div>
               </div>
             </>
           )}
         </BottomSheet>
+      )}
+
+      {actionBook && bookAction.deleteConfirmOpen && (
+        <div
+          className={styles.bookDeleteDialogOverlay}
+          onClick={() => actions.setDeleteConfirmOpen(false)}
+        >
+          <div
+            className={styles.bookDeleteDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="book-delete-confirm-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <strong id="book-delete-confirm-title">
+              {UI_TEXT.DELETE_BOOK_CONFIRM_TITLE}
+            </strong>
+            <p>{UI_TEXT.DELETE_BOOK_CONFIRM_HINT}</p>
+            <div className={styles.bookDeleteDialogActions}>
+              <button
+                className={styles.secondaryButton}
+                onClick={() => actions.setDeleteConfirmOpen(false)}
+              >
+                {UI_TEXT.CANCEL}
+              </button>
+              <button
+                className={styles.dangerButton}
+                onClick={() => actions.deleteBook(actionBook)}
+              >
+                {UI_TEXT.DELETE_BOOK}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {group.open && groupBook && (

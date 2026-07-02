@@ -6,7 +6,7 @@ import type { LibraryViewMode } from "@/lib/appPreferences";
 import type { CollectionListItem } from "@/lib/collectionList";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import {
-  formatLibraryProgressLabel,
+  formatLibraryProgressValue,
   getBookProgressPercent,
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
@@ -357,10 +357,9 @@ export default function LibrarySurface({
                         >
                           <BookCover title={book.title} format={book.format} coverImageBlob={book.coverImageBlob} />
                           <span className={styles.bookGridTitle}>{book.title}</span>
-                          <span className={styles.bookGridProgress} aria-hidden="true">
-                            <span style={{ width: `${progress}%` }} />
+                          <span className={styles.bookGridMeta}>
+                            {formatLibraryProgressValue(progress)}
                           </span>
-                          <span className={styles.bookGridMeta}>{formatLibraryProgressLabel(progress)}</span>
                         </button>
                         {editing.library ? (
                           <span className={styles.selectionBadge} aria-hidden="true">
@@ -400,10 +399,7 @@ export default function LibrarySurface({
                             {book.format.toUpperCase()}{" \u00b7 "}{formatBookSize(book.size)}
                           </span>
                           <span className={styles.bookListProgressRow}>
-                            <span className={styles.bookListProgressTrack} aria-hidden="true">
-                              <span style={{ width: `${progress}%` }} />
-                            </span>
-                            <span>{formatLibraryProgressLabel(progress)}</span>
+                            {formatLibraryProgressValue(progress)}
                           </span>
                           {book.groupIds && book.groupIds.length > 0 && (
                             <span className={styles.bookGroupLabels}>

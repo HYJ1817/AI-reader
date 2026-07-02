@@ -10,6 +10,7 @@ import EpubReader, { type EpubReaderHandle } from "@/app/EpubReader";
 import ReaderControls from "@/app/ReaderControls";
 import type { BookRecord, ReadingPosition } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
+import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import { UI_TEXT } from "@/lib/uiText";
@@ -21,6 +22,7 @@ type ReadingSessionProps = {
   loading: boolean;
   mode: ReaderMode;
   preferences: ReaderPreferences;
+  pageInfo: ReaderPageInfo;
   paragraphChunks: string[][];
   chromeVisible: boolean;
   tocItems: EpubTocItem[];
@@ -45,7 +47,6 @@ type ReadingSessionProps = {
   onOpenContents: () => void;
   onOpenSettings: () => void;
   onAsk: () => void;
-  onModeChange: (mode: ReaderMode) => void;
 };
 
 export default function ReadingSession({
@@ -54,6 +55,7 @@ export default function ReadingSession({
   loading,
   mode,
   preferences,
+  pageInfo,
   paragraphChunks,
   chromeVisible,
   tocItems,
@@ -78,14 +80,17 @@ export default function ReadingSession({
   onOpenContents,
   onOpenSettings,
   onAsk,
-  onModeChange,
 }: ReadingSessionProps) {
+  const isEpubBook = book?.format === "epub";
+
   return (
     <div
       ref={shellRef}
       className={`${styles.readerShell} ${
         active ? styles.readerSessionActive : styles.readerSessionInactive
-      } ${chromeVisible ? "" : styles.readerChromeHidden}`}
+      } ${chromeVisible ? "" : styles.readerChromeHidden} ${
+        isEpubBook ? styles.readerEpubLightCanvas : ""
+      }`}
       aria-hidden={!active}
     >
       <div
@@ -95,7 +100,7 @@ export default function ReadingSession({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
       >
-        {!book ? null : book.format === "epub" ? (
+        {!book ? null : isEpubBook ? (
           <EpubReader
             ref={epubReaderRef}
             bookId={book.id}
@@ -126,10 +131,36 @@ export default function ReadingSession({
             onTransitionEnd={onSwipeTransitionEnd}
             style={{
               fontSize: `${preferences.fontSizePx}px`,
-              lineHeight: preferences.lineHeight,
+              fontFamily:
+                preferences.fontFamily === "system"
+                  ? '-apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif'
+                  : preferences.fontFamily === "serif"
+                    ? '"Songti SC", "STSong", "Noto Serif CJK SC", serif'
+                    : undefined,
+              fontWeight: preferences.boldText ? 700 : undefined,
+              letterSpacing:
+                preferences.customLayoutEnabled &&
+                preferences.letterSpacingPercent > 0
+                  ? `${preferences.letterSpacingPercent / 100}em`
+                  : undefined,
+              lineHeight: preferences.customLayoutEnabled
+                ? preferences.lineHeight
+                : undefined,
               maxWidth: `${preferences.contentWidth}px`,
               margin: "0 auto",
+              padding: `20px ${
+                24 + (preferences.customLayoutEnabled ? preferences.pageMarginPx : 0)
+              }px 36px`,
+              textAlign:
+                preferences.customLayoutEnabled && preferences.justifyText
+                  ? "justify"
+                  : undefined,
               width: "100%",
+              wordSpacing:
+                preferences.customLayoutEnabled &&
+                preferences.wordSpacingPercent > 0
+                  ? `${preferences.wordSpacingPercent / 100}em`
+                  : undefined,
             }}
           >
             {paragraphChunks.map((chunk, chunkIndex) => (
@@ -154,8 +185,7 @@ export default function ReadingSession({
           hasToc={tocItems.length > 0 && book.format === "epub"}
           onOpenSettings={onOpenSettings}
           onAsk={onAsk}
-          readerMode={mode}
-          onReaderModeChange={onModeChange}
+          pageInfo={pageInfo}
           visible={chromeVisible}
         />
       )}

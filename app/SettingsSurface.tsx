@@ -4,8 +4,10 @@ import type {
   ChangeEventHandler,
   RefObject,
 } from "react";
+import { useState } from "react";
 import type { AppPreferences } from "@/lib/appPreferences";
 import { UI_TEXT } from "@/lib/uiText";
+import CustomBackgroundSettingsSheet from "./CustomBackgroundSettingsSheet";
 import styles from "./page.module.css";
 
 export type SettingsSurfaceProps = {
@@ -19,7 +21,13 @@ export type SettingsSurfaceProps = {
   backupStatus: string | null;
   backupError: string | null;
   backupInputRef: RefObject<HTMLInputElement | null>;
+  backgroundInputRef: RefObject<HTMLInputElement | null>;
+  customBackgroundAvailable: boolean;
+  customBackgroundPreviewUrl: string | null;
   onPreferencesChange: (next: Partial<AppPreferences>) => void;
+  onBackgroundModeChange: (mode: AppPreferences["backgroundMode"]) => void;
+  onImportBackground: ChangeEventHandler<HTMLInputElement>;
+  onClearBackground: () => void;
   onOpenAiSettings: () => void;
   onExportBackup: () => void;
   onImportBackup: ChangeEventHandler<HTMLInputElement>;
@@ -38,13 +46,25 @@ export default function SettingsSurface({
   backupStatus,
   backupError,
   backupInputRef,
+  backgroundInputRef,
+  customBackgroundAvailable,
+  customBackgroundPreviewUrl,
   onPreferencesChange,
+  onBackgroundModeChange,
+  onImportBackground,
+  onClearBackground,
   onOpenAiSettings,
   onExportBackup,
   onImportBackup,
   onOpenReaderSettings,
   onOpenGoal,
 }: SettingsSurfaceProps) {
+  const [customBackgroundSettingsOpen, setCustomBackgroundSettingsOpen] =
+    useState(false);
+  const customBackgroundStatus = customBackgroundAvailable
+    ? UI_TEXT.BACKGROUND_CUSTOM_READY
+    : UI_TEXT.BACKGROUND_CUSTOM_EMPTY;
+
   return (
     <div className={className} aria-hidden={ariaHidden}>
       <h1 className={styles.libraryTitle}>{UI_TEXT.SETTINGS}</h1>
@@ -122,6 +142,69 @@ export default function SettingsSurface({
           </label>
         </div>
       </section>
+
+      <section className={styles.settingsSection}>
+        <h2 className={styles.settingsSectionTitle}>{UI_TEXT.BACKGROUND}</h2>
+        <div className={styles.settingsNativeList}>
+          <button
+            className={styles.settingsNavRow}
+            aria-pressed={appPreferences.backgroundMode === "auto"}
+            onClick={() => onBackgroundModeChange("auto")}
+          >
+            <span className={styles.settingsRowText}>
+              <strong>{UI_TEXT.BACKGROUND_AUTO}</strong>
+              <small>{UI_TEXT.BACKGROUND_AUTO_HINT}</small>
+            </span>
+            <span className={styles.continueChevron}>
+              {appPreferences.backgroundMode === "auto" ? "\u2713" : "\u203a"}
+            </span>
+          </button>
+
+          <button
+            className={styles.settingsNavRow}
+            aria-pressed={appPreferences.backgroundMode === "custom"}
+            onClick={() => {
+              if (customBackgroundAvailable) {
+                onBackgroundModeChange("custom");
+                setCustomBackgroundSettingsOpen(true);
+                return;
+              }
+              backgroundInputRef.current?.click();
+            }}
+          >
+            <span className={styles.settingsRowText}>
+              <strong>{UI_TEXT.BACKGROUND_CUSTOM}</strong>
+              <small>{customBackgroundStatus}</small>
+            </span>
+            <span className={styles.continueChevron}>
+              {appPreferences.backgroundMode === "custom" ? "\u2713" : "\u203a"}
+            </span>
+          </button>
+
+          <input
+            ref={backgroundInputRef}
+            type="file"
+            accept="image/*"
+            className={styles.hiddenInput}
+            onChange={(event) => {
+              const hasFile = Boolean(event.target.files?.[0]);
+              onImportBackground(event);
+              if (hasFile) setCustomBackgroundSettingsOpen(true);
+            }}
+          />
+        </div>
+      </section>
+
+      {customBackgroundSettingsOpen && customBackgroundAvailable ? (
+        <CustomBackgroundSettingsSheet
+          appPreferences={appPreferences}
+          backgroundInputRef={backgroundInputRef}
+          customBackgroundPreviewUrl={customBackgroundPreviewUrl}
+          onPreferencesChange={onPreferencesChange}
+          onClearBackground={onClearBackground}
+          onClose={() => setCustomBackgroundSettingsOpen(false)}
+        />
+      ) : null}
 
       <section className={styles.settingsSection}>
         <h2 className={styles.settingsSectionTitle}>

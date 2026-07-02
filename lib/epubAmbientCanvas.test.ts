@@ -52,15 +52,12 @@ describe("applyEpubAmbientCanvas", () => {
 
     applyEpubAmbientCanvas({ document });
 
-    for (const element of [document.documentElement, document.body]) {
-      expect(element.style.setProperty).toHaveBeenCalledOnce();
-      expect(element.style.setProperty).toHaveBeenCalledWith(
-        "background",
-        "transparent",
-        "important"
-      );
-    }
-    for (const element of [topLevelDiv, topLevelMain]) {
+    for (const element of [
+      document.documentElement,
+      document.body,
+      topLevelDiv,
+      topLevelMain,
+    ]) {
       expect(element.style.setProperty).toHaveBeenCalledOnce();
       expect(element.style.setProperty).toHaveBeenCalledWith(
         "background",
@@ -76,25 +73,6 @@ describe("applyEpubAmbientCanvas", () => {
     ]) {
       expect(element.style.setProperty).not.toHaveBeenCalled();
     }
-  });
-
-  it("clears a nested single-wrapper publisher canvas chain", () => {
-    const paragraph = createElement("P");
-    const article = createElement("ARTICLE", [paragraph]);
-    const section = createElement("SECTION", [article]);
-    const wrapper = createElement("DIV", [section]);
-    const document = createDocument([wrapper]);
-
-    applyEpubAmbientCanvas({ document });
-
-    for (const element of [wrapper, section, article]) {
-      expect(element.style.setProperty).toHaveBeenCalledWith(
-        "background",
-        "transparent",
-        "important"
-      );
-    }
-    expect(paragraph.style.setProperty).not.toHaveBeenCalled();
   });
 
   it("uses the content owner document when contents.document is unavailable", () => {

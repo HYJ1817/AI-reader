@@ -16,6 +16,9 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
+  saveCustomBackgroundImage,
+  getCustomBackgroundImage,
+  deleteCustomBackgroundImage,
   type BookRecord,
   type ReadingPosition,
   type AnnotationRecord,
@@ -341,5 +344,45 @@ describe("Book groups", () => {
 
     const groups = await listBookGroups();
     expect(groups).toEqual([]);
+  });
+});
+
+describe("Custom background image", () => {
+  it("saves and retrieves the selected background blob", async () => {
+    const blob = new Blob(["custom-background"], { type: "image/png" });
+
+    await saveCustomBackgroundImage(blob);
+    const stored = await getCustomBackgroundImage();
+
+    expect(stored).toBeDefined();
+    expect(stored!.type).toBe("image/png");
+    expect(await stored!.text()).toBe("custom-background");
+  });
+
+  it("replaces the previous selected background blob", async () => {
+    await saveCustomBackgroundImage(new Blob(["old"], { type: "image/png" }));
+    await saveCustomBackgroundImage(new Blob(["new"], { type: "image/jpeg" }));
+
+    const stored = await getCustomBackgroundImage();
+
+    expect(stored!.type).toBe("image/jpeg");
+    expect(await stored!.text()).toBe("new");
+  });
+
+  it("deletes the selected background blob", async () => {
+    await saveCustomBackgroundImage(new Blob(["custom"], { type: "image/png" }));
+
+    await deleteCustomBackgroundImage();
+
+    expect(await getCustomBackgroundImage()).toBeNull();
+  });
+
+  it("clears the selected background with reader data", async () => {
+    await saveCustomBackgroundImage(new Blob(["custom"], { type: "image/png" }));
+    const { clearAllReaderData: clearAll } = await import("./db");
+
+    await clearAll();
+
+    expect(await getCustomBackgroundImage()).toBeNull();
   });
 });

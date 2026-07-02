@@ -5,6 +5,13 @@ export interface ReaderPreferences {
   fontSizePx: number;
   lineHeight: number;
   contentWidth: number;
+  fontFamily: "default" | "system" | "serif";
+  boldText: boolean;
+  customLayoutEnabled: boolean;
+  letterSpacingPercent: number;
+  wordSpacingPercent: number;
+  pageMarginPx: number;
+  justifyText: boolean;
 }
 
 export const DEFAULT_READER_PREFERENCES: ReaderPreferences = {
@@ -12,6 +19,13 @@ export const DEFAULT_READER_PREFERENCES: ReaderPreferences = {
   fontSizePx: 18,
   lineHeight: 1.75,
   contentWidth: 720,
+  fontFamily: "default",
+  boldText: false,
+  customLayoutEnabled: true,
+  letterSpacingPercent: 0,
+  wordSpacingPercent: 0,
+  pageMarginPx: 0,
+  justifyText: false,
 };
 
 export function shouldObserveSystemReaderTheme(theme: ReaderTheme): boolean {
@@ -44,6 +58,16 @@ export function getReaderPreferenceChanges(
     fontSizePx: previous.fontSizePx !== next.fontSizePx,
     lineHeight: previous.lineHeight !== next.lineHeight,
     contentWidth: previous.contentWidth !== next.contentWidth,
+    fontFamily: previous.fontFamily !== next.fontFamily,
+    boldText: previous.boldText !== next.boldText,
+    customLayoutEnabled:
+      previous.customLayoutEnabled !== next.customLayoutEnabled,
+    letterSpacingPercent:
+      previous.letterSpacingPercent !== next.letterSpacingPercent,
+    wordSpacingPercent:
+      previous.wordSpacingPercent !== next.wordSpacingPercent,
+    pageMarginPx: previous.pageMarginPx !== next.pageMarginPx,
+    justifyText: previous.justifyText !== next.justifyText,
   };
 }
 
@@ -52,6 +76,11 @@ const VALID_THEMES: ReadonlySet<string> = new Set([
   "light",
   "sepia",
   "dark",
+]);
+const VALID_FONT_FAMILIES: ReadonlySet<string> = new Set([
+  "default",
+  "system",
+  "serif",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -87,7 +116,57 @@ export function sanitizeReaderPreferences(
       ? Math.round(clamp(value.contentWidth, 320, 960))
       : DEFAULT_READER_PREFERENCES.contentWidth;
 
-  return { theme, fontSizePx, lineHeight, contentWidth };
+  const fontFamily =
+    typeof value.fontFamily === "string" &&
+    VALID_FONT_FAMILIES.has(value.fontFamily)
+      ? (value.fontFamily as ReaderPreferences["fontFamily"])
+      : DEFAULT_READER_PREFERENCES.fontFamily;
+
+  const boldText =
+    typeof value.boldText === "boolean"
+      ? value.boldText
+      : DEFAULT_READER_PREFERENCES.boldText;
+
+  const customLayoutEnabled =
+    typeof value.customLayoutEnabled === "boolean"
+      ? value.customLayoutEnabled
+      : DEFAULT_READER_PREFERENCES.customLayoutEnabled;
+
+  const letterSpacingPercent =
+    typeof value.letterSpacingPercent === "number" &&
+    Number.isFinite(value.letterSpacingPercent)
+      ? Math.round(clamp(value.letterSpacingPercent, 0, 12))
+      : DEFAULT_READER_PREFERENCES.letterSpacingPercent;
+
+  const wordSpacingPercent =
+    typeof value.wordSpacingPercent === "number" &&
+    Number.isFinite(value.wordSpacingPercent)
+      ? Math.round(clamp(value.wordSpacingPercent, 0, 30))
+      : DEFAULT_READER_PREFERENCES.wordSpacingPercent;
+
+  const pageMarginPx =
+    typeof value.pageMarginPx === "number" && Number.isFinite(value.pageMarginPx)
+      ? Math.round(clamp(value.pageMarginPx, 0, 40))
+      : DEFAULT_READER_PREFERENCES.pageMarginPx;
+
+  const justifyText =
+    typeof value.justifyText === "boolean"
+      ? value.justifyText
+      : DEFAULT_READER_PREFERENCES.justifyText;
+
+  return {
+    theme,
+    fontSizePx,
+    lineHeight,
+    contentWidth,
+    fontFamily,
+    boldText,
+    customLayoutEnabled,
+    letterSpacingPercent,
+    wordSpacingPercent,
+    pageMarginPx,
+    justifyText,
+  };
 }
 
 const STORAGE_KEY = "ai-reader-preferences";
