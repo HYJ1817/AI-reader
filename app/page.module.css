@@ -519,6 +519,9 @@
 }
 
 .customBackgroundPreview {
+  --custom-background-preview-blur: 42px;
+  --custom-background-preview-veil-opacity: 1;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -533,6 +536,16 @@
   overflow: hidden;
 }
 
+.customBackgroundPreview::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ambient-veil);
+  opacity: var(--custom-background-preview-veil-opacity);
+  pointer-events: none;
+  transition: opacity var(--motion-navigation) var(--ease-navigation);
+}
+
 .customBackgroundPreviewImage {
   display: block;
   width: auto;
@@ -540,7 +553,9 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  filter: blur(var(--custom-background-preview-blur));
   border-radius: 8px;
+  transition: filter var(--motion-navigation) var(--ease-navigation);
 }
 
 .backgroundOpacityControl {

@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  CSSProperties,
   RefObject,
 } from "react";
 import type { AppPreferences } from "@/lib/appPreferences";
@@ -17,6 +18,11 @@ type Props = {
   onClose: () => void;
 };
 
+function clampCustomBackgroundPreviewEffect(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(1, Math.max(0, value));
+}
+
 export default function CustomBackgroundSettingsSheet({
   appPreferences,
   backgroundInputRef,
@@ -28,6 +34,14 @@ export default function CustomBackgroundSettingsSheet({
   const customBackgroundOpacityPercent = Math.round(
     appPreferences.customBackgroundOpacity * 100
   );
+  const customBackgroundPreviewEffect =
+    clampCustomBackgroundPreviewEffect(appPreferences.customBackgroundOpacity);
+  const customBackgroundPreviewStyle = {
+    "--custom-background-preview-blur": `${Math.round(
+      customBackgroundPreviewEffect * 42
+    )}px`,
+    "--custom-background-preview-veil-opacity": customBackgroundPreviewEffect,
+  } as CSSProperties;
 
   return (
     <BottomSheet
@@ -47,7 +61,10 @@ export default function CustomBackgroundSettingsSheet({
             <div className={styles.customBackgroundSheetCard}>
               <div className={styles.customBackgroundPanel}>
                 {customBackgroundPreviewUrl ? (
-                  <figure className={styles.customBackgroundPreview}>
+                  <figure
+                    className={styles.customBackgroundPreview}
+                    style={customBackgroundPreviewStyle}
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       className={styles.customBackgroundPreviewImage}

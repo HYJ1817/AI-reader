@@ -59,6 +59,8 @@ describe("settings surface copy", () => {
     expect(backgroundSheetSource).toContain("customBackgroundPreviewUrl");
     expect(backgroundSheetSource).toContain("styles.customBackgroundPreview");
     expect(backgroundSheetSource).toContain("styles.customBackgroundPreviewImage");
+    expect(backgroundSheetSource).toContain("customBackgroundPreviewStyle");
+    expect(backgroundSheetSource).toContain('"--custom-background-preview-blur"');
     expect(backgroundSheetSource).toContain("<img");
     expect(backgroundSheetSource).toContain("src={customBackgroundPreviewUrl}");
     expect(backgroundSheetSource).toContain("UI_TEXT.BACKGROUND_PREVIEW");
@@ -84,6 +86,9 @@ describe("settings surface copy", () => {
     );
     expect(cssRule(cssSource, ".customBackgroundPreviewImage")).toContain(
       "object-fit: contain"
+    );
+    expect(cssRule(cssSource, ".customBackgroundPreviewImage")).toContain(
+      "filter: blur(var(--custom-background-preview-blur))"
     );
     expect(cssRule(cssSource, ".customBackgroundPreview")).not.toContain(
       "background-size: cover"
