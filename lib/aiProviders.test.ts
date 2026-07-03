@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AI_API_FORMATS,
+  AI_PROVIDER_PRESETS,
   DEFAULT_AI_PROVIDER_SETTINGS,
   createEmptyAiProvider,
   createAiProviderFromPreset,
@@ -71,6 +72,18 @@ describe("AI provider API formats", () => {
       defaultPath: "/v1beta",
       appendDefaultPath: true,
     });
+  });
+
+  it("gives provider presets distinct short icon labels", () => {
+    expect(
+      AI_PROVIDER_PRESETS.map((preset) => [preset.kind, preset.iconLabel])
+    ).toEqual([
+      ["openai", "AI"],
+      ["anthropic", "A"],
+      ["gemini", "G"],
+      ["openrouter", "OR"],
+      ["xai", "x"],
+    ]);
   });
 
   it("creates a usable provider only after API details and model are configured", () => {

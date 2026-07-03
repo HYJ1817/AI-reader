@@ -50,6 +50,7 @@ export interface AiProviderSettings {
 export interface AiProviderPresetOption {
   kind: Exclude<AiProviderKind, "custom">;
   label: string;
+  iconLabel: string;
   protocol: AiProviderProtocol;
   defaultBaseUrl: string;
 }
@@ -82,30 +83,35 @@ export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
   {
     kind: "openai",
     label: "OpenAI / Compatible API",
+    iconLabel: "AI",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://api.openai.com",
   },
   {
     kind: "anthropic",
     label: "Anthropic / Compatible API",
+    iconLabel: "A",
     protocol: "anthropic-compatible",
     defaultBaseUrl: "https://api.anthropic.com",
   },
   {
     kind: "gemini",
     label: "Google Gemini",
+    iconLabel: "G",
     protocol: "gemini",
     defaultBaseUrl: "https://generativelanguage.googleapis.com",
   },
   {
     kind: "openrouter",
     label: "OpenRouter",
+    iconLabel: "OR",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://openrouter.ai/api",
   },
   {
     kind: "xai",
     label: "xAI",
+    iconLabel: "x",
     protocol: "openai-compatible",
     defaultBaseUrl: "https://api.x.ai",
   },

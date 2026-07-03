@@ -376,6 +376,8 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
                     key={preset.kind}
                     type="button"
                     className={styles.providerModelRow}
+                    aria-pressed={draft.kind === preset.kind}
+                    data-selected={draft.kind === preset.kind ? "true" : undefined}
                     onClick={() => changeProviderKind(preset.kind)}
                   >
                     <span
@@ -383,7 +385,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
                         styles[`providerIcon${preset.kind}`]
                       }`}
                     >
-                      {preset.label.slice(0, 1)}
+                      {preset.iconLabel}
                     </span>
                     <span className={styles.providerChoiceText}>
                       <strong>{preset.label}</strong>
@@ -468,6 +470,8 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
                       key={model.id}
                       type="button"
                       className={styles.providerModelRow}
+                      aria-pressed={draft.model === model.id}
+                      data-selected={draft.model === model.id ? "true" : undefined}
                       onClick={() => updateDraft({ model: model.id })}
                     >
                       <span className={styles.providerChoiceText}>

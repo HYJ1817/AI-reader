@@ -185,16 +185,21 @@ export default function ReaderCustomSettingsPanel({
             </button>
           </div>
 
-          <div className={styles.readerCustomPreview} style={previewStyle}>
-            <strong>大小</strong>
-            <p>
-              几乎是每天下午放学，我都要站到鲁鲁念书的小学门口，看着我的朋友从里面走出来。
-              年幼的鲁鲁已经是一个能够控制自己感情的孩子。
-            </p>
+          <div className={styles.readerCustomPreview}>
+            <div className={styles.readerCustomPreviewText} style={previewStyle}>
+              <strong>大小</strong>
+              <p>
+                几乎是每天下午放学，我都要站到鲁鲁念书的小学门口，看着我的朋友从里面走出来。
+                年幼的鲁鲁已经是一个能够控制自己感情的孩子。
+              </p>
+            </div>
           </div>
 
           <div className={styles.readerCustomBody}>
-            <section className={styles.readerCustomSection}>
+            <section
+              className={styles.readerCustomSection}
+              aria-label="无障碍与布局选项"
+            >
               <h3>文本</h3>
               <div className={styles.readerCustomGroup}>
                 <button className={styles.readerCustomRow} onClick={cycleFontFamily}>
@@ -220,8 +225,7 @@ export default function ReaderCustomSettingsPanel({
             </section>
 
             <section className={styles.readerCustomSection}>
-              <h3>无障碍与布局选项</h3>
-              <div className={styles.readerCustomGroup}>
+              <div className={`${styles.readerCustomGroup} ${styles.readerCustomControlCard}`}>
                 <label className={styles.readerCustomRow}>
                   <span>自定义</span>
                   <input
@@ -241,8 +245,11 @@ export default function ReaderCustomSettingsPanel({
                     data-disabled={draft.customLayoutEnabled ? undefined : "true"}
                     key={item.key}
                   >
-                    <span>{item.label}</span>
-                    <div>
+                    <span className={styles.readerCustomSliderLabel}>{item.label}</span>
+                    <strong className={styles.readerCustomSliderValue}>
+                      {item.format(Number(draft[item.key]))}
+                    </strong>
+                    <div className={styles.readerCustomSliderControl}>
                       <ReaderCustomSliderIcon icon={item.icon} />
                       <input
                         type="range"
@@ -259,7 +266,6 @@ export default function ReaderCustomSettingsPanel({
                         onKeyUp={commitDraft}
                         onBlur={commitDraft}
                       />
-                      <strong>{item.format(Number(draft[item.key]))}</strong>
                     </div>
                   </label>
                 ))}
@@ -298,28 +304,45 @@ export default function ReaderCustomSettingsPanel({
 }
 
 function ReaderCustomSliderIcon({ icon }: { icon: SliderConfig["icon"] }) {
-  if (icon === "letter") {
-    return (
-      <i className={styles.readerCustomLetterIcon} aria-hidden="true">
-        <span>甲乙丙</span>
-      </i>
-    );
-  }
-  if (icon === "margin") {
-    return <i className={styles.readerCustomMarginIcon} aria-hidden="true" />;
-  }
+  const commonProps = {
+    className: styles.readerCustomSliderSvg,
+    viewBox: "0 0 32 32",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: "2.4",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+
   return (
-    <i
-      className={
-        icon === "line"
-          ? styles.readerCustomLineIcon
-          : styles.readerCustomWordIcon
-      }
-      aria-hidden="true"
-    >
-      <span />
-      <span />
-      <span />
-    </i>
+    <span className={styles.readerCustomSliderIcon} aria-hidden="true">
+      {icon === "line" && (
+        <svg {...commonProps}>
+          <path d="M9 8h14M9 16h14M9 24h14" />
+          <path d="M5 9v14" />
+          <path d="m3 11 2-2 2 2M3 21l2 2 2-2" />
+        </svg>
+      )}
+      {icon === "letter" && (
+        <svg {...commonProps}>
+          <path d="M6 22 10.5 9 15 22" />
+          <path d="M8 17h5" />
+          <path d="M19 10v12M24 10v12" />
+          <path d="M20.5 16h2" />
+        </svg>
+      )}
+      {icon === "word" && (
+        <svg {...commonProps}>
+          <path d="M7 10h18M7 16h14M7 22h18" />
+          <path d="M4 10h.01M4 16h.01M4 22h.01" />
+        </svg>
+      )}
+      {icon === "margin" && (
+        <svg {...commonProps}>
+          <rect x="7" y="8" width="18" height="16" rx="2" />
+          <path d="M11 12h10M11 16h10M11 20h7" />
+        </svg>
+      )}
+    </span>
   );
 }

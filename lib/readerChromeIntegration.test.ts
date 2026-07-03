@@ -163,8 +163,12 @@ describe("reader chrome event integration", () => {
   });
 
   it("exposes both scroll and paged reading modes", () => {
-    expect(readerSettingsSource).toContain('onModeChange("scroll")');
-    expect(readerSettingsSource).toContain('onModeChange("paged")');
+    expect(readerSettingsSource).toContain(
+      "const READER_MODE_MENU_OPTIONS"
+    );
+    expect(readerSettingsSource).toContain('value: "scroll"');
+    expect(readerSettingsSource).toContain('value: "paged"');
+    expect(readerSettingsSource).toContain("onModeChange(item.value)");
   });
 
   it("presents the reader independently from the active reading tab", () => {

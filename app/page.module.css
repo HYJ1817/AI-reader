@@ -2209,7 +2209,10 @@
 }
 
 .readerOverlayBack:active {
-  opacity: 0.55;
+  opacity: 0.82;
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
+  transform: scale(0.94);
 }
 
 .readerPagePill {
@@ -2291,10 +2294,26 @@
 .readerMenuRow:not(:disabled):active {
   background: color-mix(in srgb, var(--foreground) 8%, transparent);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  transform: translate3d(0, 1px, 0) scale(0.985);
+  transition-delay: 0ms;
+}
+
+.readerMenuRow svg,
+.readerMenuTrailing {
+  color: color-mix(in srgb, var(--foreground) 94%, transparent);
+  transform: scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.readerMenuRow:not(:disabled):active svg,
+.readerMenuRow:not(:disabled):active .readerMenuTrailing {
+  opacity: 0.82;
+  transform: scale(0.94);
 }
 
 .readerMenuTrailing {
-  color: color-mix(in srgb, var(--foreground) 94%, transparent);
   font-size: 20px;
   font-weight: 800;
 }
@@ -2330,6 +2349,13 @@
   .readerOverlayBack,
   .readerMenuRow {
     transition: none;
+    transform: none;
+  }
+
+  .readerOverlayBack:active,
+  .readerMenuRow:not(:disabled):active,
+  .readerMenuRow:not(:disabled):active svg,
+  .readerMenuRow:not(:disabled):active .readerMenuTrailing {
     transform: none;
   }
 }
@@ -4307,14 +4333,27 @@
   color: rgba(255, 255, 255, 0.84);
   font-size: 17px;
   font-weight: 650;
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .tocSheet .tocRowButton:active {
   background: rgba(255, 255, 255, 0.08);
+  transform: translate3d(4px, 0, 0);
 }
 
 .tocSheet .tocEmptyText {
   color: rgba(255, 255, 255, 0.68);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tocSheet .tocRowButton,
+  .tocSheet .tocRowButton:active {
+    transition: none;
+    transform: none;
+  }
 }
 
 .readerSettingsSheet {
@@ -4336,8 +4375,8 @@
 .readerSettingsHeader h2 {
   margin: 0;
   color: rgba(255, 255, 255, 0.94);
-  font-size: 18px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 760;
   line-height: 1.2;
 }
 
@@ -4353,15 +4392,16 @@
 }
 
 .readerSettingsBody {
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
   padding: 8px 22px calc(var(--safe-bottom) + 20px);
 }
 
 .readerSettingsControlRow {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.75fr) minmax(104px, 1fr);
   gap: 14px;
 }
 
@@ -4389,8 +4429,18 @@
 .readerModeSegment button {
   height: 100%;
   color: rgba(255, 255, 255, 0.94);
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 17px;
+  font-weight: 760;
+  transform: scale(1);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.readerFontStepper button:active {
+  background: rgba(255, 255, 255, 0.1);
+  transform: scale(0.94);
 }
 
 .readerModeSegment {
@@ -4401,12 +4451,141 @@
 .readerModeSegment button {
   border-radius: 24px;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 17px;
+  font-size: 15px;
+}
+
+.readerModeSegment button:active {
+  background: rgba(255, 255, 255, 0.09);
+  transform: scale(0.94);
 }
 
 .readerModeSegment .readerModeSegmentActive {
   background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  transform: scale(1);
+}
+
+.readerModeIcon,
+.readerThemeIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 25px;
+  height: 25px;
+}
+
+.readerModeIcon svg,
+.readerThemeIcon svg {
+  display: block;
+  width: 23px;
+  height: 23px;
+}
+
+.readerSettingsPopover {
+  position: absolute;
+  top: 64px;
+  z-index: 4;
+  display: grid;
+  gap: 2px;
+  min-width: 196px;
+  padding: 14px 12px;
+  border-radius: 24px;
+  background: color-mix(in srgb, #fff9ee 92%, rgba(255, 255, 255, 0.64));
+  color: #111111;
+  box-shadow:
+    0 18px 42px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.readerSettingsPopover[data-menu="mode"] {
+  right: 78px;
+}
+
+.readerSettingsPopover[data-menu="theme"] {
+  right: 18px;
+}
+
+.readerSettingsPopoverRow {
+  display: grid;
+  grid-template-columns: 20px 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  border-radius: 14px;
+  color: inherit;
+  font-size: 15px;
+  font-weight: 720;
+  text-align: left;
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.readerSettingsPopoverRow:active {
+  background: rgba(0, 0, 0, 0.06);
+  transform: translate3d(0, 1px, 0) scale(0.985);
+}
+
+.readerSettingsPopoverCheck {
+  color: #111111;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: center;
+}
+
+.readerSettingsPopoverIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.readerSettingsPopoverIcon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.readerFontScale {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 12px;
+  margin: -7px 0 -2px 105px;
+}
+
+.readerFontScaleDot {
+  display: block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.readerFontScaleDot[data-active="true"] {
+  background: rgba(255, 255, 255, 0.78);
+  transform: scale(1.18);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readerFontStepper button,
+  .readerModeSegment button,
+  .readerFontStepper button:active,
+  .readerModeSegment button:active,
+  .readerSettingsPopoverRow,
+  .readerSettingsPopoverRow:active,
+  .readerFontScaleDot,
+  .readerFontScaleDot[data-active="true"] {
+    transition: none;
+    transform: none;
+  }
 }
 
 .readerBrightnessRow {
@@ -4415,7 +4594,7 @@
   align-items: center;
   gap: 12px;
   color: rgba(255, 255, 255, 0.86);
-  font-size: 22px;
+  font-size: 20px;
 }
 
 .readerBrightnessRow div {
@@ -4446,15 +4625,18 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: 120px;
-  padding: 16px 14px;
+  min-height: 108px;
+  padding: 14px 12px;
   border-radius: 16px;
   color: #ffffff;
   background: #000000;
   border: 2px solid transparent;
   text-align: center;
+  box-shadow: inset 0 0 0 1px transparent;
+  transform: translate3d(0, 0, 0);
   transition:
     border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard);
 }
 
@@ -4474,18 +4656,31 @@
 
 .readerThemePreviewActive {
   border-color: #ffffff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.24),
+    0 8px 20px rgba(0, 0, 0, 0.16);
+  transform: translate3d(0, -1px, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readerThemePreview,
+  .readerThemePreviewActive,
+  .readerThemePreview:active {
+    transition: none;
+    transform: none;
+  }
 }
 
 .readerThemePreviewSample {
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 500;
   line-height: 0.95;
 }
 
 .readerThemePreview span:last-child {
-  margin-top: 8px;
-  font-size: 17px;
-  font-weight: 650;
+  margin-top: 7px;
+  font-size: 15px;
+  font-weight: 620;
 }
 
 .readerSettingsSliders {
@@ -4522,21 +4717,34 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 14px;
-  min-height: 72px;
+  gap: 10px;
+  min-height: 64px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.13);
   color: rgba(255, 255, 255, 0.94);
-  font-size: 28px;
-  font-weight: 850;
+  font-size: 22px;
+  font-weight: 760;
   transition:
     background-color var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard);
 }
 
 .readerCustomEntryButton span {
-  font-size: 31px;
+  font-size: 23px;
   line-height: 1;
+}
+
+.readerCustomGearIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+}
+
+.readerCustomGearIcon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .readerCustomEntryButton:active {
@@ -4548,7 +4756,7 @@
   max-width: 430px;
   max-height: min(92dvh, 760px);
   border-radius: 28px 28px 0 0;
-  background: #1c1c1f;
+  background: #1f1f23;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -4560,8 +4768,8 @@
   grid-template-columns: 56px minmax(0, 1fr) 56px;
   align-items: center;
   gap: 8px;
-  padding: 18px 22px 10px;
-  background: color-mix(in srgb, #3b3428 70%, #1b1c1f);
+  padding: 16px 22px 8px;
+  background: color-mix(in srgb, #3a3328 76%, #1d1d20);
 }
 
 .readerCustomHeader h2 {
@@ -4585,37 +4793,46 @@
 }
 
 .readerCustomPreview {
-  min-height: 142px;
-  padding: 22px 24px 20px;
-  background: color-mix(in srgb, #3b3428 78%, #1b1c1f);
+  min-height: 190px;
+  padding: 12px 0 24px;
+  background: color-mix(in srgb, #3a3328 80%, #1d1d20);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.78);
   overflow: hidden;
 }
 
-.readerCustomPreview strong {
-  display: block;
-  margin-bottom: 12px;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 24px;
-  font-weight: inherit;
-  line-height: 1;
+.readerCustomPreviewText {
+  max-width: 100%;
+  color: inherit;
+  font-size: 16px;
+  line-height: inherit;
 }
 
-.readerCustomPreview p {
+.readerCustomPreviewText strong {
+  display: block;
+  margin-bottom: 16px;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 36px;
+  font-weight: inherit;
+  line-height: 1.05;
+}
+
+.readerCustomPreviewText p {
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
-  font-size: 15.5px;
-  line-height: 1.62;
+  font-size: inherit;
+  line-height: inherit;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 4;
 }
 
 .readerCustomBody {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 16px 22px calc(var(--safe-bottom) + 22px);
+  gap: 14px;
+  padding: 18px 22px calc(var(--safe-bottom) + 22px);
+  background: #1f1f23;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -4638,6 +4855,13 @@
   overflow: hidden;
   border-radius: 22px;
   background: #2b2b2e;
+}
+
+.readerCustomControlCard {
+  overflow: hidden;
+  border-radius: 24px;
+  background: #2b2b30;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
 }
 
 .readerCustomRow,
@@ -4732,21 +4956,23 @@
 
 .readerCustomSliderRow {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 14px;
-  min-height: 88px;
-  padding-top: 14px;
-  padding-bottom: 14px;
+  gap: 10px 14px;
+  min-height: 96px;
+  padding-top: 16px;
+  padding-bottom: 16px;
 }
 
 .readerCustomSliderRow[data-disabled="true"] {
   opacity: 0.48;
 }
 
-.readerCustomSliderRow > span {
+.readerCustomSliderLabel {
   color: rgba(255, 255, 255, 0.44);
+  font-size: 16px;
+  font-weight: 700;
 }
 
-.readerCustomSliderRow strong {
+.readerCustomSliderValue {
   min-width: 48px;
   color: rgba(255, 255, 255, 0.56);
   font-size: 15px;
@@ -4755,25 +4981,27 @@
   font-variant-numeric: tabular-nums;
 }
 
-.readerCustomSliderRow > div {
+.readerCustomSliderControl {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 48px;
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
-.readerCustomSliderRow i {
+.readerCustomSliderIcon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   color: rgba(255, 255, 255, 0.88);
-  font-style: normal;
-  font-size: 17px;
-  font-weight: 800;
-  line-height: 1;
+}
+
+.readerCustomSliderSvg {
+  display: block;
+  width: 30px;
+  height: 30px;
 }
 
 .readerCustomSliderRow input {
@@ -5373,6 +5601,10 @@
   transform: translate3d(0, 1px, 0);
 }
 
+.providerModelRow[data-selected="true"] {
+  background: color-mix(in srgb, var(--tint) 7%, transparent);
+}
+
 .providerChoiceRow:last-child,
 .providerFormRow:last-child,
 .providerSwitchRow:last-child,
@@ -5389,6 +5621,10 @@
   align-items: center;
   justify-content: center;
   border-radius: 11px;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0;
+  line-height: 1;
   opacity: 0.96;
   transform: scale(1);
   transition:
@@ -5398,6 +5634,11 @@
 
 .providerModelRow:active .providerChoiceIcon {
   transform: scale(0.94);
+}
+
+.providerModelRow[data-selected="true"] .providerChoiceIcon {
+  opacity: 1;
+  transform: scale(1.04);
 }
 
 .providerIconopenai {
@@ -5518,6 +5759,11 @@
   padding: 0 16px;
 }
 
+.providerFormRow:focus-within {
+  background: color-mix(in srgb, var(--tint) 6%, transparent);
+  transform: translate3d(0, 1px, 0);
+}
+
 .providerFormRow input {
   width: 100%;
   min-width: 0;
@@ -5541,6 +5787,11 @@
   padding: 8px 12px;
 }
 
+.providerManualModelRow:focus-within {
+  background: color-mix(in srgb, var(--tint) 5%, transparent);
+  transform: translate3d(0, 1px, 0);
+}
+
 .providerManualModelRow input {
   min-width: 0;
   flex: 1;
@@ -5552,6 +5803,14 @@
   color: var(--text-primary);
   font-size: 14px;
   outline: none;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.providerManualModelRow input:focus {
+  background: color-mix(in srgb, var(--control-fill) 72%, var(--surface-primary));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tint) 28%, transparent);
 }
 
 .providerManualModelRow input::placeholder {
@@ -5655,7 +5914,10 @@
   .providerChoiceIcon,
   .providerModelCheck,
   .providerActiveBadge,
-  .providerChoiceChevron {
+  .providerChoiceChevron,
+  .providerFormRow,
+  .providerManualModelRow,
+  .providerManualModelRow input {
     transition: none;
   }
 }

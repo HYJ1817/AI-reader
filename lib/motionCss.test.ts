@@ -170,6 +170,234 @@ describe("motion CSS", () => {
     );
   });
 
+  it("gives reader chrome a tactile pressed state without moving blur layers", () => {
+    const backActiveStart = css.indexOf(".readerOverlayBack:active {");
+    const backActiveEnd = css.indexOf("}", backActiveStart);
+    const backActiveRule = css.slice(backActiveStart, backActiveEnd);
+    expect(backActiveRule).toContain("scale(0.94)");
+
+    const menuActiveStart = css.indexOf(".readerMenuRow:not(:disabled):active {");
+    const menuActiveEnd = css.indexOf("}", menuActiveStart);
+    const menuActiveRule = css.slice(menuActiveStart, menuActiveEnd);
+    expect(menuActiveRule).toContain("translate3d(0, 1px, 0) scale(0.985)");
+
+    const menuIconStart = css.indexOf(".readerMenuRow svg,");
+    const menuIconEnd = css.indexOf("}", menuIconStart);
+    const menuIconRule = css.slice(menuIconStart, menuIconEnd);
+    expect(menuIconRule).toMatch(/transition:[^}]*transform/s);
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerMenuRow:not\(:disabled\):active,[\s\S]*?\.readerMenuRow:not\(:disabled\):active svg,[\s\S]*?\.readerMenuRow:not\(:disabled\):active \.readerMenuTrailing\s*\{[\s\S]*?transform:\s*none;/s
+    );
+  });
+
+  it("gives the reader contents rows a compact pressed response", () => {
+    const rowStart = css.indexOf(".tocSheet .tocRowButton {");
+    const rowEnd = css.indexOf("}", rowStart);
+    const rowRule = css.slice(rowStart, rowEnd);
+    expect(rowRule).toContain("transform");
+    expect(rowRule).toMatch(/transition:[^}]*background[^}]*transform/s);
+
+    const activeStart = css.indexOf(".tocSheet .tocRowButton:active {");
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).toContain("translate3d(4px, 0, 0)");
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.tocSheet \.tocRowButton,[\s\S]*?\.tocSheet \.tocRowButton:active\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
+    );
+  });
+
+  it("gives reader appearance controls native-feeling pressed and selected states", () => {
+    const controlButtonStart = css.indexOf(
+      ".readerFontStepper button,\n.readerModeSegment button {"
+    );
+    const controlButtonEnd = css.indexOf("}", controlButtonStart);
+    const controlButtonRule = css.slice(controlButtonStart, controlButtonEnd);
+    expect(controlButtonRule).toContain("transform");
+    expect(controlButtonRule).toMatch(/transition:[^}]*background[^}]*transform/s);
+
+    for (const selector of [
+      ".readerFontStepper button:active {",
+      ".readerModeSegment button:active {",
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain("scale(0.94)");
+    }
+
+    const activeStart = css.indexOf(
+      ".readerModeSegment .readerModeSegmentActive {"
+    );
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).toContain("box-shadow");
+    expect(activeRule).toContain("transform");
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf(".readerFontStepper button")
+    );
+    const reduceEnd = css.indexOf("}", css.indexOf("transform: none;", reduceStart));
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".readerFontStepper button",
+      ".readerModeSegment button",
+      ".readerFontStepper button:active",
+      ".readerModeSegment button:active",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
+    expect(reduceRule).toContain("transform: none;");
+  });
+
+  it("separates reader font sizing from reading mode controls", () => {
+    const rowStart = css.indexOf(".readerSettingsControlRow {");
+    const rowEnd = css.indexOf("}", rowStart);
+    const rowRule = css.slice(rowStart, rowEnd);
+    expect(rowRule).toContain("1.75fr");
+
+    const scaleStart = css.indexOf(".readerFontScale {");
+    const scaleEnd = css.indexOf("}", scaleStart);
+    const scaleRule = css.slice(scaleStart, scaleEnd);
+    expect(scaleRule).toContain("display: flex");
+    expect(scaleRule).toContain("gap");
+
+    const dotStart = css.indexOf(".readerFontScaleDot {");
+    const dotEnd = css.indexOf("}", dotStart);
+    const dotRule = css.slice(dotStart, dotEnd);
+    expect(dotRule).toContain("border-radius: 50%");
+    expect(dotRule).toMatch(/transition:[^}]*background[^}]*transform/s);
+
+    const activeStart = css.indexOf('.readerFontScaleDot[data-active="true"] {');
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).toContain("scale(1.18)");
+
+    const iconStart = css.indexOf(".readerModeIcon,");
+    const iconEnd = css.indexOf("}", iconStart);
+    const iconRule = css.slice(iconStart, iconEnd);
+    expect(iconRule).toContain("display: inline-flex");
+
+    const fontButtonStart = css.indexOf(
+      ".readerFontStepper button,\n.readerModeSegment button {"
+    );
+    const fontButtonEnd = css.indexOf("}", fontButtonStart);
+    const fontButtonRule = css.slice(fontButtonStart, fontButtonEnd);
+    expect(fontButtonRule).toContain("font-size: 17px");
+  });
+
+  it("styles reader settings popover menus independently from font sizing", () => {
+    const popoverStart = css.indexOf(".readerSettingsPopover {");
+    const popoverEnd = css.indexOf("}", popoverStart);
+    const popoverRule = css.slice(popoverStart, popoverEnd);
+    expect(popoverRule).toContain("position: absolute");
+    expect(popoverRule).toContain("z-index");
+
+    for (const selector of [
+      '.readerSettingsPopover[data-menu="mode"] {',
+      '.readerSettingsPopover[data-menu="theme"] {',
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain("right:");
+    }
+
+    const rowStart = css.indexOf(".readerSettingsPopoverRow {");
+    const rowEnd = css.indexOf("}", rowStart);
+    const rowRule = css.slice(rowStart, rowEnd);
+    expect(rowRule).toContain("font-size: 15px");
+    expect(rowRule).toMatch(/transition:[^}]*background[^}]*transform/s);
+
+    const customIconStart = css.indexOf(".readerCustomGearIcon {");
+    const customIconEnd = css.indexOf("}", customIconStart);
+    const customIconRule = css.slice(customIconStart, customIconEnd);
+    expect(customIconRule).toContain("display: inline-flex");
+  });
+
+  it("keeps reader settings typography at a normal menu scale", () => {
+    const headerStart = css.indexOf(".readerSettingsHeader h2 {");
+    const headerEnd = css.indexOf("}", headerStart);
+    const headerRule = css.slice(headerStart, headerEnd);
+    expect(headerRule).toContain("font-size: 17px");
+
+    const sampleStart = css.indexOf(".readerThemePreviewSample {");
+    const sampleEnd = css.indexOf("}", sampleStart);
+    const sampleRule = css.slice(sampleStart, sampleEnd);
+    expect(sampleRule).toContain("font-size: 30px");
+
+    const previewLabelStart = css.indexOf(".readerThemePreview span:last-child {");
+    const previewLabelEnd = css.indexOf("}", previewLabelStart);
+    const previewLabelRule = css.slice(previewLabelStart, previewLabelEnd);
+    expect(previewLabelRule).toContain("font-size: 15px");
+
+    const customEntryStart = css.indexOf(".readerCustomEntryButton {");
+    const customEntryEnd = css.indexOf("}", customEntryStart);
+    const customEntryRule = css.slice(customEntryStart, customEntryEnd);
+    expect(customEntryRule).toContain("font-size: 22px");
+    expect(customEntryRule).toContain("min-height: 64px");
+  });
+
+  it("lays out custom settings as a preview above a compact control card", () => {
+    const previewStart = css.indexOf(".readerCustomPreview {");
+    const previewEnd = css.indexOf("}", previewStart);
+    const previewRule = css.slice(previewStart, previewEnd);
+    expect(previewRule).toContain("background: color-mix");
+    expect(previewRule).toContain("border-bottom");
+    expect(previewRule).not.toContain("border-radius");
+
+    const previewTextStart = css.indexOf(".readerCustomPreviewText {");
+    const previewTextEnd = css.indexOf("}", previewTextStart);
+    const previewTextRule = css.slice(previewTextStart, previewTextEnd);
+    expect(previewTextRule).toContain("font-size: 16px");
+    expect(previewTextRule).toContain("line-height: inherit");
+
+    const cardStart = css.indexOf(".readerCustomControlCard {");
+    const cardEnd = css.indexOf("}", cardStart);
+    const cardRule = css.slice(cardStart, cardEnd);
+    expect(cardRule).toContain("border-radius: 24px");
+    expect(cardRule).toContain("overflow: hidden");
+
+    const sliderRule = [...css.matchAll(/\.readerCustomSliderRow\s*\{[^}]*\}/g)]
+      .map((match) => match[0])
+      .find((rule) => rule.includes("grid-template-columns")) ?? "";
+    expect(sliderRule).toContain("min-height: 96px");
+    expect(sliderRule).toContain("grid-template-columns: minmax(0, 1fr) auto");
+
+    const sliderControlStart = css.indexOf(".readerCustomSliderControl {");
+    const sliderControlEnd = css.indexOf("}", sliderControlStart);
+    const sliderControlRule = css.slice(sliderControlStart, sliderControlEnd);
+    expect(sliderControlRule).toContain("grid-template-columns: 42px minmax(0, 1fr)");
+
+    const iconStart = css.indexOf(".readerCustomSliderIcon {");
+    const iconEnd = css.indexOf("}", iconStart);
+    const iconRule = css.slice(iconStart, iconEnd);
+    expect(iconRule).toContain("width: 34px");
+    expect(iconRule).toContain("height: 34px");
+
+    expect(css).toContain(".readerCustomSliderSvg");
+  });
+
+  it("makes the active reader theme preview visually stable", () => {
+    const previewStart = css.indexOf(".readerThemePreview {");
+    const previewEnd = css.indexOf("}", previewStart);
+    const previewRule = css.slice(previewStart, previewEnd);
+    expect(previewRule).toMatch(/transition:[^}]*border-color[^}]*box-shadow[^}]*transform/s);
+
+    const activeStart = css.indexOf(".readerThemePreviewActive {");
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).toContain("box-shadow");
+    expect(activeRule).toContain("translate3d(0, -1px, 0)");
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerThemePreview,[\s\S]*?\.readerThemePreviewActive,[\s\S]*?\.readerThemePreview:active\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
+    );
+  });
+
   it("gives touch rows and sheet actions compositor-only pressed feedback", () => {
     const navStart = css.indexOf(".settingsNavRow {");
     const navEnd = css.indexOf("}", navStart);
@@ -289,8 +517,23 @@ describe("motion CSS", () => {
       /\.providerModelRow:active\s+\.providerChoiceIcon\s*\{[^}]*scale\(0\.94\)/s
     );
     expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.providerChoiceIcon,[\s\S]*?\.providerModelCheck,[\s\S]*?\.providerActiveBadge,[\s\S]*?\.providerChoiceChevron\s*\{[\s\S]*?transition:\s*none;/s
+      /\.providerModelRow\[data-selected="true"\]\s*\{[^}]*background:[^}]*color-mix/s
     );
+    expect(css).toMatch(
+      /\.providerModelRow\[data-selected="true"\]\s+\.providerChoiceIcon\s*\{[^}]*scale\(1\.04\)/s
+    );
+    const reduceStart = css.indexOf("@media (prefers-reduced-motion: reduce)", css.indexOf(".providerChoiceIcon"));
+    const reduceEnd = css.indexOf("}", css.indexOf("transition: none;", reduceStart));
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".providerChoiceIcon",
+      ".providerModelCheck",
+      ".providerActiveBadge",
+      ".providerChoiceChevron",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
   });
 
   it("gives library filter chips tactile state transitions", () => {
@@ -311,5 +554,27 @@ describe("motion CSS", () => {
     const pressEnd = css.indexOf("}", pressStart);
     const pressRule = css.slice(pressStart, pressEnd);
     expect(pressRule).toContain("scale(0.96)");
+  });
+
+  it("gives provider text fields a calm focus transition", () => {
+    for (const selector of [
+      ".providerFormRow:focus-within {",
+      ".providerManualModelRow:focus-within {",
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain("background");
+      expect(rule).toContain("transform");
+    }
+
+    const inputStart = css.indexOf(".providerManualModelRow input {");
+    const inputEnd = css.indexOf("}", inputStart);
+    const inputRule = css.slice(inputStart, inputEnd);
+    expect(inputRule).toMatch(/transition:[^}]*background[^}]*box-shadow/s);
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.providerFormRow,[\s\S]*?\.providerManualModelRow,[\s\S]*?\.providerManualModelRow input\s*\{[\s\S]*?transition:\s*none;/s
+    );
   });
 });

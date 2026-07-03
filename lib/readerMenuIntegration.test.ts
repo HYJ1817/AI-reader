@@ -97,12 +97,40 @@ describe("reader contents and theme sheets", () => {
     expect(tocSource).toContain("高亮标记");
   });
 
-  it("keeps the reader theme picker to light and dark only", () => {
+  it("keeps the reader theme preview cards to light and dark", () => {
+    const themePreviewStart = settingsSource.indexOf("const THEMES:");
+    const themePreviewEnd = settingsSource.indexOf("];", themePreviewStart);
+    const themePreviewSource = settingsSource.slice(themePreviewStart, themePreviewEnd);
     expect(settingsSource).toContain('value: "light"');
     expect(settingsSource).toContain('value: "dark"');
-    expect(settingsSource).not.toContain('value: "system"');
-    expect(settingsSource).not.toContain('value: "sepia"');
+    expect(themePreviewSource).not.toContain('value: "system"');
+    expect(themePreviewSource).not.toContain('value: "sepia"');
     expect(settingsSource).toContain("styles.readerThemePreviewGrid");
+  });
+
+  it("presents small and large as font-size controls with a scale indicator", () => {
+    expect(settingsSource).toContain("FONT_SCALE_DOTS");
+    expect(settingsSource).toContain("Math.round((FONT_MAX - FONT_MIN) / FONT_STEP) + 1");
+    expect(settingsSource).toContain("fontScaleActiveIndex");
+    expect(settingsSource).toContain('aria-label="减小字号"');
+    expect(settingsSource).toContain('aria-label="增大字号"');
+    expect(settingsSource).toMatch(/>\s*小\s*</);
+    expect(settingsSource).toMatch(/>\s*大\s*</);
+    expect(settingsSource).toContain("styles.readerFontScale");
+    expect(settingsSource).toContain("styles.readerFontScaleDot");
+  });
+
+  it("separates appearance and page-flow menus in the top controls", () => {
+    expect(settingsSource).toContain('type ReaderSettingsMenu = "mode" | "theme"');
+    expect(settingsSource).toContain('setOpenMenu(openMenu === "mode" ? null : "mode")');
+    expect(settingsSource).toContain('setOpenMenu(openMenu === "theme" ? null : "theme")');
+    expect(settingsSource).toContain("READER_MODE_MENU_OPTIONS.map");
+    expect(settingsSource).toContain("READER_THEME_MENU_OPTIONS.map");
+    expect(settingsSource).toContain("styles.readerSettingsPopover");
+    expect(settingsSource).toContain("styles.readerModeIcon");
+    expect(settingsSource).toContain("styles.readerThemeIcon");
+    expect(settingsSource).toContain("styles.readerCustomGearIcon");
+    expect(settingsSource).not.toContain("M12 2.5v3M12 18.5v3M2.5 12h3");
   });
 
   it("opens detailed custom settings in a separate sheet", () => {
@@ -115,5 +143,19 @@ describe("reader contents and theme sheets", () => {
     expect(customSettingsSource).toContain("pageMarginPx");
     expect(css).toContain(".readerCustomSettingsSheet");
     expect(css).toContain(".readerCustomEntryButton");
+  });
+
+  it("uses a live text preview in the custom settings sheet", () => {
+    expect(customSettingsSource).toContain("const previewStyle: CSSProperties");
+    expect(customSettingsSource).toContain("style={previewStyle}");
+    expect(customSettingsSource).toContain("styles.readerCustomPreviewText");
+    expect(customSettingsSource).toContain("styles.readerCustomControlCard");
+    expect(customSettingsSource).toContain("styles.readerCustomSliderIcon");
+    expect(customSettingsSource).toContain("styles.readerCustomSliderSvg");
+    expect(customSettingsSource).not.toContain("styles.readerCustomLetterIcon");
+    expect(customSettingsSource).not.toContain("styles.readerCustomLineIcon");
+    expect(customSettingsSource).not.toContain("<img");
+    expect(css).toContain(".readerCustomPreviewText");
+    expect(css).toContain(".readerCustomControlCard");
   });
 });
