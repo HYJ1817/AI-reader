@@ -610,6 +610,62 @@ describe("motion CSS", () => {
     expect(libraryActionActiveRule).toContain("scale(0.96)");
   });
 
+  it("gives compact segmented and collection controls pressed motion", () => {
+    for (const selector of [
+      ".settingsSegmentControl button {",
+      ".libraryViewToggle button {",
+      ".collectionRow {",
+      ".collectionRowMain {",
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain("transform");
+      expect(rule).toMatch(/transition:[^}]*transform/s);
+    }
+
+    expect(css).toMatch(
+      /\.settingsSegmentControl\s+button:not\(:disabled\):active\s*\{[^}]*scale\(0\.94\)/s
+    );
+    expect(css).toMatch(
+      /\.libraryViewToggle\s+button:not\(:disabled\):active\s*\{[^}]*scale\(0\.94\)/s
+    );
+    expect(css).toMatch(
+      /\.libraryViewToggle\s+\.libraryViewActive\s*\{[^}]*transform:\s*scale\(1\)/s
+    );
+    expect(css).toMatch(
+      /\.collectionRow:active\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.collectionRowMain:active\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)/s
+    );
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf(".settingsSegmentControl button:not(:disabled):active")
+    );
+    const reduceEnd = css.indexOf(
+      "}",
+      css.indexOf(".collectionRowMain:active", reduceStart)
+    );
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".settingsSegmentControl button",
+      ".settingsSegmentControl button:not(:disabled):active",
+      ".libraryViewToggle button",
+      ".libraryViewToggle button:not(:disabled):active",
+      ".libraryViewToggle .libraryViewActive",
+      ".collectionRow",
+      ".collectionRow:active",
+      ".collectionRowMain",
+      ".collectionRowMain:active",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
+    expect(reduceRule).toContain("transform: none;");
+  });
+
   it("gives provider sheet controls consistent pressed motion", () => {
     for (const selector of [
       ".providerNavButton {",
