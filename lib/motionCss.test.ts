@@ -253,6 +253,10 @@ describe("motion CSS", () => {
       ".readerModeSegment button",
       ".readerFontStepper button:active",
       ".readerModeSegment button:active",
+      ".readerSettingsPopoverCheck",
+      ".readerSettingsPopoverIcon",
+      ".readerSettingsPopoverRow:active .readerSettingsPopoverCheck",
+      ".readerSettingsPopoverRow:active .readerSettingsPopoverIcon",
     ]) {
       expect(reduceRule).toContain(selector);
     }
@@ -319,6 +323,25 @@ describe("motion CSS", () => {
     expect(rowRule).toContain("font-size: 15px");
     expect(rowRule).toMatch(/transition:[^}]*background[^}]*transform/s);
 
+    const checkStart = css.indexOf(".readerSettingsPopoverCheck {");
+    const checkEnd = css.indexOf("}", checkStart);
+    const checkRule = css.slice(checkStart, checkEnd);
+    expect(checkRule).toContain("transform");
+    expect(checkRule).toMatch(/transition:[^}]*transform/s);
+
+    const iconStart = css.indexOf(".readerSettingsPopoverIcon {");
+    const iconEnd = css.indexOf("}", iconStart);
+    const iconRule = css.slice(iconStart, iconEnd);
+    expect(iconRule).toContain("transform");
+    expect(iconRule).toMatch(/transition:[^}]*transform/s);
+
+    expect(css).toMatch(
+      /\.readerSettingsPopoverRow:active\s+\.readerSettingsPopoverCheck\s*\{[^}]*scale\(1\.08\)/s
+    );
+    expect(css).toMatch(
+      /\.readerSettingsPopoverRow:active\s+\.readerSettingsPopoverIcon\s*\{[^}]*scale\(0\.94\)/s
+    );
+
     const customIconStart = css.indexOf(".readerCustomGearIcon {");
     const customIconEnd = css.indexOf("}", customIconStart);
     const customIconRule = css.slice(customIconStart, customIconEnd);
@@ -346,6 +369,31 @@ describe("motion CSS", () => {
     const customEntryRule = css.slice(customEntryStart, customEntryEnd);
     expect(customEntryRule).toContain("font-size: 22px");
     expect(customEntryRule).toContain("min-height: 64px");
+
+    const customGearStart = css.indexOf(".readerCustomGearIcon {");
+    const customGearEnd = css.indexOf("}", customGearStart);
+    const customGearRule = css.slice(customGearStart, customGearEnd);
+    expect(customGearRule).toContain("transform");
+    expect(customGearRule).toMatch(/transition:[^}]*transform/s);
+    expect(css).toMatch(
+      /\.readerCustomEntryButton:active\s+\.readerCustomGearIcon\s*\{[^}]*scale\(0\.92\)/s
+    );
+
+    const customReduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf(".readerCustomEntryButton:active .readerCustomGearIcon")
+    );
+    const customReduceEnd = css.indexOf(
+      "}",
+      css.indexOf("transform: none;", customReduceStart)
+    );
+    const customReduceRule = css.slice(customReduceStart, customReduceEnd);
+    expect(customReduceRule).toContain(".readerCustomGearIcon");
+    expect(customReduceRule).toContain(
+      ".readerCustomEntryButton:active .readerCustomGearIcon"
+    );
+    expect(customReduceRule).toContain("transition: none;");
+    expect(customReduceRule).toContain("transform: none;");
   });
 
   it("lays out custom settings as a preview above a compact control card", () => {

@@ -4545,6 +4545,8 @@
   font-weight: 800;
   line-height: 1;
   text-align: center;
+  transform: scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .readerSettingsPopoverIcon {
@@ -4553,6 +4555,16 @@
   justify-content: center;
   width: 24px;
   height: 24px;
+  transform: scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.readerSettingsPopoverRow:active .readerSettingsPopoverCheck {
+  transform: scale(1.08);
+}
+
+.readerSettingsPopoverRow:active .readerSettingsPopoverIcon {
+  transform: scale(0.94);
 }
 
 .readerSettingsPopoverIcon svg {
@@ -4592,6 +4604,10 @@
   .readerModeSegment button:active,
   .readerSettingsPopoverRow,
   .readerSettingsPopoverRow:active,
+  .readerSettingsPopoverCheck,
+  .readerSettingsPopoverIcon,
+  .readerSettingsPopoverRow:active .readerSettingsPopoverCheck,
+  .readerSettingsPopoverRow:active .readerSettingsPopoverIcon,
   .readerFontScaleDot,
   .readerFontScaleDot[data-active="true"] {
     transition: none;
@@ -4751,6 +4767,8 @@
   justify-content: center;
   width: 24px;
   height: 24px;
+  transform: scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .readerCustomGearIcon svg {
@@ -4761,6 +4779,18 @@
 .readerCustomEntryButton:active {
   transform: scale(0.98);
   background: rgba(255, 255, 255, 0.2);
+}
+
+.readerCustomEntryButton:active .readerCustomGearIcon {
+  transform: scale(0.92);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .readerCustomGearIcon,
+  .readerCustomEntryButton:active .readerCustomGearIcon {
+    transition: none;
+    transform: none;
+  }
 }
 
 .readerCustomSettingsSheet {
