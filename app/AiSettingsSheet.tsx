@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
 import {
-  AI_API_FORMATS,
   AI_PROVIDER_PRESETS,
   createEmptyAiProvider,
   createAiProviderFromPreset,
@@ -141,23 +140,6 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
     setModelRefreshStatus("");
   }
 
-  function changeProtocol(protocol: AiProviderProtocol) {
-    const format = getAiApiFormat(protocol);
-    if (!draft) return;
-    setDraft({
-      ...draft,
-      protocol,
-      defaultPath: format.defaultPath,
-      baseUrl: resolveAiProviderFormatBaseUrl({
-        currentBaseUrl: draft.baseUrl,
-        protocol,
-        appendDefaultPath: true,
-      }),
-      appendDefaultPath: true,
-    });
-    setModelRefreshStatus("");
-  }
-
   function toggleAppendDefaultPath(appendDefaultPath: boolean) {
     if (!draft || !draft.protocol) return;
     const format = getAiApiFormat(draft.protocol);
@@ -201,7 +183,7 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
 
   async function refreshModels() {
     if (!draft || !draft.protocol || !draft.baseUrl.trim() || !draft.apiKey.trim()) {
-      setModelRefreshStatus("请先填写 API 地址、API Key，并选择 API 格式。");
+      setModelRefreshStatus("请先选择服务商，并填写 API 地址和 API Key。");
       return;
     }
     setRefreshingModels(true);
@@ -463,29 +445,9 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
                 ) : (
                   <div className={styles.providerStaticRow}>
                     <strong>路径</strong>
-                    <span>选择 API 格式后设置</span>
+                    <span>选择服务商后设置</span>
                   </div>
                 )}
-              </div>
-
-              <p className={styles.providerGroupLabel}>API 格式</p>
-              <div className={styles.providerListCard}>
-                {AI_API_FORMATS.map((format) => (
-                  <button
-                    key={format.protocol}
-                    type="button"
-                    className={styles.providerModelRow}
-                    onClick={() => changeProtocol(format.protocol)}
-                  >
-                    <span className={styles.providerChoiceText}>
-                      <strong>{format.label}</strong>
-                      <small>{format.description}</small>
-                    </span>
-                    <span className={styles.providerModelCheck}>
-                      {draft.protocol === format.protocol ? "✓" : ""}
-                    </span>
-                  </button>
-                ))}
               </div>
 
               <div className={styles.providerGroupHeader}>

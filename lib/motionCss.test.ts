@@ -267,4 +267,49 @@ describe("motion CSS", () => {
     const grabberRule = css.slice(grabberStart, grabberEnd);
     expect(grabberRule).toContain("scaleX(1.2)");
   });
+
+  it("animates provider selection affordances without layout motion", () => {
+    for (const selector of [
+      ".providerChoiceIcon {",
+      ".providerModelCheck {",
+      ".providerActiveBadge {",
+      ".providerChoiceChevron {",
+    ]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain("transform");
+      expect(rule).toMatch(/transition:[^}]*opacity[^}]*transform|transition:[^}]*transform[^}]*opacity/s);
+      expect(rule).not.toMatch(
+        /transition:[^;}]*\b(?:top|left|width|height|margin)\b/
+      );
+    }
+
+    expect(css).toMatch(
+      /\.providerModelRow:active\s+\.providerChoiceIcon\s*\{[^}]*scale\(0\.94\)/s
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.providerChoiceIcon,[\s\S]*?\.providerModelCheck,[\s\S]*?\.providerActiveBadge,[\s\S]*?\.providerChoiceChevron\s*\{[\s\S]*?transition:\s*none;/s
+    );
+  });
+
+  it("gives library filter chips tactile state transitions", () => {
+    const chipStart = css.indexOf(".groupChip {");
+    const chipEnd = css.indexOf("}", chipStart);
+    const chipRule = css.slice(chipStart, chipEnd);
+    expect(chipRule).toContain("transform");
+    expect(chipRule).toMatch(
+      /transition:[^}]*background[^}]*color[^}]*border-color[^}]*transform/s
+    );
+
+    const activeStart = css.indexOf(".groupChipActive {");
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).toContain("transform: scale(1)");
+
+    const pressStart = css.indexOf(".groupChip:not(:disabled):active {");
+    const pressEnd = css.indexOf("}", pressStart);
+    const pressRule = css.slice(pressStart, pressEnd);
+    expect(pressRule).toContain("scale(0.96)");
+  });
 });

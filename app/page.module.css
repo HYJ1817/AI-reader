@@ -3747,19 +3747,27 @@
   font-size: 13px;
   font-weight: 500;
   border: 0.5px solid var(--separator);
+  transform: scale(1);
   transition:
     background var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard);
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .groupChipActive {
   background: var(--tint);
   color: #ffffff;
   border-color: var(--tint);
+  transform: scale(1);
 }
 
 .groupChip:hover {
   opacity: 0.8;
+}
+
+.groupChip:not(:disabled):active {
+  transform: scale(0.96);
 }
 
 .bookGroupLabels {
@@ -5381,6 +5389,15 @@
   align-items: center;
   justify-content: center;
   border-radius: 11px;
+  opacity: 0.96;
+  transform: scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerModelRow:active .providerChoiceIcon {
+  transform: scale(0.94);
 }
 
 .providerIconopenai {
@@ -5448,6 +5465,11 @@
   font-size: 17px;
   font-weight: 600;
   text-align: right;
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .providerActiveBadge {
@@ -5458,6 +5480,11 @@
   color: #1a8f45;
   font-size: 12px;
   font-weight: 700;
+  opacity: 1;
+  transform: scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .providerChoiceChevron {
@@ -5465,6 +5492,11 @@
   color: var(--text-tertiary);
   font-size: 26px;
   line-height: 1;
+  opacity: 0.72;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .providerEmptyState {
@@ -5617,4 +5649,13 @@
   background: var(--surface-primary);
   color: #ff3b30;
   border: 0.5px solid var(--hairline);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .providerChoiceIcon,
+  .providerModelCheck,
+  .providerActiveBadge,
+  .providerChoiceChevron {
+    transition: none;
+  }
 }

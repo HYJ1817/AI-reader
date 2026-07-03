@@ -7,12 +7,11 @@ const aiSettingsSource = readFileSync(
 );
 
 describe("AI settings provider sheet", () => {
-  it("offers provider presets before lower-level API formats", () => {
+  it("uses provider presets as the single visible protocol chooser", () => {
     expect(aiSettingsSource).toContain("AI_PROVIDER_PRESETS.map");
     expect(aiSettingsSource).toContain("changeProviderKind");
 
-    expect(aiSettingsSource.indexOf("AI_PROVIDER_PRESETS.map")).toBeLessThan(
-      aiSettingsSource.indexOf("AI_API_FORMATS.map")
-    );
+    expect(aiSettingsSource).not.toContain("AI_API_FORMATS.map");
+    expect(aiSettingsSource).not.toContain("changeProtocol");
   });
 });
