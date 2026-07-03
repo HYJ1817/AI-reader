@@ -61,7 +61,7 @@ export default function AppNavigation({
               <rect className={styles.tabIconStroke} x="17.7" y="6.6" width="4.2" height="14.2" rx="1.4" transform="rotate(-7 19.8 13.7)" />
               <path className={styles.tabIconStroke} d="M5.8 9.2v7.6M12.8 8.1v9.2M19.9 10.4l.8 6.1" />
             </svg>
-            <span>{UI_TEXT.LIBRARY}</span>
+            <span className={styles.tabLabel}>{UI_TEXT.LIBRARY}</span>
           </button>
           <button
             className={`${styles.tab} ${activeTab === "reading" ? styles.activeTab : ""}`}
@@ -74,7 +74,7 @@ export default function AppNavigation({
               <path className={styles.tabIconStroke} d="M21.6 5.6c-3.3-.4-6 .3-8.6 2.1v14.1c2.4-1.6 5.2-2.3 8.6-1.8V5.6Z" />
               <path className={styles.tabIconStroke} d="M13 7.7v14.1" />
             </svg>
-            <span>{UI_TEXT.READING}</span>
+            <span className={styles.tabLabel}>{UI_TEXT.READING}</span>
           </button>
           <button
             className={`${styles.tab} ${activeTab === "settings" ? styles.activeTab : ""}`}
@@ -89,7 +89,7 @@ export default function AppNavigation({
               <circle className={styles.tabIconStroke} cx="16.2" cy="13" r="2.2" />
               <circle className={styles.tabIconStroke} cx="11.8" cy="18.6" r="2.2" />
             </svg>
-            <span>{UI_TEXT.SETTINGS}</span>
+            <span className={styles.tabLabel}>{UI_TEXT.SETTINGS}</span>
           </button>
         </nav>
       )}

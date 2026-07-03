@@ -1404,6 +1404,20 @@
   transition: transform var(--motion-fast) var(--ease-standard);
 }
 
+.tabLabel {
+  display: block;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.activeTab .tabIcon {
+  transform: translate3d(0, -1px, 0) scale(1.04);
+}
+
+.activeTab .tabLabel {
+  transform: translate3d(0, -1px, 0);
+}
+
 .tabIconStroke {
   fill: none;
   stroke: currentColor;
@@ -1442,8 +1456,24 @@
   transform: scale(0.92);
 }
 
+.tab:not(:disabled):active .tabLabel {
+  transform: translate3d(0, 1px, 0) scale(0.96);
+}
+
 .activeTab:hover {
   color: var(--text-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabIcon,
+  .activeTab .tabIcon,
+  .tab:not(:disabled):active .tabIcon,
+  .tabLabel,
+  .activeTab .tabLabel,
+  .tab:not(:disabled):active .tabLabel {
+    transition: none;
+    transform: none;
+  }
 }
 
 .libraryBatchBar {

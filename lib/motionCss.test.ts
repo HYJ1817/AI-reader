@@ -548,6 +548,44 @@ describe("motion CSS", () => {
     const tabIconRule = css.slice(tabIconStart, tabIconEnd);
     expect(tabIconRule).toContain("transform");
 
+    const tabLabelStart = css.indexOf(".tabLabel {");
+    const tabLabelEnd = css.indexOf("}", tabLabelStart);
+    const tabLabelRule = css.slice(tabLabelStart, tabLabelEnd);
+    expect(tabLabelRule).toContain("transform");
+    expect(tabLabelRule).toMatch(/transition:[^}]*transform/s);
+
+    expect(css).toMatch(
+      /\.activeTab\s+\.tabIcon\s*\{[^}]*translate3d\(0,\s*-1px,\s*0\)[^}]*scale\(1\.04\)/s
+    );
+    expect(css).toMatch(
+      /\.activeTab\s+\.tabLabel\s*\{[^}]*translate3d\(0,\s*-1px,\s*0\)/s
+    );
+    expect(css).toMatch(
+      /\.tab:not\(:disabled\):active\s+\.tabLabel\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.96\)/s
+    );
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf(".activeTab:hover {")
+    );
+    const reduceEnd = css.indexOf(
+      "}",
+      css.indexOf(".tab:not(:disabled):active .tabLabel", reduceStart)
+    );
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".tabIcon",
+      ".activeTab .tabIcon",
+      ".tab:not(:disabled):active .tabIcon",
+      ".tabLabel",
+      ".activeTab .tabLabel",
+      ".tab:not(:disabled):active .tabLabel",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
+    expect(reduceRule).toContain("transform: none;");
+
     const switchStart = css.indexOf(".iosSwitch {");
     const switchEnd = css.indexOf("}", switchStart);
     const switchRule = css.slice(switchStart, switchEnd);
