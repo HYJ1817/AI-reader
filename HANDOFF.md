@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `d9bc7d1` (`style: add library book press depth`)
-- If branch HEAD is newer than `d9bc7d1`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `fd66621` (`style: polish bottom tab press feedback`)
+- If branch HEAD is newer than `fd66621`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `d9bc7d1`; push it before handing off if not already pushed
+  - local branch includes `fd66621`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -188,11 +188,24 @@ Latest library book press-depth polish:
   - `docs/superpowers/specs/2026-07-03-library-book-press-depth-design.md`
   - `docs/superpowers/plans/2026-07-03-library-book-press-depth.md`
 
+Latest bottom tab micro-lift polish:
+
+- Bottom navigation labels now have a named `.tabLabel` motion target.
+- The active tab icon and label sit with a subtle upward lift, so selected state reads through content position as well as color and the sliding indicator.
+- Pressing a tab now makes the icon and label respond together: the outer tab compresses, the icon compresses, and the label settles downward.
+- Reduced-motion coverage disables active and pressed tab icon/label transforms.
+- This does not change navigation order, destinations, tab bar dimensions, or batch action bar behavior.
+- Design and implementation plan docs were added:
+  - `docs/superpowers/specs/2026-07-03-bottom-tab-micro-lift-design.md`
+  - `docs/superpowers/plans/2026-07-03-bottom-tab-micro-lift.md`
+
 ## Recent Commit Trail
 
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+fd66621 style: polish bottom tab press feedback
+2b5f09e docs: add bottom tab micro lift plan
 d9bc7d1 style: add library book press depth
 3042253 docs: add library book press depth plan
 87942d3 docs: add library book press depth design
@@ -219,7 +232,7 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `d9bc7d1`, these passed:
+After the latest code commit `fd66621`, these passed:
 
 ```powershell
 npm.cmd run test -- lib/motionCss.test.ts
@@ -310,5 +323,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 d9bc7d1，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效，以及书库 grid/list 书籍封面和更多按钮的 press-depth 动效。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://deer-milk-brand-tactics.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
+最新代码提交是 fd66621，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效，以及底部导航 active/pressed tab 的 icon+label 微抬和回弹。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://deer-milk-brand-tactics.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
 ```
