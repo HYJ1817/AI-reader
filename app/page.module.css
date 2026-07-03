@@ -1575,6 +1575,14 @@
   transform: scale(0.985);
 }
 
+.bookGridItem:active .bookCover {
+  transform: translate3d(0, 1px, 0) scale(0.985);
+}
+
+.bookItem:active .bookCover {
+  transform: translate3d(0, 1px, 0) scale(0.985);
+}
+
 .bookSelected .bookGridItem {
   opacity: 0.72;
   transform: scale(0.985);
@@ -1723,6 +1731,8 @@
   border-radius: 4px;
   overflow: hidden;
   position: relative;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .bookCoverFallback {
@@ -1813,11 +1823,36 @@
   height: 28px;
   border-radius: 50%;
   color: var(--text-tertiary);
-  transition: opacity var(--motion-fast) var(--ease-standard);
+  transform: scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .bookMoreButton:hover {
   opacity: 0.7;
+}
+
+.bookMoreButton:active {
+  transform: scale(0.94);
+}
+
+.bookItem:active .bookMoreButton {
+  transform: scale(0.96);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookCover,
+  .bookGridItem:active .bookCover,
+  .bookItem:active .bookCover,
+  .bookMoreButton,
+  .bookMoreButton:active,
+  .bookItem:active .bookMoreButton,
+  .bookGridMoreButton,
+  .bookGridMoreButton:active {
+    transition: none;
+    transform: none;
+  }
 }
 
 .hiddenInput {

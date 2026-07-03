@@ -124,6 +124,61 @@ describe("motion CSS", () => {
     expect(rule).not.toContain("box-shadow");
   });
 
+  it("gives library book entries layered press depth", () => {
+    const coverStart = css.indexOf("\n.bookCover {");
+    const coverEnd = css.indexOf("}", coverStart);
+    const coverRule = css.slice(coverStart, coverEnd);
+    expect(coverRule).toContain("transform");
+    expect(coverRule).toMatch(/transition:[^}]*transform/s);
+
+    expect(css).toMatch(
+      /\.bookGridItem:active\s+\.bookCover\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.985\)/s
+    );
+    expect(css).toMatch(
+      /\.bookItem:active\s+\.bookCover\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.985\)/s
+    );
+
+    const moreStart = css.indexOf(".bookMoreButton {");
+    const moreEnd = css.indexOf("}", moreStart);
+    const moreRule = css.slice(moreStart, moreEnd);
+    expect(moreRule).toContain("transform");
+    expect(moreRule).toMatch(/transition:[^}]*opacity[^}]*transform/s);
+
+    const gridMoreStart = css.indexOf(".bookGridMoreButton {");
+    const gridMoreEnd = css.indexOf("}", gridMoreStart);
+    const gridMoreRule = css.slice(gridMoreStart, gridMoreEnd);
+    expect(gridMoreRule).toMatch(/transition:[^}]*opacity[^}]*transform/s);
+
+    expect(css).toMatch(/\.bookMoreButton:active\s*\{[^}]*scale\(0\.94\)/s);
+    expect(css).toMatch(
+      /\.bookItem:active\s+\.bookMoreButton\s*\{[^}]*scale\(0\.96\)/s
+    );
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf(".bookGridItem:active .bookCover")
+    );
+    const reduceEnd = css.indexOf(
+      "}",
+      css.indexOf("transform: none;", reduceStart)
+    );
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".bookCover",
+      ".bookGridItem:active .bookCover",
+      ".bookItem:active .bookCover",
+      ".bookMoreButton",
+      ".bookMoreButton:active",
+      ".bookItem:active .bookMoreButton",
+      ".bookGridMoreButton",
+      ".bookGridMoreButton:active",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
+    expect(reduceRule).toContain("transform: none;");
+  });
+
   it("keeps a dismissing sheet available for an interrupting drag", () => {
     const start = css.indexOf(".motionSheetClosing {");
     const end = css.indexOf("}", start);
