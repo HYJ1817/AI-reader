@@ -249,9 +249,10 @@ describe("isSheetCloseTransition", () => {
 });
 
 describe("canInterruptSheetPhase", () => {
-  it("allows the sheet to be grabbed during entry, rest, and dismissal", () => {
+  it("allows the sheet to be grabbed during entry, rest, settling, and dismissal", () => {
     expect(canInterruptSheetPhase("entering")).toBe(true);
     expect(canInterruptSheetPhase("open")).toBe(true);
+    expect(canInterruptSheetPhase("settling")).toBe(true);
     expect(canInterruptSheetPhase("closing")).toBe(true);
   });
 

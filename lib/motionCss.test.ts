@@ -31,6 +31,7 @@ describe("motion CSS", () => {
   it("uses one navigation timing and easing protocol", () => {
     expect(css).toContain("--motion-navigation: 340ms;");
     expect(css).toContain("--motion-sheet: 300ms;");
+    expect(css).toContain("--motion-sheet-settle: 220ms;");
     expect(css).toContain("--motion-sheet-exit: 260ms;");
     expect(css).toContain(
       "--ease-sheet-settle: cubic-bezier(0.2, 0.86, 0.18, 1);"
@@ -55,6 +56,12 @@ describe("motion CSS", () => {
     );
     expect(css).toMatch(
       /\.motionSheetClosing\s+\.bottomSheet\s*\{[^}]*transition-duration:\s*var\(--motion-sheet-exit\)[^}]*transition-timing-function:\s*var\(--ease-sheet-settle\)/s
+    );
+    expect(css).toMatch(
+      /\.motionSheetSettling\s+\.bottomSheet\s*\{[^}]*transition-duration:\s*var\(--motion-sheet-settle\)[^}]*transition-timing-function:\s*var\(--ease-sheet-settle\)/s
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.app,[\s\S]*?transition-duration:\s*0\.001ms !important;/s
     );
     for (const selector of [".appSurface {", ".tabIndicator {", ".readerShell {"]) {
       const start = css.indexOf(selector);

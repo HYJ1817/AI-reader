@@ -6,6 +6,7 @@
   --motion-standard: 190ms;
   --motion-navigation: 340ms;
   --motion-sheet: 300ms;
+  --motion-sheet-settle: 220ms;
   --motion-sheet-exit: 260ms;
   --motion-chrome-enter: 220ms;
   --motion-chrome-exit: 180ms;
@@ -2935,6 +2936,16 @@
 
 .motionSheetEntering .bottomSheet {
   transform: translate3d(0, 36px, 0);
+  will-change: transform;
+}
+
+.motionSheetSettling {
+  opacity: 1;
+}
+
+.motionSheetSettling .bottomSheet {
+  transition-duration: var(--motion-sheet-settle);
+  transition-timing-function: var(--ease-sheet-settle);
   will-change: transform;
 }
 

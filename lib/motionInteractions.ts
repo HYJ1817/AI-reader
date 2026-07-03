@@ -122,7 +122,12 @@ export function isSheetCloseTransition({
 }
 
 export function canInterruptSheetPhase(phase: string): boolean {
-  return phase === "entering" || phase === "open" || phase === "closing";
+  return (
+    phase === "entering" ||
+    phase === "open" ||
+    phase === "settling" ||
+    phase === "closing"
+  );
 }
 
 export type SheetDismissInput = {

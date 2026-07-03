@@ -31,7 +31,7 @@ type Props = {
   showGrabber?: boolean;
 };
 
-type SheetPhase = "entering" | "open" | "closing";
+type SheetPhase = "entering" | "open" | "settling" | "closing";
 
 type DragState = {
   pointerId: number;
@@ -112,6 +112,16 @@ export default function BottomSheet({
   function handlePanelTransitionEnd(
     event: ReactTransitionEvent<HTMLDivElement>
   ) {
+    if (
+      phase === "settling" &&
+      isSheetCloseTransition({
+        propertyName: event.propertyName,
+        targetIsPanel: event.target === event.currentTarget,
+      })
+    ) {
+      setPhase("open");
+      return;
+    }
     if (phase !== "closing") return;
     if (
       isSheetCloseTransition({
@@ -208,6 +218,16 @@ export default function BottomSheet({
       close();
       return;
     }
+    const reducedMotion =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      Boolean(document.querySelector('[data-reduce-motion="true"]'));
+    if (reducedMotion) {
+      panel.style.setProperty("--sheet-drag-y", "0px");
+      overlayRef.current?.style.setProperty("--sheet-backdrop-opacity", "1");
+      setPhase("open");
+      return;
+    }
+    setPhase("settling");
     window.requestAnimationFrame(() => {
       panel.style.setProperty("--sheet-drag-y", "0px");
       overlayRef.current?.style.setProperty("--sheet-backdrop-opacity", "1");
@@ -219,6 +239,7 @@ export default function BottomSheet({
     styles.motionSheetOverlay,
     phase === "entering" ? styles.motionSheetEntering : "",
     phase === "open" ? styles.motionSheetOpen : "",
+    phase === "settling" ? styles.motionSheetSettling : "",
     phase === "closing" ? styles.motionSheetClosing : "",
     dragging ? styles.motionSheetDragging : "",
   ]
