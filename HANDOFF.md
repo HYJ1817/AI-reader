@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `de02470` (`feat: improve ai provider configuration`)
-- If branch HEAD is newer than `de02470`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `9dc0774` (`style: streamline ai provider setup`)
+- If branch HEAD is newer than `9dc0774`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `de02470`; push it before handing off if not already pushed
+  - local branch includes `9dc0774`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -109,16 +109,17 @@ The same PR now also improves AI provider setup.
 
 Implemented behavior:
 
-- AI provider configuration has a top-level provider preset section before the lower-level API format section.
+- AI provider configuration uses provider presets as the only visible protocol chooser.
 - Presets currently include:
   - OpenAI / Compatible API
   - Anthropic / Compatible API
   - Google Gemini
   - OpenRouter
   - xAI
+- The lower `API 格式` list was removed because it duplicated the provider presets.
 - Choosing a preset immediately updates the provider name, protocol, API address, default path, and visible input value.
-- Known default API addresses are replaced when switching formats or presets.
-- Custom proxy hosts are preserved when switching API format, with the selected format path appended.
+- Known default API addresses are replaced when switching presets.
+- Custom proxy hosts are still preserved by the lower-level format helpers when used by saved/manual provider flows.
 - `自动附加 /v1` now materializes the path into the visible/saved API address.
 - Old saved OpenAI configs like `https://api.openai.com` plus auto-append enabled load as `https://api.openai.com/v1`.
 
@@ -141,13 +142,14 @@ Motion polish added in the same work:
 
 - Sheet close uses a shorter settle timing.
 - Drag/backdrop dismissal feels less abrupt.
-- Main settings rows, tab controls, custom background actions, provider rows, API format rows, model rows, provider buttons, and iOS switches now have consistent transform-based pressed feedback.
+- Main settings rows, tab controls, custom background actions, provider rows, model rows, provider buttons, group chips, provider icons/checks/badges, and iOS switches now have consistent transform-based pressed feedback.
 
 ## Recent Commit Trail
 
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+9dc0774 style: streamline ai provider setup
 de02470 feat: improve ai provider configuration
 3c26242 docs: refresh custom background handoff
 53438e9 fix: sync custom background preview effect
@@ -162,7 +164,7 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `de02470`, these passed:
+After the latest code commit `9dc0774`, these passed:
 
 ```powershell
 npm.cmd run test -- lib/aiSettingsSheetIntegration.test.ts lib/aiProviders.test.ts lib/motionCss.test.ts
@@ -174,8 +176,8 @@ git diff --check
 
 Observed results:
 
-- Target AI/motion tests: 5 files, 59 tests passed.
-- Full suite: 116 files, 1161 tests passed.
+- Target AI/motion tests: 5 files, 61 tests passed.
+- Full suite: 116 files, 1163 tests passed.
 - ESLint `app lib` passed.
 - Production `next build` passed.
 - `git diff --check` reported only CRLF warnings.
@@ -253,5 +255,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 de02470，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，以及 AI 服务商预设、API 地址自动随服务商/格式切换、自动附加路径可见化、旧 OpenAI 地址迁移和触控动效优化。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://type-relationship-activation-los.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
+最新代码提交是 9dc0774，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，以及 AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移和触控动效优化。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://type-relationship-activation-los.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
 ```
