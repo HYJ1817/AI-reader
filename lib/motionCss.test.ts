@@ -179,6 +179,33 @@ describe("motion CSS", () => {
     expect(reduceRule).toContain("transform: none;");
   });
 
+  it("settles library grid and list content on view changes", () => {
+    for (const selector of [".bookGrid {", ".bookItems {"]) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      expect(rule).toContain(
+        "animation: libraryContentIn var(--motion-standard) var(--ease-standard) both;"
+      );
+    }
+
+    expect(css).toMatch(
+      /@keyframes libraryContentIn\s*\{[\s\S]*?from\s*\{[\s\S]*?opacity:\s*0\.72;[\s\S]*?transform:\s*translate3d\(0,\s*7px,\s*0\);[\s\S]*?\}[\s\S]*?to\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?transform:\s*translate3d\(0,\s*0,\s*0\);/s
+    );
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf("@keyframes libraryContentIn")
+    );
+    const reduceEnd = css.indexOf("}", css.indexOf(".bookItems", reduceStart));
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [".bookGrid", ".bookItems"]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("animation: none;");
+    expect(reduceRule).toContain("transform: none;");
+  });
+
   it("keeps a dismissing sheet available for an interrupting drag", () => {
     const start = css.indexOf(".motionSheetClosing {");
     const end = css.indexOf("}", start);

@@ -1623,6 +1623,19 @@
   column-gap: 14px;
   row-gap: 18px;
   padding: 2px 0 8px;
+  animation: libraryContentIn var(--motion-standard) var(--ease-standard) both;
+}
+
+@keyframes libraryContentIn {
+  from {
+    opacity: 0.72;
+    transform: translate3d(0, 7px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
 }
 
 .bookGridCell {
@@ -1771,6 +1784,7 @@
   margin: 0;
   display: flex;
   flex-direction: column;
+  animation: libraryContentIn var(--motion-standard) var(--ease-standard) both;
 }
 
 .bookItem {
@@ -1928,6 +1942,14 @@
   .bookGridMoreButton,
   .bookGridMoreButton:active {
     transition: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookGrid,
+  .bookItems {
+    animation: none;
     transform: none;
   }
 }
