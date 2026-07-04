@@ -371,36 +371,36 @@ git status -sb
 Current local production server:
 
 ```text
-http://127.0.0.1:3038
+http://127.0.0.1:3039
 ```
 
 Current Cloudflare quick tunnel:
 
 ```text
-https://searches-ice-voters-organisation.trycloudflare.com
+https://garlic-aspects-postposted-receives.trycloudflare.com
 ```
 
 It is backed by:
 
 ```powershell
-npm.cmd run start -- --hostname 127.0.0.1 --port 3038
-C:\tmp\cloudflared.exe tunnel --protocol http2 --url http://127.0.0.1:3038
+npm.cmd run start -- --hostname 127.0.0.1 --port 3039
+C:\tmp\cloudflared.exe tunnel --protocol http2 --url http://127.0.0.1:3039
 ```
 
 Cloudflare quick-tunnel URLs are temporary. If the next session sees stale CSS or naked HTML:
 
 1. Rebuild with `npm.cmd run build`.
-2. Restart `next start` on port `3038` or a new free port.
+2. Restart `next start` on port `3039` or a new free port.
 3. Restart `cloudflared`.
 4. Verify the HTML's `/_next/static/chunks/*.css` URLs return `200`.
 
 Example CSS verification:
 
 ```powershell
-$html=(Invoke-WebRequest -UseBasicParsing https://searches-ice-voters-organisation.trycloudflare.com).Content
+$html=(Invoke-WebRequest -UseBasicParsing https://garlic-aspects-postposted-receives.trycloudflare.com).Content
 $css=$html | Select-String -Pattern '/_next/static/chunks/[^"'']+\.css' -AllMatches | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
 $css
-foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://searches-ice-voters-organisation.trycloudflare.com$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
+foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://garlic-aspects-postposted-receives.trycloudflare.com$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
 ```
 
 ## Known History and Cautions
@@ -429,5 +429,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 60fd483，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险，以及阅读页 7 天柱状图的底部进入动效和今日状态高亮。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://searches-ice-voters-organisation.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
+最新代码提交是 60fd483，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险，以及阅读页 7 天柱状图的底部进入动效和今日状态高亮。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://garlic-aspects-postposted-receives.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
 ```
