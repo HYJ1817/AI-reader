@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `2abbd9d` (`style: polish library selected badges`)
-- If branch HEAD is newer than `2abbd9d`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `27b18dc` (`style: polish active collection rows`)
+- If branch HEAD is newer than `27b18dc`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `2abbd9d`; push it before handing off if not already pushed
+  - local branch includes `27b18dc`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -231,11 +231,29 @@ Latest Library selection affordance polish:
   - `docs/superpowers/specs/2026-07-04-library-selection-affordance-design.md`
   - `docs/superpowers/plans/2026-07-04-library-selection-affordance.md`
 
+Latest collection active affordance polish:
+
+- Active collection rows now read more clearly as the current Library filter.
+- The active row keeps its subtle tint background and adds non-layout inset
+  highlight/shadow.
+- The active collection icon turns tint and scales slightly.
+- The active chevron turns tint and shifts slightly right.
+- Reduced-motion coverage disables the icon and chevron transforms/transitions.
+- This is CSS-only and does not change collection filtering, creation, editing,
+  renaming, deletion, row layout, or row height.
+- Design and implementation plan docs were added:
+  - `docs/superpowers/specs/2026-07-04-collection-active-affordance-design.md`
+  - `docs/superpowers/plans/2026-07-04-collection-active-affordance.md`
+
 ## Recent Commit Trail
 
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+27b18dc style: polish active collection rows
+62bf064 docs: add collection active affordance plan
+8786845 docs: refresh library selection preview link
+a5298d1 docs: refresh library selection handoff
 2abbd9d style: polish library selected badges
 55de679 docs: add library selection affordance plan
 1551c7d style: add library content transition
@@ -270,7 +288,7 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `2abbd9d`, these passed:
+After the latest code commit `27b18dc`, these passed:
 
 ```powershell
 npm.cmd run test -- lib/motionCss.test.ts
@@ -282,8 +300,8 @@ git diff --check
 
 Observed results:
 
-- Target motion tests: 2 files, 44 tests passed.
-- Full suite: 116 files, 1180 tests passed.
+- Target motion tests: 2 files, 45 tests passed.
+- Full suite: 116 files, 1181 tests passed.
 - ESLint `app lib` passed.
 - Production `next build` passed.
 - `git diff --check` reported no whitespace errors; while files were uncommitted it emitted only Windows CRLF normalization warnings.
@@ -361,5 +379,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 2abbd9d，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效，以及书库编辑选择态徽标的层级增强。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://wishing-lonely-renew-anderson.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
+最新代码提交是 27b18dc，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强，以及藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。当前临时预览地址是 https://wishing-lonely-renew-anderson.trycloudflare.com，但 quick tunnel 可能失效，必要时重启 next start 和 cloudflared。
 ```
