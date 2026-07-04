@@ -732,6 +732,60 @@ describe("motion CSS", () => {
     expect(reduceRule).toContain("transform: none;");
   });
 
+  it("gives active collection rows a stronger selected affordance", () => {
+    const rowStart = css.indexOf(".collectionRow {");
+    const rowEnd = css.indexOf("}", rowStart);
+    const rowRule = css.slice(rowStart, rowEnd);
+    expect(rowRule).toMatch(
+      /transition:[^}]*background[^}]*box-shadow[^}]*transform/s
+    );
+
+    const iconStart = css.indexOf(".collectionRowIcon {");
+    const iconEnd = css.indexOf("}", iconStart);
+    const iconRule = css.slice(iconStart, iconEnd);
+    expect(iconRule).toContain("transform");
+    expect(iconRule).toMatch(/transition:[^}]*color[^}]*transform/s);
+
+    const chevronStart = css.indexOf(".collectionRowChevron {");
+    const chevronEnd = css.indexOf("}", chevronStart);
+    const chevronRule = css.slice(chevronStart, chevronEnd);
+    expect(chevronRule).toContain("transform");
+    expect(chevronRule).toMatch(/transition:[^}]*color[^}]*transform/s);
+
+    const activeStart = css.indexOf(".collectionRowActive {");
+    const activeEnd = css.indexOf("}", activeStart);
+    const activeRule = css.slice(activeStart, activeEnd);
+    expect(activeRule).toContain("box-shadow");
+
+    expect(css).toMatch(
+      /\.collectionRowActive\s+\.collectionRowIcon\s*\{[^}]*color:\s*var\(--tint\)[^}]*scale\(1\.04\)/s
+    );
+    expect(css).toMatch(
+      /\.collectionRowActive\s+\.collectionRowChevron\s*\{[^}]*color:\s*var\(--tint\)[^}]*translate3d\(2px,\s*0,\s*0\)/s
+    );
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      css.indexOf(".collectionRowActive .collectionRowChevron")
+    );
+    const reduceEnd = css.indexOf(
+      "}",
+      css.indexOf(".collectionRowActive .collectionRowChevron", reduceStart)
+    );
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".collectionRow",
+      ".collectionRowIcon",
+      ".collectionRowChevron",
+      ".collectionRowActive .collectionRowIcon",
+      ".collectionRowActive .collectionRowChevron",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
+    expect(reduceRule).toContain("transform: none;");
+  });
+
   it("gives provider sheet controls consistent pressed motion", () => {
     for (const selector of [
       ".providerNavButton {",
