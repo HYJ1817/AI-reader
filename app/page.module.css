@@ -2239,6 +2239,8 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--motion-fast) var(--ease-standard);
 }
 
 .weekBarTrack {
@@ -2258,6 +2260,8 @@
   min-height: 0;
   border-radius: inherit;
   background: linear-gradient(180deg, #56ccff, var(--tint));
+  transform-origin: bottom;
+  animation: weekBarIn var(--motion-standard) var(--ease-standard) both;
 }
 
 .weekBars small {
@@ -2268,11 +2272,44 @@
 }
 
 .weekBarToday .weekBarTrack {
-  box-shadow: 0 0 0 2px rgba(10, 132, 255, 0.24);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--tint) 28%, transparent),
+    0 8px 18px color-mix(in srgb, var(--tint) 12%, transparent);
+  transform: translate3d(0, -2px, 0);
+  transition:
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .weekBarToday small {
   color: var(--tint);
+  transform: translate3d(0, -1px, 0);
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+@keyframes weekBarIn {
+  from {
+    opacity: 0;
+    transform: scaleY(0.7);
+  }
+
+  to {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weekBars > div,
+  .weekBarTrack span,
+  .weekBarToday .weekBarTrack,
+  .weekBarToday small {
+    animation: none;
+    transition: none;
+    transform: none;
+  }
 }
 
 .readerShell {

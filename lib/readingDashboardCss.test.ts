@@ -29,4 +29,30 @@ describe("reading dashboard composition", () => {
     expect(css).toContain(".readingDashboardSection");
     expect(rule(".readingDashboardSection")).toContain("var(--separator)");
   });
+
+  it("gives week bars a calm data-state motion hierarchy", () => {
+    const dayRule = rule(".weekBars > div");
+    expect(dayRule).toContain("transform: translate3d(0, 0, 0)");
+    expect(dayRule).toMatch(/transition:[^}]*transform/s);
+
+    const fillRule = rule(".weekBarTrack span");
+    expect(fillRule).toContain("transform-origin: bottom");
+    expect(fillRule).toMatch(/animation:\s*weekBarIn\s+var\(--motion-standard\)/);
+
+    expect(css).toMatch(
+      /@keyframes\s+weekBarIn\s*\{[\s\S]*?from\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?scaleY\(0\.7\)[\s\S]*?to\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?scaleY\(1\)/s
+    );
+
+    const todayTrackRule = rule(".weekBarToday .weekBarTrack");
+    expect(todayTrackRule).toMatch(/transition:[^}]*box-shadow[^}]*transform/s);
+    expect(todayTrackRule).toContain("translate3d(0, -2px, 0)");
+
+    const todayLabelRule = rule(".weekBarToday small");
+    expect(todayLabelRule).toMatch(/transition:[^}]*color[^}]*transform/s);
+    expect(todayLabelRule).toContain("translate3d(0, -1px, 0)");
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.weekBars > div,[\s\S]*?\.weekBarTrack span,[\s\S]*?\.weekBarToday \.weekBarTrack,[\s\S]*?\.weekBarToday small\s*\{[\s\S]*?animation:\s*none;[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
+    );
+  });
 });
