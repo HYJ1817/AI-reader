@@ -49,6 +49,7 @@ import {
 } from "@/lib/aiProviders";
 import { createBackupPayload, restoreBackupPayload } from "@/lib/backup";
 import { createBookFileExport } from "@/lib/bookFileExport";
+import { triggerBlobDownload } from "@/lib/browserDownload";
 import { hasIndexedDbSupport } from "@/lib/browserStorage";
 import {
   DEFAULT_READER_PREFERENCES,
@@ -653,12 +654,7 @@ export default function Home() {
   async function handleExportBook(book: BookRecord) {
     try {
       const exported = await createBookFileExport(book);
-      const url = URL.createObjectURL(exported.blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = exported.fileName;
-      link.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(exported.blob, exported.fileName);
       closeBookActionSheet();
     } catch (err) {
       setImportError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
@@ -1228,12 +1224,7 @@ export default function Home() {
       const payload = await createBackupPayload();
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "ai-reader-backup.json";
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, "ai-reader-backup.json");
       setBackupStatus(UI_TEXT.BACKUP_EXPORTED);
     } catch (err) {
       setBackupError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);

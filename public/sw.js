@@ -41,14 +41,14 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetchAndCache(event.request, "/")
-        .catch(() => caches.match("/") || Response.error())
+        .catch(() => caches.match("/").then((response) => response || Response.error()))
     );
     return;
   }
 
   event.respondWith(
     fetchAndCache(event.request).catch(
-      () => caches.match(event.request) || Response.error()
+      () => caches.match(event.request).then((response) => response || Response.error())
     )
   );
 });
