@@ -1756,6 +1756,12 @@
   background: rgba(120, 130, 160, 0.48);
   color: #ffffff;
   box-shadow: 0 1px 5px rgba(0, 0, 0, 0.18);
+  transform: scale(1);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .selectionBadge {
@@ -1770,6 +1776,8 @@
 .bookSelected .selectionBadgeInline {
   background: var(--tint);
   border-color: var(--tint);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--tint) 26%, rgba(0, 0, 0, 0.22));
+  transform: scale(1.06);
 }
 
 .selectionBadgeInline {
@@ -1950,6 +1958,16 @@
   .bookGrid,
   .bookItems {
     animation: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .selectionBadge,
+  .selectionBadgeInline,
+  .bookSelected .selectionBadge,
+  .bookSelected .selectionBadgeInline {
+    transition: none;
     transform: none;
   }
 }

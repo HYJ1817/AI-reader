@@ -206,6 +206,45 @@ describe("motion CSS", () => {
     expect(reduceRule).toContain("transform: none;");
   });
 
+  it("gives library selection badges elevated selected state", () => {
+    const badgeStart = css.indexOf(".selectionBadge,");
+    const badgeEnd = css.indexOf("}", badgeStart);
+    const badgeRule = css.slice(badgeStart, badgeEnd);
+    expect(badgeRule).toContain("transform");
+    expect(badgeRule).toMatch(
+      /transition:[^}]*background[^}]*border-color[^}]*box-shadow[^}]*transform/s
+    );
+
+    const selectedStart = css.indexOf(
+      ".bookSelected .selectionBadge,",
+      badgeEnd
+    );
+    const selectedEnd = css.indexOf("}", selectedStart);
+    const selectedRule = css.slice(selectedStart, selectedEnd);
+    expect(selectedRule).toContain("transform: scale(1.06)");
+    expect(selectedRule).toContain("box-shadow");
+
+    const reduceStart = css.indexOf(
+      "@media (prefers-reduced-motion: reduce)",
+      selectedStart
+    );
+    const reduceEnd = css.indexOf(
+      "}",
+      css.indexOf(".bookSelected .selectionBadgeInline", reduceStart)
+    );
+    const reduceRule = css.slice(reduceStart, reduceEnd);
+    for (const selector of [
+      ".selectionBadge",
+      ".selectionBadgeInline",
+      ".bookSelected .selectionBadge",
+      ".bookSelected .selectionBadgeInline",
+    ]) {
+      expect(reduceRule).toContain(selector);
+    }
+    expect(reduceRule).toContain("transition: none;");
+    expect(reduceRule).toContain("transform: none;");
+  });
+
   it("keeps a dismissing sheet available for an interrupting drag", () => {
     const start = css.indexOf(".motionSheetClosing {");
     const end = css.indexOf("}", start);
