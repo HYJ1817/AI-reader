@@ -1,6 +1,6 @@
 {
   "packageId": "com.aireader.pwa",
-  "host": "ver-liabilities-riverside-warehouse.trycloudflare.com",
+  "host": "881817.xyz",
   "name": "AI Reader",
   "launcherName": "AI Reader",
   "display": "standalone",
@@ -13,18 +13,18 @@
   "backgroundColor": "#FFFFFF",
   "enableNotifications": true,
   "startUrl": "/",
-  "iconUrl": "https://ver-liabilities-riverside-warehouse.trycloudflare.com/icon-512.png",
-  "maskableIconUrl": "https://ver-liabilities-riverside-warehouse.trycloudflare.com/icon-512.png",
+  "iconUrl": "https://881817.xyz/icon-512.png",
+  "maskableIconUrl": "https://881817.xyz/icon-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
     "path": "C:\\Users\\21022\\.bubblewrap\\ai-reader.keystore",
     "alias": "ai_reader"
   },
-  "appVersionName": "1",
-  "appVersionCode": 1,
+  "appVersionName": "2",
+  "appVersionCode": 2,
   "shortcuts": [],
   "generatorApp": "bubblewrap-cli",
-  "webManifestUrl": "https://ver-liabilities-riverside-warehouse.trycloudflare.com/manifest.webmanifest",
+  "webManifestUrl": "https://881817.xyz/manifest.webmanifest",
   "fallbackType": "customtabs",
   "features": {},
   "alphaDependencies": {
@@ -33,7 +33,7 @@
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
-  "fullScopeUrl": "https://ver-liabilities-riverside-warehouse.trycloudflare.com/",
+  "fullScopeUrl": "https://881817.xyz/",
   "minSdkVersion": 21,
   "orientation": "default",
   "fingerprints": [],
@@ -43,5 +43,5 @@
   "fileHandlers": [],
   "launchHandlerClientMode": "",
   "displayOverride": [],
-  "appVersion": "1"
+  "appVersion": "2"
 }

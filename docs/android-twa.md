@@ -5,12 +5,12 @@ This project has an experimental Bubblewrap Trusted Web Activity wrapper in `and
 ## Current Test Build
 
 - Package id: `com.aireader.pwa`
-- Web origin: `https://ver-liabilities-riverside-warehouse.trycloudflare.com`
+- Web origin: `https://881817.xyz`
 - APK: `android-twa/app-release-signed.apk`
 - AAB: `android-twa/app-release-bundle.aab`
 - Signing key: `C:\Users\21022\.bubblewrap\ai-reader.keystore`
 
-The APK is useful for local Android installation testing. The current origin is a temporary Cloudflare quick tunnel, so it is not a production Android target.
+The APK is configured for the production domain. The domain must serve this PWA, including `/.well-known/assetlinks.json`, before the installed app can verify into fullscreen TWA behavior.
 
 ## Digital Asset Links
 
@@ -26,11 +26,21 @@ From `android-twa/`:
 npx.cmd --yes @bubblewrap/cli@1.24.1 build
 ```
 
+Bubblewrap validates the live PWA icons and web manifest from `https://881817.xyz`. If the domain is not yet serving AI Reader, build the Android project directly instead:
+
+```powershell
+$env:JAVA_HOME="C:\Users\21022\.bubblewrap\jdk\jdk-17.0.11+9"
+$env:ANDROID_HOME="C:\Users\21022\.bubblewrap\android_sdk"
+$env:ANDROID_SDK_ROOT=$env:ANDROID_HOME
+$env:Path="$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path"
+.\gradlew.bat assembleRelease bundleRelease
+```
+
 If Gradle cannot reserve a large heap on this machine, keep `android-twa/gradle.properties` at `-Xmx1024m`.
 
 ## Before a Real Release
 
-1. Replace the temporary Cloudflare host in `android-twa/twa-manifest.json` and `android-twa/app/build.gradle` with the production HTTPS domain.
+1. Serve the AI Reader PWA from `https://881817.xyz`.
 2. Serve the matching `/.well-known/assetlinks.json` from that production domain.
 3. Use a deliberate release keystore and store its credentials outside the repository.
 4. Rebuild the APK/AAB and test on a device with Chrome installed.
