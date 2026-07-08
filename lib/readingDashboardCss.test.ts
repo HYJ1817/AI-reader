@@ -75,4 +75,24 @@ describe("reading dashboard composition", () => {
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.dashboardGoalRing,[\s\S]*?\.continueChevron,[\s\S]*?\.readingGoalCard:active \.dashboardGoalRing,[\s\S]*?\.readingGoalCard:active \.continueChevron\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
     );
   });
+
+  it("gives the continue reading card layered press affordances", () => {
+    const progressFillRule = rule(".libraryProgressTrack span");
+    expect(progressFillRule).toContain("transform: translate3d(0, 0, 0) scaleX(1)");
+    expect(progressFillRule).toContain("transform-origin: left center");
+    expect(progressFillRule).toMatch(/transition:[^}]*width[^}]*transform/s);
+
+    expect(css).toMatch(
+      /\.featureBookCard \.bookCover\s*\{[\s\S]*?transform:\s*translate3d\(0, 0, 0\) scale\(1\);[\s\S]*?transition:[\s\S]*?transform var\(--motion-fast\)/s
+    );
+    expect(css).toMatch(
+      /\.featureBookCard:active \.bookCover\s*\{[\s\S]*?transform:\s*translate3d\(0, 1px, 0\) scale\(0\.97\);/s
+    );
+    expect(css).toMatch(
+      /\.featureBookCard:active \.continueChevron\s*\{[\s\S]*?transform:\s*translate3d\(2px, 1px, 0\);/s
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.featureBookCard \.bookCover,[\s\S]*?\.featureBookCard:active \.bookCover,[\s\S]*?\.libraryProgressTrack span,[\s\S]*?\.featureBookCard:active \.continueChevron\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
+    );
+  });
 });
