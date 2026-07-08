@@ -55,4 +55,24 @@ describe("reading dashboard composition", () => {
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.weekBars > div,[\s\S]*?\.weekBarTrack span,[\s\S]*?\.weekBarToday \.weekBarTrack,[\s\S]*?\.weekBarToday small\s*\{[\s\S]*?animation:\s*none;[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
     );
   });
+
+  it("gives the reading goal card layered press affordances", () => {
+    const ringRule = rule(".dashboardGoalRing");
+    expect(ringRule).toContain("transform: translate3d(0, 0, 0) scale(1)");
+    expect(ringRule).toMatch(/transition:[^}]*transform/s);
+
+    const chevronRule = rule(".continueChevron");
+    expect(chevronRule).toContain("transform: translate3d(0, 0, 0)");
+    expect(chevronRule).toMatch(/transition:[^}]*color[^}]*transform/s);
+
+    expect(css).toMatch(
+      /\.readingGoalCard:active \.dashboardGoalRing\s*\{[\s\S]*?transform:\s*translate3d\(0, 1px, 0\) scale\(0\.96\);/s
+    );
+    expect(css).toMatch(
+      /\.readingGoalCard:active \.continueChevron\s*\{[\s\S]*?transform:\s*translate3d\(2px, 1px, 0\);/s
+    );
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.dashboardGoalRing,[\s\S]*?\.continueChevron,[\s\S]*?\.readingGoalCard:active \.dashboardGoalRing,[\s\S]*?\.readingGoalCard:active \.continueChevron\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
+    );
+  });
 });

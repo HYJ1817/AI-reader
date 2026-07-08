@@ -914,6 +914,10 @@
   color: var(--text-tertiary);
   font-size: 28px;
   line-height: 1;
+  transform: translate3d(0, 0, 0);
+  transition:
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .emptyCoverMini {
@@ -2165,6 +2169,16 @@
   border-radius: 50%;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.readingGoalCard:active .dashboardGoalRing {
+  transform: translate3d(0, 1px, 0) scale(0.96);
+}
+
+.readingGoalCard:active .continueChevron {
+  transform: translate3d(2px, 1px, 0);
 }
 
 .dashboardGoalRing::after {
@@ -2302,6 +2316,14 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .dashboardGoalRing,
+  .continueChevron,
+  .readingGoalCard:active .dashboardGoalRing,
+  .readingGoalCard:active .continueChevron {
+    transition: none;
+    transform: none;
+  }
+
   .weekBars > div,
   .weekBarTrack span,
   .weekBarToday .weekBarTrack,
