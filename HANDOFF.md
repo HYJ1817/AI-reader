@@ -329,9 +329,9 @@ Latest Android TWA package work:
 - Local APK output:
   - `C:\aaa\ai-reader-pwa\android-twa\app-release-signed.apk`
   - copied for phone download as `C:\aaa\ai-reader-pwa\public\downloads\ai-reader-twa.apk`
-- Phone APK download link while the current tunnel is alive:
-  - `https://ver-liabilities-riverside-warehouse.trycloudflare.com/downloads/ai-reader-twa.apk`
-- This APK is configured to launch `https://881817.xyz`, not the quick-tunnel host.
+- Production APK download link:
+  - `https://881817.xyz/downloads/ai-reader-twa.apk`
+- This APK is configured to launch `https://881817.xyz`.
 - `https://881817.xyz` now serves the AI Reader Cloudflare Workers deployment.
 - `https://881817.xyz/manifest.webmanifest` and `https://881817.xyz/.well-known/assetlinks.json` now return the AI Reader manifest and Android Digital Asset Links file.
 - Bubblewrap online build/update can now be retried because the production domain serves `/icon-512.png`, `/manifest.webmanifest`, and `/.well-known/assetlinks.json`.
@@ -458,9 +458,6 @@ Observed results:
   - `webManifestUrl`: `https://881817.xyz/manifest.webmanifest`
   - `fullScopeUrl`: `https://881817.xyz/`
 - After Cloudflare deployment, the production domain now serves the required Android TWA manifest/icon/assetlinks files. Bubblewrap online build should be retried if the Android package needs another update.
-- Current tunnel verified:
-  - `/downloads/ai-reader-twa.apk` returns `200`, `application/vnd.android.package-archive`, length `901574`.
-  - `/.well-known/assetlinks.json` returns `200`, `application/json`.
 - Current production domain verified:
   - `/` returns `200`, `text/html`, and AI Reader HTML.
   - `/manifest.webmanifest` returns `200`, `application/manifest+json`.
@@ -493,39 +490,19 @@ Current Workers preview URL:
 https://ai-reader-pwa.hyjsb1817.workers.dev
 ```
 
-Current local production server:
-
-```text
-http://127.0.0.1:3042
-```
-
-Current Cloudflare quick tunnel:
-
-```text
-https://ver-liabilities-riverside-warehouse.trycloudflare.com
-```
-
-It is backed by:
-
-```powershell
-npm.cmd run start -- --port 3042
-C:\tmp\cloudflared.exe tunnel --protocol http2 --url http://127.0.0.1:3042
-```
-
-Cloudflare quick-tunnel URLs are temporary. If the next session sees stale CSS or naked HTML:
+Do not use temporary `trycloudflare.com` tunnel links as the primary preview now that the production Worker route is live. If the next session sees stale CSS or naked HTML on production:
 
 1. Rebuild with `npm.cmd run build`.
-2. Restart `next start` on port `3042` or a new free port.
-3. Restart `cloudflared`.
-4. Verify the HTML's `/_next/static/chunks/*.css` URLs return `200`.
+2. Redeploy with `npm.cmd run deploy:cf`.
+3. Verify the HTML's `/_next/static/chunks/*.css` URLs return `200` from `https://881817.xyz`.
 
 Example CSS verification:
 
 ```powershell
-$html=(Invoke-WebRequest -UseBasicParsing https://ver-liabilities-riverside-warehouse.trycloudflare.com).Content
+$html=(Invoke-WebRequest -UseBasicParsing https://881817.xyz).Content
 $css=$html | Select-String -Pattern '/_next/static/chunks/[^"'']+\.css' -AllMatches | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
 $css
-foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://ver-liabilities-riverside-warehouse.trycloudflare.com$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
+foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://881817.xyz$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
 ```
 
 ## Known History and Cautions
