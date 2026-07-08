@@ -6,7 +6,11 @@
   "license": "MIT",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build --webpack",
+    "preview:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload:cf": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run"
@@ -25,6 +29,7 @@
     "xmldom": "npm:@xmldom/xmldom@^0.8.13"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.20.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -32,6 +37,7 @@
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5",
-    "vitest": "^4.1.7"
+    "vitest": "^4.1.7",
+    "wrangler": "^4.108.0"
   }
 }

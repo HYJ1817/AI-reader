@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.open-next/
 /out/
 
 # production
@@ -38,6 +39,7 @@ next-*.err.log
 
 # vercel
 .vercel
+.wrangler/
 
 # typescript
 *.tsbuildinfo
