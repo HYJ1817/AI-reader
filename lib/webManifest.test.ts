@@ -21,6 +21,16 @@ const publicDir = join(__dirname, "..", "public");
 const manifest = JSON.parse(
   readFileSync(join(publicDir, "manifest.webmanifest"), "utf8")
 ) as WebManifest;
+const assetLinks = JSON.parse(
+  readFileSync(join(publicDir, ".well-known", "assetlinks.json"), "utf8")
+) as Array<{
+  relation?: string[];
+  target?: {
+    namespace?: string;
+    package_name?: string;
+    sha256_cert_fingerprints?: string[];
+  };
+}>;
 
 describe("web app manifest", () => {
   it("keeps installable Android icon assets available as PNG files", () => {
@@ -41,5 +51,17 @@ describe("web app manifest", () => {
       expect(icon?.src).toBe(`/icon-${size.split("x")[0]}.png`);
       expect(existsSync(join(publicDir, icon?.src.slice(1) ?? ""))).toBe(true);
     }
+  });
+
+  it("publishes Android Digital Asset Links for the TWA package", () => {
+    expect(assetLinks).toHaveLength(1);
+    expect(assetLinks[0].relation).toContain(
+      "delegate_permission/common.handle_all_urls"
+    );
+    expect(assetLinks[0].target?.namespace).toBe("android_app");
+    expect(assetLinks[0].target?.package_name).toBe("com.aireader.pwa");
+    expect(assetLinks[0].target?.sha256_cert_fingerprints?.[0]).toMatch(
+      /^([0-9A-F]{2}:){31}[0-9A-F]{2}$/
+    );
   });
 });

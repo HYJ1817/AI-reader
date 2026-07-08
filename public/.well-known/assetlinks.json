@@ -1,0 +1,14 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.aireader.pwa",
+      "sha256_cert_fingerprints": [
+        "E6:C0:6B:D3:8D:05:B1:A6:EE:76:5A:D2:11:19:0B:7D:52:6A:0E:F1:36:A2:5D:3B:70:15:F0:B8:8E:BE:C7:AF"
+      ]
+    }
+  }
+]
