@@ -360,7 +360,7 @@ Latest Cloudflare production deployment work:
 - Added `public/_headers` for long-lived Next static chunk caching.
 - Added `docs/cloudflare-deploy.md`.
 - Changed `npm.cmd run build` to `next build --webpack`; OpenNext on Windows failed at runtime when a stale Turbopack server chunk was deployed.
-- Deployed Cloudflare Worker version `782d5ea1-60ec-4c2f-9a11-41ba973336a6`.
+- Deployed Cloudflare Worker version `11cf973f-d1b1-4de5-8ae5-c2cd80c0285a`.
 - Production URL is now `https://881817.xyz`.
 - Workers preview URL is `https://ai-reader-pwa.hyjsb1817.workers.dev`.
 - Verified production:
@@ -465,7 +465,10 @@ Observed results:
 - Full suite: 119 files, 1191 tests passed.
 - ESLint `app lib` passed.
 - Production `next build --webpack` passed.
-- Cloudflare OpenNext deploy passed.
+- Cloudflare OpenNext deploy passed and published Worker version `11cf973f-d1b1-4de5-8ae5-c2cd80c0285a`.
+- Production CSS verification found `readerEpubLightCanvas` on
+  `/_next/static/css/77d6c3bbfa87ce94.css` without the old
+  `background:var(--app-bg);color-scheme:light` shell background.
 - Android TWA Gradle build produced `android-twa/app-release-signed.apk` and `android-twa/app-release-bundle.aab`.
 - `apksigner verify --print-certs android-twa\app-release-signed.apk` passed; SHA-256 digest is `e6c06bd38d05b1a6ee765ad211190b7d526a0ef136a25d3b7015f0b88ebec7af`.
 - Signed APK SHA-256 file hash: `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`.
