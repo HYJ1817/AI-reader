@@ -1537,8 +1537,14 @@ export default function Home() {
     const elapsed = Date.now() - pointerDown.time;
     const dx = e.clientX - pointerDown.x;
     const dy = e.clientY - pointerDown.y;
+    const pointerIsTap = isTapGesture({
+      durationMs: elapsed,
+      deltaX: dx,
+      deltaY: dy,
+      maxDistancePx: 32,
+    });
 
-    if (pointerDown.axis === "horizontal") {
+    if (pointerDown.axis === "horizontal" && !pointerIsTap) {
       const swipeAction = getReaderSwipeAction({
         startX: pointerDown.x,
         startY: pointerDown.y,
@@ -1554,7 +1560,13 @@ export default function Home() {
       return;
     }
 
-    if (pointerDown.axis === "vertical") return;
+    if (pointerDown.axis === "horizontal" && pointerIsTap) {
+      const reader = readerRef.current;
+      reader?.classList.remove(styles.readerSwipeTracking);
+      reader?.style.setProperty("--reader-swipe-x", "0px");
+    }
+
+    if (pointerDown.axis === "vertical" && !pointerIsTap) return;
 
     if (hasActiveReaderSwipeOffset(pointerDown.baseOffset)) {
       settleReaderSwipe(
@@ -1598,13 +1610,7 @@ export default function Home() {
       }
     }
 
-    if (
-      !isTapGesture({
-        durationMs: elapsed,
-        deltaX: dx,
-        deltaY: dy,
-      })
-    ) {
+    if (!pointerIsTap) {
       return;
     }
 

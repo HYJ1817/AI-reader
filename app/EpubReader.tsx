@@ -84,6 +84,9 @@ type EpubBook = {
   destroy: () => void;
 };
 
+const epubTouchListenerOptions = { passive: true, capture: true } as const;
+const epubClickListenerOptions = { capture: true } as const;
+
 const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubReader(
   {
     bookId,
@@ -519,7 +522,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         };
         scrollIntentFired = false;
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener(
@@ -572,7 +575,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           onReaderScrollStartRef.current?.();
         }
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener(
@@ -636,7 +639,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           onReaderTapRef.current?.();
         }
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener(
@@ -648,7 +651,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         const shell = shellRef.current;
         settleSwipe("none", start?.baseOffset ?? 0, shell?.clientWidth ?? 0);
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener("selectionchange", reportSelectionChange);
@@ -662,7 +665,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       syntheticClickToken = clickResult.token;
       if (clickResult.suppress) return;
       fireReaderTap(event.target);
-    });
+    }, epubClickListenerOptions);
 
     doc.addEventListener(
       "wheel",

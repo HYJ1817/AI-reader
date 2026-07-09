@@ -104,6 +104,43 @@ describe("reader chrome event integration", () => {
     expect(epubSource).toContain("maxDistancePx: 32");
   });
 
+  it("lets short TXT pointer drift still count as a reader chrome tap", () => {
+    const pointerUpStart = pageSource.indexOf(
+      "const handleReaderPointerUp = useCallback"
+    );
+    const pointerUpEnd = pageSource.indexOf(
+      "const useCustomBackgroundImage",
+      pointerUpStart
+    );
+    const pointerUpSource = pageSource.slice(pointerUpStart, pointerUpEnd);
+
+    expect(pointerUpSource).toContain("const pointerIsTap = isTapGesture({");
+    expect(pointerUpSource).toContain("maxDistancePx: 32");
+    expect(pointerUpSource).toContain(
+      'if (pointerDown.axis === "vertical" && !pointerIsTap) return;'
+    );
+    expect(pointerUpSource).toContain("if (!pointerIsTap) {");
+  });
+
+  it("captures EPUB frame taps before publisher content can stop propagation", () => {
+    expect(epubSource).toContain(
+      "const epubTouchListenerOptions = { passive: true, capture: true } as const;"
+    );
+    expect(epubSource).toContain(
+      "const epubClickListenerOptions = { capture: true } as const;"
+    );
+    expect(epubSource).toMatch(
+      /doc\.addEventListener\(\s*"touchstart"[\s\S]*epubTouchListenerOptions\s*\);/
+    );
+    expect(epubSource).toMatch(
+      /doc\.addEventListener\(\s*"touchend"[\s\S]*epubTouchListenerOptions\s*\);/
+    );
+    expect(epubSource).toContain('}, epubClickListenerOptions);');
+    expect(
+      epubSource.match(/epubTouchListenerOptions/g)?.length ?? 0
+    ).toBeGreaterThanOrEqual(5);
+  });
+
   it("routes EPUB touch selection and synthetic click arbitration through the tested helper", () => {
     expect(epubSource).toContain("normalizeEpubSelectionText");
     expect(epubSource).toContain("resolveEpubTouchEnd");
