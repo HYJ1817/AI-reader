@@ -103,7 +103,7 @@ describe("reader action menu", () => {
     expect(hiddenRowRule).not.toContain("pointer-events: none");
   });
 
-  it("keeps a chrome-owned wake button tappable when content taps are unavailable", () => {
+  it("keeps a chrome-owned menu button tappable for both opening and closing", () => {
     const wakeRule = cssRule(".readerMenuWakeButton");
     const hiddenWakeRule = cssRule(
       ".readerChromeControlsHidden .readerMenuWakeButton"
@@ -113,8 +113,8 @@ describe("reader action menu", () => {
     expect(controlsSource).toContain("onWakeMenu: () => void");
     expect(controlsSource).toContain("className={styles.readerMenuWakeButton}");
     expect(controlsSource).toContain("onClick={onWakeMenu}");
-    expect(wakeRule).toContain("pointer-events: none");
-    expect(wakeRule).toContain("visibility: hidden");
+    expect(wakeRule).toContain("pointer-events: auto");
+    expect(wakeRule).toContain("visibility: visible");
     expect(hiddenWakeRule).toContain("pointer-events: auto");
     expect(hiddenWakeRule).toContain("visibility: visible");
   });
