@@ -3,11 +3,18 @@
 import styles from "./page.module.css";
 import { UI_TEXT } from "@/lib/uiText";
 
+export type AiConversationMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  createdAt: string;
+};
+
 type Props = {
   selectedText: string | null;
   question: string;
   onQuestionChange: (value: string) => void;
-  answer: string | null;
+  messages: AiConversationMessage[];
   loading: boolean;
   error: string | null;
   onAsk: () => void;
@@ -21,7 +28,7 @@ export default function AskAiPanel({
   selectedText,
   question,
   onQuestionChange,
-  answer,
+  messages,
   loading,
   error,
   onAsk,
@@ -96,8 +103,21 @@ export default function AskAiPanel({
         <div className={styles.errorBox}>{error}</div>
       )}
 
-      {answer && (
-        <div className={styles.answerBox}>{answer}</div>
+      {messages.length > 0 && (
+        <div className={styles.askMessages}>
+          {messages.map((message) => (
+            <div
+              key={message.id}
+              className={`${styles.askMessage} ${
+                message.role === "user"
+                  ? styles.askMessageUser
+                  : styles.askMessageAssistant
+              }`}
+            >
+              {message.content}
+            </div>
+          ))}
+        </div>
       )}
     </>
   );

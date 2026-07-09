@@ -3,6 +3,7 @@ import {
   buildAiProviderRequest,
   extractAiProviderAnswer,
   type AiContext,
+  type ChatConversationMessage,
 } from "@/lib/aiChat";
 import {
   createAiProviderFromPreset,
@@ -19,14 +20,16 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { provider, baseUrl, apiKey, model, question, context } = body as {
-    provider?: unknown;
-    baseUrl?: string;
-    apiKey?: string;
-    model?: string;
-    question?: string;
-    context?: AiContext;
-  };
+  const { provider, baseUrl, apiKey, model, question, context, messages } =
+    body as {
+      provider?: unknown;
+      baseUrl?: string;
+      apiKey?: string;
+      model?: string;
+      question?: string;
+      context?: AiContext;
+      messages?: ChatConversationMessage[];
+    };
 
   const resolvedProvider: AiProviderConfig | null = provider
     ? sanitizeAiProvider(provider)
@@ -51,7 +54,7 @@ export async function POST(request: Request) {
   try {
     aiRequest = buildAiProviderRequest(
       resolvedProvider,
-      buildChatMessages(question, context ?? {})
+      buildChatMessages(question, context ?? {}, messages ?? [])
     );
   } catch {
     return Response.json({ error: "Invalid baseUrl" }, { status: 400 });

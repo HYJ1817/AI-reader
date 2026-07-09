@@ -3077,6 +3077,37 @@
   white-space: pre-wrap;
 }
 
+.askMessages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.askMessage {
+  max-width: 86%;
+  padding: 12px 14px;
+  border: 0.5px solid var(--separator);
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.askMessageUser {
+  align-self: flex-end;
+  background: var(--tint);
+  color: #ffffff;
+  border-color: transparent;
+  border-bottom-right-radius: 4px;
+}
+
+.askMessageAssistant {
+  align-self: flex-start;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
 .errorBox {
   padding: 10px 14px;
   background: rgba(255, 69, 58, 0.12);

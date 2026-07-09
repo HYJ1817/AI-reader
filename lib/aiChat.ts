@@ -47,9 +47,33 @@ export interface ChatMessage {
   content: string;
 }
 
+export type ChatConversationMessage = {
+  role: "user" | "assistant";
+  content: string;
+};
+
+function sanitizeConversationMessages(
+  messages: ChatConversationMessage[]
+): ChatConversationMessage[] {
+  return messages
+    .filter(
+      (message) =>
+        typeof message === "object" &&
+        message !== null &&
+        (message.role === "user" || message.role === "assistant") &&
+        typeof message.content === "string" &&
+        message.content.trim().length > 0
+    )
+    .map((message) => ({
+      role: message.role,
+      content: limitContextText(message.content, 3000),
+    }));
+}
+
 export function buildChatMessages(
   question: string,
-  context: AiContext
+  context: AiContext,
+  history: ChatConversationMessage[] = []
 ): ChatMessage[] {
   const systemMessage: ChatMessage = {
     role: "system",
@@ -80,6 +104,7 @@ export function buildChatMessages(
 
   return [
     systemMessage,
+    ...sanitizeConversationMessages(history),
     { role: "user", content: parts.join("\n\n") },
   ];
 }

@@ -143,6 +143,28 @@ describe("buildChatMessages", () => {
     expect(userMsg?.content).not.toContain("Book:");
     expect(userMsg?.content).not.toContain("Format:");
   });
+
+  it("keeps prior conversation messages before the current contextual question", () => {
+    const messages = buildChatMessages(
+      "What does that imply?",
+      { bookTitle: "My Book", nearbyText: "current page text" },
+      [
+        { role: "user", content: "Summarize the scene." },
+        { role: "assistant", content: "The scene introduces a conflict." },
+      ]
+    );
+
+    expect(messages.map((message) => message.role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(messages[1].content).toBe("Summarize the scene.");
+    expect(messages[2].content).toBe("The scene introduces a conflict.");
+    expect(messages[3].content).toContain("current page text");
+    expect(messages[3].content).toContain("What does that imply?");
+  });
 });
 
 describe("extractChatAnswer", () => {

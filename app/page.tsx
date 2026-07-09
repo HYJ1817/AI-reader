@@ -126,6 +126,7 @@ import {
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
 import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
 import useCustomBackground from "@/app/useCustomBackground";
+import useAskAi from "@/app/useAskAi";
 
 type Tab = NavigationTab;
 type ReaderTurnDirection = "prev" | "next";
@@ -180,12 +181,6 @@ export default function Home() {
     DEFAULT_AI_PROVIDER_SETTINGS
   );
   const [aiSettingsSheetOpen, setAiSettingsSheetOpen] = useState(false);
-
-  const [selectedText, setSelectedText] = useState<string | null>(null);
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [askLoading, setAskLoading] = useState(false);
-  const [askError, setAskError] = useState<string | null>(null);
 
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -676,7 +671,7 @@ export default function Home() {
       setParagraphs([]);
       setReaderProgressPercent(0);
       setReaderPageInfo({ current: 1, total: 1 });
-      setSelectedText(null);
+      resetAskAi();
       setActiveTab("library");
     }
     closeBookActionSheet();
@@ -744,7 +739,7 @@ export default function Home() {
       setParagraphs([]);
       setReaderProgressPercent(0);
       setReaderPageInfo({ current: 1, total: 1 });
-      setSelectedText(null);
+      resetAskAi();
       setActiveTab("library");
     }
     exitLibraryEditing();
@@ -814,6 +809,24 @@ export default function Home() {
     [aiProviderSettings]
   );
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
+  const {
+    selectedText,
+    setSelectedText,
+    question,
+    setQuestion,
+    messages: askMessages,
+    loading: askLoading,
+    error: askError,
+    reset: resetAskAi,
+    clearSelection: handleClearSelection,
+    ask: handleAsk,
+  } = useAskAi({
+    openBook,
+    activeAiProvider,
+    aiProviderUsable,
+    textReaderRef: readerRef,
+    epubReaderRef,
+  });
   const todayMinutesValue = formatReadingMinutes(todaySeconds);
   const todayGoalProgress = readingGoal.targetMinutes > 0
     ? Math.min(todayMinutesValue / readingGoal.targetMinutes, 1)
@@ -914,7 +927,7 @@ export default function Home() {
       savedPosition?.progressPercent ?? null;
     presentReader();
     scrollRestoredRef.current = false;
-    setSelectedText(null);
+    resetAskAi();
     setTocItems([]);
     setTocDrawerOpen(false);
     setReaderProgressPercent(0);
@@ -934,7 +947,7 @@ export default function Home() {
     } else {
       setParagraphs([]);
     }
-  }, [presentReader]);
+  }, [presentReader, resetAskAi]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1162,60 +1175,7 @@ export default function Home() {
       return true;
     }
     return false;
-  }, []);
-
-  function handleClearSelection() {
-    setSelectedText(null);
-    const selection = window.getSelection();
-    if (selection) selection.removeAllRanges();
-  }
-
-  async function handleAsk() {
-    if (!question.trim()) return;
-    if (!activeAiProvider || !aiProviderUsable) {
-      setAskError(UI_TEXT.CONFIGURE_AI_PROMPT);
-      return;
-    }
-
-    setAskLoading(true);
-    setAskError(null);
-    setAnswer(null);
-
-    const context: Record<string, string> = {};
-    if (openBook) {
-      context.bookTitle = openBook.title;
-      context.bookFormat = openBook.format;
-    }
-    if (selectedText) {
-      context.selectedText = selectedText;
-    }
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: activeAiProvider,
-          question: question.trim(),
-          context,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || `${UI_TEXT.REQUEST_FAILED} (${res.status})`);
-      }
-
-      const data = await res.json();
-      setAnswer(data.answer);
-    } catch (err) {
-      setAskError(
-        err instanceof Error ? err.message : UI_TEXT.REQUEST_FAILED
-      );
-    } finally {
-      setAskLoading(false);
-    }
-  }
+  }, [setSelectedText]);
 
   async function handleExportBackup() {
     setBackupStatus(null);
@@ -1840,7 +1800,7 @@ export default function Home() {
           askOpen: askSheetOpen,
           selectedText,
           question,
-          answer,
+          messages: askMessages,
           askLoading,
           askError,
           aiUsable: aiProviderUsable,

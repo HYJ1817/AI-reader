@@ -4,7 +4,7 @@ import BookCover from "@/app/BookCover";
 import BottomSheet from "@/app/BottomSheet";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import TocDrawer from "@/app/TocDrawer";
-import AskAiPanel from "@/app/AskAiPanel";
+import AskAiPanel, { type AiConversationMessage } from "@/app/AskAiPanel";
 import AiSettingsSheet from "@/app/AiSettingsSheet";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
 import type { AiProviderSettings } from "@/lib/aiProviders";
@@ -30,7 +30,7 @@ export type AppOverlaysProps = {
     askOpen: boolean;
     selectedText: string | null;
     question: string;
-    answer: string | null;
+    messages: AiConversationMessage[];
     askLoading: boolean;
     askError: string | null;
     aiUsable: boolean;
@@ -159,7 +159,7 @@ export default function AppOverlays({
                     selectedText={reader.selectedText}
                     question={reader.question}
                     onQuestionChange={actions.setQuestion}
-                    answer={reader.answer}
+                    messages={reader.messages}
                     loading={reader.askLoading}
                     error={reader.askError}
                     onAsk={actions.ask}

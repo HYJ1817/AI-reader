@@ -45,6 +45,7 @@ export type EpubReaderHandle = {
   next: () => Promise<void>;
   prev: () => Promise<void>;
   goTo: (href: string) => Promise<void>;
+  getVisibleText: () => string;
 };
 
 type EpubReaderProps = {
@@ -209,7 +210,65 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     }
   }, []);
 
-  useImperativeHandle(ref, () => ({ next: goNext, prev: goPrev, goTo }), [goNext, goPrev, goTo]);
+  const collectTextFromDocument = useCallback((doc: Document | undefined) => {
+    const body = doc?.body;
+    if (!body) return "";
+    const viewportWidth =
+      doc.documentElement.clientWidth || doc.defaultView?.innerWidth || 0;
+    const viewportHeight =
+      doc.documentElement.clientHeight || doc.defaultView?.innerHeight || 0;
+    const blocks = Array.from(
+      body.querySelectorAll("p, h1, h2, h3, h4, h5, h6, li, blockquote")
+    );
+    const visibleBlocks = blocks
+      .filter((element) => {
+        const rects = element.getClientRects();
+        for (let index = 0; index < rects.length; index += 1) {
+          const rect = rects[index];
+          if (
+            rect.bottom >= -80 &&
+            rect.right >= -80 &&
+            rect.top <= viewportHeight + 80 &&
+            rect.left <= viewportWidth + 80
+          ) {
+            return true;
+          }
+        }
+        return false;
+      })
+      .map((element) => element.textContent?.trim() ?? "")
+      .filter(Boolean);
+
+    if (visibleBlocks.length > 0) {
+      return visibleBlocks.join("\n\n");
+    }
+    return body?.innerText ?? "";
+  }, []);
+
+  const collectRenderedTextFromRendition = useCallback(() => {
+    const renderedContents = (
+      renditionRef.current as { getContents?: () => unknown } | null
+    )?.getContents?.();
+    const collect = (contents: unknown) =>
+      collectTextFromDocument(
+        (contents as { document?: Document } | null)?.document
+      );
+    if (Array.isArray(renderedContents)) {
+      return renderedContents.map(collect).filter(Boolean).join("\n\n");
+    }
+    return collect(renderedContents);
+  }, [collectTextFromDocument]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      next: goNext,
+      prev: goPrev,
+      goTo,
+      getVisibleText: collectRenderedTextFromRendition,
+    }),
+    [goNext, goPrev, goTo, collectRenderedTextFromRendition]
+  );
 
   const getThemeColors = useCallback(() => {
     const root = containerRef.current ?? document.documentElement;
