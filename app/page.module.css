@@ -2444,6 +2444,39 @@
   pointer-events: none;
 }
 
+.readerMenuWakeButton {
+  position: absolute;
+  right: 18px;
+  bottom: calc(var(--safe-bottom) + 18px);
+  z-index: 25;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+  pointer-events: none;
+  opacity: 0;
+  color: color-mix(in srgb, var(--foreground) 82%, transparent);
+  background: color-mix(in srgb, var(--background) 74%, transparent);
+  border: 0.5px solid color-mix(in srgb, var(--foreground) 10%, transparent);
+  border-radius: 999px;
+  box-shadow: 0 9px 24px rgba(0, 0, 0, 0.13);
+  transform: translateY(8px) scale(0.96);
+  transition:
+    opacity var(--motion-chrome-enter) var(--ease-standard),
+    transform var(--motion-chrome-enter) var(--ease-emphasized),
+    visibility 0s linear var(--motion-chrome-enter),
+    background var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.readerMenuWakeButton:active {
+  background: color-mix(in srgb, var(--foreground) 9%, transparent);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(9px) scale(0.93);
+}
+
 .readerOverlayBack,
 .readerPagePill {
   position: absolute;
@@ -2588,6 +2621,14 @@
   transform: translateY(-8px);
 }
 
+.readerChromeControlsHidden .readerMenuWakeButton {
+  visibility: visible;
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition-delay: 0ms, 0ms, 0s, 0ms, 0ms;
+}
+
 .readerChromeControlsHidden .readerMenuRow {
   visibility: hidden;
   opacity: 0;
@@ -2616,12 +2657,14 @@
 @media (prefers-reduced-motion: reduce) {
   .readerPagePill,
   .readerOverlayBack,
+  .readerMenuWakeButton,
   .readerMenuRow {
     transition: none;
     transform: none;
   }
 
   .readerOverlayBack:active,
+  .readerMenuWakeButton:active,
   .readerMenuRow:not(:disabled):active,
   .readerMenuRow:not(:disabled):active svg,
   .readerMenuRow:not(:disabled):active .readerMenuTrailing {

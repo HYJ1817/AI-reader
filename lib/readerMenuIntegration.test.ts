@@ -102,6 +102,22 @@ describe("reader action menu", () => {
     expect(hiddenRowRule).toContain("visibility 0s linear var(--motion-chrome-exit)");
     expect(hiddenRowRule).not.toContain("pointer-events: none");
   });
+
+  it("keeps a chrome-owned wake button tappable when content taps are unavailable", () => {
+    const wakeRule = cssRule(".readerMenuWakeButton");
+    const hiddenWakeRule = cssRule(
+      ".readerChromeControlsHidden .readerMenuWakeButton"
+    );
+
+    expect(sessionSource).toContain("onWakeMenu={onReaderTap}");
+    expect(controlsSource).toContain("onWakeMenu: () => void");
+    expect(controlsSource).toContain("className={styles.readerMenuWakeButton}");
+    expect(controlsSource).toContain("onClick={onWakeMenu}");
+    expect(wakeRule).toContain("pointer-events: none");
+    expect(wakeRule).toContain("visibility: hidden");
+    expect(hiddenWakeRule).toContain("pointer-events: auto");
+    expect(hiddenWakeRule).toContain("visibility: visible");
+  });
 });
 
 describe("reader contents and theme sheets", () => {

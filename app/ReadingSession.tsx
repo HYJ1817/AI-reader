@@ -185,6 +185,7 @@ export default function ReadingSession({
           hasToc={tocItems.length > 0 && book.format === "epub"}
           onOpenSettings={onOpenSettings}
           onAsk={onAsk}
+          onWakeMenu={onReaderTap}
           pageInfo={pageInfo}
           visible={chromeVisible}
         />

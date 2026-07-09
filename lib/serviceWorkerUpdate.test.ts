@@ -69,7 +69,7 @@ describe("production service worker updates", () => {
   });
 
   it("uses network-first app resources with offline cache fallback", () => {
-    expect(workerSource).toContain('const CACHE_NAME = "ai-reader-v3"');
+    expect(workerSource).toContain('const CACHE_NAME = "ai-reader-v4"');
     expect(workerSource).toContain("fetchAndCache(event.request)");
     expect(workerSource).not.toContain("cached || fetch(event.request)");
   });
