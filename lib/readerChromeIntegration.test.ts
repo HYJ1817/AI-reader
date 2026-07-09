@@ -101,6 +101,7 @@ describe("reader chrome event integration", () => {
     expect(epubSource).toContain("scrollIntentFired,");
     expect(epubSource).toContain("if (touchEnd.fireTap)");
     expect(epubSource).toContain("isTapGesture({");
+    expect(epubSource).toContain("maxDistancePx: 32");
   });
 
   it("routes EPUB touch selection and synthetic click arbitration through the tested helper", () => {
@@ -138,6 +139,15 @@ describe("reader chrome event integration", () => {
     expect(epubSource).toContain("selection?.removeAllRanges()");
     expect(epubSource).toContain('onTextSelectRef.current?.("")');
     expect(epubSource).toContain("shouldReportEpubSelectionChange");
+  });
+
+  it("does not let a stale EPUB selection block the click fallback tap", () => {
+    const fallbackStart = epubSource.indexOf("const fireReaderTap =");
+    const fallbackEnd = epubSource.indexOf("const settleSwipe", fallbackStart);
+    const fallbackSource = epubSource.slice(fallbackStart, fallbackEnd);
+
+    expect(fallbackSource).toContain("clearSelectionForTap(Date.now())");
+    expect(fallbackSource).not.toContain("|| getSelectionText()");
   });
 
   it("uses the bottom reader action menu instead of the old top and bottom chrome", () => {

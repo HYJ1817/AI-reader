@@ -113,6 +113,22 @@ describe("resolveEpubTouchEnd", () => {
     expect(result.syntheticClickToken).not.toBeNull();
   });
 
+  it("allows a short drifting tap even if touchmove briefly reported scroll intent", () => {
+    const result = resolveEpubTouchEnd({
+      startSelectionText: "",
+      endSelectionText: "",
+      isInteractiveTarget: false,
+      scrollIntentFired: true,
+      isTapGesture: true,
+      target: new EventTarget(),
+      at: 100,
+    });
+
+    expect(result.classification).toBe("tap");
+    expect(result.fireTap).toBe(true);
+    expect(result.syntheticClickToken).not.toBeNull();
+  });
+
   it("does not create a token for interactive, scroll, or swipe gestures", () => {
     const base = {
       startSelectionText: "",
@@ -138,7 +154,7 @@ describe("resolveEpubTouchEnd", () => {
         ...base,
         isInteractiveTarget: false,
         scrollIntentFired: true,
-        isTapGesture: true,
+        isTapGesture: false,
       })
     ).toMatchObject({
       classification: "ignore",

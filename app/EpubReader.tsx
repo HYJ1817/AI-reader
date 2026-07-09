@@ -437,7 +437,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     };
 
     const fireReaderTap = (target: EventTarget | null) => {
-      if (isInteractiveTarget(target) || getSelectionText()) return;
+      if (isInteractiveTarget(target)) return;
+      if (getSelectionText()) clearSelectionForTap(Date.now());
       onReaderTapRef.current?.();
     };
 
@@ -583,7 +584,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         if (!start || !touch) return;
         const dx = touch.clientX - start.x;
         const dy = touch.clientY - start.y;
-        if (start.axis === "horizontal") {
+        const touchIsTap = isTapGesture({
+          durationMs: Date.now() - start.time,
+          deltaX: dx,
+          deltaY: dy,
+          maxDistancePx: 32,
+        });
+        if (start.axis === "horizontal" && !touchIsTap) {
           const action = getReaderSwipeAction({
             startX: start.x,
             startY: start.y,
@@ -600,6 +607,11 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           settleSwipe(action, currentOffset, viewportWidth);
           return;
         }
+        if (start.axis === "horizontal" && touchIsTap) {
+          const shell = shellRef.current;
+          shell?.classList.remove(styles.readerSwipeTracking);
+          shell?.style.setProperty("--reader-swipe-x", "0px");
+        }
         if (hasActiveReaderSwipeOffset(start.baseOffset)) {
           const shell = shellRef.current;
           settleSwipe(
@@ -614,11 +626,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           endSelectionText: getSelectionText(),
           isInteractiveTarget: isInteractiveTarget(start.target),
           scrollIntentFired,
-          isTapGesture: isTapGesture({
-            durationMs: Date.now() - start.time,
-            deltaX: dx,
-            deltaY: dy,
-          }),
+          isTapGesture: touchIsTap,
           target: start.target,
           at: touchEndAt,
         });
