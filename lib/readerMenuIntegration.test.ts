@@ -34,6 +34,12 @@ const css = readFileSync(
   "utf8"
 );
 
+function cssRule(selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  const end = css.indexOf("}", start);
+  return start < 0 || end < 0 ? "" : css.slice(start, end);
+}
+
 describe("reader page indicator", () => {
   it("formats page labels as current over total pages", () => {
     expect(formatReaderPageLabel({ current: 1426, total: 3226 })).toBe(
@@ -84,6 +90,17 @@ describe("reader action menu", () => {
     expect(css).toContain("90ms, 90ms");
     expect(css).toContain("180ms, 180ms");
     expect(css).not.toContain(".readerFloatingTools");
+  });
+
+  it("keeps visible reader menu rows tappable while chrome exits", () => {
+    const rowRule = cssRule(".readerMenuRow");
+    const hiddenRowRule = cssRule(".readerChromeControlsHidden .readerMenuRow");
+
+    expect(rowRule).toContain("visibility: visible");
+    expect(rowRule).toContain("pointer-events: auto");
+    expect(hiddenRowRule).toContain("visibility: hidden");
+    expect(hiddenRowRule).toContain("visibility 0s linear var(--motion-chrome-exit)");
+    expect(hiddenRowRule).not.toContain("pointer-events: none");
   });
 });
 
