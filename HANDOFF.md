@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `4c57e7c` (`fix: improve reader AI context chat`)
-- If branch HEAD is newer than `4c57e7c`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `518fe91` (`fix: pin ask ai composer and recover epub resume`)
+- If branch HEAD is newer than `518fe91`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `4c57e7c`; push it before handing off if not already pushed
+  - local branch includes `518fe91`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -153,6 +153,20 @@ Latest Ask AI reader-context fix:
   - `lib/aiChat.test.ts`
 - The page-level state/logic lives in `app/useAskAi.ts` so `app/page.tsx`
   stays under the orchestration size guard.
+
+Latest Ask AI layout and EPUB resume fix:
+
+- The Ask AI sheet no longer renders the book-title prompt above the input.
+- The Ask AI composer now stays fixed at the bottom of the sheet while the
+  conversation thread scrolls independently.
+- The Ask AI sheet has a dedicated `askBottomSheet` layout; its `sheetBody`
+  no longer owns the scroll for this surface.
+- EPUB reopen/resume now falls back to `rendition.display()` when the saved
+  locator cannot be displayed, instead of showing `The object can not be found
+  here.` and leaving a blank reader.
+- Regression coverage was added in:
+  - `lib/askAiReaderContextIntegration.test.ts`
+  - `lib/epubAmbientIntegration.test.ts`
 
 Recent browser smoke evidence:
 
@@ -453,6 +467,8 @@ Latest Cloudflare production deployment work:
 - Added `docs/cloudflare-deploy.md`.
 - Changed `npm.cmd run build` to `next build --webpack`; OpenNext on Windows failed at runtime when a stale Turbopack server chunk was deployed.
 - Latest deployed Cloudflare Worker version:
+  `b4193612-2f0a-4714-a9e0-9a3044cfc303`.
+- Earlier Ask AI deployment version:
   `fd1acd88-b982-4af6-9255-a077fd75a348`.
 - Earlier production deployment version:
   `cedf3971-da3d-4e63-a927-aa8355f831e8`.
@@ -470,6 +486,7 @@ Latest Cloudflare production deployment work:
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+518fe91 fix: pin ask ai composer and recover epub resume
 4c57e7c fix: improve reader AI context chat
 93491b9 style: round reader close button
 3a84a7a fix: keep reader menu toggle visible
@@ -534,7 +551,7 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `4c57e7c`, these passed:
+After the latest code commit `518fe91`, these passed:
 
 ```powershell
 npm.cmd run test -- lib\readerMenuIntegration.test.ts
@@ -548,6 +565,8 @@ $env:JAVA_HOME='C:\Users\21022\.bubblewrap\jdk\jdk-17.0.11+9'; $env:ANDROID_HOME
 apksigner verify --print-certs android-twa\app-release-signed.apk
 npm.cmd run test -- lib\aiChat.test.ts lib\askAiReaderContextIntegration.test.ts
 npm.cmd run test -- lib\aiChat.test.ts lib\askAiReaderContextIntegration.test.ts lib\surfaceArchitecture.test.ts
+npm.cmd run test -- lib\askAiReaderContextIntegration.test.ts lib\epubAmbientIntegration.test.ts
+npm.cmd run test -- lib\askAiReaderContextIntegration.test.ts lib\epubAmbientIntegration.test.ts lib\readerChromeIntegration.test.ts lib\readerMenuIntegration.test.ts lib\motionCss.test.ts
 npm.cmd run test -- lib/webManifest.test.ts lib/serviceWorkerUpdate.test.ts
 npm.cmd run build
 npm.cmd run test -- lib/readingDashboardCss.test.ts
@@ -569,6 +588,8 @@ Observed results:
 - Latest reader menu/chrome/motion focused tests: 5 files, 88 tests passed.
 - Latest Ask AI focused tests: 3 files, 69 tests passed.
 - Latest Ask AI plus architecture focused tests: 5 files, 105 tests passed.
+- Latest Ask AI/EPUB resume focused tests: 3 files, 17 tests passed.
+- Latest Ask AI/EPUB/reader chrome focused tests: 8 files, 106 tests passed.
 - Latest reader wake button focused tests: 1 file, 12 tests passed.
 - Latest wake button/service-worker focused tests: 7 files, 96 tests passed.
 - Latest reader tap focused tests: 4 files, 58 tests passed.
@@ -582,10 +603,16 @@ Observed results:
 - Download/export/backup focused tests: 5 files, 64 tests passed.
 - Target motion tests: 2 files, 45 tests passed.
 - Android TWA config focused tests: 2 files, 3 tests passed.
-- Full suite: 120 files, 1203 tests passed.
+- Full suite: 120 files, 1205 tests passed.
 - ESLint `app lib` passed.
 - Production `next build --webpack` passed.
-- Cloudflare OpenNext deploy passed and published Worker version `fd1acd88-b982-4af6-9255-a077fd75a348`.
+- Cloudflare OpenNext deploy passed and published Worker version `b4193612-2f0a-4714-a9e0-9a3044cfc303`.
+- Production JS verification found
+  `/_next/static/chunks/app/page-c38a26525ec83a3a.js` contains
+  `askBottomSheet` and no longer contains `ASKING_ABOUT`.
+- Production CSS verification found
+  `/_next/static/css/af97b144a013a123.css` contains
+  `askBottomSheet` and `askThread`.
 - Production JS verification found
   `/_next/static/chunks/app/page-df07a0acf3c8fe1e.js` contains
   `nearbyText` and `getVisibleText`.
@@ -690,6 +717,9 @@ Files related to EPUB background work:
 ## Next Conversation Prompt
 
 Use this opener in the new conversation:
+
+Note before copying: update the opener's latest code commit to `518fe91` and
+include the Ask AI bottom composer plus EPUB resume fallback fix.
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
