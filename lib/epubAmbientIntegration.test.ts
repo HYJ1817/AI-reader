@@ -144,4 +144,25 @@ describe("EPUB ambient background integration", () => {
     );
     expect(getContentsIndex).toBeGreaterThan(displayIndex);
   });
+
+  it("falls back to the default EPUB location when a saved locator cannot be displayed", () => {
+    const initializationStart = epubSource.indexOf(
+      "const savedPosition = await getReadingPosition(bookId)"
+    );
+    const initializationEnd = epubSource.indexOf(
+      "const renderedContents",
+      initializationStart
+    );
+    const initializationSource = epubSource.slice(
+      initializationStart,
+      initializationEnd
+    );
+
+    expect(initializationStart).toBeGreaterThanOrEqual(0);
+    expect(initializationSource).toContain("try {");
+    expect(initializationSource).toContain("await rendition.display(resumeLocator)");
+    expect(initializationSource).toContain("catch");
+    expect(initializationSource).toContain("latestLocatorRef.current = null");
+    expect(initializationSource).toContain("await rendition.display()");
+  });
 });

@@ -801,7 +801,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             ? savedPosition?.locator
             : undefined);
         if (resumeLocator) {
-          await rendition.display(resumeLocator);
+          try {
+            await rendition.display(resumeLocator);
+          } catch {
+            latestLocatorRef.current = null;
+            if (cancelled) return;
+            await rendition.display();
+          }
         } else {
           await rendition.display();
         }

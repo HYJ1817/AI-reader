@@ -25,6 +25,10 @@ const askHookSource = readFileSync(
   new URL("../app/useAskAi.ts", import.meta.url),
   "utf8"
 );
+const cssSource = readFileSync(
+  new URL("../app/page.module.css", import.meta.url),
+  "utf8"
+);
 
 describe("Ask AI reader context integration", () => {
   it("keeps a visible conversation history instead of a single answer", () => {
@@ -34,6 +38,22 @@ describe("Ask AI reader context integration", () => {
     expect(overlaysSource).toContain("messages={reader.messages}");
     expect(askPanelSource).toContain("messages.map((message)");
     expect(askPanelSource).not.toContain("answer: string | null");
+  });
+
+  it("keeps the Ask AI composer fixed below the scrollable conversation", () => {
+    const messagesIndex = askPanelSource.indexOf("styles.askMessages");
+    const inputIndex = askPanelSource.indexOf("styles.askInput");
+
+    expect(askPanelSource).not.toContain("UI_TEXT.ASKING_ABOUT");
+    expect(askPanelSource).not.toContain("bookTitle");
+    expect(messagesIndex).toBeGreaterThanOrEqual(0);
+    expect(inputIndex).toBeGreaterThan(messagesIndex);
+    expect(overlaysSource).toContain("className={styles.askBottomSheet}");
+    expect(cssSource).toContain(".askBottomSheet .sheetBody");
+    expect(cssSource).toContain(".askThread");
+    expect(cssSource).toContain("overflow-y: auto");
+    expect(cssSource).toContain(".askComposer");
+    expect(cssSource).toContain("flex-shrink: 0");
   });
 
   it("clears submitted input and sends prior messages plus current reader text", () => {

@@ -1345,8 +1345,8 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  max-width: 360px;
-  margin-top: 16px;
+  max-width: none;
+  margin-top: 0;
 }
 
 .input {
@@ -3013,16 +3013,46 @@
 .askPanel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-height: 60vh;
+  height: 100%;
+  min-height: 0;
 }
 
 .askContext {
   margin: 0;
 }
 
+.bottomSheet.askBottomSheet {
+  height: min(78dvh, 720px);
+}
+
+.askBottomSheet .sheetBody {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .askSheetInner {
+  display: flex;
+  flex: 1;
+  min-height: 0;
   padding: 0 16px 16px;
+}
+
+.askThread {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 0 12px;
+}
+
+.askComposer {
+  flex-shrink: 0;
+  padding-top: 10px;
+  border-top: 0.5px solid var(--separator);
 }
 
 .selectedTextPreview {
@@ -3081,6 +3111,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  flex: 1;
+  justify-content: flex-end;
 }
 
 .askMessage {

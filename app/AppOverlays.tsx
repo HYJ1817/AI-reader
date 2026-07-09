@@ -149,7 +149,11 @@ export default function AppOverlays({
       )}
 
       {reader.askOpen && (
-        <BottomSheet onClose={actions.closeAsk} ariaLabel={UI_TEXT.ASK_AI}>
+        <BottomSheet
+          onClose={actions.closeAsk}
+          ariaLabel={UI_TEXT.ASK_AI}
+          className={styles.askBottomSheet}
+        >
           {(close) => (
             <>
               <SheetHeader title={UI_TEXT.ASK_AI} close={close} />
@@ -165,7 +169,6 @@ export default function AppOverlays({
                     onAsk={actions.ask}
                     onClearSelection={actions.clearSelection}
                     aiSettingsUsable={reader.aiUsable}
-                    bookTitle={reader.bookTitle}
                     onOpenSettings={() =>
                       close(actions.openAiSettingsFromAsk)
                     }
