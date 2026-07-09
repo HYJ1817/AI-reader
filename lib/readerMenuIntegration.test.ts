@@ -103,6 +103,15 @@ describe("reader action menu", () => {
     expect(hiddenRowRule).not.toContain("pointer-events: none");
   });
 
+  it("uses a circular reader close button", () => {
+    const closeRule = cssRule(".readerOverlayBack");
+
+    expect(controlsSource).toContain("styles.readerOverlayBack");
+    expect(closeRule).toContain("width: 48px");
+    expect(closeRule).toContain("height: 48px");
+    expect(closeRule).toContain("border-radius: 999px");
+  });
+
   it("keeps a chrome-owned menu button tappable for both opening and closing", () => {
     const wakeRule = cssRule(".readerMenuWakeButton");
     const hiddenWakeRule = cssRule(
