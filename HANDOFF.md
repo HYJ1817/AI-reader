@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `3a84a7a` (`fix: keep reader menu toggle visible`)
-- If branch HEAD is newer than `3a84a7a`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `93491b9` (`style: round reader close button`)
+- If branch HEAD is newer than `93491b9`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `3a84a7a`; push it before handing off if not already pushed
+  - local branch includes `93491b9`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -333,6 +333,9 @@ Latest EPUB tap-to-menu fix:
 - Follow-up fix: the button is now a true menu toggle, not only a wake button.
   It remains `visibility: visible` and `pointer-events: auto` while the full
   menu is open, so tapping the same button again hides the menu.
+- Follow-up style polish: the right-top reader close button
+  (`readerOverlayBack`) is now a 48px circular button with
+  `border-radius: 999px`, matching the reader's other floating controls.
 - Service Worker cache was bumped from `ai-reader-v3` to `ai-reader-v4` so the
   installed PWA has a changed `sw.js` to pick up during update checks.
 - Latest fix: TXT reader pointer-up now uses the same 32px short-tap tolerance
@@ -359,6 +362,9 @@ Latest EPUB tap-to-menu fix:
   the wake button is wired from `ReadingSession` to `ReaderControls`, uses the
   shared toggle handler, and remains `pointer-events: auto` / `visibility:
   visible` both when the menu is hidden and when it is open.
+- Latest regression coverage in `lib/readerMenuIntegration.test.ts` also locks
+  that the right-top reader close button stays 48px square and uses
+  `border-radius: 999px`.
 - Production JS verification found
   `/_next/static/chunks/app/page-85292ecd2ed27a8c.js` contains
   `readerMenuWakeButton`; production CSS
@@ -425,7 +431,7 @@ Latest Cloudflare production deployment work:
 - Added `public/_headers` for long-lived Next static chunk caching.
 - Added `docs/cloudflare-deploy.md`.
 - Changed `npm.cmd run build` to `next build --webpack`; OpenNext on Windows failed at runtime when a stale Turbopack server chunk was deployed.
-- Deployed Cloudflare Worker version `9b3e3d6c-80ab-4260-bb94-d208e9a64903`.
+- Deployed Cloudflare Worker version `cedf3971-da3d-4e63-a927-aa8355f831e8`.
 - Production URL is now `https://881817.xyz`.
 - Workers preview URL is `https://ai-reader-pwa.hyjsb1817.workers.dev`.
 - Verified production:
@@ -440,6 +446,7 @@ Latest Cloudflare production deployment work:
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+93491b9 style: round reader close button
 3a84a7a fix: keep reader menu toggle visible
 89c9712 fix: add reader menu wake button
 75f1baa fix: make reader taps more reliable
@@ -502,7 +509,7 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `3a84a7a`, these passed:
+After the latest code commit `93491b9`, these passed:
 
 ```powershell
 npm.cmd run test -- lib\readerMenuIntegration.test.ts
@@ -531,6 +538,7 @@ git diff --check
 Observed results:
 
 - Latest reader menu toggle focused tests: 1 file, 12 tests passed.
+- Latest reader menu/close-button focused tests: 1 file, 13 tests passed.
 - Latest reader menu/chrome/motion focused tests: 5 files, 88 tests passed.
 - Latest reader wake button focused tests: 1 file, 12 tests passed.
 - Latest wake button/service-worker focused tests: 7 files, 96 tests passed.
@@ -545,10 +553,10 @@ Observed results:
 - Download/export/backup focused tests: 5 files, 64 tests passed.
 - Target motion tests: 2 files, 45 tests passed.
 - Android TWA config focused tests: 2 files, 3 tests passed.
-- Full suite: 119 files, 1197 tests passed.
+- Full suite: 119 files, 1198 tests passed.
 - ESLint `app lib` passed.
 - Production `next build --webpack` passed.
-- Cloudflare OpenNext deploy passed and published Worker version `9b3e3d6c-80ab-4260-bb94-d208e9a64903`.
+- Cloudflare OpenNext deploy passed and published Worker version `cedf3971-da3d-4e63-a927-aa8355f831e8`.
 - Production JS verification found
   `/_next/static/chunks/app/page-85292ecd2ed27a8c.js` contains
   `readerMenuWakeButton`.
@@ -556,6 +564,8 @@ Observed results:
   the deployed reader CSS contains `readerMenuWakeButton`,
   `pointer-events:auto`, and `visibility:visible`, and no longer contains the
   old `readerMenuWakeButton` default `pointer-events:none` state.
+- Production CSS verification found the deployed `readerOverlayBack` rule
+  contains `width:48px`, `height:48px`, and `border-radius:999px`.
 - Production service worker verification found `/sw.js` contains
   `ai-reader-v4`.
 - Production CSS verification found hidden `.readerMenuRow` on
@@ -647,5 +657,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 3a84a7a，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、Service Worker cache 已 bump 到 ai-reader-v4 以帮助已安装 PWA 更新，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*，Workers 预览地址是 https://ai-reader-pwa.hyjsb1817.workers.dev。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
+最新代码提交是 93491b9，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、右上角 readerOverlayBack 关闭按钮已改成 48px 圆形按钮、Service Worker cache 已 bump 到 ai-reader-v4 以帮助已安装 PWA 更新，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*，Workers 预览地址是 https://ai-reader-pwa.hyjsb1817.workers.dev。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
 ```
