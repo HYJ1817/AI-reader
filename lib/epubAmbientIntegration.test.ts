@@ -14,6 +14,12 @@ const moduleCss = readFileSync(
   "utf8"
 );
 
+function cssRule(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  const end = css.indexOf("}", start);
+  return start < 0 || end < 0 ? "" : css.slice(start, end);
+}
+
 describe("EPUB ambient background integration", () => {
   it("applies reader preferences after rendition events and before first display", () => {
     const initializationStart = epubSource.indexOf(
@@ -55,14 +61,17 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
-  it("renders EPUB sessions on the same light canvas variables as light mode", () => {
+  it("keeps EPUB light canvas variables without covering the ambient reader background", () => {
     expect(readingSessionSource).toContain("styles.readerEpubLightCanvas");
     expect(readingSessionSource).toContain('book?.format === "epub"');
-    expect(moduleCss).toContain(".readerEpubLightCanvas");
-    expect(moduleCss).toContain("--background: #ffffff;");
-    expect(moduleCss).toContain("--foreground: #1a1a1a;");
-    expect(moduleCss).toContain("--app-bg: #f5f5f7;");
-    expect(moduleCss).toContain("background: var(--app-bg);");
+    const epubLightCanvasRule = cssRule(moduleCss, ".readerEpubLightCanvas");
+    expect(epubLightCanvasRule).toContain("--background: #ffffff;");
+    expect(epubLightCanvasRule).toContain("--foreground: #1a1a1a;");
+    expect(epubLightCanvasRule).toContain("--app-bg: #f5f5f7;");
+    expect(epubLightCanvasRule).not.toMatch(/(?:^|\n)\s*background\s*:/);
+    expect(
+      cssRule(moduleCss, ".readerEpubLightCanvas .readerStage")
+    ).not.toMatch(/(?:^|\n)\s*background\s*:/);
   });
 
   it("applies the inline ambient canvas override before attaching tap handlers", () => {

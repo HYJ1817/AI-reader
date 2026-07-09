@@ -2406,7 +2406,6 @@
   --liquid-glass-border: rgba(60, 60, 67, 0.16);
   --liquid-glass-shadow: 0 8px 22px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.56), inset 0 -1px 0 rgba(255, 255, 255, 0.22);
   --liquid-glass-tint: rgba(10, 132, 255, 0.1);
-  background: var(--app-bg);
   color-scheme: light;
 }
 
@@ -2435,10 +2434,6 @@
   padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
   background: transparent;
   transition: background-color 180ms var(--ease-standard);
-}
-
-.readerEpubLightCanvas .readerStage {
-  background: var(--app-bg);
 }
 
 .readerChromeHidden .readerStage {
