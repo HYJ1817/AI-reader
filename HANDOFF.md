@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `effa2b6` (`feat: add Cloudflare Workers deployment`)
-- If branch HEAD is newer than `effa2b6`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `164dbb3` (`fix: keep epub reader background ambient`)
+- If branch HEAD is newer than `164dbb3`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `effa2b6`; push it before handing off if not already pushed
+  - local branch includes `164dbb3`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -315,6 +315,21 @@ Latest continue-reading card motion polish:
   - `docs/superpowers/specs/2026-07-08-continue-reading-card-motion-design.md`
   - `docs/superpowers/plans/2026-07-08-continue-reading-card-motion.md`
 
+Latest EPUB reader background regression fix:
+
+- EPUB reading sessions no longer paint the entire reader shell/stage with the
+  light canvas `var(--app-bg)` background.
+- `readerEpubLightCanvas` still provides light EPUB content variables such as
+  `--background: #ffffff`, `--foreground: #1a1a1a`, and `color-scheme: light`.
+- The reader shell and stage stay transparent so the reading view matches the
+  main app/ambient background instead of becoming a white/light-gray full-screen
+  canvas.
+- Regression coverage was updated in:
+  - `lib/ambientBookBackground.test.ts`
+  - `lib/epubAmbientIntegration.test.ts`
+- Do not re-add `background: var(--app-bg)` to `.readerEpubLightCanvas` or
+  `.readerEpubLightCanvas .readerStage` unless the product direction changes.
+
 Latest Android TWA package work:
 
 - Added Android-ready PNG manifest icons and updated the service worker static asset list.
@@ -360,6 +375,7 @@ Latest Cloudflare production deployment work:
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+164dbb3 fix: keep epub reader background ambient
 effa2b6 feat: add Cloudflare Workers deployment
 3ba7859 docs: refresh production domain handoff
 7a513f8 feat: target Android TWA at production domain
@@ -416,9 +432,10 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `effa2b6`, these passed:
+After the latest code commit `164dbb3`, these passed:
 
 ```powershell
+npm.cmd run test -- lib\ambientBookBackground.test.ts lib\epubAmbientIntegration.test.ts
 npm.cmd run test -- lib\androidTwaConfig.test.ts lib\webManifest.test.ts
 $env:JAVA_HOME='C:\Users\21022\.bubblewrap\jdk\jdk-17.0.11+9'; $env:ANDROID_HOME='C:\Users\21022\.bubblewrap\android_sdk'; $env:ANDROID_SDK_ROOT=$env:ANDROID_HOME; $env:Path="$env:JAVA_HOME\bin;$env:ANDROID_HOME\platform-tools;$env:Path"; .\gradlew.bat assembleRelease bundleRelease
 apksigner verify --print-certs android-twa\app-release-signed.apk
@@ -438,6 +455,7 @@ git diff --check
 
 Observed results:
 
+- EPUB ambient focused tests: 4 files, 40 tests passed.
 - Reading dashboard focused tests: 2 files, 7 tests passed.
 - Service-worker focused tests: 2 files, 8 tests passed.
 - Browser download focused tests: 1 file, 2 tests passed.
@@ -531,5 +549,5 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 effa2b6，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*，Workers 预览地址是 https://ai-reader-pwa.hyjsb1817.workers.dev。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
+最新代码提交是 164dbb3，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*，Workers 预览地址是 https://ai-reader-pwa.hyjsb1817.workers.dev。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
 ```
