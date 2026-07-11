@@ -68,18 +68,18 @@ export function applyEpubReaderPreferences(
   ) {
     controller.register("reader-prefs", {
       "html, body": {
-        background: "transparent !important",
+        "background-color": "transparent !important",
         "touch-action": "pan-y pinch-zoom",
         "overscroll-behavior-inline": "contain",
         "-webkit-tap-highlight-color": "transparent",
       },
       body: {
         color: `${contentForeground} !important`,
-        background: "transparent !important",
+        "background-color": "transparent !important",
         transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
       },
-      "body > div, body > main, body > section, body > article": {
-        background: "transparent !important",
+      "body div, body main, body section, body article": {
+        "background-color": "transparent !important",
       },
       "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6": {
         color: `${contentForeground} !important`,

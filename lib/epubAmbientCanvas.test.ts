@@ -36,10 +36,11 @@ function createDocument(children: FakeElement[]): FakeDocument {
 }
 
 describe("applyEpubAmbientCanvas", () => {
-  it("clears only the document canvas and direct publisher canvas children", () => {
+  it("clears nested publisher canvas colors while preserving content elements", () => {
     const nestedCallout = createElement("DIV");
+    const nestedSection = createElement("SECTION", [nestedCallout]);
     const nestedCode = createElement("CODE");
-    const topLevelDiv = createElement("DIV", [nestedCallout, nestedCode]);
+    const topLevelDiv = createElement("DIV", [nestedSection, nestedCode]);
     const topLevelMain = createElement("MAIN");
     const topLevelParagraph = createElement("P");
     const topLevelCode = createElement("CODE");
@@ -57,10 +58,12 @@ describe("applyEpubAmbientCanvas", () => {
       document.body,
       topLevelDiv,
       topLevelMain,
+      nestedSection,
+      nestedCallout,
     ]) {
       expect(element.style.setProperty).toHaveBeenCalledOnce();
       expect(element.style.setProperty).toHaveBeenCalledWith(
-        "background",
+        "background-color",
         "transparent",
         "important"
       );
@@ -68,7 +71,6 @@ describe("applyEpubAmbientCanvas", () => {
     for (const element of [
       topLevelParagraph,
       topLevelCode,
-      nestedCallout,
       nestedCode,
     ]) {
       expect(element.style.setProperty).not.toHaveBeenCalled();
@@ -83,12 +85,12 @@ describe("applyEpubAmbientCanvas", () => {
     applyEpubAmbientCanvas({ content });
 
     expect(document.documentElement.style.setProperty).toHaveBeenCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
     expect(document.body.children[0]?.style.setProperty).toHaveBeenCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
@@ -113,12 +115,12 @@ describe("applyEpubAmbientCanvas", () => {
     applyEpubAmbientCanvas({ document });
 
     expect(document.documentElement.style.setProperty).toHaveBeenLastCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
     expect(document.body.style.setProperty).toHaveBeenLastCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
