@@ -40,7 +40,10 @@ function clearNestedCanvasColors(element: EpubAmbientElement) {
   }
 }
 
-export function applyEpubAmbientCanvas(contents: unknown): void {
+export function applyEpubAmbientCanvas(
+  contents: unknown,
+  canvasBackground = "transparent"
+): void {
   if (!contents || typeof contents !== "object") return;
 
   const candidate = contents as EpubAmbientContents;
@@ -52,7 +55,11 @@ export function applyEpubAmbientCanvas(contents: unknown): void {
   const body = document?.body;
   if (!document || !body) return;
 
-  setTransparentBackgroundColor(document.documentElement);
-  setTransparentBackgroundColor(body);
+  document.documentElement?.style?.setProperty(
+    "background-color",
+    canvasBackground,
+    "important"
+  );
+  body.style?.setProperty("background-color", canvasBackground, "important");
   clearNestedCanvasColors(body);
 }

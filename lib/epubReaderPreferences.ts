@@ -38,6 +38,35 @@ const FONT_FAMILY_CSS: Record<ReaderPreferences["fontFamily"], string> = {
   serif: '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
 };
 
+function parseHexChannel(value: string): number | null {
+  const channel = Number.parseInt(value, 16);
+  return Number.isFinite(channel) ? channel : null;
+}
+
+export function resolveEpubCanvasBackground(background: string): string {
+  const hex = background
+    .trim()
+    .toLowerCase()
+    .match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
+  if (!hex) return "transparent";
+
+  const value = hex[1] ?? "";
+  const expanded =
+    value.length === 3
+      ? value
+          .split("")
+          .map((character) => `${character}${character}`)
+          .join("")
+      : value;
+  const red = parseHexChannel(expanded.slice(0, 2));
+  const green = parseHexChannel(expanded.slice(2, 4));
+  const blue = parseHexChannel(expanded.slice(4, 6));
+  if (red === null || green === null || blue === null) return "transparent";
+
+  const luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+  return luminance < 128 ? background.trim() : "transparent";
+}
+
 export function applyEpubReaderPreferences(
   controller: EpubThemeController,
   preferences: ReaderPreferences,
@@ -61,6 +90,7 @@ export function applyEpubReaderPreferences(
     };
   const themeSignature = `${colors.foreground}|${colors.background}`;
   const contentForeground = colors.foreground;
+  const canvasBackground = resolveEpubCanvasBackground(colors.background);
 
   if (
     changes.theme ||
@@ -68,14 +98,14 @@ export function applyEpubReaderPreferences(
   ) {
     controller.register("reader-prefs", {
       "html, body": {
-        "background-color": "transparent !important",
+        "background-color": `${canvasBackground} !important`,
         "touch-action": "pan-y pinch-zoom",
         "overscroll-behavior-inline": "contain",
         "-webkit-tap-highlight-color": "transparent",
       },
       body: {
         color: `${contentForeground} !important`,
-        "background-color": "transparent !important",
+        "background-color": `${canvasBackground} !important`,
         transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
       },
       "body div, body main, body section, body article": {

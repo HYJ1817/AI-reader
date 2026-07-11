@@ -125,4 +125,27 @@ describe("applyEpubAmbientCanvas", () => {
       "important"
     );
   });
+
+  it("pins the root canvas to the active dark background", () => {
+    const nestedLayout = createElement("DIV");
+    const document = createDocument([nestedLayout]);
+
+    applyEpubAmbientCanvas({ document }, "#171717");
+
+    expect(document.documentElement.style.setProperty).toHaveBeenCalledWith(
+      "background-color",
+      "#171717",
+      "important"
+    );
+    expect(document.body.style.setProperty).toHaveBeenCalledWith(
+      "background-color",
+      "#171717",
+      "important"
+    );
+    expect(nestedLayout.style.setProperty).toHaveBeenCalledWith(
+      "background-color",
+      "transparent",
+      "important"
+    );
+  });
 });

@@ -81,7 +81,7 @@ describe("EPUB ambient background integration", () => {
     );
     const handlerSource = epubSource.slice(handlerStart, handlerEnd);
     const ambientIndex = handlerSource.indexOf(
-      "applyEpubAmbientCanvas(contents)"
+      "applyEpubAmbientCanvas(contents, canvasBackground)"
     );
     const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
 
