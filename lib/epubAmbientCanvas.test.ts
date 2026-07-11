@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyEpubAmbientCanvas } from "./epubAmbientCanvas";
+import {
+  applyEpubAmbientCanvas,
+  applyEpubViewTransparency,
+} from "./epubAmbientCanvas";
 
 type FakeElement = {
   tagName: string;
@@ -8,6 +11,7 @@ type FakeElement = {
   };
   children: FakeElement[];
   ownerDocument?: FakeDocument;
+  setAttribute: ReturnType<typeof vi.fn>;
 };
 
 type FakeDocument = {
@@ -25,6 +29,7 @@ function createElement(
       setProperty: vi.fn(),
     },
     children,
+    setAttribute: vi.fn(),
   };
 }
 
@@ -61,7 +66,6 @@ describe("applyEpubAmbientCanvas", () => {
       nestedSection,
       nestedCallout,
     ]) {
-      expect(element.style.setProperty).toHaveBeenCalledOnce();
       expect(element.style.setProperty).toHaveBeenCalledWith(
         "background-color",
         "transparent",
@@ -126,26 +130,28 @@ describe("applyEpubAmbientCanvas", () => {
     );
   });
 
-  it("pins the root canvas to the active dark background", () => {
-    const nestedLayout = createElement("DIV");
-    const document = createDocument([nestedLayout]);
+  it("forces the epub.js view and iframe layers transparent", () => {
+    const container = createElement("DIV");
+    const element = createElement("DIV");
+    const iframe = createElement("IFRAME");
 
-    applyEpubAmbientCanvas({ document }, "#171717");
+    applyEpubViewTransparency({ container, element, iframe });
 
-    expect(document.documentElement.style.setProperty).toHaveBeenCalledWith(
-      "background-color",
-      "#171717",
-      "important"
-    );
-    expect(document.body.style.setProperty).toHaveBeenCalledWith(
-      "background-color",
-      "#171717",
-      "important"
-    );
-    expect(nestedLayout.style.setProperty).toHaveBeenCalledWith(
-      "background-color",
-      "transparent",
-      "important"
+    for (const layer of [container, element, iframe]) {
+      expect(layer.style.setProperty).toHaveBeenCalledWith(
+        "background",
+        "transparent",
+        "important"
+      );
+      expect(layer.style.setProperty).toHaveBeenCalledWith(
+        "background-color",
+        "transparent",
+        "important"
+      );
+    }
+    expect(iframe.setAttribute).toHaveBeenCalledWith(
+      "allowtransparency",
+      "true"
     );
   });
 });

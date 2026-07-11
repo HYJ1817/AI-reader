@@ -8,6 +8,7 @@ type EpubAmbientElement = {
   children?: ArrayLike<EpubAmbientElement>;
   ownerDocument?: EpubAmbientDocument;
   document?: EpubAmbientDocument;
+  setAttribute?: (name: string, value: string) => void;
 };
 
 type EpubAmbientDocument = {
@@ -18,6 +19,12 @@ type EpubAmbientDocument = {
 type EpubAmbientContents = EpubAmbientDocument & {
   document?: EpubAmbientDocument;
   content?: EpubAmbientElement;
+};
+
+type EpubAmbientView = {
+  element?: EpubAmbientElement;
+  iframe?: EpubAmbientElement;
+  container?: EpubAmbientElement;
 };
 
 const TOP_LEVEL_CANVAS_TAGS = new Set([
@@ -31,6 +38,11 @@ function setTransparentBackgroundColor(element: EpubAmbientElement | undefined) 
   element?.style?.setProperty("background-color", "transparent", "important");
 }
 
+function setTransparentRootCanvas(element: EpubAmbientElement | undefined) {
+  element?.style?.setProperty("background", "transparent", "important");
+  setTransparentBackgroundColor(element);
+}
+
 function clearNestedCanvasColors(element: EpubAmbientElement) {
   for (const child of Array.from(element.children ?? [])) {
     if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
@@ -41,8 +53,7 @@ function clearNestedCanvasColors(element: EpubAmbientElement) {
 }
 
 export function applyEpubAmbientCanvas(
-  contents: unknown,
-  canvasBackground = "transparent"
+  contents: unknown
 ): void {
   if (!contents || typeof contents !== "object") return;
 
@@ -55,11 +66,16 @@ export function applyEpubAmbientCanvas(
   const body = document?.body;
   if (!document || !body) return;
 
-  document.documentElement?.style?.setProperty(
-    "background-color",
-    canvasBackground,
-    "important"
-  );
-  body.style?.setProperty("background-color", canvasBackground, "important");
+  setTransparentRootCanvas(document.documentElement);
+  setTransparentRootCanvas(body);
   clearNestedCanvasColors(body);
+}
+
+export function applyEpubViewTransparency(view: unknown): void {
+  if (!view || typeof view !== "object") return;
+  const candidate = view as EpubAmbientView;
+  for (const element of [candidate.container, candidate.element, candidate.iframe]) {
+    setTransparentRootCanvas(element);
+  }
+  candidate.iframe?.setAttribute?.("allowtransparency", "true");
 }

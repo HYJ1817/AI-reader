@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyEpubReaderPreferences,
   EMPTY_EPUB_PREFERENCE_STATE,
-  resolveEpubCanvasBackground,
   type EpubThemeController,
   type EpubThemeRules,
 } from "./epubReaderPreferences";
@@ -32,12 +31,6 @@ function serializeRulesLikeEpubJs(rules: EpubThemeRules): string[] {
 }
 
 describe("applyEpubReaderPreferences", () => {
-  it("uses an opaque canvas only for dark reader backgrounds", () => {
-    expect(resolveEpubCanvasBackground("#171717")).toBe("#171717");
-    expect(resolveEpubCanvasBackground("#000")).toBe("#000");
-    expect(resolveEpubCanvasBackground("#ffffff")).toBe("transparent");
-    expect(resolveEpubCanvasBackground("#f4ecd8")).toBe("transparent");
-  });
   it("installs the theme and typography on first application", () => {
     const controller = createController();
 
@@ -70,13 +63,16 @@ describe("applyEpubReaderPreferences", () => {
       | undefined;
 
     expect(rules?.["html, body"]).toEqual({
+      background: "transparent !important",
       "background-color": "transparent !important",
+      "color-scheme": "normal",
       "touch-action": "pan-y pinch-zoom",
       "overscroll-behavior-inline": "contain",
       "-webkit-tap-highlight-color": "transparent",
     });
     expect(rules?.body).toEqual({
       color: "#111111 !important",
+      background: "transparent !important",
       "background-color": "transparent !important",
       transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
     });
@@ -114,7 +110,7 @@ describe("applyEpubReaderPreferences", () => {
     const serialized = serializeRulesLikeEpubJs(rules);
 
     expect(serialized).toContain(
-      "html, body{background-color:transparent !important;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
+      "html, body{background:transparent !important;background-color:transparent !important;color-scheme:normal;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
     );
     expect(serialized).toContain(
       "body div, body main, body section, body article{background-color:transparent !important}"
@@ -251,11 +247,13 @@ describe("applyEpubReaderPreferences", () => {
     expect(controller.override).not.toHaveBeenCalled();
     const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
     expect(rules?.["html, body"]).toMatchObject({
-      "background-color": "#111111 !important",
+      background: "transparent !important",
+      "background-color": "transparent !important",
     });
     expect(rules?.body).toMatchObject({
       color: "#f4f4f4 !important",
-      "background-color": "#111111 !important",
+      background: "transparent !important",
+      "background-color": "transparent !important",
     });
   });
 
@@ -272,7 +270,8 @@ describe("applyEpubReaderPreferences", () => {
     const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
     expect(rules?.body).toMatchObject({
       color: "#f3f4f6 !important",
-      "background-color": "#171717 !important",
+      background: "transparent !important",
+      "background-color": "transparent !important",
     });
     expect(
       rules?.[

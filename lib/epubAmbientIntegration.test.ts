@@ -81,17 +81,29 @@ describe("EPUB ambient background integration", () => {
     );
     const handlerSource = epubSource.slice(handlerStart, handlerEnd);
     const ambientIndex = handlerSource.indexOf(
-      "applyEpubAmbientCanvas(contents, canvasBackground)"
+      "applyEpubAmbientCanvas(contents)"
     );
     const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
 
-    expect(epubSource).toContain(
-      'import { applyEpubAmbientCanvas } from "@/lib/epubAmbientCanvas";'
-    );
+    expect(epubSource).toContain("applyEpubAmbientCanvas,");
+    expect(epubSource).toContain("applyEpubViewTransparency,");
+    expect(epubSource).toContain('from "@/lib/epubAmbientCanvas";');
     expect(handlerStart).toBeGreaterThanOrEqual(0);
     expect(ambientIndex).toBeGreaterThanOrEqual(0);
     expect(tapIndex).toBeGreaterThanOrEqual(0);
     expect(ambientIndex).toBeLessThan(tapIndex);
+  });
+
+  it("forces the epub.js view and iframe transparent before handling contents", () => {
+    const renderedHandler = epubSource.slice(
+      epubSource.indexOf('rendition.on("rendered"'),
+      epubSource.indexOf("if (preferencesRef.current)")
+    );
+
+    expect(renderedHandler).toContain("applyEpubViewTransparency(view)");
+    expect(renderedHandler.indexOf("applyEpubViewTransparency(view)")).toBeLessThan(
+      renderedHandler.indexOf("handleRenderedContents(contents)")
+    );
   });
 
   it("reapplies the transparent iframe canvas when reader preferences change", () => {
