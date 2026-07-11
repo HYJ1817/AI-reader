@@ -41,11 +41,16 @@ function createDocument(children: FakeElement[]): FakeDocument {
 }
 
 describe("applyEpubAmbientCanvas", () => {
-  it("clears nested publisher canvas colors while preserving content elements", () => {
+  it("clears nested publisher canvases while preserving media elements", () => {
     const nestedCallout = createElement("DIV");
     const nestedSection = createElement("SECTION", [nestedCallout]);
     const nestedCode = createElement("CODE");
-    const topLevelDiv = createElement("DIV", [nestedSection, nestedCode]);
+    const nestedImage = createElement("IMG");
+    const topLevelDiv = createElement("DIV", [
+      nestedSection,
+      nestedCode,
+      nestedImage,
+    ]);
     const topLevelMain = createElement("MAIN");
     const topLevelParagraph = createElement("P");
     const topLevelCode = createElement("CODE");
@@ -63,20 +68,24 @@ describe("applyEpubAmbientCanvas", () => {
       document.body,
       topLevelDiv,
       topLevelMain,
+      topLevelParagraph,
+      topLevelCode,
       nestedSection,
       nestedCallout,
+      nestedCode,
     ]) {
+      expect(element.style.setProperty).toHaveBeenCalledWith(
+        "background",
+        "transparent",
+        "important"
+      );
       expect(element.style.setProperty).toHaveBeenCalledWith(
         "background-color",
         "transparent",
         "important"
       );
     }
-    for (const element of [
-      topLevelParagraph,
-      topLevelCode,
-      nestedCode,
-    ]) {
+    for (const element of [nestedImage]) {
       expect(element.style.setProperty).not.toHaveBeenCalled();
     }
   });

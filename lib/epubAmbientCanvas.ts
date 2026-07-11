@@ -27,12 +27,7 @@ type EpubAmbientView = {
   container?: EpubAmbientElement;
 };
 
-const TOP_LEVEL_CANVAS_TAGS = new Set([
-  "DIV",
-  "MAIN",
-  "SECTION",
-  "ARTICLE",
-]);
+const MEDIA_TAGS = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE"]);
 
 function setTransparentBackgroundColor(element: EpubAmbientElement | undefined) {
   element?.style?.setProperty("background-color", "transparent", "important");
@@ -43,12 +38,12 @@ function setTransparentRootCanvas(element: EpubAmbientElement | undefined) {
   setTransparentBackgroundColor(element);
 }
 
-function clearNestedCanvasColors(element: EpubAmbientElement) {
+function clearNestedCanvases(element: EpubAmbientElement) {
   for (const child of Array.from(element.children ?? [])) {
-    if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-      setTransparentBackgroundColor(child);
+    if (!MEDIA_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
+      setTransparentRootCanvas(child);
     }
-    clearNestedCanvasColors(child);
+    clearNestedCanvases(child);
   }
 }
 
@@ -68,7 +63,7 @@ export function applyEpubAmbientCanvas(
 
   setTransparentRootCanvas(document.documentElement);
   setTransparentRootCanvas(body);
-  clearNestedCanvasColors(body);
+  clearNestedCanvases(body);
 }
 
 export function applyEpubViewTransparency(view: unknown): void {

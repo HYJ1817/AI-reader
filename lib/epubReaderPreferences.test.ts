@@ -77,8 +77,13 @@ describe("applyEpubReaderPreferences", () => {
       transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
     });
     expect(
-      rules?.["body div, body main, body section, body article"]
+      rules?.["body *:not(img):not(svg):not(video):not(canvas):not(picture)"]
     ).toEqual({
+      background: "transparent !important",
+      "background-color": "transparent !important",
+    });
+    expect(rules?.["body *::before, body *::after"]).toEqual({
+      background: "transparent !important",
       "background-color": "transparent !important",
     });
     expect(
@@ -113,7 +118,7 @@ describe("applyEpubReaderPreferences", () => {
       "html, body{background:transparent !important;background-color:transparent !important;color-scheme:normal;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
     );
     expect(serialized).toContain(
-      "body div, body main, body section, body article{background-color:transparent !important}"
+      "body *:not(img):not(svg):not(video):not(canvas):not(picture){background:transparent !important;background-color:transparent !important}"
     );
     expect(serialized.join("\n")).not.toMatch(/\{0:/);
   });

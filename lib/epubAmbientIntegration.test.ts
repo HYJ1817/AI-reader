@@ -106,6 +106,18 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
+  it("removes publisher backgrounds while preserving media elements", () => {
+    expect(epubSource).toContain("applyEpubAmbientCanvas(contents)");
+    expect(
+      readFileSync(
+        new URL("./epubReaderPreferences.ts", import.meta.url),
+        "utf8"
+      )
+    ).toContain(
+      "body *:not(img):not(svg):not(video):not(canvas):not(picture)"
+    );
+  });
+
   it("reapplies the transparent iframe canvas when reader preferences change", () => {
     const preferencesEffectStart = epubSource.indexOf(
       "if (!renditionRef.current || !preferences) return"
