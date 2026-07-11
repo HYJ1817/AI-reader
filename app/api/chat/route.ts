@@ -85,7 +85,9 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const status = error instanceof AiRequestError ? error.status : 502;
-    return Response.json({ error: "AI request failed" }, { status });
+    const message =
+      error instanceof AiRequestError ? error.message : "AI request failed";
+    return Response.json({ error: message }, { status });
   }
 
   if (!upstream.ok) {

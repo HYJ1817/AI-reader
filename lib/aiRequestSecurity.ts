@@ -96,16 +96,47 @@ export function assertSafeAiUpstreamUrl(
   return url.toString().replace(/\/$/, "");
 }
 
-export async function readLimitedJson(request: Request, maxLength = 256_000) {
+async function readStreamWithLimit(
+  body: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+  error: AiRequestError
+) {
+  if (!body) return "";
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      await reader.cancel();
+      throw error;
+    }
+    chunks.push(value);
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(bytes);
+}
+
+export async function readLimitedJson(request: Request, maxBytes = 256_000) {
   const declaredLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(declaredLength) && declaredLength > maxLength) {
+  if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {
     throw new AiRequestError("Request body too large", 413);
   }
 
-  const text = await request.text();
-  if (text.length > maxLength) {
-    throw new AiRequestError("Request body too large", 413);
-  }
+  const text = await readStreamWithLimit(
+    request.body,
+    maxBytes,
+    new AiRequestError("Request body too large", 413)
+  );
 
   try {
     return JSON.parse(text) as unknown;
@@ -134,28 +165,13 @@ export async function fetchAiUpstream(
     });
     if (!response.body) return response;
 
-    const reader = response.body.getReader();
-    const chunks: Uint8Array[] = [];
     const maxResponseBytes = options.maxResponseBytes ?? 2_000_000;
-    let totalBytes = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      totalBytes += value.byteLength;
-      if (totalBytes > maxResponseBytes) {
-        controller.abort();
-        throw new AiRequestError("AI response too large", 502);
-      }
-      chunks.push(value);
-    }
-
-    const bytes = new Uint8Array(totalBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
+    const text = await readStreamWithLimit(
+      response.body,
+      maxResponseBytes,
+      new AiRequestError("AI response too large", 502)
+    );
+    const bytes = new TextEncoder().encode(text);
     const responseBody =
       response.status === 204 || response.status === 205 || response.status === 304
         ? null

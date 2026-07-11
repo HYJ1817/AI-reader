@@ -1,4 +1,5 @@
 const CACHE_NAME = "ai-reader-v5";
+const MAX_RUNTIME_CACHE_ENTRIES = 80;
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
@@ -24,11 +25,29 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+async function trimRuntimeCache(cache) {
+  const requests = await cache.keys();
+  const runtimeRequests = requests.filter((request) => {
+    const pathname = new URL(request.url).pathname;
+    return !STATIC_ASSETS.includes(pathname);
+  });
+  const excessCount = runtimeRequests.length - MAX_RUNTIME_CACHE_ENTRIES;
+  if (excessCount <= 0) return;
+  await Promise.all(
+    runtimeRequests.slice(0, excessCount).map((request) => cache.delete(request))
+  );
+}
+
 async function fetchAndCache(request, cacheKey = request) {
   const response = await fetch(request);
   if (response.ok) {
-    const cache = await caches.open(CACHE_NAME);
-    await cache.put(cacheKey, response.clone());
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(cacheKey, response.clone());
+      await trimRuntimeCache(cache);
+    } catch {
+      // A cache quota/storage failure must not hide a successful network response.
+    }
   }
   return response;
 }

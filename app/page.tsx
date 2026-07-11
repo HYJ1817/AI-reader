@@ -1202,6 +1202,15 @@ export default function Home() {
       await restoreBackupPayload(data);
       const restoredBooks = await listBooks();
       const restoredPositions = await listReadingPositions();
+      dismissReader();
+      setOpenBook(null);
+      setParagraphs([]);
+      setReaderLoading(false);
+      setReaderProgressPercent(0);
+      setReaderPageInfo({ current: 1, total: 1 });
+      setTocItems([]);
+      setTocDrawerOpen(false);
+      resetAskAi();
       setBooks(restoredBooks);
       setReadingProgressMap(buildReadingProgressMap(restoredPositions));
       void backfillMissingBookCovers(restoredBooks, {

@@ -1,9 +1,19 @@
+import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   assertSafeAiUpstreamUrl,
   fetchAiUpstream,
   readLimitedJson,
 } from "./aiRequestSecurity";
+
+const chatRouteSource = readFileSync(
+  new URL("../app/api/chat/route.ts", import.meta.url),
+  "utf8"
+);
+const modelsRouteSource = readFileSync(
+  new URL("../app/api/models/route.ts", import.meta.url),
+  "utf8"
+);
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -50,6 +60,27 @@ describe("AI request security", () => {
     });
   });
 
+  it("cancels a streamed request as soon as it exceeds the limit", async () => {
+    let cancelled = false;
+    const request = {
+      headers: new Headers(),
+      body: new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(new Uint8Array(80));
+          controller.enqueue(new Uint8Array(80));
+        },
+        cancel() {
+          cancelled = true;
+        },
+      }),
+    } as Request;
+
+    await expect(readLimitedJson(request, 100)).rejects.toMatchObject({
+      status: 413,
+    });
+    expect(cancelled).toBe(true);
+  });
+
   it("parses JSON within the configured limit", async () => {
     const request = new Request("https://reader.test/api/chat", {
       method: "POST",
@@ -68,5 +99,12 @@ describe("AI request security", () => {
     await expect(
       fetchAiUpstream("https://api.example.com/v1", {}, { maxResponseBytes: 100 })
     ).rejects.toMatchObject({ status: 502 });
+  });
+
+  it("passes safe validation errors through both API routes", () => {
+    for (const source of [chatRouteSource, modelsRouteSource]) {
+      expect(source).toContain("error instanceof AiRequestError ? error.message");
+      expect(source).toContain("fetchAiUpstream(");
+    }
   });
 });

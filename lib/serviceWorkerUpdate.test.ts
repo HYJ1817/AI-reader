@@ -11,19 +11,33 @@ const workerSource = readFileSync(
   "utf8"
 );
 
-function createWorkerFetchHandler() {
+function createWorkerFetchHandler(options?: {
+  fetch?: () => Promise<Response>;
+  openCache?: () => Promise<unknown>;
+}) {
   const listeners: Record<string, EventListener[]> = {};
   const caches = {
     keys: vi.fn(async () => []),
     delete: vi.fn(async () => true),
-    open: vi.fn(async () => ({ addAll: vi.fn(), put: vi.fn() })),
+    open: vi.fn(
+      options?.openCache ??
+        (async () => ({
+          addAll: vi.fn(),
+          put: vi.fn(),
+          keys: vi.fn(async () => []),
+          delete: vi.fn(async () => true),
+        }))
+    ),
     match: vi.fn(async () => undefined),
   };
   const context = vm.createContext({
     caches,
-    fetch: vi.fn(async () => {
-      throw new Error("offline");
-    }),
+    fetch: vi.fn(
+      options?.fetch ??
+        (async () => {
+          throw new Error("offline");
+        })
+    ),
     Promise,
     Response,
     URL,
@@ -74,6 +88,12 @@ describe("production service worker updates", () => {
     expect(workerSource).not.toContain("cached || fetch(event.request)");
   });
 
+  it("bounds runtime cache growth without evicting pinned app-shell assets", () => {
+    expect(workerSource).toContain("MAX_RUNTIME_CACHE_ENTRIES = 80");
+    expect(workerSource).toContain("!STATIC_ASSETS.includes(pathname)");
+    expect(workerSource).toContain("await trimRuntimeCache(cache)");
+  });
+
   it("returns an error response for offline navigation cache misses", async () => {
     const { caches, fetchHandler } = createWorkerFetchHandler();
 
@@ -101,5 +121,23 @@ describe("production service worker updates", () => {
     expect(caches.match).toHaveBeenCalledWith(request);
     expect(response).toBeInstanceOf(Response);
     expect(response.type).toBe("error");
+  });
+
+  it("returns a successful network response when cache storage fails", async () => {
+    const { fetchHandler } = createWorkerFetchHandler({
+      fetch: async () => new Response("online", { status: 200 }),
+      openCache: async () => {
+        throw new Error("quota exceeded");
+      },
+    });
+
+    const response = await resolveFetchResponse(fetchHandler, {
+      method: "GET",
+      mode: "same-origin",
+      url: "https://reader.test/_next/static/chunk.js",
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("online");
   });
 });
