@@ -78,7 +78,11 @@ describe("applyEpubReaderPreferences", () => {
     ).toEqual({
       background: "transparent !important",
     });
-    expect(rules?.["p, div, span, li, h1, h2, h3, h4, h5, h6"]).toEqual({
+    expect(
+      rules?.[
+        "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6"
+      ]
+    ).toEqual({
       color: "#111111 !important",
       transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
     });
@@ -243,12 +247,12 @@ describe("applyEpubReaderPreferences", () => {
       background: "transparent !important",
     });
     expect(rules?.body).toMatchObject({
-      color: "#1a1a1a !important",
+      color: "#f4f4f4 !important",
       background: "transparent !important",
     });
   });
 
-  it("keeps EPUB text on the light-mode foreground when the app theme is dark", () => {
+  it("uses the active dark theme foreground throughout EPUB text", () => {
     const controller = createController();
 
     applyEpubReaderPreferences(
@@ -260,11 +264,13 @@ describe("applyEpubReaderPreferences", () => {
 
     const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
     expect(rules?.body).toMatchObject({
-      color: "#1a1a1a !important",
+      color: "#f3f4f6 !important",
       background: "transparent !important",
     });
-    expect(rules?.["p, div, span, li, h1, h2, h3, h4, h5, h6"]).toMatchObject({
-      color: "#1a1a1a !important",
-    });
+    expect(
+      rules?.[
+        "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6"
+      ]
+    ).toMatchObject({ color: "#f3f4f6 !important" });
   });
 });

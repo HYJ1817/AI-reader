@@ -88,9 +88,7 @@ export default function ReadingSession({
       ref={shellRef}
       className={`${styles.readerShell} ${
         active ? styles.readerSessionActive : styles.readerSessionInactive
-      } ${chromeVisible ? "" : styles.readerChromeHidden} ${
-        isEpubBook ? styles.readerEpubLightCanvas : ""
-      }`}
+      } ${chromeVisible ? "" : styles.readerChromeHidden}`}
       aria-hidden={!active}
     >
       <div

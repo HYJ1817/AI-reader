@@ -418,13 +418,7 @@ describe("ambient book background state", () => {
         "background: transparent"
       );
     }
-    const epubLightCanvasRule = cssRule(moduleCss, ".readerEpubLightCanvas");
-    expect(epubLightCanvasRule).toContain("--background: #ffffff");
-    expect(epubLightCanvasRule).toContain("--foreground: #1a1a1a");
-    expect(epubLightCanvasRule).not.toMatch(/(?:^|\n)\s*background\s*:/);
-    expect(
-      cssRule(moduleCss, ".readerEpubLightCanvas .readerStage")
-    ).not.toMatch(/(?:^|\n)\s*background\s*:/);
+    expect(moduleCss).not.toContain(".readerEpubLightCanvas");
 
     for (const selector of [".readerBody", ".epubReaderShell"]) {
       const rule = cssRule(moduleCss, selector);

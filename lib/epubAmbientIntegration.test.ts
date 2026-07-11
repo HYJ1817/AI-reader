@@ -61,17 +61,14 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
-  it("keeps EPUB light canvas variables without covering the ambient reader background", () => {
-    expect(readingSessionSource).toContain("styles.readerEpubLightCanvas");
+  it("lets EPUB inherit the active reader theme without covering the ambient background", () => {
+    expect(readingSessionSource).not.toContain("styles.readerEpubLightCanvas");
     expect(readingSessionSource).toContain('book?.format === "epub"');
-    const epubLightCanvasRule = cssRule(moduleCss, ".readerEpubLightCanvas");
-    expect(epubLightCanvasRule).toContain("--background: #ffffff;");
-    expect(epubLightCanvasRule).toContain("--foreground: #1a1a1a;");
-    expect(epubLightCanvasRule).toContain("--app-bg: #f5f5f7;");
-    expect(epubLightCanvasRule).not.toMatch(/(?:^|\n)\s*background\s*:/);
-    expect(
-      cssRule(moduleCss, ".readerEpubLightCanvas .readerStage")
-    ).not.toMatch(/(?:^|\n)\s*background\s*:/);
+    expect(moduleCss).not.toContain(".readerEpubLightCanvas");
+    expect(cssRule(moduleCss, ".readerShell")).toContain("background: transparent;");
+    expect(cssRule(moduleCss, ".readerStage")).toContain(
+      "background: transparent;"
+    );
   });
 
   it("applies the inline ambient canvas override before attaching tap handlers", () => {

@@ -2381,34 +2381,6 @@
     color 180ms var(--ease-standard);
 }
 
-.readerEpubLightCanvas {
-  --background: #ffffff;
-  --foreground: #1a1a1a;
-  --muted: #6b7280;
-  --border: #e5e7eb;
-  --surface: #f9fafb;
-  --accent: #2563eb;
-  --accent-muted: #93c5fd;
-  --app-bg: #f5f5f7;
-  --surface-primary: #ffffff;
-  --surface-secondary: rgba(118, 118, 128, 0.14);
-  --text-primary: #050505;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #9a9aa0;
-  --separator: rgba(60, 60, 67, 0.18);
-  --tint: #007aff;
-  --control-fill: rgba(118, 118, 128, 0.14);
-  --overlay-fill: rgba(255, 255, 255, 0.72);
-  --sheet-fill: rgba(255, 255, 255, 0.96);
-  --glass-highlight: rgba(255, 255, 255, 0.64);
-  --liquid-glass-bg: rgba(255, 255, 255, 0.58);
-  --liquid-glass-strong-bg: rgba(255, 255, 255, 0.78);
-  --liquid-glass-border: rgba(60, 60, 67, 0.16);
-  --liquid-glass-shadow: 0 8px 22px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.56), inset 0 -1px 0 rgba(255, 255, 255, 0.22);
-  --liquid-glass-tint: rgba(10, 132, 255, 0.1);
-  color-scheme: light;
-}
-
 .readerSessionActive {
   opacity: 1;
   transform: translate3d(0, 0, 0);

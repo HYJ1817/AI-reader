@@ -38,31 +38,6 @@ const FONT_FAMILY_CSS: Record<ReaderPreferences["fontFamily"], string> = {
   serif: '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
 };
 
-function parseHexChannel(value: string): number | null {
-  const channel = Number.parseInt(value, 16);
-  return Number.isFinite(channel) ? channel : null;
-}
-
-function isDarkColor(color: string): boolean {
-  const hex = color.trim().toLowerCase().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/);
-  if (!hex) return false;
-
-  const value = hex[1] ?? "";
-  const expanded =
-    value.length === 3
-      ? value
-          .split("")
-          .map((char) => `${char}${char}`)
-          .join("")
-      : value;
-  const red = parseHexChannel(expanded.slice(0, 2));
-  const green = parseHexChannel(expanded.slice(2, 4));
-  const blue = parseHexChannel(expanded.slice(4, 6));
-  if (red === null || green === null || blue === null) return false;
-
-  return (red * 299 + green * 587 + blue * 114) / 1000 < 128;
-}
-
 export function applyEpubReaderPreferences(
   controller: EpubThemeController,
   preferences: ReaderPreferences,
@@ -83,11 +58,9 @@ export function applyEpubReaderPreferences(
         wordSpacingPercent: true,
         pageMarginPx: true,
         justifyText: true,
-      };
+    };
   const themeSignature = `${colors.foreground}|${colors.background}`;
-  const contentForeground = isDarkColor(colors.background)
-    ? "#1a1a1a"
-    : colors.foreground;
+  const contentForeground = colors.foreground;
 
   if (
     changes.theme ||
@@ -108,7 +81,7 @@ export function applyEpubReaderPreferences(
       "body > div, body > main, body > section, body > article": {
         background: "transparent !important",
       },
-      "p, div, span, li, h1, h2, h3, h4, h5, h6": {
+      "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6": {
         color: `${contentForeground} !important`,
         transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
       },
