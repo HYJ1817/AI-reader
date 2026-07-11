@@ -74,10 +74,9 @@ export function sanitizeAppPreferences(value: unknown): AppPreferences {
 export function loadAppPreferences(): AppPreferences {
   if (typeof localStorage === "undefined") return DEFAULT_APP_PREFERENCES;
 
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return DEFAULT_APP_PREFERENCES;
-
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_APP_PREFERENCES;
     return sanitizeAppPreferences(JSON.parse(raw));
   } catch {
     return DEFAULT_APP_PREFERENCES;
@@ -86,5 +85,12 @@ export function loadAppPreferences(): AppPreferences {
 
 export function saveAppPreferencesToStorage(preferences: AppPreferences): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAppPreferences(preferences)));
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(sanitizeAppPreferences(preferences))
+    );
+  } catch {
+    // Storage can be unavailable in private browsing or when its quota is full.
+  }
 }

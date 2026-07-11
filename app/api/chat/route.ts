@@ -11,12 +11,23 @@ import {
   sanitizeAiProvider,
   type AiProviderConfig,
 } from "@/lib/aiProviders";
+import {
+  AiRequestError,
+  fetchAiUpstream,
+  readLimitedJson,
+} from "@/lib/aiRequestSecurity";
 
 export async function POST(request: Request) {
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    body = await readLimitedJson(request);
+  } catch (error) {
+    const status = error instanceof AiRequestError ? error.status : 400;
+    const message = error instanceof Error ? error.message : "Invalid JSON body";
+    return Response.json({ error: message }, { status });
+  }
+
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
@@ -43,7 +54,14 @@ export async function POST(request: Request) {
         })
       : null;
 
-  if (!resolvedProvider || !hasUsableAiProvider(resolvedProvider) || !question) {
+  if (
+    !resolvedProvider ||
+    !hasUsableAiProvider(resolvedProvider) ||
+    typeof question !== "string" ||
+    !question.trim() ||
+    question.length > 8_000 ||
+    (messages !== undefined && (!Array.isArray(messages) || messages.length > 40))
+  ) {
     return Response.json(
       { error: "Missing required fields: provider, question" },
       { status: 400 }
@@ -62,9 +80,12 @@ export async function POST(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(aiRequest.url, aiRequest.init);
-  } catch {
-    return Response.json({ error: "AI request failed" }, { status: 502 });
+    upstream = await fetchAiUpstream(aiRequest.url, aiRequest.init, {
+      allowLocalDevelopment: process.env.NODE_ENV !== "production",
+    });
+  } catch (error) {
+    const status = error instanceof AiRequestError ? error.status : 502;
+    return Response.json({ error: "AI request failed" }, { status });
   }
 
   if (!upstream.ok) {

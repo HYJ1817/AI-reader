@@ -14,6 +14,7 @@ import {
   resolveAiProviderBaseUrl,
   sanitizeAiProviderSettings,
   saveAiProviderSettingsToStorage,
+  clearAiProviderSettingsFromStorage,
 } from "./aiProviders";
 
 const store = new Map<string, string>();
@@ -294,6 +295,20 @@ describe("AI provider settings", () => {
     });
 
     expect(getActiveAiProvider(loadAiProviderSettings())?.id).toBe("provider-1");
+  });
+
+  it("does not throw when provider storage is unavailable", () => {
+    vi.spyOn(localStorage, "setItem").mockImplementationOnce(() => {
+      throw new Error("quota exceeded");
+    });
+    expect(() =>
+      saveAiProviderSettingsToStorage(DEFAULT_AI_PROVIDER_SETTINGS)
+    ).not.toThrow();
+
+    vi.spyOn(localStorage, "removeItem").mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+    expect(() => clearAiProviderSettingsFromStorage()).not.toThrow();
   });
 
   it("converts a provider to legacy client settings for backup compatibility", () => {

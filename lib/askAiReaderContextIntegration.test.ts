@@ -64,6 +64,13 @@ describe("Ask AI reader context integration", () => {
     expect(askHookSource).toContain("question: submittedQuestion");
   });
 
+  it("aborts stale requests and scrolls new conversation content into view", () => {
+    expect(askHookSource).toContain("new AbortController()");
+    expect(askHookSource).toContain("requestControllerRef.current?.abort()");
+    expect(askHookSource).toContain("signal: controller.signal");
+    expect(askPanelSource).toContain("thread.scrollTop = thread.scrollHeight");
+  });
+
   it("collects visible TXT and EPUB text for AI context", () => {
     expect(askHookSource).toContain("function collectVisibleReaderText");
     expect(askHookSource).toContain("epubReaderRef.current?.getVisibleText()");

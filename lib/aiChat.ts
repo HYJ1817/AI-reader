@@ -67,7 +67,8 @@ function sanitizeConversationMessages(
     .map((message) => ({
       role: message.role,
       content: limitContextText(message.content, 3000),
-    }));
+    }))
+    .slice(-20);
 }
 
 export function buildChatMessages(

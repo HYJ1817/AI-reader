@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { AiConversationMessage } from "@/app/AskAiPanel";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import {
@@ -76,13 +76,27 @@ export default function useAskAi({
   const [messages, setMessages] = useState<AiConversationMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requestGenerationRef = useRef(0);
+  const requestControllerRef = useRef<AbortController | null>(null);
+  const openBookIdRef = useRef(openBook?.id);
+
+  useEffect(() => {
+    openBookIdRef.current = openBook?.id;
+  }, [openBook?.id]);
 
   const reset = useCallback(() => {
+    requestGenerationRef.current += 1;
+    requestControllerRef.current?.abort();
+    requestControllerRef.current = null;
     setSelectedText(null);
     setQuestion("");
     setMessages([]);
     setError(null);
     setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    return () => requestControllerRef.current?.abort();
   }, []);
 
   const clearSelection = useCallback(() => {
@@ -111,6 +125,13 @@ export default function useAskAi({
     setError(null);
     setQuestion("");
 
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    const requestGeneration = requestGenerationRef.current + 1;
+    const submittedBookId = openBook?.id;
+    requestGenerationRef.current = requestGeneration;
+    requestControllerRef.current = controller;
+
     const context: AiContext = {
       nearbyText: getCurrentReadingContextText(),
     };
@@ -134,6 +155,7 @@ export default function useAskAi({
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           provider: activeAiProvider,
           question: submittedQuestion,
@@ -151,6 +173,12 @@ export default function useAskAi({
       }
 
       const data = await res.json();
+      if (
+        requestGenerationRef.current !== requestGeneration ||
+        openBookIdRef.current !== submittedBookId
+      ) {
+        return;
+      }
       setMessages((currentMessages) => [
         ...currentMessages,
         createAiConversationMessage(
@@ -159,9 +187,19 @@ export default function useAskAi({
         ),
       ]);
     } catch (err) {
+      if (controller.signal.aborted) return;
+      if (
+        requestGenerationRef.current !== requestGeneration ||
+        openBookIdRef.current !== submittedBookId
+      ) {
+        return;
+      }
       setError(err instanceof Error ? err.message : UI_TEXT.REQUEST_FAILED);
     } finally {
-      setLoading(false);
+      if (requestGenerationRef.current === requestGeneration) {
+        requestControllerRef.current = null;
+        setLoading(false);
+      }
     }
   }, [
     activeAiProvider,

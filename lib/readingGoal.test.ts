@@ -126,6 +126,14 @@ describe("saveReadingGoalToStorage", () => {
     const goal = loadReadingGoal();
     expect(goal.targetMinutes).toBe(1);
   });
+
+  it("does not throw when writing storage fails", () => {
+    vi.spyOn(localStorage, "setItem").mockImplementationOnce(() => {
+      throw new Error("quota exceeded");
+    });
+
+    expect(() => saveReadingGoalToStorage({ targetMinutes: 60 })).not.toThrow();
+  });
 });
 
 describe("loadReadingGoal", () => {

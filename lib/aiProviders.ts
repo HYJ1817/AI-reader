@@ -436,10 +436,21 @@ export function loadAiProviderSettings(): AiProviderSettings {
 
 export function saveAiProviderSettingsToStorage(settings: AiProviderSettings): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAiProviderSettings(settings)));
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(sanitizeAiProviderSettings(settings))
+    );
+  } catch {
+    // Keep provider editing usable when persistent storage is unavailable.
+  }
 }
 
 export function clearAiProviderSettingsFromStorage(): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore unavailable storage; in-memory settings are still cleared by callers.
+  }
 }

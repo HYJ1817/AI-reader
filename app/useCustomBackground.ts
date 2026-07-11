@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -21,6 +22,7 @@ export type CustomBackgroundControls = {
   customBackgroundPreviewUrl: string | null;
   customBackgroundAvailable: boolean;
   handleBackgroundModeChange: (mode: BackgroundMode) => void;
+  reloadCustomBackground: () => Promise<void>;
   handleCustomBackgroundImport: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   handleClearCustomBackground: () => Promise<void>;
 };
@@ -33,7 +35,7 @@ export default function useCustomBackground(
   const [customBackgroundBlob, setCustomBackgroundBlob] = useState<Blob | null>(null);
   const [customBackgroundPreviewUrl, setCustomBackgroundPreviewUrl] = useState<string | null>(null);
 
-  function setCustomBackground(blob: Blob | null) {
+  const setCustomBackground = useCallback((blob: Blob | null) => {
     if (customBackgroundPreviewUrlRef.current) {
       URL.revokeObjectURL(customBackgroundPreviewUrlRef.current);
       customBackgroundPreviewUrlRef.current = null;
@@ -42,7 +44,19 @@ export default function useCustomBackground(
     customBackgroundPreviewUrlRef.current = previewUrl;
     setCustomBackgroundBlob(blob);
     setCustomBackgroundPreviewUrl(previewUrl);
-  }
+  }, []);
+
+  const reloadCustomBackground = useCallback(async () => {
+    if (!hasIndexedDbSupport(window)) {
+      setCustomBackground(null);
+      return;
+    }
+    try {
+      setCustomBackground(await getCustomBackgroundImage());
+    } catch {
+      setCustomBackground(null);
+    }
+  }, [setCustomBackground]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,7 +71,7 @@ export default function useCustomBackground(
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [setCustomBackground]);
 
   useEffect(() => {
     return () => {
@@ -98,6 +112,7 @@ export default function useCustomBackground(
     customBackgroundBlob,
     customBackgroundPreviewUrl,
     customBackgroundAvailable: customBackgroundBlob !== null,
+    reloadCustomBackground,
     handleBackgroundModeChange,
     handleCustomBackgroundImport,
     handleClearCustomBackground,

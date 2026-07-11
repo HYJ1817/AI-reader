@@ -208,6 +208,10 @@ export async function getCustomBackgroundImage(): Promise<Blob | null> {
   return record?.imageBlob ?? null;
 }
 
+export async function getCustomBackgroundRecord(): Promise<CustomBackgroundRecord | null> {
+  return (await getDb().customBackgrounds.get(CUSTOM_BACKGROUND_ID)) ?? null;
+}
+
 export async function deleteCustomBackgroundImage(): Promise<void> {
   await getDb().customBackgrounds.delete(CUSTOM_BACKGROUND_ID);
 }
@@ -222,6 +226,55 @@ export async function clearAllReaderData(): Promise<void> {
     await db.bookGroups.clear();
     await db.customBackgrounds.clear();
   });
+}
+
+export type ReaderDataReplacement = {
+  books: BookRecord[];
+  readingPositions: ReadingPosition[];
+  annotations: AnnotationRecord[];
+  bookGroups: BookGroup[];
+  dailyReadingStats?: DailyReadingStat[];
+  customBackground?: CustomBackgroundRecord | null;
+};
+
+export async function replaceReaderData(data: ReaderDataReplacement): Promise<void> {
+  const db = getDb();
+  await db.transaction(
+    "rw",
+    [
+      db.books,
+      db.readingPositions,
+      db.annotations,
+      db.bookGroups,
+      db.dailyReadingStats,
+      db.customBackgrounds,
+    ],
+    async () => {
+      await db.books.clear();
+      await db.readingPositions.clear();
+      await db.annotations.clear();
+      await db.bookGroups.clear();
+      if (data.books.length > 0) await db.books.bulkPut(data.books);
+      if (data.readingPositions.length > 0) {
+        await db.readingPositions.bulkPut(data.readingPositions);
+      }
+      if (data.annotations.length > 0) await db.annotations.bulkPut(data.annotations);
+      if (data.bookGroups.length > 0) await db.bookGroups.bulkPut(data.bookGroups);
+
+      if (data.dailyReadingStats !== undefined) {
+        await db.dailyReadingStats.clear();
+        if (data.dailyReadingStats.length > 0) {
+          await db.dailyReadingStats.bulkPut(data.dailyReadingStats);
+        }
+      }
+      if (data.customBackground !== undefined) {
+        await db.customBackgrounds.clear();
+        if (data.customBackground) {
+          await db.customBackgrounds.put(data.customBackground);
+        }
+      }
+    }
+  );
 }
 
 export async function getDailyReadingStat(

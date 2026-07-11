@@ -54,5 +54,9 @@ export function saveReadingGoalToStorage(goal: {
 }): void {
   if (typeof window === "undefined") return;
   const sanitized = { targetMinutes: clampTargetMinutes(goal.targetMinutes) };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+  } catch {
+    // Keep the current session usable when persistent storage is unavailable.
+  }
 }

@@ -1,19 +1,26 @@
 import {
-  listBooks,
-  listReadingPositions,
+  getCustomBackgroundRecord,
   listAllAnnotations,
-  saveBook,
-  saveReadingPosition,
-  addAnnotation,
-  clearAllReaderData,
   listBookGroups,
-  saveBookGroup,
-  type BookRecord,
-  type ReadingPosition,
+  listBooks,
+  listDailyReadingStats,
+  listReadingPositions,
+  replaceReaderData,
   type AnnotationRecord,
   type BookGroup,
+  type BookRecord,
+  type CustomBackgroundRecord,
+  type DailyReadingStat,
+  type ReadingPosition,
 } from "./db";
-import { loadAiSettings, saveAiSettingsToStorage, DEFAULT_AI_SETTINGS } from "./aiSettings";
+import {
+  DEFAULT_AI_PROVIDER_SETTINGS,
+  loadAiProviderSettings,
+  sanitizeAiProviderSettings,
+  saveAiProviderSettingsToStorage,
+  type AiProviderSettings,
+} from "./aiProviders";
+import { DEFAULT_AI_SETTINGS, saveAiSettingsToStorage } from "./aiSettings";
 
 export interface BackupBookMeta {
   id: string;
@@ -27,51 +34,116 @@ export interface BackupBookMeta {
   groupIds?: string[];
 }
 
-export interface BackupPayload {
+type LegacyAiSettings = { baseUrl?: string; model?: string };
+
+export interface LegacyBackupPayload {
   version: 1;
   exportedAt: string;
   books: BackupBookMeta[];
   readingPositions: ReadingPosition[];
   annotations: AnnotationRecord[];
-  aiSettings: { baseUrl: string; model: string };
+  aiSettings?: LegacyAiSettings;
+  bookGroups?: BookGroup[];
+}
+
+export interface BackupPayload {
+  version: 2;
+  exportedAt: string;
+  books: BackupBookMeta[];
+  readingPositions: ReadingPosition[];
+  annotations: AnnotationRecord[];
   bookGroups: BookGroup[];
+  dailyReadingStats: DailyReadingStat[];
+  customBackground: {
+    imageContent: string;
+    updatedAt: string;
+  } | null;
+  aiProviderSettings: AiProviderSettings;
+  aiSettings: { baseUrl: string; model: string };
+}
+
+export type RestorableBackupPayload = BackupPayload | LegacyBackupPayload;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function requireString(record: Record<string, unknown>, key: string): string {
+  const value = record[key];
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`Invalid backup: ${key}`);
+  }
+  return value;
+}
+
+function requireFiniteNumber(record: Record<string, unknown>, key: string): number {
+  const value = record[key];
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    throw new Error(`Invalid backup: ${key}`);
+  }
+  return value;
 }
 
 async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const chunkSize = 0x8000;
+  const chunks: string[] = [];
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    chunks.push(String.fromCharCode(...bytes.subarray(offset, offset + chunkSize)));
   }
-  const base64 = btoa(binary);
   const mimeType = blob.type || "application/octet-stream";
-  return `data:${mimeType};base64,${base64}`;
+  return `data:${mimeType};base64,${btoa(chunks.join(""))}`;
 }
 
-function base64ToBlob(dataUrl: string, mimeType: string): Blob {
-  const parts = dataUrl.split(",");
-  const base64 = parts.length > 1 ? parts[1] : dataUrl;
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
-    bytes[i] = binary.charCodeAt(i);
+function base64ToBlob(
+  dataUrl: string,
+  fallbackMimeType = "application/octet-stream"
+): Blob {
+  const comma = dataUrl.indexOf(",");
+  const base64 = comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl;
+  const dataUrlMimeType = dataUrl.match(/^data:([^;,]+);base64,/)?.[1];
+  if (!base64 || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64) || base64.length % 4 === 1) {
+    throw new Error("Invalid backup: malformed file content");
   }
-  return new Blob([bytes], { type: mimeType });
+  let binary: string;
+  try {
+    binary = atob(base64);
+  } catch {
+    throw new Error("Invalid backup: malformed file content");
+  }
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return new Blob([bytes], { type: dataUrlMimeType || fallbackMimeType });
 }
 
-export async function createBackupPayload(
-  input?: { aiSettings?: { baseUrl: string; apiKey: string; model: string } }
-): Promise<BackupPayload> {
-  const books = await listBooks();
-  const positions = await listReadingPositions();
-  const annotations = await listAllAnnotations();
-  const groups = await listBookGroups();
+function withoutProviderSecrets(settings: unknown): AiProviderSettings {
+  const sanitized = sanitizeAiProviderSettings(settings);
+  return {
+    activeProviderId: sanitized.activeProviderId,
+    providers: sanitized.providers.map((provider) => ({ ...provider, apiKey: "" })),
+  };
+}
 
-  const aiSource = input?.aiSettings ?? loadAiSettings();
+export async function createBackupPayload(input?: {
+  aiSettings?: { baseUrl: string; apiKey: string; model: string };
+  aiProviderSettings?: AiProviderSettings;
+}): Promise<BackupPayload> {
+  const [books, positions, annotations, groups, dailyReadingStats, customBackground] =
+    await Promise.all([
+      listBooks(),
+      listReadingPositions(),
+      listAllAnnotations(),
+      listBookGroups(),
+      listDailyReadingStats(),
+      getCustomBackgroundRecord(),
+    ]);
 
-  const backupBooks: BackupBookMeta[] = await Promise.all(
-    books.map(async (book) => ({
+  const backupBooks: BackupBookMeta[] = [];
+  for (const book of books) {
+    backupBooks.push({
       id: book.id,
       title: book.title,
       format: book.format,
@@ -81,84 +153,221 @@ export async function createBackupPayload(
       lastOpenedAt: book.lastOpenedAt,
       fileContent: await blobToBase64(book.fileBlob),
       groupIds: book.groupIds,
-    }))
+    });
+  }
+
+  const providerSettings = withoutProviderSecrets(
+    input?.aiProviderSettings ?? loadAiProviderSettings()
   );
+  const legacyAiSettings = input?.aiSettings ?? {
+    baseUrl: providerSettings.providers[0]?.baseUrl ?? DEFAULT_AI_SETTINGS.baseUrl,
+    apiKey: "",
+    model: providerSettings.providers[0]?.model ?? DEFAULT_AI_SETTINGS.model,
+  };
 
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     books: backupBooks,
     readingPositions: positions,
     annotations,
-    aiSettings: {
-      baseUrl: aiSource.baseUrl,
-      model: aiSource.model,
-    },
     bookGroups: groups,
+    dailyReadingStats,
+    customBackground: customBackground
+      ? {
+          imageContent: await blobToBase64(customBackground.imageBlob),
+          updatedAt: customBackground.updatedAt,
+        }
+      : null,
+    aiProviderSettings: providerSettings,
+    aiSettings: {
+      baseUrl: legacyAiSettings.baseUrl,
+      model: legacyAiSettings.model,
+    },
   };
 }
 
-export function validateBackupPayload(data: unknown): BackupPayload {
-  if (data === null || typeof data !== "object") {
-    throw new Error("Invalid backup format");
+function validateBook(value: unknown): BackupBookMeta {
+  if (!isRecord(value)) throw new Error("Invalid backup: book");
+  const format = value.format;
+  if (format !== "epub" && format !== "txt") {
+    throw new Error("Invalid backup: book format");
   }
-  const obj = data as Record<string, unknown>;
-  if (obj.version !== 1) {
+  const groupIds = value.groupIds;
+  if (groupIds !== undefined && (!Array.isArray(groupIds) || groupIds.some((id) => typeof id !== "string"))) {
+    throw new Error("Invalid backup: book groupIds");
+  }
+  return {
+    id: requireString(value, "id"),
+    title: requireString(value, "title"),
+    format,
+    fileName: requireString(value, "fileName"),
+    size: requireFiniteNumber(value, "size"),
+    createdAt: requireString(value, "createdAt"),
+    lastOpenedAt: typeof value.lastOpenedAt === "string" ? value.lastOpenedAt : undefined,
+    fileContent: requireString(value, "fileContent"),
+    groupIds: groupIds as string[] | undefined,
+  };
+}
+
+function validateArray<T>(
+  value: unknown,
+  label: string,
+  validateItem: (item: unknown) => T
+): T[] {
+  if (!Array.isArray(value)) throw new Error(`Invalid backup: missing ${label} array`);
+  return value.map(validateItem);
+}
+
+function validatePosition(value: unknown): ReadingPosition {
+  if (!isRecord(value)) throw new Error("Invalid backup: reading position");
+  const progressPercent = requireFiniteNumber(value, "progressPercent");
+  return {
+    bookId: requireString(value, "bookId"),
+    locator: requireString(value, "locator"),
+    progressPercent,
+    readingMode: value.readingMode === "paged" || value.readingMode === "scroll"
+      ? value.readingMode
+      : undefined,
+    updatedAt: requireString(value, "updatedAt"),
+  };
+}
+
+function validateAnnotation(value: unknown): AnnotationRecord {
+  if (!isRecord(value)) throw new Error("Invalid backup: annotation");
+  return {
+    id: requireString(value, "id"),
+    bookId: requireString(value, "bookId"),
+    locator: typeof value.locator === "string" ? value.locator : undefined,
+    text: requireString(value, "text"),
+    note: typeof value.note === "string" ? value.note : undefined,
+    createdAt: requireString(value, "createdAt"),
+  };
+}
+
+function validateGroup(value: unknown): BookGroup {
+  if (!isRecord(value)) throw new Error("Invalid backup: book group");
+  return {
+    id: requireString(value, "id"),
+    name: requireString(value, "name"),
+    createdAt: requireString(value, "createdAt"),
+    updatedAt: requireString(value, "updatedAt"),
+  };
+}
+
+function validateDailyStat(value: unknown): DailyReadingStat {
+  if (!isRecord(value)) throw new Error("Invalid backup: daily reading stat");
+  const secondsRead = requireFiniteNumber(value, "secondsRead");
+  if (secondsRead < 0) throw new Error("Invalid backup: secondsRead");
+  return {
+    date: requireString(value, "date"),
+    secondsRead: Math.floor(secondsRead),
+    updatedAt: requireString(value, "updatedAt"),
+  };
+}
+
+export function validateBackupPayload(data: unknown): RestorableBackupPayload {
+  if (!isRecord(data)) throw new Error("Invalid backup format");
+  if (data.version !== 1 && data.version !== 2) {
     throw new Error("Invalid backup: unsupported version");
   }
-  if (!Array.isArray(obj.books)) {
-    throw new Error("Invalid backup: missing books array");
+  const common = {
+    exportedAt: requireString(data, "exportedAt"),
+    books: validateArray(data.books, "books", validateBook),
+    readingPositions: validateArray(
+      data.readingPositions,
+      "readingPositions",
+      validatePosition
+    ),
+    annotations: validateArray(data.annotations, "annotations", validateAnnotation),
+    bookGroups: data.bookGroups === undefined
+      ? []
+      : validateArray(data.bookGroups, "bookGroups", validateGroup),
+  };
+
+  if (data.version === 1) {
+    return {
+      version: 1,
+      ...common,
+      aiSettings: isRecord(data.aiSettings)
+        ? {
+            baseUrl: typeof data.aiSettings.baseUrl === "string" ? data.aiSettings.baseUrl : undefined,
+            model: typeof data.aiSettings.model === "string" ? data.aiSettings.model : undefined,
+          }
+        : undefined,
+    };
   }
-  if (!Array.isArray(obj.readingPositions)) {
-    throw new Error("Invalid backup: missing readingPositions array");
+
+  const customBackground = data.customBackground;
+  if (customBackground !== null && !isRecord(customBackground)) {
+    throw new Error("Invalid backup: custom background");
   }
-  if (!Array.isArray(obj.annotations)) {
-    throw new Error("Invalid backup: missing annotations array");
-  }
-  if (typeof obj.exportedAt !== "string") {
-    throw new Error("Invalid backup: missing exportedAt");
-  }
-  return data as BackupPayload;
+  return {
+    version: 2,
+    ...common,
+    dailyReadingStats: validateArray(
+      data.dailyReadingStats,
+      "dailyReadingStats",
+      validateDailyStat
+    ),
+    customBackground: customBackground
+      ? {
+          imageContent: requireString(customBackground, "imageContent"),
+          updatedAt: requireString(customBackground, "updatedAt"),
+        }
+      : null,
+    aiProviderSettings: withoutProviderSecrets(
+      data.aiProviderSettings ?? DEFAULT_AI_PROVIDER_SETTINGS
+    ),
+    aiSettings: isRecord(data.aiSettings)
+      ? {
+          baseUrl: typeof data.aiSettings.baseUrl === "string" ? data.aiSettings.baseUrl : "",
+          model: typeof data.aiSettings.model === "string" ? data.aiSettings.model : "",
+        }
+      : { baseUrl: "", model: "" },
+  };
 }
 
 export async function restoreBackupPayload(data: unknown): Promise<void> {
   const payload = validateBackupPayload(data);
+  const books: BookRecord[] = payload.books.map((book) => ({
+    id: book.id,
+    title: book.title,
+    format: book.format,
+    fileName: book.fileName,
+    fileBlob: base64ToBlob(
+      book.fileContent,
+      book.format === "epub" ? "application/epub+zip" : "text/plain"
+    ),
+    size: book.size,
+    createdAt: book.createdAt,
+    lastOpenedAt: book.lastOpenedAt,
+    ...(book.groupIds ? { groupIds: book.groupIds } : {}),
+  }));
 
-  await clearAllReaderData();
-
-  if (payload.bookGroups) {
-    for (const group of payload.bookGroups) {
-      await saveBookGroup(group);
-    }
+  let customBackground: CustomBackgroundRecord | null | undefined;
+  if (payload.version === 2) {
+    customBackground = payload.customBackground
+      ? {
+          id: "app-background",
+          imageBlob: base64ToBlob(payload.customBackground.imageContent),
+          updatedAt: payload.customBackground.updatedAt,
+        }
+      : null;
   }
 
-  for (const book of payload.books) {
-    const mimeType =
-      book.format === "epub" ? "application/epub+zip" : "text/plain";
-    const fileBlob = base64ToBlob(book.fileContent, mimeType);
-    const record: BookRecord = {
-      id: book.id,
-      title: book.title,
-      format: book.format,
-      fileName: book.fileName,
-      fileBlob,
-      size: book.size,
-      createdAt: book.createdAt,
-      lastOpenedAt: book.lastOpenedAt,
-      ...(book.groupIds ? { groupIds: book.groupIds } : {}),
-    };
-    await saveBook(record);
-  }
+  await replaceReaderData({
+    books,
+    readingPositions: payload.readingPositions,
+    annotations: payload.annotations,
+    bookGroups: payload.bookGroups ?? [],
+    dailyReadingStats: payload.version === 2 ? payload.dailyReadingStats : undefined,
+    customBackground,
+  });
 
-  for (const pos of payload.readingPositions) {
-    await saveReadingPosition(pos);
-  }
-
-  for (const ann of payload.annotations) {
-    await addAnnotation(ann);
-  }
-
-  if (payload.aiSettings) {
+  if (payload.version === 2) {
+    saveAiProviderSettingsToStorage(payload.aiProviderSettings);
+  } else if (payload.aiSettings) {
     saveAiSettingsToStorage({
       baseUrl: payload.aiSettings.baseUrl || DEFAULT_AI_SETTINGS.baseUrl,
       model: payload.aiSettings.model || DEFAULT_AI_SETTINGS.model,

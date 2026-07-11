@@ -1217,6 +1217,8 @@ export default function Home() {
           // Restored EPUBs still work even when cover extraction is unavailable.
         });
       setGroups(await listBookGroups());
+      setReadingStats(await listDailyReadingStats());
+      await background.reloadCustomBackground();
       setGroupFilter(null);
       setAiProviderSettings(loadAiProviderSettings());
       setBackupStatus(UI_TEXT.BACKUP_RESTORED);

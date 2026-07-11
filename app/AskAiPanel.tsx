@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import styles from "./page.module.css";
 import { UI_TEXT } from "@/lib/uiText";
 
@@ -35,9 +36,17 @@ export default function AskAiPanel({
   aiSettingsUsable,
   onOpenSettings,
 }: Props) {
+  const threadRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    thread.scrollTop = thread.scrollHeight;
+  }, [loading, messages.length]);
+
   return (
     <div className={styles.askPanel}>
-      <div className={styles.askThread}>
+      <div className={styles.askThread} ref={threadRef}>
         {selectedText && (
           <div className={styles.selectedTextPreview}>
             <button

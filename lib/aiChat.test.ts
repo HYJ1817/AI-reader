@@ -165,6 +165,19 @@ describe("buildChatMessages", () => {
     expect(messages[3].content).toContain("current page text");
     expect(messages[3].content).toContain("What does that imply?");
   });
+
+  it("keeps only the most recent 20 conversation messages", () => {
+    const history = Array.from({ length: 25 }, (_, index) => ({
+      role: index % 2 === 0 ? ("user" as const) : ("assistant" as const),
+      content: `message-${index}`,
+    }));
+
+    const messages = buildChatMessages("current", {}, history);
+
+    expect(messages).toHaveLength(22);
+    expect(messages[1].content).toBe("message-5");
+    expect(messages[20].content).toBe("message-24");
+  });
 });
 
 describe("extractChatAnswer", () => {

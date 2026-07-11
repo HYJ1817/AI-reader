@@ -130,4 +130,22 @@ describe("app preferences storage", () => {
 
     expect(loadAppPreferences()).toEqual(DEFAULT_APP_PREFERENCES);
   });
+
+  it("falls back when reading storage throws", () => {
+    vi.spyOn(localStorage, "getItem").mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+
+    expect(loadAppPreferences()).toEqual(DEFAULT_APP_PREFERENCES);
+  });
+
+  it("does not throw when writing storage fails", () => {
+    vi.spyOn(localStorage, "setItem").mockImplementationOnce(() => {
+      throw new Error("quota exceeded");
+    });
+
+    expect(() =>
+      saveAppPreferencesToStorage(DEFAULT_APP_PREFERENCES)
+    ).not.toThrow();
+  });
 });

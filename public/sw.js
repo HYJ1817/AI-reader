@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-reader-v4";
+const CACHE_NAME = "ai-reader-v5";
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
