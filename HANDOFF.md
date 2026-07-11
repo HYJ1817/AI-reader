@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `518fe91` (`fix: pin ask ai composer and recover epub resume`)
-- If branch HEAD is newer than `518fe91`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `08db3d9` (`fix: harden reader data and AI requests`)
+- If branch HEAD is newer than `08db3d9`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `518fe91`; push it before handing off if not already pushed
+  - local branch includes `08db3d9`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -167,6 +167,29 @@ Latest Ask AI layout and EPUB resume fix:
 - Regression coverage was added in:
   - `lib/askAiReaderContextIntegration.test.ts`
   - `lib/epubAmbientIntegration.test.ts`
+
+Latest reliability and security hardening:
+
+- Backup format is now version 2 and includes daily reading stats, custom
+  background data, book groups, and current AI provider configuration without
+  API keys.
+- Restore validates and decodes the complete backup before changing data, then
+  replaces reader data in one Dexie transaction. Invalid nested content no
+  longer clears the existing library first.
+- Version 1 backups remain supported and preserve newer stats/background stores
+  that old backups do not contain.
+- Restored stats and custom backgrounds refresh in the current UI immediately.
+- `/api/chat` and `/api/models` reject private, loopback, local-domain,
+  credential-bearing, and non-HTTPS production upstream URLs. Redirects are
+  disabled; request size, response size, and upstream duration are bounded.
+- Ask AI aborts in-flight requests when the conversation resets or the book
+  changes, ignores stale responses, keeps only the latest 20 history messages
+  in model requests, and auto-scrolls the conversation thread.
+- App preferences, reading goal, and AI provider storage writes tolerate
+  unavailable/quota-limited localStorage.
+- Service Worker cache is now `ai-reader-v5`, replacing stale `v4` resources.
+- Main implementation files include `lib/backup.ts`, `lib/db.ts`,
+  `lib/aiRequestSecurity.ts`, `app/useAskAi.ts`, and both AI API routes.
 
 Recent browser smoke evidence:
 
@@ -467,7 +490,7 @@ Latest Cloudflare production deployment work:
 - Added `docs/cloudflare-deploy.md`.
 - Changed `npm.cmd run build` to `next build --webpack`; OpenNext on Windows failed at runtime when a stale Turbopack server chunk was deployed.
 - Latest deployed Cloudflare Worker version:
-  `b4193612-2f0a-4714-a9e0-9a3044cfc303`.
+  `d38b8847-10ee-4633-befa-9b29906cec1c`.
 - Earlier Ask AI deployment version:
   `fd1acd88-b982-4af6-9255-a077fd75a348`.
 - Earlier production deployment version:
@@ -486,6 +509,7 @@ Latest Cloudflare production deployment work:
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+08db3d9 fix: harden reader data and AI requests
 518fe91 fix: pin ask ai composer and recover epub resume
 4c57e7c fix: improve reader AI context chat
 93491b9 style: round reader close button
@@ -603,10 +627,14 @@ Observed results:
 - Download/export/backup focused tests: 5 files, 64 tests passed.
 - Target motion tests: 2 files, 45 tests passed.
 - Android TWA config focused tests: 2 files, 3 tests passed.
-- Full suite: 120 files, 1205 tests passed.
+- Full suite: 121 files, 1229 tests passed.
 - ESLint `app lib` passed.
 - Production `next build --webpack` passed.
-- Cloudflare OpenNext deploy passed and published Worker version `b4193612-2f0a-4714-a9e0-9a3044cfc303`.
+- Cloudflare OpenNext deploy passed and published Worker version `d38b8847-10ee-4633-befa-9b29906cec1c`.
+- Local and production-mode `/api/chat` checks rejected a loopback AI upstream
+  with HTTP `400` without contacting it.
+- Production `/` returned `200`; production APK returned `200`,
+  `application/vnd.android.package-archive`, length `901574`.
 - Production JS verification found
   `/_next/static/chunks/app/page-c38a26525ec83a3a.js` contains
   `askBottomSheet` and no longer contains `ASKING_ABOUT`.
@@ -631,7 +659,7 @@ Observed results:
 - Production CSS verification found the deployed `readerOverlayBack` rule
   contains `width:48px`, `height:48px`, and `border-radius:999px`.
 - Production service worker verification found `/sw.js` contains
-  `ai-reader-v4`.
+  `ai-reader-v5` after the latest deployment.
 - Production CSS verification found hidden `.readerMenuRow` on
   `/_next/static/css/a7cc853063c5b9d9.css` uses delayed `visibility: hidden`
   and does not contain `pointer-events:none`.
@@ -718,11 +746,10 @@ Files related to EPUB background work:
 
 Use this opener in the new conversation:
 
-Note before copying: update the opener's latest code commit to `518fe91` and
-include the Ask AI bottom composer plus EPUB resume fallback fix.
+The opener below includes the latest reliability/security deployment state.
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交是 4c57e7c，主要内容包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器 Ask AI 现在保留对话历史、发送后清空输入、把历史消息和当前可见正文片段一起传给 AI、EPUB 通过 getVisibleText 读取当前渲染 iframe 文本、TXT 读取可见段落上下文、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、右上角 readerOverlayBack 关闭按钮已改成 48px 圆形按钮、Service Worker cache 已 bump 到 ai-reader-v4 以帮助已安装 PWA 更新，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*，Workers 预览地址是 https://ai-reader-pwa.hyjsb1817.workers.dev。Antigravity 当前因 Insufficient AI Credits 无法继续作为 worker。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
+最新代码提交是 08db3d9，主要修复备份恢复可能先清空再失败的数据丢失风险；备份 v2 现已包含阅读统计、自定义背景和不含密钥的当前 AI 服务商设置，并保持 v1 兼容；AI API 已限制内网/回环地址、非 HTTPS、重定向、请求/响应大小和超时；Ask AI 会在切书/关闭时中止旧请求、忽略过期响应、只发送最近 20 条历史并自动滚动；localStorage 写入失败不会再打断界面；Service Worker cache 已更新为 ai-reader-v5。此前功能还包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器 Ask AI 现在保留对话历史、发送后清空输入、把历史消息和当前可见正文片段一起传给 AI、EPUB 通过 getVisibleText 读取当前渲染 iframe 文本、TXT 读取可见段落上下文、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、右上角 readerOverlayBack 关闭按钮已改成 48px 圆形按钮，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，最新 Worker 版本是 d38b8847-10ee-4633-befa-9b29906cec1c，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
 ```
