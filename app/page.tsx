@@ -126,6 +126,7 @@ import {
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
 import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
 import useCustomBackground from "@/app/useCustomBackground";
+import { requestPersistentStorage } from "@/lib/storagePersistence";
 import useAskAi from "@/app/useAskAi";
 
 type Tab = NavigationTab;
@@ -294,9 +295,10 @@ export default function Home() {
       }
 
       try {
+        void requestPersistentStorage();
         const [storedBooks, storedPositions] = await withTimeout(
           Promise.all([listBooks(), listReadingPositions()]),
-          2000,
+          15000,
           "Local library storage timed out."
         );
         if (!cancelled) {
@@ -755,6 +757,7 @@ export default function Home() {
       return;
     }
     try {
+      void requestPersistentStorage();
       const record = await createBookRecordFromFile(file);
       await saveBook(record);
       autoOpenAttemptedRef.current = true;

@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import Dexie from "dexie";
 import {
   saveBook,
   listBooks,
@@ -70,6 +71,56 @@ describe("Book storage", () => {
     const got = await getBook("b1");
     expect(got).toBeDefined();
     expect(got!.title).toBe("My Book");
+  });
+
+  it("stores book bytes as ArrayBuffer outside the metadata record", async () => {
+    await saveBook(
+      makeBook({
+        id: "binary-book",
+        fileBlob: new Blob(["persistent bytes"], { type: "text/plain" }),
+      })
+    );
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      const metadata = await inspectionDb.table("books").get("binary-book");
+      const file = await inspectionDb.table("bookFiles").get("binary-book");
+      expect(metadata.fileBlob).toBeUndefined();
+      expect(file.fileData).toBeInstanceOf(ArrayBuffer);
+      expect(new TextDecoder().decode(file.fileData)).toBe("persistent bytes");
+    } finally {
+      inspectionDb.close();
+    }
+  });
+
+  it("migrates legacy Blob records when they are first read", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("books").put(
+        makeBook({
+          id: "legacy-book",
+          fileBlob: new Blob(["legacy bytes"], { type: "text/plain" }),
+        })
+      );
+      await inspectionDb.table("bookFiles").delete("legacy-book");
+    } finally {
+      inspectionDb.close();
+    }
+
+    const migrated = await getBook("legacy-book");
+    expect(await migrated?.fileBlob.text()).toBe("legacy bytes");
+
+    const verifyDb = new Dexie("AiReader");
+    await verifyDb.open();
+    try {
+      const metadata = await verifyDb.table("books").get("legacy-book");
+      const file = await verifyDb.table("bookFiles").get("legacy-book");
+      expect(metadata.fileBlob).toBeUndefined();
+      expect(file.fileData).toBeInstanceOf(ArrayBuffer);
+    } finally {
+      verifyDb.close();
+    }
   });
 
   it("returns undefined for missing book", async () => {
