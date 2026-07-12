@@ -1,10 +1,12 @@
 "use client";
 
-import type { CSSProperties } from "react";
+import { m } from "motion/react";
+import { useAppReducedMotion } from "./AppMotionRoot";
 import {
   getNavigationTabIndex,
   type NavigationTab,
 } from "@/lib/navigationMotion";
+import { MOTION_SPRING } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -37,15 +39,20 @@ export default function AppNavigation({
   onOpenBatchGroup,
   onOpenBatchDelete,
 }: AppNavigationProps) {
+  const reduceMotion = useAppReducedMotion();
+
   return (
     <>
       {showBottomTabs && (
         <nav className={styles.tabBar}>
-          <span
+          <m.span
             className={styles.tabIndicator}
-            style={{
-              "--tab-index": getNavigationTabIndex(activeTab),
-            } as CSSProperties}
+            layoutId="root-tab-indicator"
+            initial={false}
+            animate={{ x: `${getNavigationTabIndex(activeTab) * 100}%` }}
+            transition={
+              reduceMotion ? { duration: 0 } : MOTION_SPRING.navigation
+            }
             aria-hidden="true"
           />
           <button

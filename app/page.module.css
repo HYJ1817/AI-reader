@@ -181,31 +181,6 @@
   -webkit-overflow-scrolling: touch;
   padding: 0 var(--page-x);
   padding-bottom: calc(76px + 12px + 24px + var(--safe-bottom));
-  opacity: 0;
-  visibility: hidden;
-  transform: translate3d(36px, 0, 0);
-  pointer-events: none;
-  will-change: transform, opacity;
-  transition:
-    opacity var(--motion-navigation) var(--ease-navigation),
-    transform var(--motion-navigation) var(--ease-navigation),
-    visibility 0s linear var(--motion-navigation);
-}
-
-.appSurfaceActive {
-  opacity: 1;
-  visibility: visible;
-  transform: translate3d(0, 0, 0);
-  pointer-events: auto;
-  transition-delay: 0s;
-}
-
-.appSurfaceBefore {
-  transform: translate3d(-36px, 0, 0);
-}
-
-.appSurfaceAfter {
-  transform: translate3d(36px, 0, 0);
 }
 
 .libraryPage {
@@ -1435,9 +1410,6 @@
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--glass-highlight) 46%, transparent),
     0 3px 8px rgba(0, 0, 0, 0.08);
-  transform: translate3d(calc(var(--tab-index) * 100%), 0, 0);
-  transition: transform var(--motion-navigation) var(--ease-navigation);
-  will-change: transform, opacity;
   pointer-events: none;
 }
 

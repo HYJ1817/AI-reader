@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
@@ -8,6 +8,17 @@ const pageSource = readFileSync(
 );
 const navigationSource = readFileSync(
   new URL("../app/AppNavigation.tsx", import.meta.url),
+  "utf8"
+);
+const navigationStackUrl = new URL(
+  "../app/NavigationStack.tsx",
+  import.meta.url
+);
+const navigationStackSource = existsSync(navigationStackUrl)
+  ? readFileSync(navigationStackUrl, "utf8")
+  : "";
+const pageCssSource = readFileSync(
+  new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
 const pageAst = ts.createSourceFile(
@@ -42,23 +53,6 @@ function findComponentOpening(
 
   visit(pageAst);
   return match;
-}
-
-function containsNavigationClassCall(node: ts.Node, tab: string): boolean {
-  if (
-    ts.isCallExpression(node) &&
-    ts.isIdentifier(node.expression) &&
-    node.expression.text === "getNavigationSurfaceClass" &&
-    node.arguments.length === 1 &&
-    ts.isStringLiteral(node.arguments[0]) &&
-    node.arguments[0].text === tab
-  ) {
-    return true;
-  }
-
-  return node.getChildren(pageAst).some((child) =>
-    containsNavigationClassCall(child, tab)
-  );
 }
 
 function containsNode(container: ts.Node, target: ts.Node): boolean {
@@ -97,30 +91,40 @@ function hasConditionalMountingAncestor(node: ts.Node): boolean {
   return false;
 }
 
+function findEnclosingNavigationRootTab(node: ts.Node): string | undefined {
+  for (let ancestor = node.parent; ancestor; ancestor = ancestor.parent) {
+    if (
+      ts.isJsxElement(ancestor) &&
+      ancestor.openingElement.tagName.getText(pageAst) === "NavigationRoot"
+    ) {
+      const tabAttribute = ancestor.openingElement.attributes.properties.find(
+        (attribute): attribute is ts.JsxAttribute =>
+          ts.isJsxAttribute(attribute) &&
+          attribute.name.getText(pageAst) === "tab"
+      );
+
+      return tabAttribute?.initializer &&
+        ts.isStringLiteral(tabAttribute.initializer)
+        ? tabAttribute.initializer.text
+        : undefined;
+    }
+  }
+  return undefined;
+}
+
 describe("persistent app surfaces", () => {
   it.each(primarySurfaces)(
-    "keeps <%s> mounted with the %s navigation class",
+    "keeps <%s> mounted in the %s root slot",
     (component, tab) => {
       const opening = findComponentOpening(component);
 
       expect(opening, `Home should render <${component}>`).toBeDefined();
       if (!opening) return;
 
-      const className = opening.attributes.properties.find(
-        (attribute): attribute is ts.JsxAttribute =>
-          ts.isJsxAttribute(attribute) &&
-          attribute.name.getText(pageAst) === "className"
-      );
-      const classNameExpression =
-        className?.initializer && ts.isJsxExpression(className.initializer)
-          ? className.initializer.expression
-          : undefined;
-
       expect(
-        classNameExpression &&
-          containsNavigationClassCall(classNameExpression, tab),
-        `<${component}> className should call getNavigationSurfaceClass("${tab}")`
-      ).toBe(true);
+        findEnclosingNavigationRootTab(opening),
+        `<${component}> should be supplied through NavigationStack.${tab}`
+      ).toBe(tab);
       expect(
         hasConditionalMountingAncestor(opening),
         `<${component}> should not have a conditional mounting ancestor`
@@ -128,11 +132,26 @@ describe("persistent app surfaces", () => {
     }
   );
 
+  it("renders all three roots through Motion sections", () => {
+    expect(pageSource).toContain("<NavigationStack");
+    expect(navigationStackSource).toContain("m.section");
+    expect(navigationStackSource).toContain("inert");
+    expect(navigationStackSource).toContain("pointerEvents");
+    expect(navigationStackSource).toContain("useAppReducedMotion");
+    expect(navigationStackSource).toContain("MOTION_SPRING.navigation");
+  });
+
   it("renders one shared bottom-tab indicator", () => {
     expect(navigationSource).toContain("styles.tabIndicator");
-    expect(navigationSource).toContain(
-      '"--tab-index": getNavigationTabIndex(activeTab)'
-    );
+    expect(navigationSource).toContain('layoutId="root-tab-indicator"');
+    expect(navigationSource).toContain("MOTION_SPRING.navigation");
+    expect(navigationSource).not.toContain('"--tab-index"');
+  });
+
+  it("removes the legacy root transition state classes", () => {
+    expect(pageSource).not.toContain("getNavigationSurfaceClass");
+    expect(pageCssSource).not.toMatch(/\.appSurfaceBefore\b/);
+    expect(pageCssSource).not.toMatch(/\.appSurfaceAfter\b/);
   });
 
   it("keeps the reader session mounted so its initial offset can be painted", () => {

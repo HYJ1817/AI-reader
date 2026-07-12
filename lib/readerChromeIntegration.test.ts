@@ -223,7 +223,9 @@ describe("reader chrome event integration", () => {
     if (!existsSync(readerPresentationUrl)) return;
     const presentationSource = readFileSync(readerPresentationUrl, "utf8");
 
-    expect(pageSource).toContain("useReaderPresentation(setActiveTab)");
+    expect(pageSource).toContain(
+      "useReaderPresentation(navigation.selectTab)"
+    );
     expect(pageSource).toContain(
       'active={readerPresented && activeTab === "reading"}'
     );

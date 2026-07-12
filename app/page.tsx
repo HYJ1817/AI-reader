@@ -36,6 +36,8 @@ import {
 } from "@/lib/txtReader";
 import AppNavigation from "@/app/AppNavigation";
 import AppMotionRoot from "@/app/AppMotionRoot";
+import { NavigationProvider } from "@/app/NavigationProvider";
+import NavigationStack, { NavigationRoot } from "@/app/NavigationStack";
 import AppOverlays from "@/app/AppOverlays";
 import AmbientBookBackground from "@/app/AmbientBookBackground";
 import type { EpubReaderHandle } from "@/app/EpubReader";
@@ -79,6 +81,7 @@ import ReadingDashboard from "@/app/ReadingDashboard";
 import ReadingSession from "@/app/ReadingSession";
 import SettingsSurface from "@/app/SettingsSurface";
 import useReaderPresentation from "@/app/useReaderPresentation";
+import useAppNavigation from "@/app/useAppNavigation";
 import { UI_TEXT } from "@/lib/uiText";
 import {
   DEFAULT_READER_MODE,
@@ -117,7 +120,6 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
-import { getNavigationSurfaceState, type NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
   getInitialVisibleItemCount,
@@ -129,7 +131,6 @@ import useCustomBackground from "@/app/useCustomBackground";
 import { requestPersistentStorage } from "@/lib/storagePersistence";
 import useAskAi from "@/app/useAskAi";
 
-type Tab = NavigationTab;
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -158,7 +159,8 @@ function withTimeout<T>(
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("library");
+  const navigation = useAppNavigation();
+  const activeTab = navigation.state.activeTab;
   const [books, setBooks] = useState<BookRecord[]>([]);
   const [libraryRenderWindow, setLibraryRenderWindow] = useState({
     key: "",
@@ -172,7 +174,7 @@ export default function Home() {
 
   const [openBook, setOpenBook] = useState<BookRecord | null>(null);
   const { dismissReader, presentReader, readerPresented } =
-    useReaderPresentation(setActiveTab);
+    useReaderPresentation(navigation.selectTab);
   const [paragraphs, setParagraphs] = useState<string[]>([]);
   const [readerLoading, setReaderLoading] = useState(false);
   const readerRef = useRef<HTMLDivElement>(null);
@@ -272,17 +274,6 @@ export default function Home() {
   const [editingGroupName, setEditingGroupName] = useState("");
   const autoOpenAttemptedRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
-
-  function getNavigationSurfaceClass(tab: Tab): string {
-    const state = getNavigationSurfaceState(tab, activeTab);
-    const stateClass =
-      state === "active"
-        ? styles.appSurfaceActive
-        : state === "before"
-          ? styles.appSurfaceBefore
-          : styles.appSurfaceAfter;
-    return `${styles.appSurface} ${stateClass}`;
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -674,7 +665,7 @@ export default function Home() {
       setReaderProgressPercent(0);
       setReaderPageInfo({ current: 1, total: 1 });
       resetAskAi();
-      setActiveTab("library");
+      navigation.selectTab("library");
     }
     closeBookActionSheet();
   }
@@ -742,7 +733,7 @@ export default function Home() {
       setReaderProgressPercent(0);
       setReaderPageInfo({ current: 1, total: 1 });
       resetAskAi();
-      setActiveTab("library");
+      navigation.selectTab("library");
     }
     exitLibraryEditing();
   }
@@ -1249,7 +1240,7 @@ export default function Home() {
       presentReader();
       return;
     }
-    setActiveTab("reading");
+    navigation.selectTab("reading");
   }
 
   const handleReaderModeChange = useCallback(
@@ -1595,6 +1586,7 @@ export default function Home() {
 
   return (
     <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
+      <NavigationProvider value={navigation}>
       <div
         className={styles.app}
         {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
@@ -1614,8 +1606,10 @@ export default function Home() {
           activeTab === "reading" && readerPresented ? styles.readingContent : ""
         } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
       >
+        <NavigationStack activeTab={activeTab}>
+        <NavigationRoot tab="library">
         <LibrarySurface
-          className={`${styles.libraryPage} ${getNavigationSurfaceClass("library")}`}
+          className={styles.libraryPage}
           ariaHidden={activeTab !== "library"}
           data={{
             books,
@@ -1689,6 +1683,7 @@ export default function Home() {
             },
           }}
         />
+        </NavigationRoot>
         <ReadingSession
           active={readerPresented && activeTab === "reading"}
           book={openBook}
@@ -1738,8 +1733,9 @@ export default function Home() {
           onAsk={() => setAskSheetOpen(true)}
         />
 
+        <NavigationRoot tab="reading">
         <ReadingDashboard
-          className={`${styles.readingDashboard} ${getNavigationSurfaceClass("reading")} ${
+          className={`${styles.readingDashboard} ${
             readerPresented ? styles.readingDashboardReaderOpen : ""
           }`}
           ariaHidden={activeTab !== "reading" || readerPresented}
@@ -1754,9 +1750,11 @@ export default function Home() {
           onOpenBook={(book) => void openBookForReading(book)}
           onImport={() => fileInputRef.current?.click()}
         />
+        </NavigationRoot>
 
+        <NavigationRoot tab="settings">
         <SettingsSurface
-          className={`${styles.settingsPage} ${getNavigationSurfaceClass("settings")}`}
+          className={styles.settingsPage}
           ariaHidden={activeTab !== "settings"}
           appPreferences={appPrefs}
           activeProviderLabel={
@@ -1783,6 +1781,8 @@ export default function Home() {
           onOpenReaderSettings={() => setReaderSettingsOpen(true)}
           onOpenGoal={handleOpenGoalSheet}
         />
+        </NavigationRoot>
+        </NavigationStack>
       </main>
 
       <AppNavigation
@@ -1899,6 +1899,7 @@ export default function Home() {
         }}
       />
       </div>
+      </NavigationProvider>
     </AppMotionRoot>
   );
 }

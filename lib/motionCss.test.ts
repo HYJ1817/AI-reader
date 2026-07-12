@@ -5,6 +5,18 @@ const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const navigationStackSource = readFileSync(
+  new URL("../app/NavigationStack.tsx", import.meta.url),
+  "utf8"
+);
+const appNavigationSource = readFileSync(
+  new URL("../app/AppNavigation.tsx", import.meta.url),
+  "utf8"
+);
+const navigationMotionSource = readFileSync(
+  new URL("./navigationMotion.ts", import.meta.url),
+  "utf8"
+);
 
 describe("motion CSS", () => {
   it("uses an explicit project easing curve for timed transitions", () => {
@@ -39,12 +51,10 @@ describe("motion CSS", () => {
     expect(css).toContain(
       "--ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);"
     );
-    expect(css).toMatch(
-      /\.appSurface\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
-    );
-    expect(css).toMatch(
-      /\.tabIndicator\s*\{[^}]*transition:\s*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
-    );
+    expect(navigationStackSource).toContain("MOTION_SPRING.navigation");
+    expect(appNavigationSource).toContain("MOTION_SPRING.navigation");
+    expect(navigationStackSource).toContain("useAppReducedMotion");
+    expect(appNavigationSource).toContain("useAppReducedMotion");
     expect(css).toMatch(
       /\.readerShell\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
     );
@@ -63,25 +73,19 @@ describe("motion CSS", () => {
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.app,[\s\S]*?transition-duration:\s*0\.001ms !important;/s
     );
-    for (const selector of [".appSurface {", ".tabIndicator {", ".readerShell {"]) {
+    for (const selector of [".appSurface {", ".tabIndicator {"]) {
       const start = css.indexOf(selector);
       const end = css.indexOf("}", start);
-      expect(css.slice(start, end)).toContain(
-        "will-change: transform, opacity"
-      );
+      expect(css.slice(start, end)).not.toContain("will-change");
+      expect(css.slice(start, end)).not.toContain("transition:");
     }
   });
 
-  it("uses a visible 36 pixel horizontal push for tabs and reader presentation", () => {
-    expect(css).toMatch(
-      /\.appSurface\s*\{[^}]*transform:\s*translate3d\(36px,\s*0,\s*0\)/s
-    );
-    expect(css).toMatch(
-      /\.appSurfaceBefore\s*\{[^}]*translate3d\(-36px,\s*0,\s*0\)/s
-    );
-    expect(css).toMatch(
-      /\.appSurfaceAfter\s*\{[^}]*translate3d\(36px,\s*0,\s*0\)/s
-    );
+  it("uses compact Motion offsets for roots and retains the reader presentation offset", () => {
+    expect(navigationMotionSource).toContain("direction * -12");
+    expect(navigationMotionSource).toContain("direction * 22");
+    expect(css).not.toContain(".appSurfaceBefore");
+    expect(css).not.toContain(".appSurfaceAfter");
     expect(css).toMatch(
       /\.readerSessionInactive\s*\{[^}]*transform:\s*translate3d\(36px,\s*0,\s*0\)/s
     );
@@ -100,15 +104,18 @@ describe("motion CSS", () => {
   it("uses persistent tab surfaces instead of display switching or mount fades", () => {
     expect(css).not.toContain(".tabPageInactive");
     expect(css).not.toContain("@keyframes pageFadeIn");
-    expect(css).toMatch(
-      /\.appSurface\s*\{[^}]*transition:[^}]*opacity[^}]*transform/s
-    );
+    expect(navigationStackSource).toContain("m.section");
+    expect(navigationStackSource).toContain("initial={false}");
+    expect(navigationStackSource).toContain("inert");
   });
 
   it("moves one shared tab indicator with a compositor transform", () => {
-    expect(css).toMatch(
-      /\.tabIndicator\s*\{[^}]*transform:\s*translate3d\(calc\(var\(--tab-index\)\s*\*\s*100%\),\s*0,\s*0\)/s
+    expect(appNavigationSource).toContain("<m.span");
+    expect(appNavigationSource).toContain('layoutId="root-tab-indicator"');
+    expect(appNavigationSource).toContain(
+      "getNavigationTabIndex(activeTab) * 100"
     );
+    expect(css).not.toContain("var(--tab-index)");
     const activeStart = css.indexOf(".activeTab {");
     const activeEnd = css.indexOf("}", activeStart);
     const activeRule = css.slice(activeStart, activeEnd);
