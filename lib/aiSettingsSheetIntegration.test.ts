@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const aiSettingsSource = readFileSync(
-  new URL("../app/AiSettingsSheet.tsx", import.meta.url),
+  new URL("../app/AiSettingsSurface.tsx", import.meta.url),
   "utf8"
 );
 
-describe("AI settings provider sheet", () => {
+describe("AI settings provider surface", () => {
   it("uses provider presets as the single visible protocol chooser", () => {
     expect(aiSettingsSource).toContain("AI_PROVIDER_PRESETS.map");
     expect(aiSettingsSource).toContain("changeProviderKind");

@@ -7,8 +7,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useAppReducedMotion } from "./AppMotionRoot";
+import type { PushEntry } from "@/lib/appNavigation";
 import {
   getRootTabOffsets,
   type NavigationTab,
@@ -19,6 +20,7 @@ import styles from "./page.module.css";
 type NavigationStackContextValue = {
   activeTab: NavigationTab;
   previousTab: NavigationTab;
+  pushDepth: number;
   settleTab: (tab: NavigationTab) => void;
 };
 
@@ -27,9 +29,13 @@ const NavigationStackContext =
 
 export default function NavigationStack({
   activeTab,
+  pushes,
+  renderPush,
   children,
 }: {
   activeTab: NavigationTab;
+  pushes: PushEntry[];
+  renderPush: (entry: PushEntry) => ReactNode;
   children: ReactNode;
 }) {
   const [settledTab, setSettledTab] = useState(activeTab);
@@ -42,9 +48,26 @@ export default function NavigationStack({
 
   return (
     <NavigationStackContext.Provider
-      value={{ activeTab, previousTab: settledTab, settleTab }}
+      value={{
+        activeTab,
+        previousTab: settledTab,
+        pushDepth: pushes.length,
+        settleTab,
+      }}
     >
       {children}
+      <AnimatePresence initial={false}>
+        {pushes.map((entry, index) => (
+          <PushLayer
+            key={entry.key}
+            entry={entry}
+            index={index}
+            count={pushes.length}
+          >
+            {renderPush(entry)}
+          </PushLayer>
+        ))}
+      </AnimatePresence>
     </NavigationStackContext.Provider>
   );
 }
@@ -63,8 +86,9 @@ export function NavigationRoot({
     throw new Error("NavigationRoot requires NavigationStack");
   }
 
-  const { activeTab, previousTab, settleTab } = context;
+  const { activeTab, previousTab, pushDepth, settleTab } = context;
   const active = tab === activeTab;
+  const interactive = active && pushDepth === 0;
   const outgoing = tab === previousTab && previousTab !== activeTab;
   const x = reduceMotion
     ? 0
@@ -79,7 +103,10 @@ export function NavigationRoot({
       className={styles.appSurface}
       data-navigation-root={tab}
       initial={false}
-      animate={{ opacity: active ? 1 : 0, x }}
+      animate={{
+        opacity: active ? 1 : 0,
+        x,
+      }}
       transition={
         reduceMotion
           ? { duration: MOTION_DURATION.reduced }
@@ -88,9 +115,68 @@ export function NavigationRoot({
       onAnimationComplete={() => {
         if (active) settleTab(tab);
       }}
-      aria-hidden={!active}
-      style={{ pointerEvents: active ? "auto" : "none" }}
-      {...(!active ? { inert: true } : {})}
+      aria-hidden={!interactive}
+      style={{ pointerEvents: interactive ? "auto" : "none" }}
+      {...(!interactive ? { inert: true } : {})}
+    >
+      <m.div
+        className={styles.rootParallaxLayer}
+        initial={false}
+        animate={{
+          x: reduceMotion || pushDepth === 0 ? "0%" : "-30%",
+          filter:
+            pushDepth > 0 ? "brightness(0.94)" : "brightness(1)",
+        }}
+        transition={
+          reduceMotion
+            ? { duration: MOTION_DURATION.reduced }
+            : MOTION_SPRING.navigation
+        }
+      >
+        {children}
+      </m.div>
+    </m.section>
+  );
+}
+
+function PushLayer({
+  entry,
+  index,
+  count,
+  children,
+}: {
+  entry: PushEntry;
+  index: number;
+  count: number;
+  children: ReactNode;
+}) {
+  const reduceMotion = useAppReducedMotion();
+  const distanceFromTop = count - index - 1;
+  const top = distanceFromTop === 0;
+  const visible = distanceFromTop <= 1;
+
+  return (
+    <m.section
+      className={`${styles.appSurface} ${styles.pushSurface}`}
+      data-push-route={entry.route}
+      initial={reduceMotion ? { opacity: 0, x: 0 } : { opacity: 1, x: "100%" }}
+      animate={{
+        opacity: visible ? 1 : 0,
+        x: reduceMotion ? 0 : top ? 0 : "-30%",
+        filter: top ? "brightness(1)" : "brightness(0.94)",
+      }}
+      exit={reduceMotion ? { opacity: 0, x: 0 } : { opacity: 1, x: "100%" }}
+      transition={
+        reduceMotion
+          ? { duration: MOTION_DURATION.reduced }
+          : MOTION_SPRING.navigation
+      }
+      aria-hidden={!top}
+      style={{
+        pointerEvents: top ? "auto" : "none",
+        zIndex: 20 + index,
+      }}
+      {...(!top ? { inert: true } : {})}
     >
       {children}
     </m.section>

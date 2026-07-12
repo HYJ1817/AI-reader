@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const bottomSheetSource = readFileSync(
@@ -9,10 +9,10 @@ const librarySource = readFileSync(
   new URL("../app/LibrarySurface.tsx", import.meta.url),
   "utf8"
 );
-const aiSettingsSource = readFileSync(
-  new URL("../app/AiSettingsSheet.tsx", import.meta.url),
-  "utf8"
-);
+const aiSettingsUrl = new URL("../app/AiSettingsSurface.tsx", import.meta.url);
+const aiSettingsSource = existsSync(aiSettingsUrl)
+  ? readFileSync(aiSettingsUrl, "utf8")
+  : "";
 const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -30,32 +30,22 @@ describe("overlay and nested view motion", () => {
     );
   });
 
-  it("animates library and AI nested views in both directions", () => {
+  it("removes standalone keyframes from library and AI nested views", () => {
     for (const source of [librarySource, aiSettingsSource]) {
-      expect(source).toContain("subviewEnterForward");
-      expect(source).toContain("subviewEnterBackward");
+      expect(source).not.toContain("subviewEnterForward");
+      expect(source).not.toContain("subviewEnterBackward");
     }
 
-    expect(css).toMatch(
-      /\.subviewEnterForward\s*\{[^}]*animation:\s*subviewInForward\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
-    );
-    expect(css).toMatch(
-      /\.subviewEnterBackward\s*\{[^}]*animation:\s*subviewInBackward\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
-    );
-    expect(css).toMatch(
-      /@keyframes subviewInForward\s*\{[\s\S]*translate3d\(36px,\s*0,\s*0\)[\s\S]*translate3d\(0,\s*0,\s*0\)/s
-    );
-    expect(css).toMatch(
-      /@keyframes subviewInBackward\s*\{[\s\S]*translate3d\(-36px,\s*0,\s*0\)[\s\S]*translate3d\(0,\s*0,\s*0\)/s
-    );
+    expect(css).not.toContain(".subviewEnterForward");
+    expect(css).not.toContain(".subviewEnterBackward");
+    expect(css).not.toContain("@keyframes subviewInForward");
+    expect(css).not.toContain("@keyframes subviewInBackward");
   });
 
   it("keeps active motion on compositor-friendly properties", () => {
     for (const selector of [
       ".motionSheetEntering .bottomSheet {",
       ".motionSheetClosing .bottomSheet {",
-      ".subviewEnterForward {",
-      ".subviewEnterBackward {",
     ]) {
       const start = css.indexOf(selector);
       const end = css.indexOf("}", start);

@@ -183,6 +183,18 @@
   padding-bottom: calc(76px + 12px + 24px + var(--safe-bottom));
 }
 
+.pushSurface {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(24px + var(--safe-bottom));
+  background: var(--app-bg);
+  box-shadow: -12px 0 28px rgba(0, 0, 0, 0.1);
+}
+
+.rootParallaxLayer {
+  min-height: 100%;
+}
+
 .libraryPage {
   padding-top: calc(var(--safe-top) + 8px);
 }
@@ -605,15 +617,24 @@
 }
 
 .customBackgroundSheetHeader button {
-  grid-column: 3;
-  justify-self: end;
-  min-width: 58px;
+  grid-column: 1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
   height: 42px;
-  border-radius: 21px;
+  border-radius: 10px;
   color: var(--tint);
-  background: var(--control-fill);
+  background: transparent;
   font-size: 15px;
   font-weight: 600;
+}
+
+.customBackgroundPushedSurface {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
 }
 
 .customBackgroundSheetBody {
@@ -3312,41 +3333,6 @@
   transition: none;
 }
 
-.subviewEnterForward,
-.subviewEnterBackward {
-  will-change: transform, opacity;
-}
-
-.subviewEnterForward {
-  animation: subviewInForward var(--motion-navigation) var(--ease-navigation) both;
-}
-
-.subviewEnterBackward {
-  animation: subviewInBackward var(--motion-navigation) var(--ease-navigation) both;
-}
-
-@keyframes subviewInForward {
-  from {
-    opacity: 0;
-    transform: translate3d(36px, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
-@keyframes subviewInBackward {
-  from {
-    opacity: 0;
-    transform: translate3d(-36px, 0, 0);
-  }
-  to {
-    opacity: 1;
-    transform: translate3d(0, 0, 0);
-  }
-}
-
 .sheetDragHandle {
   flex-shrink: 0;
   display: flex;
@@ -5837,30 +5823,24 @@
   padding-bottom: var(--safe-bottom);
 }
 
-.providerSheetChrome {
-  width: min(86%, 360px);
-  height: 14px;
-  margin: -18px auto 0;
-  border-radius: 18px 18px 0 0;
-  background: color-mix(in srgb, var(--surface-primary) 74%, transparent);
-  border: 0.5px solid var(--hairline);
-  box-shadow: none;
-  opacity: 0.72;
-}
-
-.providerSubview {
+.providerPushedSurface {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
+  background: var(--app-bg);
 }
 
 .providerSheetHeader {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: grid;
-  grid-template-columns: 74px 1fr 74px;
+  grid-template-columns: 92px minmax(0, 1fr) 92px;
   align-items: center;
   gap: 8px;
   padding: 18px 16px 24px;
+  background: var(--app-bg);
 }
 
 .providerSheetHeader h2 {
@@ -5874,6 +5854,7 @@
 
 .providerNavButton {
   justify-self: start;
+  white-space: nowrap;
   border: none;
   background: transparent;
   color: var(--tint);
@@ -5892,7 +5873,7 @@
 }
 
 .providerHeaderSpacer {
-  width: 74px;
+  width: 92px;
 }
 
 .providerSheetBody {
@@ -6046,6 +6027,7 @@
 
 .providerChoiceText {
   min-width: 0;
+  overflow: hidden;
   flex: 1;
   display: grid;
   gap: 3px;
@@ -6060,9 +6042,12 @@
 }
 
 .providerChoiceText small {
+  overflow: hidden;
   font-size: 13px;
   line-height: 1.25;
   color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .providerModelActions {

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import type { RefObject } from "react";
 import BookCover from "@/app/BookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
-import type { CollectionListItem } from "@/lib/collectionList";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import {
   formatLibraryProgressValue,
@@ -22,13 +21,11 @@ export type LibrarySurfaceProps = {
     visibleBooks: BookRecord[];
     filteredBookCount: number;
     groups: BookGroup[];
-    collectionItems: CollectionListItem[];
     progressMap: ReadingProgressMap;
     loading: boolean;
     importError: string | null;
   };
   view: {
-    screen: "library" | "collections";
     searchQuery: string;
     mode: LibraryViewMode;
     activeCollectionName: string;
@@ -37,31 +34,20 @@ export type LibrarySurfaceProps = {
   };
   editing: {
     library: boolean;
-    collections: boolean;
     selectedBookIds: string[];
     selectedCountLabel: string;
     allVisibleSelected: boolean;
-    editingGroupId: string | null;
-    editingGroupName: string;
   };
   sentinelRef: RefObject<HTMLDivElement | null>;
   actions: {
     importBooks: () => void;
     openCollections: () => void;
-    closeCollections: () => void;
-    toggleCollectionsEditing: () => void;
-    selectCollection: (filter: string | null) => void;
     setSearchQuery: (query: string) => void;
     setViewMode: (mode: LibraryViewMode) => void;
     toggleLibraryEditing: () => void;
     selectAllVisible: () => void;
     pressBook: (book: BookRecord) => void;
     openBookActions: (book: BookRecord) => void;
-    startRenamingGroup: (id: string, name: string) => void;
-    setEditingGroupName: (name: string) => void;
-    renameGroup: (id: string) => void;
-    deleteGroup: (id: string) => void;
-    openCreateCollection: () => void;
   };
 };
 
@@ -79,34 +65,10 @@ export default function LibrarySurface({
     visibleBooks,
     filteredBookCount,
     groups,
-    collectionItems,
     progressMap,
     loading,
     importError,
   } = data;
-  const [screenMotion, setScreenMotion] = useState<
-    "forward" | "backward" | null
-  >(null);
-  const screenMotionClass =
-    screenMotion === "forward"
-      ? styles.subviewEnterForward
-      : screenMotion === "backward"
-        ? styles.subviewEnterBackward
-        : "";
-
-  const openCollections = () => {
-    setScreenMotion("forward");
-    actions.openCollections();
-  };
-  const closeCollections = () => {
-    setScreenMotion("backward");
-    actions.closeCollections();
-  };
-  const selectCollection = (filter: string | null) => {
-    setScreenMotion("backward");
-    actions.selectCollection(filter);
-  };
-
   return (
     <div className={className} aria-hidden={ariaHidden}>
       <div className={styles.pageHeader}>
@@ -136,121 +98,8 @@ export default function LibrarySurface({
         </div>
       </div>
 
-      {view.screen === "collections" ? (
-        <div
-          className={`${styles.collectionsScreen} ${screenMotionClass}`}
-        >
-          <div className={styles.collectionsTopBar}>
-            <button className={styles.collectionBackButton} onClick={closeCollections}>
-              <span aria-hidden="true">‹</span>
-              {UI_TEXT.LIBRARY}
-            </button>
-            <button className={styles.libraryTextButton} onClick={actions.toggleCollectionsEditing}>
-              {editing.collections ? UI_TEXT.DONE : UI_TEXT.EDIT}
-            </button>
-          </div>
-          <h2 className={styles.collectionsTitle}>{UI_TEXT.COLLECTIONS}</h2>
-          <div className={styles.collectionList}>
-            {collectionItems.map((item) => {
-              const isActive = view.groupFilter === item.filter;
-              const customGroupId =
-                typeof item.filter === "string" && item.filter !== "__ungrouped"
-                  ? item.filter
-                  : null;
-              const isEditingGroup =
-                customGroupId !== null &&
-                editing.editingGroupId === customGroupId;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`${styles.collectionRow} ${
-                    isActive ? styles.collectionRowActive : ""
-                  }`}
-                >
-                  <button
-                    className={styles.collectionRowMain}
-                    onClick={() => {
-                      if (!editing.collections) selectCollection(item.filter);
-                    }}
-                  >
-                    <span className={styles.collectionRowIcon}>
-                      {item.filter === null ? (
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                          <path d="M4 5.5c2.2-.3 4 .3 6 1.6 2-1.3 3.8-1.9 6-1.6v10.7c-2.2-.3-4 .3-6 1.6-2-1.3-3.8-1.9-6-1.6V5.5Z" />
-                          <path d="M10 7.1v10.7" />
-                        </svg>
-                      ) : item.filter === "__ungrouped" ? (
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                          <path d="M5 2.5h7.5L15 5v12.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" />
-                          <path d="M12.5 2.5V5h2.5" />
-                        </svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                          <path d="M2.5 4.5h5l2 2h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1Z" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className={styles.collectionRowBody}>
-                      {isEditingGroup ? (
-                        <input
-                          className={styles.collectionRenameInput}
-                          value={editing.editingGroupName}
-                          onChange={(event) => actions.setEditingGroupName(event.target.value)}
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" && customGroupId) {
-                              actions.renameGroup(customGroupId);
-                            }
-                          }}
-                          autoFocus
-                        />
-                      ) : (
-                        <span className={styles.collectionRowName}>{item.name}</span>
-                      )}
-                      <span className={styles.collectionRowMeta}>
-                        {item.count} {UI_TEXT.BOOK_COUNT}
-                      </span>
-                    </span>
-                    {!editing.collections && (
-                      <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-                    )}
-                  </button>
-                  {editing.collections && customGroupId && (
-                    <span className={styles.collectionEditActions}>
-                      {isEditingGroup ? (
-                        <button className={styles.groupEditSave} onClick={() => actions.renameGroup(customGroupId)}>
-                          {UI_TEXT.SAVE}
-                        </button>
-                      ) : (
-                        <button className={styles.groupAction} onClick={() => actions.startRenamingGroup(customGroupId, item.name)}>
-                          {UI_TEXT.RENAME}
-                        </button>
-                      )}
-                      <button className={styles.groupActionDelete} onClick={() => actions.deleteGroup(customGroupId)}>
-                        {UI_TEXT.DELETE_GROUP}
-                      </button>
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-            <button className={styles.collectionRow} onClick={actions.openCreateCollection}>
-              <span className={styles.collectionRowIcon}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                  <path d="M10 4v12M4 10h12" strokeLinecap="round" />
-                </svg>
-              </span>
-              <span className={styles.collectionRowBody}>
-                <span className={styles.collectionRowName}>新建藏书...</span>
-              </span>
-              <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className={screenMotionClass}>
-          <button className={styles.collectionEntryRow} onClick={openCollections}>
+      <div>
+          <button className={styles.collectionEntryRow} onClick={actions.openCollections}>
             <span className={styles.collectionEntryIcon}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
                 <path d="M4 6.5h6.5c1.1 0 2 .9 2 2v9.5H6a2 2 0 0 1-2-2V6.5Z" />
@@ -430,7 +279,6 @@ export default function LibrarySurface({
             </div>
           )}
         </div>
-      )}
     </div>
   );
 }

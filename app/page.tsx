@@ -36,6 +36,7 @@ import {
 } from "@/lib/txtReader";
 import AppNavigation from "@/app/AppNavigation";
 import AppMotionRoot from "@/app/AppMotionRoot";
+import AppPushSurfaces from "@/app/AppPushSurfaces";
 import { NavigationProvider } from "@/app/NavigationProvider";
 import NavigationStack, { NavigationRoot } from "@/app/NavigationStack";
 import AppOverlays from "@/app/AppOverlays";
@@ -183,7 +184,6 @@ export default function Home() {
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
     DEFAULT_AI_PROVIDER_SETTINGS
   );
-  const [aiSettingsSheetOpen, setAiSettingsSheetOpen] = useState(false);
 
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -253,7 +253,6 @@ export default function Home() {
   });
 
   const [groups, setGroups] = useState<BookGroup[]>([]);
-  const [libraryScreen, setLibraryScreen] = useState<"library" | "collections">("library");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [librarySearchQuery, setLibrarySearchQuery] = useState("");
   const [libraryView, setLibraryView] = useState<LibraryViewMode>(
@@ -797,7 +796,9 @@ export default function Home() {
   const actionSheetBookProgress = bookActionSheetBook
     ? getBookProgressPercent(readingProgressMap, bookActionSheetBook.id)
     : 0;
-  const showBottomTabs = shouldShowBottomTabs(activeTab, Boolean(openBook));
+  const showBottomTabs =
+    navigation.state.pushes.length === 0 &&
+    shouldShowBottomTabs(activeTab, Boolean(openBook));
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
@@ -854,7 +855,6 @@ export default function Home() {
   useEffect(() => {
     if (
       activeTab !== "library" ||
-      libraryScreen !== "library" ||
       visibleBookCount >= filteredBooks.length
     ) {
       return;
@@ -895,7 +895,6 @@ export default function Home() {
     activeTab,
     filteredBooks.length,
     libraryRenderKey,
-    libraryScreen,
     visibleBookCount,
   ]);
 
@@ -1606,7 +1605,64 @@ export default function Home() {
           activeTab === "reading" && readerPresented ? styles.readingContent : ""
         } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
       >
-        <NavigationStack activeTab={activeTab}>
+        <NavigationStack
+          activeTab={activeTab}
+          pushes={navigation.state.pushes}
+          renderPush={(entry) => (
+            <AppPushSurfaces
+              entry={entry}
+              data={{
+                collections: {
+                  collectionItems: collectionListItems,
+                  groupFilter,
+                  editing: collectionsEditing,
+                  editingGroupId,
+                  editingGroupName,
+                  onToggleEditing: () => {
+                    setCollectionsEditing((editing) => !editing);
+                    setEditingGroupId(null);
+                    setEditingGroupName("");
+                  },
+                  onSelectCollection: (filter) => {
+                    setGroupFilter(filter);
+                    setLibrarySearchQuery("");
+                    navigation.pop();
+                  },
+                  onStartRenamingGroup: (id, name) => {
+                    setEditingGroupId(id);
+                    setEditingGroupName(name);
+                  },
+                  onEditingGroupNameChange: setEditingGroupName,
+                  onRenameGroup: (id) => void handleRenameGroup(id),
+                  onDeleteGroup: (id) => void handleDeleteGroup(id),
+                  onOpenCreateCollection: () => {
+                    setNewGroupName("");
+                    setCollectionCreateSheetOpen(true);
+                  },
+                },
+                ai: {
+                  settings: aiProviderSettings,
+                  onSave: handleAiProviderSettingsSave,
+                },
+                background: {
+                  appPreferences: appPrefs,
+                  backgroundInputRef: background.backgroundInputRef,
+                  customBackgroundPreviewUrl:
+                    background.customBackgroundPreviewUrl,
+                  onPreferencesChange: handleAppPreferencesChange,
+                  onClearBackground: background.handleClearCustomBackground,
+                },
+              }}
+              actions={{
+                pop: navigation.pop,
+                pushAiProvider: (providerId) =>
+                  navigation.push("ai-provider-configure", {
+                    entityId: providerId,
+                  }),
+              }}
+            />
+          )}
+        >
         <NavigationRoot tab="library">
         <LibrarySurface
           className={styles.libraryPage}
@@ -1616,13 +1672,11 @@ export default function Home() {
             visibleBooks,
             filteredBookCount: filteredBooks.length,
             groups,
-            collectionItems: collectionListItems,
             progressMap: readingProgressMap,
             loading,
             importError,
           }}
           view={{
-            screen: libraryScreen,
             searchQuery: librarySearchQuery,
             mode: libraryView,
             activeCollectionName,
@@ -1631,36 +1685,17 @@ export default function Home() {
           }}
           editing={{
             library: libraryEditing,
-            collections: collectionsEditing,
             selectedBookIds,
             selectedCountLabel,
             allVisibleSelected,
-            editingGroupId,
-            editingGroupName,
           }}
           sentinelRef={libraryLoadSentinelRef}
           actions={{
             importBooks: () => fileInputRef.current?.click(),
             openCollections: () => {
-              setLibraryScreen("collections");
+              navigation.push("collections");
               setLibraryEditing(false);
               setSelectedBookIds([]);
-            },
-            closeCollections: () => {
-              setLibraryScreen("library");
-              setCollectionsEditing(false);
-              setEditingGroupId(null);
-              setEditingGroupName("");
-            },
-            toggleCollectionsEditing: () => {
-              setCollectionsEditing((editing) => !editing);
-              setEditingGroupId(null);
-              setEditingGroupName("");
-            },
-            selectCollection: (filter) => {
-              setGroupFilter(filter);
-              setLibrarySearchQuery("");
-              setLibraryScreen("library");
             },
             setSearchQuery: setLibrarySearchQuery,
             setViewMode: handleLibraryViewChange,
@@ -1670,17 +1705,6 @@ export default function Home() {
             selectAllVisible: handleSelectAllVisible,
             pressBook: handleBookPress,
             openBookActions: openBookActionSheet,
-            startRenamingGroup: (id, name) => {
-              setEditingGroupId(id);
-              setEditingGroupName(name);
-            },
-            setEditingGroupName,
-            renameGroup: (id) => void handleRenameGroup(id),
-            deleteGroup: (id) => void handleDeleteGroup(id),
-            openCreateCollection: () => {
-              setNewGroupName("");
-              setCollectionCreateSheetOpen(true);
-            },
           }}
         />
         </NavigationRoot>
@@ -1770,12 +1794,13 @@ export default function Home() {
           backupInputRef={backupInputRef}
           backgroundInputRef={background.backgroundInputRef}
           customBackgroundAvailable={background.customBackgroundAvailable}
-          customBackgroundPreviewUrl={background.customBackgroundPreviewUrl}
           onPreferencesChange={handleAppPreferencesChange}
           onBackgroundModeChange={background.handleBackgroundModeChange}
           onImportBackground={background.handleCustomBackgroundImport}
-          onClearBackground={background.handleClearCustomBackground}
-          onOpenAiSettings={() => setAiSettingsSheetOpen(true)}
+          onOpenCustomBackgroundSettings={() =>
+            navigation.push("custom-background")
+          }
+          onOpenAiProviders={() => navigation.push("ai-providers")}
           onExportBackup={handleExportBackup}
           onImportBackup={handleImportBackup}
           onOpenReaderSettings={() => setReaderSettingsOpen(true)}
@@ -1796,7 +1821,6 @@ export default function Home() {
         hasSelection={selectedBookIds.length > 0}
         onOpenLibrary={() => {
           dismissReader("library");
-          setLibraryScreen("library");
           setCollectionsEditing(false);
         }}
         onOpenReading={handleOpenReadingTab}
@@ -1827,10 +1851,6 @@ export default function Home() {
           targetMinutes: readingGoal.targetMinutes,
           goalInputValue,
         }}
-        ai={{
-          settingsOpen: aiSettingsSheetOpen,
-          settings: aiProviderSettings,
-        }}
         library={{
           groups,
           selectedCountLabel,
@@ -1858,15 +1878,13 @@ export default function Home() {
           changeReaderMode: handleReaderModeChange,
           closeToc: () => setTocDrawerOpen(false),
           selectTocItem: handleTocSelect,
-          closeAiSettings: () => setAiSettingsSheetOpen(false),
-          saveAiSettings: handleAiProviderSettingsSave,
           closeAsk: () => setAskSheetOpen(false),
           setQuestion,
           ask: () => void handleAsk(),
           clearSelection: handleClearSelection,
           openAiSettingsFromAsk: () => {
             switchToSettings();
-            setAiSettingsSheetOpen(true);
+            navigation.push("ai-providers");
           },
           closeGoal: () => setGoalSheetOpen(false),
           setGoalInputValue,

@@ -4,10 +4,8 @@ import type {
   ChangeEventHandler,
   RefObject,
 } from "react";
-import { useState } from "react";
 import type { AppPreferences } from "@/lib/appPreferences";
 import { UI_TEXT } from "@/lib/uiText";
-import CustomBackgroundSettingsSheet from "./CustomBackgroundSettingsSheet";
 import styles from "./page.module.css";
 
 export type SettingsSurfaceProps = {
@@ -23,12 +21,11 @@ export type SettingsSurfaceProps = {
   backupInputRef: RefObject<HTMLInputElement | null>;
   backgroundInputRef: RefObject<HTMLInputElement | null>;
   customBackgroundAvailable: boolean;
-  customBackgroundPreviewUrl: string | null;
   onPreferencesChange: (next: Partial<AppPreferences>) => void;
   onBackgroundModeChange: (mode: AppPreferences["backgroundMode"]) => void;
   onImportBackground: ChangeEventHandler<HTMLInputElement>;
-  onClearBackground: () => void;
-  onOpenAiSettings: () => void;
+  onOpenCustomBackgroundSettings: () => void;
+  onOpenAiProviders: () => void;
   onExportBackup: () => void;
   onImportBackup: ChangeEventHandler<HTMLInputElement>;
   onOpenReaderSettings: () => void;
@@ -48,19 +45,16 @@ export default function SettingsSurface({
   backupInputRef,
   backgroundInputRef,
   customBackgroundAvailable,
-  customBackgroundPreviewUrl,
   onPreferencesChange,
   onBackgroundModeChange,
   onImportBackground,
-  onClearBackground,
-  onOpenAiSettings,
+  onOpenCustomBackgroundSettings,
+  onOpenAiProviders,
   onExportBackup,
   onImportBackup,
   onOpenReaderSettings,
   onOpenGoal,
 }: SettingsSurfaceProps) {
-  const [customBackgroundSettingsOpen, setCustomBackgroundSettingsOpen] =
-    useState(false);
   const customBackgroundStatus = customBackgroundAvailable
     ? UI_TEXT.BACKGROUND_CUSTOM_READY
     : UI_TEXT.BACKGROUND_CUSTOM_EMPTY;
@@ -166,7 +160,7 @@ export default function SettingsSurface({
             onClick={() => {
               if (customBackgroundAvailable) {
                 onBackgroundModeChange("custom");
-                setCustomBackgroundSettingsOpen(true);
+                onOpenCustomBackgroundSettings();
                 return;
               }
               backgroundInputRef.current?.click();
@@ -189,22 +183,11 @@ export default function SettingsSurface({
             onChange={(event) => {
               const hasFile = Boolean(event.target.files?.[0]);
               onImportBackground(event);
-              if (hasFile) setCustomBackgroundSettingsOpen(true);
+              if (hasFile) onOpenCustomBackgroundSettings();
             }}
           />
         </div>
       </section>
-
-      {customBackgroundSettingsOpen && customBackgroundAvailable ? (
-        <CustomBackgroundSettingsSheet
-          appPreferences={appPreferences}
-          backgroundInputRef={backgroundInputRef}
-          customBackgroundPreviewUrl={customBackgroundPreviewUrl}
-          onPreferencesChange={onPreferencesChange}
-          onClearBackground={onClearBackground}
-          onClose={() => setCustomBackgroundSettingsOpen(false)}
-        />
-      ) : null}
 
       <section className={styles.settingsSection}>
         <h2 className={styles.settingsSectionTitle}>
@@ -213,7 +196,7 @@ export default function SettingsSurface({
         <div className={styles.settingsNativeList}>
           <button
             className={styles.settingsNavRow}
-            onClick={onOpenAiSettings}
+            onClick={onOpenAiProviders}
           >
             <span className={styles.settingsRowText}>
               <strong>AI 服务商</strong>

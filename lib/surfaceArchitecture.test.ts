@@ -12,6 +12,7 @@ describe("surface architecture", () => {
     "ReadingDashboard",
     "SettingsSurface",
     "AppNavigation",
+    "AppPushSurfaces",
     "ReadingSession",
     "AppOverlays",
   ])("renders <%s> from Home", (component) => {

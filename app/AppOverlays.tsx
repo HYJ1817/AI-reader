@@ -5,9 +5,7 @@ import BottomSheet from "@/app/BottomSheet";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import TocDrawer from "@/app/TocDrawer";
 import AskAiPanel, { type AiConversationMessage } from "@/app/AskAiPanel";
-import AiSettingsSheet from "@/app/AiSettingsSheet";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
-import type { AiProviderSettings } from "@/lib/aiProviders";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import { formatLibraryProgressLabel } from "@/lib/libraryProgress";
@@ -42,10 +40,6 @@ export type AppOverlaysProps = {
     targetMinutes: number;
     goalInputValue: number;
   };
-  ai: {
-    settingsOpen: boolean;
-    settings: AiProviderSettings;
-  };
   library: {
     groups: BookGroup[];
     selectedCountLabel: string;
@@ -73,8 +67,6 @@ export type AppOverlaysProps = {
     changeReaderMode: (mode: ReaderMode) => void;
     closeToc: () => void;
     selectTocItem: (href: string) => void;
-    closeAiSettings: () => void;
-    saveAiSettings: (settings: AiProviderSettings) => void;
     closeAsk: () => void;
     setQuestion: (question: string) => void;
     ask: () => void;
@@ -109,7 +101,6 @@ export type AppOverlaysProps = {
 
 export default function AppOverlays({
   reader,
-  ai,
   library,
   bookAction,
   group,
@@ -137,14 +128,6 @@ export default function AppOverlays({
           pageInfo={reader.pageInfo}
           onSelect={actions.selectTocItem}
           onClose={actions.closeToc}
-        />
-      )}
-
-      {ai.settingsOpen && (
-        <AiSettingsSheet
-          settings={ai.settings}
-          onSave={actions.saveAiSettings}
-          onClose={actions.closeAiSettings}
         />
       )}
 
