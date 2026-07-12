@@ -7,12 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `bff319b` (`fix: sync epub page indicator`)
-- If branch HEAD is newer than `bff319b`, that newer commit should be this handoff-only documentation update.
+- Latest code commit: `cf659a4` (`fix: use whole-book epub page counts`)
+- If branch HEAD is newer than `cf659a4`, that newer commit should be this handoff-only documentation update.
 - Latest pushed branch state before this handoff update:
   - `codex/custom-background-settings`
   - `origin/codex/custom-background-settings`
-  - local branch includes `bff319b`; push it before handing off if not already pushed
+  - local branch includes `cf659a4`; push it before handing off if not already pushed
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -214,27 +214,33 @@ Latest iPhone book-storage reliability fix:
   `bookFiles.fileData` is ArrayBuffer, and legacy records migrate with matching
   bytes. `lib/storagePersistence.test.ts` covers persistent/best-effort states.
 
-Latest EPUB page-indicator and scrollbar fix:
+Latest EPUB whole-book page-indicator and scrollbar fix:
 
-- Root cause: the reader took EPUB progress and converted it to a fabricated
-  100-page total, so the bottom control could show stale labels such as
-  `1/100页` while reading.
-- `EpubReader` now reads epub.js `relocated.start.displayed.page` and
-  `relocated.start.displayed.total`, then sends that real rendered pagination
-  to `ReaderControls` on every relocated event. The label therefore refreshes
-  when the EPUB scrolls or turns a page and is no longer based on a synthetic
-  total.
-- EPUBs that do not expose `displayed` pagination retain the safe `1/1页`
-  fallback instead of being misrepresented as 100 pages.
-- The epub.js theme now injects `scrollbar-width: none`, `-ms-overflow-style:
-  none`, and a WebKit zero-width scrollbar rule into the iframe document. This
-  removes the right-side scroll track without disabling continuous scrolling.
-- Regression coverage: `lib/readerPageInfo.test.ts` validates EPUB displayed
-  page extraction; `lib/epubReaderPreferences.test.ts` validates the injected
-  iframe scrollbar rules.
-- Known visual limitation: there is no local EPUB fixture in the repository,
-  so this change was verified through unit tests, full TypeScript production
-  build, and production asset inspection rather than a local rendered EPUB.
+- The earlier `bff319b` fix used epub.js `displayed.page/total`, but those are
+  section-local values. A user screenshot correctly showed `2/2页` on the
+  front matter instead of the total number of pages in the book.
+- `cf659a4` now prefers the EPUB publisher's page-list when available. Its
+  first/last printed pages form the whole-book total.
+- For normal reflowable EPUBs without a page-list, the reader generates a
+  whole-book CFI locations table with a 360-character mobile-page target.
+  `relocated.start.location / book.locations.total` drives the bottom page
+  label, so it is one continuous count across chapters and updates on scroll
+  and page turns. The old chapter-local `displayed.page/total` is never used
+  as a fallback.
+- The visible gray bar is on epub.js's outer `.epub-container`, not inside the
+  iframe. CSS now hides that container's scrollbar through `scrollbar-width`,
+  the WebKit zero-size rule, and transparent track/thumb fallbacks, while
+  preserving continuous scrolling.
+- Regression coverage: `lib/readerPageInfo.test.ts` covers publisher page-list
+  and whole-book locations; `lib/epubAmbientIntegration.test.ts` covers the
+  outer epub.js scrollbar rules.
+- There is no local EPUB fixture, so final visual confirmation still requires
+  an iPhone test with the user's book. Production assets were inspected after
+  deploy to confirm both changes are present.
+- Windows OpenNext note: the wrapper's nested `npm run build` can stop before
+  producing `.open-next/worker.js`. The reliable deployment sequence is
+  `npm.cmd run build`, then `node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild`, then
+  `node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy`.
 
 Latest follow-up hardening:
 
@@ -718,12 +724,22 @@ npm.cmd run test -- lib/motionCss.test.ts
 npm.cmd run test
 npm.cmd exec -- eslint app lib
 npm.cmd run build
-npm.cmd run deploy:cf
+node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild
+node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
 git diff --check
 ```
 
 Observed results:
 
+- Latest whole-book EPUB focused tests: 3 files, 18 tests passed.
+- Latest full suite: 124 files, 1248 tests passed.
+- Latest production webpack build passed.
+- Cloudflare OpenNext deployment published Worker version
+  `077f1420-c978-4ac5-a7b9-a4ac6cac6537` to `881817.xyz/*`.
+- Production JS `/_next/static/chunks/app/page-d0e9ae27d30ab0a5.js` contains
+  whole-book location generation and page-list handling. Production CSS
+  `/_next/static/css/d9745d077dc3a7fb.css` contains the outer
+  `.epub-container` WebKit scrollbar and transparent-track rules.
 - Latest EPUB page-indicator focused tests: 5 files, 53 tests passed.
 - Latest full suite: 124 files, 1247 tests passed.
 - Latest production `next build --webpack` passed.
@@ -898,7 +914,7 @@ The opener below includes the latest reliability/security deployment state.
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交以 bff319b 为准：EPUB 底部页码不再根据阅读进度伪造为 100 页，而是读取 epub.js relocated.start.displayed 的实际当前页/本章总页并在滚动、翻页时刷新；iframe 内的右侧滚动条已通过主题规则隐藏，正常上下滚动仍保留。若问题 EPUB 没有返回 displayed 分页数据，安全降级为 1/1页，不再显示误导性的 1/100页。最新 Worker 版本是 714d432d-ac44-4294-aa62-93a22d30f308。书籍持久化仍以 597e7ac 的 IndexedDB v5 bookFiles ArrayBuffer 方案为准；已经损坏的旧 Blob 需要重新导入一次。下面较早提交与 Worker 版本仅为历史摘要。
+最新代码提交以 cf659a4 为准：EPUB 底部页码已改为全书统一页数，优先使用书内 page-list；没有 page-list 的 EPUB 会后台生成全书 CFI locations，以 relocated.start.location/book.locations.total 实时计算，章节 displayed.page/total 不再参与底部页码。右侧条的宿主确认是 epub.js 外层 .epub-container，已加 scrollbar-width、WebKit 零宽及透明轨道/滑块三层规则。最新 Worker 版本是 077f1420-c978-4ac5-a7b9-a4ac6cac6537。Windows 上部署请先 npm.cmd run build，再直接执行 node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild 和 node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy；不要依赖会在内部 npm run build 后中断的包装命令。书籍持久化仍以 597e7ac 的 IndexedDB v5 bookFiles ArrayBuffer 方案为准；已经损坏的旧 Blob 需要重新导入一次。下面较早提交与 Worker 版本仅为历史摘要。
 重要：EPUB 深色模式透明 ambient 截至 2026-07-12 仍未解决。用户确认在 Worker f178b2ef-727b-4f5d-b561-b40f74532c34 上完全关闭并重开 PWA 后白色矩形仍存在。不要继续猜 CSS；只有拿到问题 EPUB 文件做本地复现，或取得 Safari Web Inspector 的真实 iframe 节点/computed style 后再继续。
 最新代码提交是 08db3d9，主要修复备份恢复可能先清空再失败的数据丢失风险；备份 v2 现已包含阅读统计、自定义背景和不含密钥的当前 AI 服务商设置，并保持 v1 兼容；AI API 已限制内网/回环地址、非 HTTPS、重定向、请求/响应大小和超时；Ask AI 会在切书/关闭时中止旧请求、忽略过期响应、只发送最近 20 条历史并自动滚动；localStorage 写入失败不会再打断界面；Service Worker cache 已更新为 ai-reader-v5。此前功能还包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器 Ask AI 现在保留对话历史、发送后清空输入、把历史消息和当前可见正文片段一起传给 AI、EPUB 通过 getVisibleText 读取当前渲染 iframe 文本、TXT 读取可见段落上下文、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、右上角 readerOverlayBack 关闭按钮已改成 48px 圆形按钮，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，最新 Worker 版本是 d38b8847-10ee-4633-befa-9b29906cec1c，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
 ```
