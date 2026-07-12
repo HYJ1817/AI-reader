@@ -1,3 +1,5 @@
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
 export const MOTION_DURATION = {
   press: 0.12,
   state: 0.2,
@@ -19,6 +21,44 @@ export const MOTION_SPRING = {
 
 export type MotionPolicy = "full" | "reduced";
 
+type MotionPreferenceListener = () => void;
+
+export type SystemMotionMediaQuery = {
+  readonly matches: boolean;
+  addEventListener(type: "change", listener: MotionPreferenceListener): void;
+  removeEventListener(type: "change", listener: MotionPreferenceListener): void;
+};
+
+export type SystemMotionMatchMedia = (
+  query: string
+) => SystemMotionMediaQuery;
+
+export type SystemMotionPreferenceStore = {
+  readonly getSnapshot: () => boolean;
+  readonly subscribe: (listener: MotionPreferenceListener) => () => void;
+};
+
+const NO_SYSTEM_MOTION_PREFERENCE_STORE: SystemMotionPreferenceStore = {
+  getSnapshot: () => false,
+  subscribe: () => () => undefined,
+};
+
 export function getMotionPolicy(appPreference: boolean, systemPreference: boolean): MotionPolicy {
   return appPreference || systemPreference ? "reduced" : "full";
+}
+
+export function createSystemMotionPreferenceStore(
+  matchMedia?: SystemMotionMatchMedia
+): SystemMotionPreferenceStore {
+  if (!matchMedia) return NO_SYSTEM_MOTION_PREFERENCE_STORE;
+
+  const mediaQuery = matchMedia(REDUCED_MOTION_QUERY);
+
+  return {
+    getSnapshot: () => mediaQuery.matches,
+    subscribe(listener) {
+      mediaQuery.addEventListener("change", listener);
+      return () => mediaQuery.removeEventListener("change", listener);
+    },
+  };
 }

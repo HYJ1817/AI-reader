@@ -63,13 +63,54 @@ npm.cmd install motion
 
 Expected: `motion` is added to dependencies without React 19 peer errors.
 
-- [ ] **Step 2: Write the failing token test**
+- [ ] **Step 2: Write the failing motion contract tests**
 
 Create `lib/motionSystem.test.ts`:
 
 ```ts
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { MOTION_DURATION, MOTION_SPRING, getMotionPolicy } from "./motionSystem";
+import {
+  MOTION_DURATION,
+  MOTION_SPRING,
+  REDUCED_MOTION_QUERY,
+  createSystemMotionPreferenceStore,
+  getMotionPolicy,
+} from "./motionSystem";
+
+const appMotionRootSource = readFileSync(
+  new URL("../app/AppMotionRoot.tsx", import.meta.url),
+  "utf8"
+);
+
+function createMatchMediaHarness(initialMatches: boolean) {
+  let matches = initialMatches;
+  const listeners = new Set<() => void>();
+  const queries: string[] = [];
+
+  return {
+    matchMedia(query: string) {
+      queries.push(query);
+      return {
+        get matches() {
+          return matches;
+        },
+        addEventListener(type: "change", listener: () => void) {
+          if (type === "change") listeners.add(listener);
+        },
+        removeEventListener(type: "change", listener: () => void) {
+          if (type === "change") listeners.delete(listener);
+        },
+      };
+    },
+    setMatches(nextMatches: boolean) {
+      matches = nextMatches;
+      for (const listener of listeners) listener();
+    },
+    queries,
+    listenerCount: () => listeners.size,
+  };
+}
 
 describe("motion system", () => {
   it("keeps exits faster than entrances", () => {
@@ -93,19 +134,94 @@ describe("motion system", () => {
     expect(getMotionPolicy(false, true)).toBe("reduced");
   });
 });
+
+describe("motion runtime root", () => {
+  it("loads full DOM features and owns the reactive motion policy", () => {
+    expect(appMotionRootSource).toContain("domMax");
+    expect(appMotionRootSource).toContain(
+      "<LazyMotion features={domMax} strict>"
+    );
+    expect(appMotionRootSource).toContain("useSyncExternalStore");
+    expect(appMotionRootSource).toContain("useAppMotionPolicy");
+    expect(appMotionRootSource).toContain("useAppReducedMotion");
+    expect(appMotionRootSource).toContain('"always" : "never"');
+    expect(appMotionRootSource).not.toContain("domAnimation");
+    expect(appMotionRootSource).not.toMatch(/<(?:MotionConfig|LayoutGroup) key=/);
+  });
+});
+
+describe("system motion preference store", () => {
+  it("starts with the current preference and uses the reduced-motion query", () => {
+    const harness = createMatchMediaHarness(true);
+    const store = createSystemMotionPreferenceStore(harness.matchMedia);
+
+    expect(REDUCED_MOTION_QUERY).toBe("(prefers-reduced-motion: reduce)");
+    expect(harness.queries).toEqual([REDUCED_MOTION_QUERY]);
+    expect(store.getSnapshot()).toBe(true);
+  });
+
+  it("notifies and reports a runtime false-to-true change", () => {
+    const harness = createMatchMediaHarness(false);
+    const store = createSystemMotionPreferenceStore(harness.matchMedia);
+    const getSnapshot = store.getSnapshot;
+    let notifications = 0;
+
+    store.subscribe(() => {
+      notifications += 1;
+    });
+    harness.setMatches(true);
+
+    expect(notifications).toBe(1);
+    expect(store.getSnapshot).toBe(getSnapshot);
+    expect(store.getSnapshot()).toBe(true);
+  });
+
+  it("removes the change listener when unsubscribed", () => {
+    const harness = createMatchMediaHarness(false);
+    const store = createSystemMotionPreferenceStore(harness.matchMedia);
+    let notifications = 0;
+    const unsubscribe = store.subscribe(() => {
+      notifications += 1;
+    });
+
+    expect(harness.listenerCount()).toBe(1);
+    unsubscribe();
+    expect(harness.listenerCount()).toBe(0);
+
+    harness.setMatches(true);
+    expect(notifications).toBe(0);
+    expect(store.getSnapshot()).toBe(true);
+  });
+
+  it("returns a false no-op store without a browser matcher", () => {
+    const store = createSystemMotionPreferenceStore();
+    let notifications = 0;
+    const unsubscribe = store.subscribe(() => {
+      notifications += 1;
+    });
+
+    expect(store.getSnapshot()).toBe(false);
+    expect(notifications).toBe(0);
+    expect(() => unsubscribe()).not.toThrow();
+  });
+});
 ```
 
 - [ ] **Step 3: Run the test and verify failure**
 
 Run: `npm.cmd test -- --run lib/motionSystem.test.ts`
 
-Expected: FAIL because `lib/motionSystem.ts` does not exist.
+Expected: FAIL because the motion store and runtime-root contract are not yet
+implemented. On a fresh checkout, the first failure may be the missing
+`lib/motionSystem.ts` or `app/AppMotionRoot.tsx` file.
 
-- [ ] **Step 4: Implement typed motion tokens**
+- [ ] **Step 4: Implement typed motion tokens and the system preference store**
 
 Create `lib/motionSystem.ts`:
 
 ```ts
+export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
 export const MOTION_DURATION = {
   press: 0.12,
   state: 0.2,
@@ -127,8 +243,46 @@ export const MOTION_SPRING = {
 
 export type MotionPolicy = "full" | "reduced";
 
+type MotionPreferenceListener = () => void;
+
+export type SystemMotionMediaQuery = {
+  readonly matches: boolean;
+  addEventListener(type: "change", listener: MotionPreferenceListener): void;
+  removeEventListener(type: "change", listener: MotionPreferenceListener): void;
+};
+
+export type SystemMotionMatchMedia = (
+  query: string
+) => SystemMotionMediaQuery;
+
+export type SystemMotionPreferenceStore = {
+  readonly getSnapshot: () => boolean;
+  readonly subscribe: (listener: MotionPreferenceListener) => () => void;
+};
+
+const NO_SYSTEM_MOTION_PREFERENCE_STORE: SystemMotionPreferenceStore = {
+  getSnapshot: () => false,
+  subscribe: () => () => undefined,
+};
+
 export function getMotionPolicy(appPreference: boolean, systemPreference: boolean): MotionPolicy {
   return appPreference || systemPreference ? "reduced" : "full";
+}
+
+export function createSystemMotionPreferenceStore(
+  matchMedia?: SystemMotionMatchMedia
+): SystemMotionPreferenceStore {
+  if (!matchMedia) return NO_SYSTEM_MOTION_PREFERENCE_STORE;
+
+  const mediaQuery = matchMedia(REDUCED_MOTION_QUERY);
+
+  return {
+    getSnapshot: () => mediaQuery.matches,
+    subscribe(listener) {
+      mediaQuery.addEventListener("change", listener);
+      return () => mediaQuery.removeEventListener("change", listener);
+    },
+  };
 }
 ```
 
@@ -139,16 +293,57 @@ Create `app/AppMotionRoot.tsx`:
 ```tsx
 "use client";
 
-import { domAnimation, LazyMotion, LayoutGroup, MotionConfig } from "motion/react";
-import type { ReactNode } from "react";
+import { domMax, LazyMotion, LayoutGroup, MotionConfig } from "motion/react";
+import {
+  createContext,
+  useContext,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
+import {
+  createSystemMotionPreferenceStore,
+  getMotionPolicy,
+  type MotionPolicy,
+} from "@/lib/motionSystem";
+
+const AppMotionPolicyContext = createContext<MotionPolicy | null>(null);
+const getServerSystemMotionPreference = () => false;
+const systemMotionPreferenceStore = createSystemMotionPreferenceStore(
+  typeof window === "undefined" || typeof window.matchMedia !== "function"
+    ? undefined
+    : (query) => window.matchMedia(query)
+);
+
+export function useAppMotionPolicy(): MotionPolicy {
+  const policy = useContext(AppMotionPolicyContext);
+
+  if (policy === null) {
+    throw new Error("useAppMotionPolicy must be used within AppMotionRoot");
+  }
+
+  return policy;
+}
+
+export function useAppReducedMotion(): boolean {
+  return useAppMotionPolicy() === "reduced";
+}
 
 export default function AppMotionRoot({ reduceMotion, children }: { reduceMotion: boolean; children: ReactNode }) {
+  const systemPreference = useSyncExternalStore(
+    systemMotionPreferenceStore.subscribe,
+    systemMotionPreferenceStore.getSnapshot,
+    getServerSystemMotionPreference
+  );
+  const motionPolicy = getMotionPolicy(reduceMotion, systemPreference);
+
   return (
-    <LazyMotion features={domAnimation} strict>
-      <MotionConfig reducedMotion={reduceMotion ? "always" : "user"}>
-        <LayoutGroup id="ai-reader-app">{children}</LayoutGroup>
-      </MotionConfig>
-    </LazyMotion>
+    <AppMotionPolicyContext.Provider value={motionPolicy}>
+      <LazyMotion features={domMax} strict>
+        <MotionConfig reducedMotion={motionPolicy === "reduced" ? "always" : "never"}>
+          <LayoutGroup id="ai-reader-app">{children}</LayoutGroup>
+        </MotionConfig>
+      </LazyMotion>
+    </AppMotionPolicyContext.Provider>
   );
 }
 ```
@@ -163,6 +358,8 @@ Run:
 ```powershell
 npm.cmd test -- --run lib/motionSystem.test.ts lib/motionCss.test.ts
 npm.cmd exec -- eslint app/AppMotionRoot.tsx app/page.tsx lib/motionSystem.ts lib/motionSystem.test.ts
+npm.cmd exec -- tsc --noEmit
+git diff --check
 ```
 
 Commit:
@@ -171,6 +368,12 @@ Commit:
 git add package.json package-lock.json app/AppMotionRoot.tsx app/page.tsx lib/motionSystem.ts lib/motionSystem.test.ts
 git commit -m "feat: add application motion runtime"
 ```
+
+**Implementation rule for every later Motion component:** Consume
+`useAppMotionPolicy()` or `useAppReducedMotion()` to select reduced variants
+and disable layout projection and drag when reduced. Do not rely on
+`MotionConfig` as the only reactive source, and do not force-remount the app
+tree when the policy changes.
 
 ## Task 2: Build the Navigation Reducer
 

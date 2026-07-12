@@ -125,8 +125,14 @@ controls keep gesture ownership.
 
 Responsibilities:
 
-- Load `motion/react` through `LazyMotion` with `domAnimation`.
-- Provide `MotionConfig` with the shared reduced-motion policy.
+- Load `motion/react` through strict `LazyMotion` with `domMax` so animation,
+  layout projection, shared `layoutId`, and drag features are available.
+- Own the reactive reduced-motion source by combining the app setting with a
+  `useSyncExternalStore` subscription to the system media query.
+- Provide `MotionConfig` with the combined policy as `always` or `never`
+  without remounting the app tree when that policy changes.
+- Expose `useAppMotionPolicy()` and `useAppReducedMotion()` as the authoritative
+  reactive context for Motion components.
 - Expose motion tokens as typed values and CSS custom properties.
 - Host the fixed portal layers for transition clones, reader presentation, and
   sheets.
@@ -310,6 +316,15 @@ spring used for an incomplete gesture.
 Reduced motion is active when either the system preference or the app setting
 requests it.
 
+`AppMotionRoot` owns this combined policy. Its system preference store listens
+to `(prefers-reduced-motion: reduce)` changes and updates the app context at
+runtime. Motion 12 VisualElements snapshot `MotionConfig.reducedMotion` when
+they are created, so `MotionConfig` is not the reactive authority by itself.
+Every Motion component must consume `useAppMotionPolicy()` or
+`useAppReducedMotion()` to select reduced variants and to disable layout
+projection and drag when the policy is reduced. Policy changes update the
+existing tree; they must not force-remount it.
+
 In reduced motion:
 
 - Shared element transitions become a 120 ms crossfade.
@@ -427,4 +442,3 @@ step has an attributable regression surface.
 - Reduced motion preserves all functionality without spatial motion.
 - Full test, lint, production build, and production asset verification pass.
 - Mobile visual and interaction evidence covers all transition families.
-
