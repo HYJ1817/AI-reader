@@ -73,7 +73,14 @@ export function applyEpubReaderPreferences(
         "color-scheme": "normal",
         "touch-action": "pan-y pinch-zoom",
         "overscroll-behavior-inline": "contain",
+        "scrollbar-width": "none",
+        "-ms-overflow-style": "none",
         "-webkit-tap-highlight-color": "transparent",
+      },
+      "html::-webkit-scrollbar, body::-webkit-scrollbar": {
+        display: "none !important",
+        width: "0 !important",
+        height: "0 !important",
       },
       body: {
         color: `${contentForeground} !important`,

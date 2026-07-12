@@ -69,7 +69,6 @@ import {
   shouldPublishProgressPercent,
 } from "@/lib/readerProgress";
 import {
-  estimateReaderPageInfo,
   getScrollPageInfo,
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
@@ -1152,7 +1151,6 @@ export default function Home() {
         pendingEpubProgressRef.current = null;
         if (progress === null || !openBook) return;
 
-        setReaderPageInfo(estimateReaderPageInfo(progress, 100));
         setReaderProgressPercent((current) =>
           shouldPublishProgressPercent(current, progress)
             ? progress
@@ -1729,6 +1727,7 @@ export default function Home() {
           }
           onTocChange={setTocItems}
           onProgressChange={handleEpubProgressChange}
+          onPageInfoChange={setReaderPageInfo}
           onTextReaderScroll={handleReaderScroll}
           onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
           onBack={handleToolbarBack}

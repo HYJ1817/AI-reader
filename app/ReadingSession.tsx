@@ -41,6 +41,7 @@ type ReadingSessionProps = {
   onSwipeTurn: (direction: "prev" | "next") => void;
   onTocChange: (items: EpubTocItem[]) => void;
   onProgressChange: (progressPercent: number) => void;
+  onPageInfoChange: (pageInfo: ReaderPageInfo) => void;
   onTextReaderScroll: UIEventHandler<HTMLDivElement>;
   onSwipeTransitionEnd: TransitionEventHandler<HTMLDivElement>;
   onBack: () => void;
@@ -74,6 +75,7 @@ export default function ReadingSession({
   onSwipeTurn,
   onTocChange,
   onProgressChange,
+  onPageInfoChange,
   onTextReaderScroll,
   onSwipeTransitionEnd,
   onBack,
@@ -112,6 +114,7 @@ export default function ReadingSession({
             onSwipeTurn={onSwipeTurn}
             onTocChange={onTocChange}
             onProgressChange={onProgressChange}
+            onPageInfoChange={onPageInfoChange}
             preferences={preferences}
           />
         ) : loading ? (

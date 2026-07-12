@@ -68,7 +68,14 @@ describe("applyEpubReaderPreferences", () => {
       "color-scheme": "normal",
       "touch-action": "pan-y pinch-zoom",
       "overscroll-behavior-inline": "contain",
+      "scrollbar-width": "none",
+      "-ms-overflow-style": "none",
       "-webkit-tap-highlight-color": "transparent",
+    });
+    expect(rules?.["html::-webkit-scrollbar, body::-webkit-scrollbar"]).toEqual({
+      display: "none !important",
+      width: "0 !important",
+      height: "0 !important",
     });
     expect(rules?.body).toEqual({
       color: "#111111 !important",
@@ -115,7 +122,10 @@ describe("applyEpubReaderPreferences", () => {
     const serialized = serializeRulesLikeEpubJs(rules);
 
     expect(serialized).toContain(
-      "html, body{background:transparent !important;background-color:transparent !important;color-scheme:normal;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
+      "html, body{background:transparent !important;background-color:transparent !important;color-scheme:normal;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;scrollbar-width:none;-ms-overflow-style:none;-webkit-tap-highlight-color:transparent}"
+    );
+    expect(serialized).toContain(
+      "html::-webkit-scrollbar, body::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important}"
     );
     expect(serialized).toContain(
       "body *:not(img):not(svg):not(video):not(canvas):not(picture){background:transparent !important;background-color:transparent !important}"

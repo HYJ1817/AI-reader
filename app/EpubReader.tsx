@@ -10,6 +10,10 @@ import {
   applyEpubViewTransparency,
 } from "@/lib/epubAmbientCanvas";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
+import {
+  getEpubPageInfo,
+  type ReaderPageInfo,
+} from "@/lib/readerPageInfo";
 import { shouldObserveSystemReaderTheme } from "@/lib/readerPreferences";
 import { getEpubRenditionOptions } from "@/lib/epubReaderMode";
 import type { ReaderMode } from "@/lib/readerMode";
@@ -65,6 +69,7 @@ type EpubReaderProps = {
   ) => void | Promise<void>;
   onTocChange?: (items: EpubTocItem[]) => void;
   onProgressChange?: (progressPercent: number) => void;
+  onPageInfoChange?: (pageInfo: ReaderPageInfo) => void;
   preferences?: ReaderPreferences;
 };
 
@@ -104,6 +109,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     onSwipeTurn,
     onTocChange,
     onProgressChange,
+    onPageInfoChange,
     preferences,
   },
   ref
@@ -127,6 +133,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const onSwipeTurnRef = useRef(onSwipeTurn);
   const onTocChangeRef = useRef(onTocChange);
   const onProgressChangeRef = useRef(onProgressChange);
+  const onPageInfoChangeRef = useRef(onPageInfoChange);
   const attachedTapDocsRef = useRef<WeakSet<Document>>(new WeakSet());
   const saveTimerRef = useRef<number | null>(null);
   const pendingPositionRef = useRef<ReadingPosition | null>(null);
@@ -194,6 +201,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   useEffect(() => {
     onProgressChangeRef.current = onProgressChange;
   }, [onProgressChange]);
+
+  useEffect(() => {
+    onPageInfoChangeRef.current = onPageInfoChange;
+  }, [onPageInfoChange]);
 
   const goNext = useCallback(async () => {
     if (renditionRef.current) {
@@ -351,6 +362,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       }, 180);
 
       onProgressChangeRef.current?.(percent);
+      const pageInfo = getEpubPageInfo(location);
+      if (pageInfo) {
+        onPageInfoChangeRef.current?.(pageInfo);
+      }
     },
     [saveReadingPosition]
   );

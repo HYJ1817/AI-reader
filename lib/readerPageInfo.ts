@@ -3,6 +3,11 @@ export type ReaderPageInfo = {
   total: number;
 };
 
+type EpubDisplayedLocation = {
+  page?: unknown;
+  total?: unknown;
+};
+
 function safePositiveInteger(value: number, fallback: number): number {
   if (!Number.isFinite(value)) return fallback;
   return Math.max(1, Math.round(value));
@@ -29,6 +34,30 @@ export function estimateReaderPageInfo(
     : 0;
   const current = Math.min(total, Math.max(1, Math.round((progress / 100) * total) + 1));
   return { current, total };
+}
+
+export function getEpubPageInfo(location: unknown): ReaderPageInfo | null {
+  if (location === null || typeof location !== "object") return null;
+
+  const start = (location as Record<string, unknown>).start;
+  if (start === null || typeof start !== "object") return null;
+
+  const displayed = (start as Record<string, unknown>)
+    .displayed as EpubDisplayedLocation | undefined;
+  if (!displayed) return null;
+
+  const { page, total } = displayed;
+  if (
+    typeof page !== "number" ||
+    !Number.isFinite(page) ||
+    typeof total !== "number" ||
+    !Number.isFinite(total) ||
+    total <= 0
+  ) {
+    return null;
+  }
+
+  return normalizeReaderPageInfo({ current: page, total });
 }
 
 export function getScrollPageInfo(
