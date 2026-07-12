@@ -504,6 +504,19 @@ Latest EPUB reader background regression fix:
   its `::before`/`::after` pseudo-elements gets full `background: transparent
   !important`. `img`, `svg`, `video`, `canvas`, and `picture` are excluded and
   remain visible. Decorative CSS backgrounds may be removed by design.
+- **Unresolved as of 2026-07-12:** the user confirmed that the same white EPUB
+  rectangle still appears on iPhone Safari after fully closing/reopening the
+  PWA on Worker `f178b2ef-727b-4f5d-b561-b40f74532c34`.
+- Do not describe the dark EPUB transparency issue as fixed. The following
+  attempts were deployed and did not solve the real-device rendering:
+  - forcing active dark foreground instead of hard-coded black text
+  - removing `readerEpubLightCanvas`
+  - recursively clearing nested layout background colors
+  - temporarily pinning an opaque dark root canvas (rejected: not transparent)
+  - forcing epub.js view, iframe, html/body, non-media elements, and pseudo-elements transparent
+- Further work is paused. Do not add more speculative CSS. Resume only with the
+  affected EPUB file available for local reproduction, or Safari Web Inspector
+  evidence identifying the painted node/pseudo-layer and its computed style.
 - Regression coverage was updated in:
   - `lib/epubReaderPreferences.test.ts`
   - `lib/ambientBookBackground.test.ts`
@@ -803,9 +816,12 @@ foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://881817.xyz$u
 The prior EPUB dark-mode background issue is still relevant project context:
 
 - User's baseline for EPUB light mode was ambient outside + white EPUB paper/page + black text.
-- Do not globally make EPUB iframes or publisher backgrounds transparent to force blending with ambient backgrounds.
-- If revisiting EPUB dark mode, scope changes to dark/system-dark and inspect real iPhone iframe computed styles before guessing.
-- Do not repeat broad transparent-background experiments that changed light mode.
+- Dark-mode transparent ambient remains unresolved on real iPhone Safari.
+- Broad transparent-background rules have already been tried through commit
+  `7ce7b78` and did not remove the white rectangle.
+- If revisiting EPUB dark mode, first obtain the affected EPUB or inspect the
+  real iframe using Safari Web Inspector. Do not guess from screenshots again.
+- Scope any future change to dark/system-dark and recheck light/sepia behavior.
 
 Files related to EPUB background work:
 
@@ -826,6 +842,7 @@ The opener below includes the latest reliability/security deployment state.
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
+重要：EPUB 深色模式透明 ambient 截至 2026-07-12 仍未解决。用户确认在 Worker f178b2ef-727b-4f5d-b561-b40f74532c34 上完全关闭并重开 PWA 后白色矩形仍存在。不要继续猜 CSS；只有拿到问题 EPUB 文件做本地复现，或取得 Safari Web Inspector 的真实 iframe 节点/computed style 后再继续。
 最新代码提交以 7ce7b78 为准：三层透明后用户截图仍显示白色 EPUB 画布，已确认 epub.js 本身不设置白底；现在透明优先，清除 iframe 内所有非媒体元素及伪元素的完整 background，保留 img/svg/video/canvas/picture。最新 Worker 版本是 f178b2ef-727b-4f5d-b561-b40f74532c34。下面较早提交与 Worker 版本仅为历史摘要。
 最新代码提交是 08db3d9，主要修复备份恢复可能先清空再失败的数据丢失风险；备份 v2 现已包含阅读统计、自定义背景和不含密钥的当前 AI 服务商设置，并保持 v1 兼容；AI API 已限制内网/回环地址、非 HTTPS、重定向、请求/响应大小和超时；Ask AI 会在切书/关闭时中止旧请求、忽略过期响应、只发送最近 20 条历史并自动滚动；localStorage 写入失败不会再打断界面；Service Worker cache 已更新为 ai-reader-v5。此前功能还包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器 Ask AI 现在保留对话历史、发送后清空输入、把历史消息和当前可见正文片段一起传给 AI、EPUB 通过 getVisibleText 读取当前渲染 iframe 文本、TXT 读取可见段落上下文、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、右上角 readerOverlayBack 关闭按钮已改成 48px 圆形按钮，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，最新 Worker 版本是 d38b8847-10ee-4633-befa-9b29906cec1c，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
 ```
