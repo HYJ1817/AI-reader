@@ -1,22 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { getEpubPageInfo } from "./readerPageInfo";
+import { getEpubBookPageInfo } from "./readerPageInfo";
 
-describe("getEpubPageInfo", () => {
-  it("uses epub.js displayed pagination instead of a synthetic total", () => {
+describe("getEpubBookPageInfo", () => {
+  it("uses the EPUB page-list as the whole-book page count when present", () => {
     expect(
-      getEpubPageInfo({ start: { displayed: { page: 7, total: 19 } } })
-    ).toEqual({ current: 7, total: 19 });
+      getEpubBookPageInfo(
+        { start: { page: 135, location: 42 } },
+        900,
+        { firstPage: 1, lastPage: 480 }
+      )
+    ).toEqual({ current: 135, total: 480 });
   });
 
-  it("normalizes an out-of-range displayed page", () => {
+  it("uses generated whole-book CFI locations when the EPUB has no page-list", () => {
     expect(
-      getEpubPageInfo({ start: { displayed: { page: 32, total: 19 } } })
-    ).toEqual({ current: 19, total: 19 });
+      getEpubBookPageInfo({ start: { location: 287 } }, 900)
+    ).toEqual({ current: 288, total: 900 });
   });
 
-  it("returns null when epub.js does not expose rendered page data", () => {
-    expect(getEpubPageInfo({ start: { displayed: { page: 1 } } })).toBeNull();
-    expect(getEpubPageInfo({ start: {} })).toBeNull();
-    expect(getEpubPageInfo(null)).toBeNull();
+  it("does not fall back to a chapter-local displayed page count", () => {
+    expect(
+      getEpubBookPageInfo({ start: { displayed: { page: 2, total: 2 } } }, 0)
+    ).toBeNull();
+    expect(getEpubBookPageInfo({ start: { location: -1 } }, 900)).toBeNull();
+    expect(getEpubBookPageInfo(null, 900)).toBeNull();
   });
 });

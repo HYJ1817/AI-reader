@@ -2131,6 +2131,25 @@
   background: transparent !important;
 }
 
+.epubReaderViewport :global(.epub-container) {
+  scrollbar-width: none !important;
+  scrollbar-color: transparent transparent !important;
+  -ms-overflow-style: none !important;
+}
+
+.epubReaderViewport :global(.epub-container::-webkit-scrollbar) {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.epubReaderViewport :global(.epub-container::-webkit-scrollbar-track),
+.epubReaderViewport :global(.epub-container::-webkit-scrollbar-thumb) {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
 .readingDashboard {
   min-height: 100%;
   padding-top: calc(var(--safe-top) + 8px);

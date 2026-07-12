@@ -61,6 +61,18 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
+  it("hides the scroll track on epub.js's outer continuous-scroll container", () => {
+    expect(moduleCss).toMatch(
+      /\.epubReaderViewport :global\(\.epub-container\)\s*\{[^}]*scrollbar-width:\s*none !important;[^}]*-ms-overflow-style:\s*none !important;/s
+    );
+    expect(moduleCss).toMatch(
+      /\.epubReaderViewport :global\(\.epub-container::\-webkit-scrollbar\)\s*\{[^}]*display:\s*none !important;[^}]*width:\s*0 !important;[^}]*height:\s*0 !important;/s
+    );
+    expect(moduleCss).toMatch(
+      /\.epubReaderViewport :global\(\.epub-container::\-webkit-scrollbar-track\),\s*\.epubReaderViewport :global\(\.epub-container::\-webkit-scrollbar-thumb\)\s*\{[^}]*background:\s*transparent !important;/s
+    );
+  });
+
   it("lets EPUB inherit the active reader theme without covering the ambient background", () => {
     expect(readingSessionSource).not.toContain("styles.readerEpubLightCanvas");
     expect(readingSessionSource).toContain('book?.format === "epub"');

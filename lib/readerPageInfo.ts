@@ -3,9 +3,9 @@ export type ReaderPageInfo = {
   total: number;
 };
 
-type EpubDisplayedLocation = {
-  page?: unknown;
-  total?: unknown;
+export type EpubPageListInfo = {
+  firstPage?: unknown;
+  lastPage?: unknown;
 };
 
 function safePositiveInteger(value: number, fallback: number): number {
@@ -36,28 +36,50 @@ export function estimateReaderPageInfo(
   return { current, total };
 }
 
-export function getEpubPageInfo(location: unknown): ReaderPageInfo | null {
+export function getEpubBookPageInfo(
+  location: unknown,
+  locationTotal: number,
+  pageList?: EpubPageListInfo | null
+): ReaderPageInfo | null {
   if (location === null || typeof location !== "object") return null;
 
   const start = (location as Record<string, unknown>).start;
   if (start === null || typeof start !== "object") return null;
 
-  const displayed = (start as Record<string, unknown>)
-    .displayed as EpubDisplayedLocation | undefined;
-  if (!displayed) return null;
-
-  const { page, total } = displayed;
+  const startRecord = start as Record<string, unknown>;
+  const firstPage = pageList?.firstPage;
+  const lastPage = pageList?.lastPage;
+  const publishedPage = startRecord.page;
   if (
-    typeof page !== "number" ||
-    !Number.isFinite(page) ||
-    typeof total !== "number" ||
-    !Number.isFinite(total) ||
-    total <= 0
+    typeof firstPage === "number" &&
+    Number.isFinite(firstPage) &&
+    typeof lastPage === "number" &&
+    Number.isFinite(lastPage) &&
+    lastPage >= firstPage &&
+    typeof publishedPage === "number" &&
+    Number.isFinite(publishedPage)
+  ) {
+    return normalizeReaderPageInfo({
+      current: publishedPage - firstPage + 1,
+      total: lastPage - firstPage + 1,
+    });
+  }
+
+  const locationIndex = startRecord.location;
+  if (
+    typeof locationIndex !== "number" ||
+    !Number.isFinite(locationIndex) ||
+    locationIndex < 0 ||
+    !Number.isFinite(locationTotal) ||
+    locationTotal <= 0
   ) {
     return null;
   }
 
-  return normalizeReaderPageInfo({ current: page, total });
+  return normalizeReaderPageInfo({
+    current: Math.floor(locationIndex) + 1,
+    total: Math.floor(locationTotal),
+  });
 }
 
 export function getScrollPageInfo(

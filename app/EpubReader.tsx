@@ -11,7 +11,7 @@ import {
 } from "@/lib/epubAmbientCanvas";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import {
-  getEpubPageInfo,
+  getEpubBookPageInfo,
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
 import { shouldObserveSystemReaderTheme } from "@/lib/readerPreferences";
@@ -48,6 +48,8 @@ import { UI_TEXT } from "@/lib/uiText";
 import type { Rendition } from "epubjs";
 import styles from "./page.module.css";
 
+const EPUB_LOCATION_CHARS_PER_PAGE = 360;
+
 export type EpubReaderHandle = {
   next: () => Promise<void>;
   prev: () => Promise<void>;
@@ -77,6 +79,14 @@ type EpubBook = {
   open: (input: ArrayBuffer, what?: "binary") => Promise<unknown>;
   opened?: Promise<unknown>;
   spine?: { items?: unknown[] };
+  locations?: {
+    total?: number;
+    generate: (charactersPerLocation: number) => Promise<unknown>;
+  };
+  pageList?: {
+    firstPage?: number;
+    lastPage?: number;
+  };
   renderTo: (
     element: HTMLElement,
     options: {
@@ -362,7 +372,12 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       }, 180);
 
       onProgressChangeRef.current?.(percent);
-      const pageInfo = getEpubPageInfo(location);
+      const book = bookRef.current as EpubBook | null;
+      const pageInfo = getEpubBookPageInfo(
+        location,
+        book?.locations?.total ?? 0,
+        book?.pageList
+      );
       if (pageInfo) {
         onPageInfoChangeRef.current?.(pageInfo);
       }
@@ -829,6 +844,23 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           }
         } else {
           await rendition.display();
+        }
+
+        // EPUBs are reflowable, so only a generated CFI table can provide a
+        // stable whole-book index when the publisher did not supply a page-list.
+        const locations = book.locations;
+        if (locations?.generate) {
+          void locations
+            .generate(EPUB_LOCATION_CHARS_PER_PAGE)
+            .then(() => {
+              if (cancelled) return;
+              (
+                rendition as Rendition & { reportLocation?: () => unknown }
+              ).reportLocation?.();
+            })
+            .catch(() => {
+              // Reading still works when a malformed EPUB cannot generate locations.
+            });
         }
 
         const renderedContents = (rendition as { getContents?: () => unknown }).getContents?.();
