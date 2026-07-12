@@ -35,6 +35,7 @@ import {
   scrollTopFromProgress,
 } from "@/lib/txtReader";
 import AppNavigation from "@/app/AppNavigation";
+import AppMotionRoot from "@/app/AppMotionRoot";
 import AppOverlays from "@/app/AppOverlays";
 import AmbientBookBackground from "@/app/AmbientBookBackground";
 import type { EpubReaderHandle } from "@/app/EpubReader";
@@ -1593,11 +1594,12 @@ export default function Home() {
     appPrefs.backgroundMode === "custom" && background.customBackgroundBlob !== null;
 
   return (
-    <div
-      className={styles.app}
-      {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
-      {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
-    >
+    <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
+      <div
+        className={styles.app}
+        {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
+        {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
+      >
       <AmbientBookBackground book={useCustomBackgroundImage ? null : latestBook ?? null} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
       <input
         ref={fileInputRef}
@@ -1896,6 +1898,7 @@ export default function Home() {
           createGroup: () => void handleCreateGroup(),
         }}
       />
-    </div>
+      </div>
+    </AppMotionRoot>
   );
 }
