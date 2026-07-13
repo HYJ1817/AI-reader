@@ -80,27 +80,33 @@ describe("reader action menu", () => {
     expect(menuSource.indexOf("onAsk")).toBeLessThan(
       menuSource.indexOf("onOpenSettings")
     );
+    expect(controlsSource).toContain("const chromeVariants");
+    expect(controlsSource).toContain("staggerChildren: 0.035");
+    expect(controlsSource).toContain("staggerChildren: 0.025");
+    expect(controlsSource).toContain("staggerDirection: -1");
+    expect(controlsSource).toContain("variants={chromeVariants}");
+    expect(controlsSource).toContain(
+      'animate={visible ? "visible" : "hidden"}'
+    );
+    expect(controlsSource).toContain("variants={menuRowVariants}");
+    expect(controlsSource).toContain("onAnimationComplete");
     expect(css).toContain(".readerActionMenu");
-    expect(css).toContain(".readerMenuRow:nth-child(2)");
-    expect(css).toContain(".readerMenuRow:nth-child(3)");
     expect(css).toMatch(
       /\.readerMenuRow\s*\{[^}]*border-radius:\s*999px;[^}]*box-shadow:/s
     );
-    expect(css).toContain("transition-delay: 0ms;");
-    expect(css).toContain("90ms, 90ms");
-    expect(css).toContain("180ms, 180ms");
+    expect(css).not.toContain(".readerMenuRow:nth-child(");
+    expect(css).not.toContain("90ms, 90ms");
+    expect(css).not.toContain("180ms, 180ms");
     expect(css).not.toContain(".readerFloatingTools");
   });
 
-  it("keeps visible reader menu rows tappable while chrome exits", () => {
+  it("keeps controls available until the coordinated hidden animation settles", () => {
     const rowRule = cssRule(".readerMenuRow");
-    const hiddenRowRule = cssRule(".readerChromeControlsHidden .readerMenuRow");
-
-    expect(rowRule).toContain("visibility: visible");
     expect(rowRule).toContain("pointer-events: auto");
-    expect(hiddenRowRule).toContain("visibility: hidden");
-    expect(hiddenRowRule).toContain("visibility 0s linear var(--motion-chrome-exit)");
-    expect(hiddenRowRule).not.toContain("pointer-events: none");
+    expect(controlsSource).toContain("controlsInert");
+    expect(controlsSource).toContain('definition === "hidden"');
+    expect(controlsSource).toContain("{...(controlsInert ? { inert: true } : {})}");
+    expect(css).not.toContain(".readerChromeControlsHidden .readerMenuRow");
   });
 
   it("uses a circular reader close button", () => {
@@ -114,9 +120,8 @@ describe("reader action menu", () => {
 
   it("keeps a chrome-owned menu button tappable for both opening and closing", () => {
     const wakeRule = cssRule(".readerMenuWakeButton");
-    const hiddenWakeRule = cssRule(
-      ".readerChromeControlsHidden .readerMenuWakeButton"
-    );
+    const wakeStart = controlsSource.indexOf("styles.readerMenuWakeButton");
+    const animatedStart = controlsSource.indexOf("styles.readerChromeAnimated");
 
     expect(sessionSource).toContain("onWakeMenu={onReaderTap}");
     expect(controlsSource).toContain("onWakeMenu: () => void");
@@ -124,8 +129,8 @@ describe("reader action menu", () => {
     expect(controlsSource).toContain("onClick={onWakeMenu}");
     expect(wakeRule).toContain("pointer-events: auto");
     expect(wakeRule).toContain("visibility: visible");
-    expect(hiddenWakeRule).toContain("pointer-events: auto");
-    expect(hiddenWakeRule).toContain("visibility: visible");
+    expect(wakeStart).toBeGreaterThanOrEqual(0);
+    expect(wakeStart).toBeLessThan(animatedStart);
   });
 });
 

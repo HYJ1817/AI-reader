@@ -2483,6 +2483,14 @@
 }
 
 .readerChrome {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.readerChromeAnimated {
+  position: absolute;
+  inset: 0;
   pointer-events: none;
 }
 
@@ -2506,8 +2514,7 @@
   box-shadow: 0 9px 24px rgba(0, 0, 0, 0.13);
   transform: translateY(0) scale(1);
   transition:
-    opacity var(--motion-chrome-enter) var(--ease-standard),
-    transform var(--motion-chrome-enter) var(--ease-emphasized),
+    transform var(--motion-fast) var(--ease-emphasized),
     background var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard);
 }
@@ -2522,12 +2529,7 @@
 .readerPagePill {
   position: absolute;
   z-index: 24;
-  visibility: visible;
   pointer-events: auto;
-  transition:
-    opacity var(--motion-chrome-enter) var(--ease-standard),
-    transform var(--motion-chrome-enter) var(--ease-emphasized),
-    visibility 0s linear 0s;
 }
 
 .readerOverlayBack {
@@ -2546,10 +2548,8 @@
 }
 
 .readerOverlayBack:active {
-  opacity: 0.82;
   background: color-mix(in srgb, var(--foreground) 9%, transparent);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
-  transform: scale(0.94);
 }
 
 .readerPagePill {
@@ -2569,7 +2569,7 @@
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  transform: translateX(-50%);
+  translate: -50% 0;
 }
 
 .readerActionMenu {
@@ -2587,7 +2587,12 @@
   transform: translateX(-50%);
 }
 
+.readerMenuRowMotion {
+  width: 100%;
+}
+
 .readerMenuRow {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2602,28 +2607,12 @@
   font-size: 17px;
   font-weight: 700;
   text-align: left;
-  visibility: visible;
   pointer-events: auto;
-  opacity: 1;
   transform: translate3d(0, 0, 0);
   transition:
     background var(--motion-fast) var(--ease-standard),
     box-shadow var(--motion-fast) var(--ease-standard),
-    opacity 320ms var(--ease-emphasized),
-    transform 320ms var(--ease-emphasized),
-    visibility 0s linear 0s;
-}
-
-.readerMenuRow:nth-child(1) {
-  transition-delay: 0ms, 0ms, 0ms, 0ms, 0ms;
-}
-
-.readerMenuRow:nth-child(2) {
-  transition-delay: 0ms, 0ms, 90ms, 90ms, 0ms;
-}
-
-.readerMenuRow:nth-child(3) {
-  transition-delay: 0ms, 0ms, 180ms, 180ms, 0ms;
+    transform var(--motion-fast) var(--ease-emphasized);
 }
 
 .readerMenuRow:disabled {
@@ -2634,7 +2623,6 @@
   background: color-mix(in srgb, var(--foreground) 8%, transparent);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
   transform: translate3d(0, 1px, 0) scale(0.985);
-  transition-delay: 0ms;
 }
 
 .readerMenuRow svg,
@@ -2657,55 +2645,13 @@
   font-weight: 800;
 }
 
-.readerChromeControlsHidden .readerOverlayBack {
-  visibility: hidden;
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.readerChromeControlsHidden .readerMenuWakeButton {
-  visibility: visible;
-  pointer-events: auto;
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  transition-delay: 0ms, 0ms, 0ms, 0ms;
-}
-
-.readerChromeControlsHidden .readerMenuRow {
-  visibility: hidden;
-  opacity: 0;
-  transform: translate3d(0, 18px, 0);
-  transition:
-    background var(--motion-fast) var(--ease-standard),
-    box-shadow var(--motion-fast) var(--ease-standard),
-    opacity var(--motion-chrome-exit) var(--ease-standard),
-    transform var(--motion-chrome-exit) var(--ease-standard),
-    visibility 0s linear var(--motion-chrome-exit);
-}
-
-.readerChromeControlsHidden .readerPagePill {
-  visibility: hidden;
-  opacity: 0;
-  transform: translateX(-50%) translateY(10px);
-}
-
-.readerChromeControlsHidden .readerOverlayBack,
-.readerChromeControlsHidden .readerPagePill {
-  transition-duration: var(--motion-chrome-exit), var(--motion-chrome-exit), 0s;
-  transition-delay: 0ms, 0ms, var(--motion-chrome-exit);
-  transition-timing-function: var(--ease-standard), var(--ease-standard), linear;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .readerPagePill,
-  .readerOverlayBack,
   .readerMenuWakeButton,
   .readerMenuRow {
     transition: none;
     transform: none;
   }
 
-  .readerOverlayBack:active,
   .readerMenuWakeButton:active,
   .readerMenuRow:not(:disabled):active,
   .readerMenuRow:not(:disabled):active svg,

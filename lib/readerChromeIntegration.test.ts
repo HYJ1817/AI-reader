@@ -202,6 +202,17 @@ describe("reader chrome event integration", () => {
     expect(controlsSource).not.toContain("UI_TEXT.READING_GOAL");
   });
 
+  it("coordinates chrome through Motion without mutating the reader shell", () => {
+    expect(controlsSource).toContain('from "motion/react"');
+    expect(controlsSource).toContain("useAppReducedMotion");
+    expect(controlsSource).toContain("m.button");
+    expect(controlsSource).toContain("m.div");
+    expect(readingSessionSource).not.toContain("styles.readerChromeHidden");
+    expect(readingSessionSource).not.toContain(
+      "styles.readerChromeControlsHidden"
+    );
+  });
+
   it("suppresses Safari tap highlights in the app and EPUB document", () => {
     expect(globalsSource).toContain("-webkit-tap-highlight-color: transparent");
     expect(epubPreferencesSource).toContain(

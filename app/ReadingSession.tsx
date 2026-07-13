@@ -86,9 +86,7 @@ export default function ReadingSession({
   return (
     <div
       ref={shellRef}
-      className={`${styles.readerShell} ${
-        chromeVisible ? "" : styles.readerChromeHidden
-      }`}
+      className={styles.readerShell}
     >
       <div
         className={styles.readerStage}

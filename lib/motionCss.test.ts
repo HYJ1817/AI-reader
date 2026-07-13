@@ -13,6 +13,10 @@ const appNavigationSource = readFileSync(
   new URL("../app/AppNavigation.tsx", import.meta.url),
   "utf8"
 );
+const readerControlsSource = readFileSync(
+  new URL("../app/ReaderControls.tsx", import.meta.url),
+  "utf8"
+);
 const navigationMotionSource = readFileSync(
   new URL("./navigationMotion.ts", import.meta.url),
   "utf8"
@@ -273,43 +277,33 @@ describe("motion CSS", () => {
   });
 
   it("keeps reader chrome travel compact", () => {
-    const hiddenStart = css.indexOf(
-      ".readerChromeControlsHidden .readerMenuRow {"
-    );
-    const hiddenEnd = css.indexOf("}", hiddenStart);
-    const hiddenRule = css.slice(hiddenStart, hiddenEnd);
-    expect(hiddenRule).toContain("translate3d(0, 18px, 0)");
-
-    const pageStart = css.indexOf(
-      ".readerChromeControlsHidden .readerPagePill {"
-    );
-    const pageEnd = css.indexOf("}", pageStart);
-    const pageRule = css.slice(pageStart, pageEnd);
-    expect(pageRule).toContain("translateX(-50%) translateY(10px)");
+    expect(readerControlsSource).toContain("y: reduceMotion ? 0 : 14");
+    expect(readerControlsSource).toContain("y: reduceMotion ? 0 : 10");
+    expect(readerControlsSource).toContain("y: reduceMotion ? 0 : -8");
+    expect(css).not.toContain(".readerChromeControlsHidden .readerMenuRow");
   });
 
   it("stagers individual reader menu capsules", () => {
     expect(css).toContain(".readerActionMenu");
-    expect(css).toContain(".readerMenuRow:nth-child(2)");
-    expect(css).toContain(".readerMenuRow:nth-child(3)");
-    expect(css).toContain("90ms, 90ms");
-    expect(css).toContain("180ms, 180ms");
-    expect(css).toMatch(
-      /\.readerMenuRow\s*\{[^}]*border-radius:\s*999px;[^}]*opacity\s+320ms\s+var\(--ease-emphasized\)[^}]*transform\s+320ms\s+var\(--ease-emphasized\)/s
-    );
+    expect(readerControlsSource).toContain("staggerChildren: 0.035");
+    expect(readerControlsSource).toContain("staggerChildren: 0.025");
+    expect(readerControlsSource).toContain("staggerDirection: -1");
+    expect(css).not.toContain(".readerMenuRow:nth-child(");
   });
 
   it("removes reader menu travel when motion is reduced", () => {
+    expect(readerControlsSource).toContain("useAppReducedMotion");
+    expect(readerControlsSource).toContain("duration: reduceMotion ? 0 : 0.2");
+    expect(readerControlsSource).toContain("scale: reduceMotion ? 1 : 0.96");
     expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerPagePill,[\s\S]*?\.readerOverlayBack,[\s\S]*?\.readerMenuRow\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerMenuWakeButton,[\s\S]*?\.readerMenuRow\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
     );
   });
 
   it("gives reader chrome a tactile pressed state without moving blur layers", () => {
-    const backActiveStart = css.indexOf(".readerOverlayBack:active {");
-    const backActiveEnd = css.indexOf("}", backActiveStart);
-    const backActiveRule = css.slice(backActiveStart, backActiveEnd);
-    expect(backActiveRule).toContain("scale(0.94)");
+    expect(readerControlsSource).toContain(
+      "whileTap={reduceMotion ? undefined : { scale: 0.94 }}"
+    );
 
     const menuActiveStart = css.indexOf(".readerMenuRow:not(:disabled):active {");
     const menuActiveEnd = css.indexOf("}", menuActiveStart);
