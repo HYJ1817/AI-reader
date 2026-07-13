@@ -186,9 +186,18 @@
 .pushSurface {
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
   padding-bottom: calc(24px + var(--safe-bottom));
   background: var(--app-bg);
   box-shadow: -12px 0 28px rgba(0, 0, 0, 0.1);
+}
+
+.edgeBackGestureRegion {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 20px;
+  z-index: 4;
+  touch-action: none;
 }
 
 .rootParallaxLayer {

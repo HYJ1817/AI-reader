@@ -90,6 +90,7 @@ export default function ReadingSession({
     >
       <div
         className={styles.readerStage}
+        data-navigation-gesture-owner="reader"
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}

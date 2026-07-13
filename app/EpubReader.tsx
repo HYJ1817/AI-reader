@@ -941,6 +941,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     <div
       ref={shellRef}
       className={styles.epubReaderShell}
+      data-navigation-gesture-owner="reader"
       onTransitionEnd={handleSwipeTransitionEnd}
       style={{
         display: "flex",

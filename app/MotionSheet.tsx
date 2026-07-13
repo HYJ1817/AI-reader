@@ -294,6 +294,7 @@ export default function MotionSheet({
                 runAnimation(0, "settle");
               }}
               data-motion-sheet="panel"
+              data-navigation-gesture-owner="sheet"
             >
               {showGrabber && (
                 <div
