@@ -36,6 +36,23 @@ describe("shared reader presentation integration", () => {
     expect(stackSource).toContain("active && !readerPresented ? 1 : 0");
   });
 
+  it("restores focus from current refs after an exit callback closes over old props", () => {
+    expect(transitionSource).toContain("useLayoutEffect");
+    expect(transitionSource).toContain("readerEntryRef.current = readerEntry");
+    expect(transitionSource).toContain("sourcesRef.current = sources");
+    expect(transitionSource).toContain(
+      "if (readerEntry?.originId) lastOriginRef.current = readerEntry.originId"
+    );
+    expect(transitionSource).toContain("if (readerEntryRef.current) return");
+    expect(transitionSource).toContain("sourcesRef.current.get(originId)");
+    expect(transitionSource.indexOf("focusTarget.focus")).toBeLessThan(
+      transitionSource.indexOf("lastOriginRef.current = null")
+    );
+    expect(transitionSource).toContain(
+      "window.requestAnimationFrame(restoreOriginFocus)"
+    );
+  });
+
   it("uses unique origins at every book entry point", () => {
     expect(librarySource).toContain("MotionBookCover");
     expect(librarySource).toContain('library-grid-${book.id}');

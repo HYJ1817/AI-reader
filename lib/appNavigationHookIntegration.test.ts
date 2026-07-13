@@ -31,12 +31,13 @@ describe("app navigation hook integration", () => {
     expect(hookSource).toMatch(/useReducer\(\s*reduceAppNavigation/);
     expect(hookSource).toContain("stateRef");
     expect(hookSource).toContain("reduceAppNavigation(stateRef.current, action)");
-    expect(hookSource).toContain("encodeNavigationHistory(nextState)");
+    expect(hookSource).toContain("mergeNavigationHistory(");
   });
 
   it("uses replace, push, and browser traversal for their distinct roles", () => {
     expect(hookSource).toContain("window.history.replaceState");
     expect(hookSource).toContain("window.history.pushState");
+    expect(hookSource).toContain("mergeNavigationHistory(");
     expect(hookSource).toContain("window.history.back()");
   });
 

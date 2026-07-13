@@ -21,7 +21,7 @@ import {
 } from "@/lib/appNavigation";
 import {
   decodeNavigationHistory,
-  encodeNavigationHistory,
+  mergeNavigationHistory,
 } from "@/lib/navigationHistory";
 import type { NavigationTab } from "@/lib/navigationMotion";
 
@@ -84,7 +84,10 @@ export default function useAppNavigation(): UseAppNavigationResult {
         restore(restoredState);
       } else {
         window.history.replaceState(
-          encodeNavigationHistory(stateRef.current),
+          mergeNavigationHistory(
+            window.history.state,
+            stateRef.current
+          ),
           ""
         );
       }
@@ -100,7 +103,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
       if (!restoredState) {
         window.history.replaceState(
-          encodeNavigationHistory(nextState),
+          mergeNavigationHistory(window.history.state, nextState),
           ""
         );
       }
@@ -116,7 +119,10 @@ export default function useAppNavigation(): UseAppNavigationResult {
       if (nextState === stateRef.current) return;
 
       if (typeof window !== "undefined") {
-        const payload = encodeNavigationHistory(nextState);
+        const payload = mergeNavigationHistory(
+          window.history.state,
+          nextState
+        );
         if (historyWrite === "push") {
           window.history.pushState(payload, "");
         } else {
@@ -145,7 +151,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
     stateRef.current = nextState;
     if (typeof window !== "undefined") {
       window.history.replaceState(
-        encodeNavigationHistory(nextState),
+        mergeNavigationHistory(window.history.state, nextState),
         ""
       );
     }

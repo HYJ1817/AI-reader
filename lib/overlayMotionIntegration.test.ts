@@ -46,6 +46,11 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain("shouldCompleteSheetDismiss");
     expect(motionSheetSource).toContain("onExitComplete={finishClose}");
     expect(motionSheetSource).toContain("useAppReducedMotion");
+    expect(motionSheetSource).toContain("window.visualViewport");
+    expect(motionSheetSource).toContain('viewport.addEventListener("resize"');
+    expect(motionSheetSource).toContain('viewport.addEventListener("scroll"');
+    expect(motionSheetSource).toContain("offsetTop: viewport.offsetTop");
+    expect(motionSheetSource).toContain("height: viewport.height");
     expect(motionSheetSource).not.toContain("requestAnimationFrame");
     expect(motionSheetSource).not.toContain("setTimeout");
     expect(motionSheetSource).not.toContain("panel.style");
@@ -88,6 +93,7 @@ describe("overlay and nested view motion", () => {
     expect(overlaysSource).toContain("useNavigation()");
     expect(overlaysSource).toContain("navigation.state.sheets.at(-1)");
     expect(overlaysSource).toContain("switch (sheet.route)");
+    expect(overlaysSource).toContain("data-sheet-route={sheet.route}");
     for (const route of [
       "reader-settings",
       "reader-custom-settings",

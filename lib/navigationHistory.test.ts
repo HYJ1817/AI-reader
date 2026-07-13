@@ -6,6 +6,7 @@ import {
 import {
   decodeNavigationHistory,
   encodeNavigationHistory,
+  mergeNavigationHistory,
 } from "./navigationHistory";
 
 function createLayeredState(): AppNavigationState {
@@ -59,6 +60,29 @@ describe("navigation history", () => {
       version: 1,
       state,
     });
+  });
+
+  it("preserves framework history fields while replacing app state", () => {
+    const state = createLayeredState();
+    const merged = mergeNavigationHistory(
+      {
+        __NA: true,
+        __PRIVATE_NEXTJS_INTERNALS_TREE: { tree: ["root"] },
+        app: "stale",
+        version: 0,
+        state: null,
+      },
+      state
+    );
+
+    expect(merged).toEqual({
+      __NA: true,
+      __PRIVATE_NEXTJS_INTERNALS_TREE: { tree: ["root"] },
+      app: "ai-reader",
+      version: 1,
+      state,
+    });
+    expect(decodeNavigationHistory(merged)).toEqual(state);
   });
 
   it("rejects unrelated and unsupported payloads", () => {

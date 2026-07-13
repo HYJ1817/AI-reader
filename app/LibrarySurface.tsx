@@ -137,7 +137,11 @@ export default function LibrarySurface({
   const entranceOrder = libraryMotionSnapshot.entranceOrder;
 
   return (
-    <div className={className} aria-hidden={ariaHidden}>
+    <div
+      className={className}
+      aria-hidden={ariaHidden}
+      data-library-loading={loading ? "true" : "false"}
+    >
       <div className={styles.pageHeader}>
         <h1 className={styles.libraryTitle}>{UI_TEXT.LIBRARY}</h1>
         <div className={styles.pageHeaderActions}>

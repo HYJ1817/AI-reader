@@ -117,120 +117,128 @@ export default function AppOverlays({
 
   if (!sheet) return null;
 
-  switch (sheet.route) {
-    case "reader-settings":
-      return (
-        <ReaderSettingsPanel
-          preferences={reader.preferences}
-          mode={reader.mode}
-          onChange={actions.changeReaderPreferences}
-          onModeChange={actions.changeReaderMode}
-          onOpenCustomSettings={() =>
-            navigation.presentSheet("reader-custom-settings")
-          }
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "reader-custom-settings":
-      return (
-        <ReaderCustomSettingsPanel
-          preferences={reader.preferences}
-          onChange={actions.changeReaderPreferences}
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "toc":
-      return (
-        <TocDrawer
-          items={reader.tocItems}
-          bookTitle={reader.bookTitle}
-          pageInfo={reader.pageInfo}
-          onSelect={actions.selectTocItem}
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "ask-ai":
-      return (
-        <AskAiSheet
-          reader={reader}
-          actions={actions}
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "reading-goal":
-      return (
-        <ReadingGoalSheet
-          todayMinutes={reader.todayMinutes}
-          targetMinutes={reader.targetMinutes}
-          goalInputValue={reader.goalInputValue}
-          onGoalInputChange={actions.setGoalInputValue}
-          onSaveGoal={actions.saveGoal}
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "book-actions":
-      return sheetBook ? (
-        <BookActionSheet
-          book={sheetBook}
-          progress={getBookProgressPercent(library.progressMap, sheetBook.id)}
-          actions={actions}
-          onOpenGroups={() =>
-            navigation.presentSheet("book-groups", {
-              entityId: sheetBook.id,
-            })
-          }
-          onOpenDelete={() =>
-            navigation.presentSheet("book-delete", {
-              entityId: sheetBook.id,
-            })
-          }
-          onClose={navigation.dismissSheet}
-        />
-      ) : null;
-    case "book-delete":
-      return sheetBook ? (
-        <BookDeleteSheet
-          book={sheetBook}
-          onDelete={actions.deleteBook}
-          onClose={navigation.dismissSheet}
-        />
-      ) : null;
-    case "book-groups":
-      return sheetBook ? (
-        <BookGroupSheet
-          book={sheetBook}
-          groups={library.groups}
-          group={group}
-          actions={actions}
-          onClose={navigation.dismissSheet}
-        />
-      ) : null;
-    case "batch-groups":
-      return (
-        <BatchGroupSheet
-          library={library}
-          actions={actions}
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "batch-delete":
-      return (
-        <BatchDeleteSheet
-          selectedCountLabel={library.selectedCountLabel}
-          onDelete={actions.deleteSelectedBooks}
-          onClose={navigation.dismissSheet}
-        />
-      );
-    case "collection-create":
-      return (
-        <CollectionCreateSheet
-          newGroupName={library.newGroupName}
-          onNameChange={actions.setNewGroupName}
-          onCreate={actions.createCollection}
-          onClose={navigation.dismissSheet}
-        />
-      );
-  }
+  const overlay = (() => {
+    switch (sheet.route) {
+      case "reader-settings":
+        return (
+          <ReaderSettingsPanel
+            preferences={reader.preferences}
+            mode={reader.mode}
+            onChange={actions.changeReaderPreferences}
+            onModeChange={actions.changeReaderMode}
+            onOpenCustomSettings={() =>
+              navigation.presentSheet("reader-custom-settings")
+            }
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "reader-custom-settings":
+        return (
+          <ReaderCustomSettingsPanel
+            preferences={reader.preferences}
+            onChange={actions.changeReaderPreferences}
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "toc":
+        return (
+          <TocDrawer
+            items={reader.tocItems}
+            bookTitle={reader.bookTitle}
+            pageInfo={reader.pageInfo}
+            onSelect={actions.selectTocItem}
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "ask-ai":
+        return (
+          <AskAiSheet
+            reader={reader}
+            actions={actions}
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "reading-goal":
+        return (
+          <ReadingGoalSheet
+            todayMinutes={reader.todayMinutes}
+            targetMinutes={reader.targetMinutes}
+            goalInputValue={reader.goalInputValue}
+            onGoalInputChange={actions.setGoalInputValue}
+            onSaveGoal={actions.saveGoal}
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "book-actions":
+        return sheetBook ? (
+          <BookActionSheet
+            book={sheetBook}
+            progress={getBookProgressPercent(library.progressMap, sheetBook.id)}
+            actions={actions}
+            onOpenGroups={() =>
+              navigation.presentSheet("book-groups", {
+                entityId: sheetBook.id,
+              })
+            }
+            onOpenDelete={() =>
+              navigation.presentSheet("book-delete", {
+                entityId: sheetBook.id,
+              })
+            }
+            onClose={navigation.dismissSheet}
+          />
+        ) : null;
+      case "book-delete":
+        return sheetBook ? (
+          <BookDeleteSheet
+            book={sheetBook}
+            onDelete={actions.deleteBook}
+            onClose={navigation.dismissSheet}
+          />
+        ) : null;
+      case "book-groups":
+        return sheetBook ? (
+          <BookGroupSheet
+            book={sheetBook}
+            groups={library.groups}
+            group={group}
+            actions={actions}
+            onClose={navigation.dismissSheet}
+          />
+        ) : null;
+      case "batch-groups":
+        return (
+          <BatchGroupSheet
+            library={library}
+            actions={actions}
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "batch-delete":
+        return (
+          <BatchDeleteSheet
+            selectedCountLabel={library.selectedCountLabel}
+            onDelete={actions.deleteSelectedBooks}
+            onClose={navigation.dismissSheet}
+          />
+        );
+      case "collection-create":
+        return (
+          <CollectionCreateSheet
+            newGroupName={library.newGroupName}
+            onNameChange={actions.setNewGroupName}
+            onCreate={actions.createCollection}
+            onClose={navigation.dismissSheet}
+          />
+        );
+    }
+  })();
+
+  return (
+    <div className={styles.sheetRouteHost} data-sheet-route={sheet.route}>
+      {overlay}
+    </div>
+  );
 }
 
 function AskAiSheet({

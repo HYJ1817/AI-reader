@@ -6,6 +6,7 @@ import {
   useContext,
   useMemo,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type ReactNode,
@@ -77,10 +78,14 @@ export default function SharedBookTransition({
   const reduceMotion = useAppReducedMotion();
   const [sources, setSources] = useState(() => new Map<string, BookSource>());
   const lastOriginRef = useRef<string | null>(null);
+  const readerEntryRef = useRef(readerEntry);
+  const sourcesRef = useRef(sources);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    readerEntryRef.current = readerEntry;
+    sourcesRef.current = sources;
     if (readerEntry?.originId) lastOriginRef.current = readerEntry.originId;
-  }, [readerEntry?.originId]);
+  }, [readerEntry, sources]);
 
   const registerSource = useCallback(
     (originId: string, bookId: string, element: HTMLElement) => {
@@ -148,18 +153,24 @@ export default function SharedBookTransition({
   );
 
   const restoreOriginFocus = useCallback(() => {
-    if (readerEntry) return;
+    if (readerEntryRef.current) return;
     const originId = lastOriginRef.current;
-    lastOriginRef.current = null;
     if (!originId) return;
 
-    const sourceToRestore = sources.get(originId);
+    const sourceToRestore = sourcesRef.current.get(originId);
     if (!sourceToRestore || !isSourceVisible(sourceToRestore.element)) return;
     const focusTarget =
       sourceToRestore.element.closest<HTMLButtonElement>("button") ??
       sourceToRestore.element;
     focusTarget.focus({ preventScroll: true });
-  }, [readerEntry, sources]);
+    lastOriginRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (readerEntry) return;
+    const frame = window.requestAnimationFrame(restoreOriginFocus);
+    return () => window.cancelAnimationFrame(frame);
+  }, [readerEntry, restoreOriginFocus]);
 
   return (
     <SharedBookSourceContext.Provider value={contextValue}>

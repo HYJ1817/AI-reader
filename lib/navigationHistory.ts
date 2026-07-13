@@ -120,6 +120,14 @@ export function encodeNavigationHistory(
   };
 }
 
+export function mergeNavigationHistory(
+  current: unknown,
+  state: AppNavigationState
+): HistoryV1 & Record<string, unknown> {
+  const payload = encodeNavigationHistory(state);
+  return isRecord(current) ? { ...current, ...payload } : payload;
+}
+
 export function decodeNavigationHistory(
   value: unknown
 ): AppNavigationState | null {

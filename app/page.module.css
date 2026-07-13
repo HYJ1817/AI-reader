@@ -3247,6 +3247,10 @@
   justify-content: center;
 }
 
+.sheetRouteHost {
+  display: contents;
+}
+
 .sheetOverlay::before {
   content: "";
   position: absolute;

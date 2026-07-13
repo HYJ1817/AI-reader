@@ -51,6 +51,13 @@ type SheetCloseRequest = {
   afterClose: (() => void) | null;
 };
 
+type VisualViewportFrame = {
+  offsetLeft: number;
+  offsetTop: number;
+  width: number;
+  height: number;
+};
+
 const SheetPresentationContext =
   createContext<SheetPresentationMotion | null>(null);
 
@@ -104,6 +111,8 @@ export default function MotionSheet({
   const [closeRequest, setCloseRequest] =
     useState<SheetCloseRequest | null>(null);
   const [sheetHeight, setSheetHeight] = useState(1);
+  const [visualViewportFrame, setVisualViewportFrame] =
+    useState<VisualViewportFrame | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(900);
   const dragControls = useDragControls();
@@ -124,6 +133,16 @@ export default function MotionSheet({
   );
   const overlayStyle = {
     "--sheet-backdrop-opacity": progress,
+    ...(visualViewportFrame
+      ? {
+          left: visualViewportFrame.offsetLeft,
+          top: visualViewportFrame.offsetTop,
+          right: "auto",
+          bottom: "auto",
+          width: visualViewportFrame.width,
+          height: visualViewportFrame.height,
+        }
+      : {}),
   } as unknown as CSSProperties;
 
   const runAnimation = useCallback(
@@ -170,6 +189,37 @@ export default function MotionSheet({
     const observer = new ResizeObserver(updateHeight);
     observer.observe(panel);
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+
+    const syncViewport = () => {
+      const nextFrame = {
+        offsetLeft: viewport.offsetLeft,
+        offsetTop: viewport.offsetTop,
+        width: viewport.width,
+        height: viewport.height,
+      };
+      setVisualViewportFrame((currentFrame) =>
+        currentFrame &&
+        currentFrame.offsetLeft === nextFrame.offsetLeft &&
+        currentFrame.offsetTop === nextFrame.offsetTop &&
+        currentFrame.width === nextFrame.width &&
+        currentFrame.height === nextFrame.height
+          ? currentFrame
+          : nextFrame
+      );
+    };
+
+    syncViewport();
+    viewport.addEventListener("resize", syncViewport);
+    viewport.addEventListener("scroll", syncViewport);
+    return () => {
+      viewport.removeEventListener("resize", syncViewport);
+      viewport.removeEventListener("scroll", syncViewport);
+    };
   }, []);
 
   useEffect(() => {
