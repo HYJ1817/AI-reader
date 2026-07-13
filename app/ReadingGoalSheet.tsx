@@ -7,6 +7,7 @@ import {
   getReadingGoalDisplay,
 } from "@/lib/readingGoalDisplay";
 import { UI_TEXT } from "@/lib/uiText";
+import BottomSheet, { type CloseSheet } from "./BottomSheet";
 import ReadingGoalWheel from "./ReadingGoalWheel";
 import styles from "./page.module.css";
 
@@ -26,14 +27,36 @@ const FOCUSABLE_SELECTOR = [
   '[tabindex]:not([tabindex="-1"])',
 ].join(",");
 
-export default function ReadingGoalSheet({
+export default function ReadingGoalSheet(props: Props) {
+  return (
+    <BottomSheet
+      onClose={props.onClose}
+      className={styles.goalMotionSheet}
+      ariaLabel={UI_TEXT.READING_GOAL}
+      showGrabber={false}
+    >
+      {(closeSheet) => (
+        <ReadingGoalContent
+          todayMinutes={props.todayMinutes}
+          targetMinutes={props.targetMinutes}
+          goalInputValue={props.goalInputValue}
+          onGoalInputChange={props.onGoalInputChange}
+          onSaveGoal={props.onSaveGoal}
+          closeSheet={closeSheet}
+        />
+      )}
+    </BottomSheet>
+  );
+}
+
+function ReadingGoalContent({
   todayMinutes,
   targetMinutes,
   goalInputValue,
   onGoalInputChange,
   onSaveGoal,
-  onClose,
-}: Props) {
+  closeSheet,
+}: Omit<Props, "onClose"> & { closeSheet: CloseSheet }) {
   const [editingTarget, setEditingTarget] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
@@ -53,8 +76,8 @@ export default function ReadingGoalSheet({
 
   const closeGoal = useCallback(() => {
     onGoalInputChange(targetMinutes);
-    onClose();
-  }, [onClose, onGoalInputChange, targetMinutes]);
+    closeSheet();
+  }, [closeSheet, onGoalInputChange, targetMinutes]);
 
   useEffect(() => {
     previousFocusRef.current =
@@ -108,9 +131,6 @@ export default function ReadingGoalSheet({
       <div
         ref={dialogRef}
         className={styles.goalScreen}
-        role="dialog"
-        aria-modal="true"
-        aria-label={UI_TEXT.READING_GOAL}
       >
         <button
           ref={closeButtonRef}

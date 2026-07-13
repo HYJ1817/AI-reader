@@ -152,6 +152,9 @@ describe("persistent app surfaces", () => {
     expect(pageSource).not.toContain("getNavigationSurfaceClass");
     expect(pageCssSource).not.toMatch(/\.appSurfaceBefore\b/);
     expect(pageCssSource).not.toMatch(/\.appSurfaceAfter\b/);
+    expect(pageCssSource).not.toMatch(/\.readerSessionInactive\b/);
+    expect(pageCssSource).not.toMatch(/\.readerSessionActive\b/);
+    expect(pageCssSource).not.toMatch(/\.readingDashboardReaderOpen\b/);
   });
 
   it("keeps the shared reader host mounted so presence can finish exits", () => {

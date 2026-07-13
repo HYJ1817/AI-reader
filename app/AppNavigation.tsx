@@ -1,12 +1,12 @@
 "use client";
 
-import { m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useAppReducedMotion } from "./AppMotionRoot";
 import {
   getNavigationTabIndex,
   type NavigationTab,
 } from "@/lib/navigationMotion";
-import { MOTION_SPRING } from "@/lib/motionSystem";
+import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -104,8 +104,20 @@ export default function AppNavigation({
         </nav>
       )}
 
-      {showLibraryBatchBar && (
-        <div className={styles.libraryBatchBar}>
+      <AnimatePresence initial={false}>
+        {showLibraryBatchBar && (
+        <m.div
+          key="library-batch-bar"
+          className={styles.libraryBatchBar}
+          initial={{ opacity: 0, y: reduceMotion ? 0 : 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: reduceMotion ? 0 : 8 }}
+          transition={{
+            duration: reduceMotion
+              ? MOTION_DURATION.reduced
+              : MOTION_DURATION.state,
+          }}
+        >
           <button className={styles.batchTextButton} onClick={onToggleSelectAll}>
             {allVisibleSelected ? UI_TEXT.CLEAR_SELECTION : UI_TEXT.SELECT_ALL}
           </button>
@@ -124,8 +136,9 @@ export default function AppNavigation({
           >
             {UI_TEXT.BATCH_DELETE}
           </button>
-        </div>
-      )}
+        </m.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

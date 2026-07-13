@@ -74,6 +74,14 @@ describe("overlay and nested view motion", () => {
       expect(bottomSheetSource + motionSheetSource).not.toContain(legacy);
       expect(css).not.toContain(`.${legacy}`);
     }
+    for (const keyframe of [
+      "sheetBackdropIn",
+      "sheetSlideUp",
+      "goalOverlayIn",
+      "goalEditorIn",
+    ]) {
+      expect(css).not.toContain(`@keyframes ${keyframe}`);
+    }
   });
 
   it("renders exactly one overlay from the navigation sheet stack", () => {

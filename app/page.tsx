@@ -57,7 +57,6 @@ import { hasIndexedDbSupport } from "@/lib/browserStorage";
 import {
   DEFAULT_READER_PREFERENCES,
   loadReaderPreferences,
-  readerPreferenceChangeNeedsMotion,
   saveReaderPreferencesToStorage,
   type ReaderPreferences,
 } from "@/lib/readerPreferences";
@@ -240,11 +239,9 @@ export default function Home() {
   const pendingEpubProgressRef = useRef<number | null>(null);
   const readerPrefsFrameRef = useRef<number | null>(null);
   const readerPrefsSaveTimerRef = useRef<number | null>(null);
-  const readerPrefsMotionTimerRef = useRef<number | null>(null);
   const readerPrefsRestoreFrameRef = useRef<number | null>(null);
   const pendingReaderPrefsRef = useRef<ReaderPreferences | null>(null);
   const readerPrefsGenerationRef = useRef(0);
-  const readerShellRef = useRef<HTMLDivElement>(null);
 
   const [readingGoal, setReadingGoal] = useState(() => loadReadingGoal());
   const [todaySeconds, setTodaySeconds] = useState(0);
@@ -480,20 +477,6 @@ export default function Home() {
   }
 
   function handleReaderPrefsChange(prefs: ReaderPreferences) {
-    if (
-      !appPrefs.reduceMotion &&
-      readerPreferenceChangeNeedsMotion(readerPrefs, prefs)
-    ) {
-      const readerShell = readerShellRef.current;
-      readerShell?.classList.add(styles.readerPreferencesAdjusting);
-      if (readerPrefsMotionTimerRef.current !== null) {
-        window.clearTimeout(readerPrefsMotionTimerRef.current);
-      }
-      readerPrefsMotionTimerRef.current = window.setTimeout(() => {
-        readerPrefsMotionTimerRef.current = null;
-        readerShell?.classList.remove(styles.readerPreferencesAdjusting);
-      }, 160);
-    }
     pendingReaderPrefsRef.current = prefs;
 
     if (readerPrefsSaveTimerRef.current !== null) {
@@ -1065,9 +1048,6 @@ export default function Home() {
       if (readerPrefsSaveTimerRef.current !== null) {
         window.clearTimeout(readerPrefsSaveTimerRef.current);
       }
-      if (readerPrefsMotionTimerRef.current !== null) {
-        window.clearTimeout(readerPrefsMotionTimerRef.current);
-      }
       if (readerSwipeSettleTimerRef.current !== null) {
         window.clearTimeout(readerSwipeSettleTimerRef.current);
       }
@@ -1580,7 +1560,6 @@ export default function Home() {
       paragraphChunks={paragraphChunks}
       chromeVisible={readerChromeVisible}
       tocItems={tocItems}
-      shellRef={readerShellRef}
       textReaderRef={readerRef}
       epubReaderRef={epubReaderRef}
       getReadingPosition={getReadingPosition}

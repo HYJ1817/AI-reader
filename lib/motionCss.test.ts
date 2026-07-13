@@ -5,6 +5,10 @@ const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const pageSource = readFileSync(
+  new URL("../app/page.tsx", import.meta.url),
+  "utf8"
+);
 const navigationStackSource = readFileSync(
   new URL("../app/NavigationStack.tsx", import.meta.url),
   "utf8"
@@ -63,9 +67,10 @@ describe("motion CSS", () => {
     expect(appNavigationSource).toContain("MOTION_SPRING.navigation");
     expect(navigationStackSource).toContain("useAppReducedMotion");
     expect(appNavigationSource).toContain("useAppReducedMotion");
-    expect(css).toMatch(
-      /\.readerShell\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
-    );
+    const readerShellStart = css.indexOf(".readerShell {");
+    const readerShellEnd = css.indexOf("}", readerShellStart);
+    const readerShellRule = css.slice(readerShellStart, readerShellEnd);
+    expect(readerShellRule).not.toMatch(/(?:opacity|transform)\s+var\(--motion-navigation\)/);
     expect(motionSheetSource).toContain("MOTION_SPRING.sheet");
     expect(motionSheetSource).toContain("MOTION_DURATION.sheetExit");
     expect(motionSheetSource).toContain("ease: [0.32, 0.72, 0, 1]");
@@ -81,20 +86,41 @@ describe("motion CSS", () => {
     }
   });
 
-  it("uses compact Motion offsets for roots and retains the reader presentation offset", () => {
+  it("uses compact Motion offsets without duplicate reader presentation CSS", () => {
     expect(navigationMotionSource).toContain("direction * -12");
     expect(navigationMotionSource).toContain("direction * 22");
     expect(css).not.toContain(".appSurfaceBefore");
     expect(css).not.toContain(".appSurfaceAfter");
-    expect(css).toMatch(
-      /\.readerSessionInactive\s*\{[^}]*transform:\s*translate3d\(36px,\s*0,\s*0\)/s
-    );
-    expect(css).toMatch(
-      /\.readingDashboardReaderOpen\s*\{[^}]*transform:\s*translate3d\(-36px,\s*0,\s*0\)/s
-    );
-    expect(css).toMatch(
-      /\.readingDashboardReaderOpen\s*\{[^}]*transition-delay:\s*0s,\s*0s,\s*var\(--motion-navigation\)/s
-    );
+    expect(css).not.toContain(".readerSessionInactive");
+    expect(css).not.toContain(".readerSessionActive");
+    expect(css).not.toContain(".readingDashboardReaderOpen");
+  });
+
+  it("removes superseded keyframes, visual timers, and idle compositing hints", () => {
+    for (const legacy of [
+      "subviewInForward",
+      "subviewInBackward",
+      "motionSheetEntering",
+      "motionSheetSettling",
+      "motionSheetClosing",
+      "readerSessionInactive",
+      "batchBarEnter",
+      "libraryContentIn",
+      "sheetBackdropIn",
+      "sheetSlideUp",
+      "goalOverlayIn",
+      "goalEditorIn",
+    ]) {
+      expect(css + pageSource).not.toContain(legacy);
+    }
+
+    expect(pageSource).not.toContain("readerPrefsMotionTimerRef");
+    expect(pageSource).not.toContain("readerPreferencesAdjusting");
+    const willChangeDeclarations = css.match(/will-change:\s*[^;]+;/g) ?? [];
+    expect(willChangeDeclarations).toEqual(["will-change: transform;"]);
+    const swipeStart = css.indexOf(".readerSwipeTracking {");
+    const swipeEnd = css.indexOf("}", swipeStart);
+    expect(css.slice(swipeStart, swipeEnd)).toContain("will-change: transform;");
   });
 
   it("keeps the moving sheet shadow within a restrained paint budget", () => {
@@ -186,31 +212,14 @@ describe("motion CSS", () => {
     expect(reduceRule).toContain("transform: none;");
   });
 
-  it("settles library grid and list content on view changes", () => {
+  it("leaves library view changes to Motion layout projection", () => {
     for (const selector of [".bookGrid {", ".bookItems {"]) {
       const start = css.indexOf(selector);
       const end = css.indexOf("}", start);
       const rule = css.slice(start, end);
-      expect(rule).toContain(
-        "animation: libraryContentIn var(--motion-standard) var(--ease-standard) both;"
-      );
+      expect(rule).not.toContain("animation:");
     }
-
-    expect(css).toMatch(
-      /@keyframes libraryContentIn\s*\{[\s\S]*?from\s*\{[\s\S]*?opacity:\s*0\.72;[\s\S]*?transform:\s*translate3d\(0,\s*7px,\s*0\);[\s\S]*?\}[\s\S]*?to\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?transform:\s*translate3d\(0,\s*0,\s*0\);/s
-    );
-
-    const reduceStart = css.indexOf(
-      "@media (prefers-reduced-motion: reduce)",
-      css.indexOf("@keyframes libraryContentIn")
-    );
-    const reduceEnd = css.indexOf("}", css.indexOf(".bookItems", reduceStart));
-    const reduceRule = css.slice(reduceStart, reduceEnd);
-    for (const selector of [".bookGrid", ".bookItems"]) {
-      expect(reduceRule).toContain(selector);
-    }
-    expect(reduceRule).toContain("animation: none;");
-    expect(reduceRule).toContain("transform: none;");
+    expect(css).not.toContain("@keyframes libraryContentIn");
   });
 
   it("gives library selection badges elevated selected state", () => {
@@ -576,7 +585,7 @@ describe("motion CSS", () => {
     const navEnd = css.indexOf("}", navStart);
     const navRule = css.slice(navStart, navEnd);
     expect(navRule).toContain("transform");
-    expect(navRule).toContain("will-change: transform");
+    expect(navRule).not.toContain("will-change");
 
     const navActiveStart = css.indexOf(".settingsNavRow:active {");
     const navActiveEnd = css.indexOf("}", navActiveStart);
@@ -599,7 +608,7 @@ describe("motion CSS", () => {
     const tabEnd = css.indexOf("}", tabStart);
     const tabRule = css.slice(tabStart, tabEnd);
     expect(tabRule).toContain("transform");
-    expect(tabRule).toContain("will-change: transform");
+    expect(tabRule).not.toContain("will-change");
 
     const tabActiveStart = css.indexOf(".tab:not(:disabled):active {");
     const tabActiveEnd = css.indexOf("}", tabActiveStart);

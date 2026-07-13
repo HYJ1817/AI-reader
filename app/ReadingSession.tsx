@@ -25,7 +25,6 @@ type ReadingSessionProps = {
   paragraphChunks: string[][];
   chromeVisible: boolean;
   tocItems: EpubTocItem[];
-  shellRef: RefObject<HTMLDivElement | null>;
   textReaderRef: RefObject<HTMLDivElement | null>;
   epubReaderRef: RefObject<EpubReaderHandle | null>;
   getReadingPosition: (bookId: string) => Promise<ReadingPosition | undefined>;
@@ -58,7 +57,6 @@ export default function ReadingSession({
   paragraphChunks,
   chromeVisible,
   tocItems,
-  shellRef,
   textReaderRef,
   epubReaderRef,
   getReadingPosition,
@@ -85,7 +83,6 @@ export default function ReadingSession({
 
   return (
     <div
-      ref={shellRef}
       className={styles.readerShell}
     >
       <div

@@ -14,12 +14,14 @@ const pageSource = readFileSync(
   "utf8"
 );
 
-describe("reading goal fullscreen overlay", () => {
-  it("uses a dedicated modal dialog and the minute wheel", () => {
-    expect(goalSource).not.toContain('import BottomSheet from "./BottomSheet"');
-    expect(goalSource).not.toContain("<BottomSheet");
-    expect(goalSource).toContain('role="dialog"');
-    expect(goalSource).toContain('aria-modal="true"');
+describe("reading goal motion sheet", () => {
+  it("uses the shared MotionSheet contract and the minute wheel", () => {
+    expect(goalSource).toContain('import BottomSheet, { type CloseSheet } from "./BottomSheet"');
+    expect(goalSource).toContain("<BottomSheet");
+    expect(goalSource).toContain("styles.goalMotionSheet");
+    expect(goalSource).toContain("showGrabber={false}");
+    expect(goalSource).not.toContain('role="dialog"');
+    expect(goalSource).not.toContain('aria-modal="true"');
     expect(goalSource).toContain("<ReadingGoalWheel");
     expect(goalSource).toContain('d="M22 180 A138 138 0 0 1 298 180"');
   });
@@ -33,7 +35,7 @@ describe("reading goal fullscreen overlay", () => {
 
   it("discards drafts on close and saves only from confirmation", () => {
     expect(goalSource).toMatch(
-      /const closeGoal = useCallback\(\(\) => \{[\s\S]*onGoalInputChange\(targetMinutes\);[\s\S]*onClose\(\);/
+      /const closeGoal = useCallback\(\(\) => \{[\s\S]*onGoalInputChange\(targetMinutes\);[\s\S]*closeSheet\(\);/
     );
     expect(goalSource).toMatch(
       /function saveTarget\(\)[\s\S]*onSaveGoal\(\);[\s\S]*setEditingTarget\(false\);/
