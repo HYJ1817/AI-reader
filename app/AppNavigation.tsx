@@ -57,6 +57,7 @@ export default function AppNavigation({
           />
           <button
             className={`${styles.tab} ${activeTab === "library" ? styles.activeTab : ""}`}
+            data-navigation-tab="library"
             onClick={onOpenLibrary}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
@@ -72,6 +73,7 @@ export default function AppNavigation({
           </button>
           <button
             className={`${styles.tab} ${activeTab === "reading" ? styles.activeTab : ""}`}
+            data-navigation-tab="reading"
             onClick={onOpenReading}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
@@ -85,6 +87,7 @@ export default function AppNavigation({
           </button>
           <button
             className={`${styles.tab} ${activeTab === "settings" ? styles.activeTab : ""}`}
+            data-navigation-tab="settings"
             onClick={onOpenSettings}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">

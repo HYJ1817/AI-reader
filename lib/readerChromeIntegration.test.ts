@@ -21,8 +21,8 @@ const readingSessionSource = readFileSync(
   new URL("../app/ReadingSession.tsx", import.meta.url),
   "utf8"
 );
-const readerPresentationUrl = new URL(
-  "../app/useReaderPresentation.ts",
+const sharedReaderPresentationUrl = new URL(
+  "../app/SharedBookTransition.tsx",
   import.meta.url
 );
 const globalsSource = readFileSync(
@@ -218,23 +218,20 @@ describe("reader chrome event integration", () => {
     expect(readerSettingsSource).toContain("onModeChange(item.value)");
   });
 
-  it("presents the reader independently from the active reading tab", () => {
-    expect(existsSync(readerPresentationUrl)).toBe(true);
-    if (!existsSync(readerPresentationUrl)) return;
-    const presentationSource = readFileSync(readerPresentationUrl, "utf8");
+  it("presents the reader from navigation state independently of root tabs", () => {
+    expect(existsSync(sharedReaderPresentationUrl)).toBe(true);
+    if (!existsSync(sharedReaderPresentationUrl)) return;
+    const presentationSource = readFileSync(
+      sharedReaderPresentationUrl,
+      "utf8"
+    );
 
-    expect(pageSource).toContain(
-      "useReaderPresentation(navigation.selectTab)"
-    );
-    expect(pageSource).toContain(
-      'active={readerPresented && activeTab === "reading"}'
-    );
-    expect(pageSource).toContain("styles.readingDashboardReaderOpen");
-    expect(presentationSource).toContain(
-      "const [readerPresented, setReaderPresented] = useState(false)"
-    );
-    expect(presentationSource).toContain("setReaderPresented(true)");
-    expect(presentationSource).toContain("setReaderPresented(false)");
-    expect(presentationSource.match(/requestAnimationFrame/g)?.length).toBe(2);
+    expect(pageSource).toContain("const readerEntry = navigation.state.reader");
+    expect(pageSource).toContain("const readerPresented = readerEntry !== null");
+    expect(pageSource).toContain("<SharedBookTransition");
+    expect(pageSource).not.toContain("styles.readingDashboardReaderOpen");
+    expect(presentationSource).toContain("AnimatePresence");
+    expect(presentationSource).toContain("readerEntry");
+    expect(presentationSource).toContain("readerContent");
   });
 });

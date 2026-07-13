@@ -21,6 +21,7 @@ type NavigationStackContextValue = {
   activeTab: NavigationTab;
   previousTab: NavigationTab;
   pushDepth: number;
+  readerPresented: boolean;
   settleTab: (tab: NavigationTab) => void;
 };
 
@@ -30,11 +31,13 @@ const NavigationStackContext =
 export default function NavigationStack({
   activeTab,
   pushes,
+  readerPresented,
   renderPush,
   children,
 }: {
   activeTab: NavigationTab;
   pushes: PushEntry[];
+  readerPresented: boolean;
   renderPush: (entry: PushEntry) => ReactNode;
   children: ReactNode;
 }) {
@@ -52,6 +55,7 @@ export default function NavigationStack({
         activeTab,
         previousTab: settledTab,
         pushDepth: pushes.length,
+        readerPresented,
         settleTab,
       }}
     >
@@ -63,6 +67,7 @@ export default function NavigationStack({
             entry={entry}
             index={index}
             count={pushes.length}
+            covered={readerPresented}
           >
             {renderPush(entry)}
           </PushLayer>
@@ -86,9 +91,10 @@ export function NavigationRoot({
     throw new Error("NavigationRoot requires NavigationStack");
   }
 
-  const { activeTab, previousTab, pushDepth, settleTab } = context;
+  const { activeTab, previousTab, pushDepth, readerPresented, settleTab } =
+    context;
   const active = tab === activeTab;
-  const interactive = active && pushDepth === 0;
+  const interactive = active && pushDepth === 0 && !readerPresented;
   const outgoing = tab === previousTab && previousTab !== activeTab;
   const x = reduceMotion
     ? 0
@@ -104,7 +110,7 @@ export function NavigationRoot({
       data-navigation-root={tab}
       initial={false}
       animate={{
-        opacity: active ? 1 : 0,
+        opacity: active && !readerPresented ? 1 : 0,
         x,
       }}
       transition={
@@ -143,16 +149,19 @@ function PushLayer({
   entry,
   index,
   count,
+  covered,
   children,
 }: {
   entry: PushEntry;
   index: number;
   count: number;
+  covered: boolean;
   children: ReactNode;
 }) {
   const reduceMotion = useAppReducedMotion();
   const distanceFromTop = count - index - 1;
   const top = distanceFromTop === 0;
+  const interactive = top && !covered;
   const visible = distanceFromTop <= 1;
 
   return (
@@ -171,12 +180,12 @@ function PushLayer({
           ? { duration: MOTION_DURATION.reduced }
           : MOTION_SPRING.navigation
       }
-      aria-hidden={!top}
+      aria-hidden={!interactive}
       style={{
-        pointerEvents: top ? "auto" : "none",
+        pointerEvents: interactive ? "auto" : "none",
         zIndex: 20 + index,
       }}
-      {...(!top ? { inert: true } : {})}
+      {...(!interactive ? { inert: true } : {})}
     >
       {children}
     </m.section>

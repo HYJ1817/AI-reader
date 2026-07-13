@@ -58,6 +58,7 @@ export default function ReaderControls({
 
       <button
         className={styles.readerOverlayBack}
+        data-reader-close="true"
         onClick={onBack}
         title={UI_TEXT.LIBRARY}
         aria-label={UI_TEXT.LIBRARY}

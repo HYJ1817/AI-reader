@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import BookCover from "@/app/BookCover";
+import MotionBookCover from "@/app/MotionBookCover";
 import type { BookRecord } from "@/lib/db";
 import { formatLibraryProgressLabel } from "@/lib/libraryProgress";
 import type { ReadingDayInsight } from "@/lib/readingInsights";
@@ -19,7 +19,7 @@ export type ReadingDashboardProps = {
   latestBook: BookRecord | null;
   latestBookProgress: number;
   onOpenGoal: () => void;
-  onOpenBook: (book: BookRecord) => void;
+  onOpenBook: (book: BookRecord, originId: string) => void;
   onImport: () => void;
 };
 
@@ -42,6 +42,10 @@ export default function ReadingDashboard({
   onOpenBook,
   onImport,
 }: ReadingDashboardProps) {
+  const latestBookOriginId = latestBook
+    ? `reading-dashboard-${latestBook.id}`
+    : null;
+
   return (
     <div className={className} aria-hidden={ariaHidden}>
       <div className={styles.pageHeader}>
@@ -75,12 +79,13 @@ export default function ReadingDashboard({
         {latestBook ? (
           <button
             className={styles.featureBookCard}
-            onClick={() => onOpenBook(latestBook)}
+            onClick={() =>
+              onOpenBook(latestBook, latestBookOriginId ?? latestBook.id)
+            }
           >
-            <BookCover
-              title={latestBook.title}
-              format={latestBook.format}
-              coverImageBlob={latestBook.coverImageBlob}
+            <MotionBookCover
+              book={latestBook}
+              originId={latestBookOriginId ?? latestBook.id}
             />
             <span className={styles.featureBookText}>
               <strong>{latestBook.title}</strong>

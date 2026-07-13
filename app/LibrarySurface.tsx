@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import BookCover from "@/app/BookCover";
+import MotionBookCover from "@/app/MotionBookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import {
@@ -46,7 +46,7 @@ export type LibrarySurfaceProps = {
     setViewMode: (mode: LibraryViewMode) => void;
     toggleLibraryEditing: () => void;
     selectAllVisible: () => void;
-    pressBook: (book: BookRecord) => void;
+    pressBook: (book: BookRecord, originId: string) => void;
     openBookActions: (book: BookRecord) => void;
   };
 };
@@ -194,6 +194,7 @@ export default function LibrarySurface({
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
+                    const originId = `library-grid-${book.id}`;
                     return (
                       <div
                         key={book.id}
@@ -201,10 +202,10 @@ export default function LibrarySurface({
                       >
                         <button
                           className={styles.bookGridItem}
-                          onClick={() => actions.pressBook(book)}
+                          onClick={() => actions.pressBook(book, originId)}
                           aria-pressed={editing.library ? isSelected : undefined}
                         >
-                          <BookCover title={book.title} format={book.format} coverImageBlob={book.coverImageBlob} />
+                          <MotionBookCover book={book} originId={originId} />
                           <span className={styles.bookGridTitle}>{book.title}</span>
                           <span className={styles.bookGridMeta}>
                             {formatLibraryProgressValue(progress)}
@@ -230,18 +231,19 @@ export default function LibrarySurface({
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
+                    const originId = `library-list-${book.id}`;
                     return (
                       <li
                         key={book.id}
                         className={`${styles.bookItem} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
-                        onClick={() => actions.pressBook(book)}
+                        onClick={() => actions.pressBook(book, originId)}
                       >
                         {editing.library && (
                           <span className={styles.selectionBadgeInline} aria-hidden="true">
                             {isSelected && <Checkmark />}
                           </span>
                         )}
-                        <BookCover title={book.title} format={book.format} coverImageBlob={book.coverImageBlob} />
+                        <MotionBookCover book={book} originId={originId} />
                         <div className={styles.bookInfo}>
                           <span className={styles.bookTitle}>{book.title}</span>
                           <span className={styles.bookMeta}>

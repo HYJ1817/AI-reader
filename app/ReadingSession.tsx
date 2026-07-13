@@ -17,7 +17,6 @@ import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
 type ReadingSessionProps = {
-  active: boolean;
   book: BookRecord | null;
   loading: boolean;
   mode: ReaderMode;
@@ -51,7 +50,6 @@ type ReadingSessionProps = {
 };
 
 export default function ReadingSession({
-  active,
   book,
   loading,
   mode,
@@ -89,9 +87,8 @@ export default function ReadingSession({
     <div
       ref={shellRef}
       className={`${styles.readerShell} ${
-        active ? styles.readerSessionActive : styles.readerSessionInactive
-      } ${chromeVisible ? "" : styles.readerChromeHidden}`}
-      aria-hidden={!active}
+        chromeVisible ? "" : styles.readerChromeHidden
+      }`}
     >
       <div
         className={styles.readerStage}

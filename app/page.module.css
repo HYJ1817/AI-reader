@@ -1863,6 +1863,28 @@
   transition: transform var(--motion-fast) var(--ease-standard);
 }
 
+.motionBookCover {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  width: 48px;
+  height: 68px;
+  min-width: 0;
+  border-radius: 4px;
+}
+
+.motionBookCover > .bookCover {
+  width: 100%;
+  height: 100%;
+}
+
+.bookGridItem > .motionBookCover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 0.7;
+  border-radius: 7px;
+}
+
 .bookCoverFallback {
   display: flex;
   align-items: flex-start;
@@ -2370,6 +2392,42 @@
     transition: none;
     transform: none;
   }
+}
+
+.readerPresentation {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  justify-items: center;
+  align-items: start;
+  padding-top: calc(var(--safe-top) + min(15dvh, 128px));
+  pointer-events: none;
+  isolation: isolate;
+}
+
+.readerTransitionCover {
+  position: relative;
+  z-index: 0;
+  width: clamp(112px, 34vw, 156px);
+  aspect-ratio: 0.7;
+  overflow: hidden;
+  border-radius: 10px;
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
+  pointer-events: none;
+}
+
+.readerTransitionCover .bookCover {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.readerPresentationContent {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: auto;
 }
 
 .readerShell {

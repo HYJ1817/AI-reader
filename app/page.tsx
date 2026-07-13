@@ -27,7 +27,6 @@ import { extractEpubCoverImage } from "@/lib/epubCover";
 import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
   chunkParagraphs,
-  parseTxtParagraphs,
   getHorizontalPageInfo,
   progressFromHorizontalScroll,
   progressFromScroll,
@@ -80,13 +79,13 @@ import type { EpubTocItem } from "@/lib/epubNavigation";
 import { resolveEpubSelectionUpdate } from "@/lib/epubTapInteractions";
 import ReadingDashboard from "@/app/ReadingDashboard";
 import ReadingSession from "@/app/ReadingSession";
+import SharedBookTransition from "@/app/SharedBookTransition";
 import SettingsSurface from "@/app/SettingsSurface";
-import useReaderPresentation from "@/app/useReaderPresentation";
 import useAppNavigation from "@/app/useAppNavigation";
+import useReaderBookState from "@/app/useReaderBookState";
 import { UI_TEXT } from "@/lib/uiText";
 import {
   DEFAULT_READER_MODE,
-  sanitizeReaderMode,
   type ReaderMode,
 } from "@/lib/readerMode";
 import { filterBooksByQuery } from "@/lib/libraryFilters";
@@ -121,6 +120,7 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
+import type { NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
   getInitialVisibleItemCount,
@@ -172,15 +172,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [openBook, setOpenBook] = useState<BookRecord | null>(null);
-  const { dismissReader, presentReader, readerPresented } =
-    useReaderPresentation(navigation.selectTab);
-  const [paragraphs, setParagraphs] = useState<string[]>([]);
-  const [readerLoading, setReaderLoading] = useState(false);
+  const readerEntry = navigation.state.reader;
+  const readerPresented = readerEntry !== null;
+  const pendingReaderTargetRef = useRef<NavigationTab | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
-
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
     DEFAULT_AI_PROVIDER_SETTINGS
   );
@@ -200,7 +196,6 @@ export default function Home() {
     total: 1,
   });
   const [readerMode, setReaderMode] = useState<ReaderMode>(DEFAULT_READER_MODE);
-  const readerModeRestoreProgressRef = useRef<number | null>(null);
   const epubReaderRef = useRef<EpubReaderHandle>(null);
   const [readerChromeState, dispatchReaderChrome] = useReducer(
     reduceReaderChromeState,
@@ -208,6 +203,25 @@ export default function Home() {
     createReaderChromeState
   );
   const readerChromeVisible = readerChromeState.visible;
+  const {
+    openBook,
+    paragraphs,
+    readerLoading,
+    readerModeRestoreProgressRef,
+    prepareReaderBook,
+    clearReaderBook,
+  } = useReaderBookState({
+    readerEntry,
+    books,
+    libraryLoading: loading,
+    removeInvalid: navigation.removeInvalid,
+    setReaderMode,
+    setTocItems,
+    setTocDrawerOpen,
+    setReaderProgressPercent,
+    setReaderPageInfo,
+    dispatchReaderChrome,
+  });
   const readerPointerDownRef = useRef<{
     x: number;
     y: number;
@@ -386,7 +400,7 @@ export default function Home() {
         }
         const isVisible = document.visibilityState === "visible";
         const shouldCount =
-          activeTab === "reading" &&
+          readerPresented &&
           openBook !== null &&
           isVisible;
         if (shouldCount && tickRef.current.lastVis) {
@@ -421,7 +435,23 @@ export default function Home() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [activeTab, openBook]);
+  }, [openBook, readerPresented]);
+
+  useEffect(() => {
+    if (readerPresented) return;
+    const targetTab = pendingReaderTargetRef.current;
+    pendingReaderTargetRef.current = null;
+    if (targetTab) navigation.selectTab(targetTab);
+  }, [navigation, readerPresented]);
+
+  function dismissReader(targetTab?: NavigationTab) {
+    if (!readerPresented) {
+      if (targetTab) navigation.selectTab(targetTab);
+      return;
+    }
+    pendingReaderTargetRef.current = targetTab ?? null;
+    navigation.dismissReader();
+  }
 
   function switchToSettings() {
     dismissReader("settings");
@@ -538,12 +568,12 @@ export default function Home() {
     setBatchDeleteConfirmOpen(false);
   }
 
-  function handleBookPress(book: BookRecord) {
+  function handleBookPress(book: BookRecord, originId: string) {
     if (libraryEditing) {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
     }
-    void openBookForReading(book);
+    void openBookForReading(book, originId);
   }
 
   function handleSelectAllVisible() {
@@ -659,10 +689,7 @@ export default function Home() {
     });
     if (openBook?.id === book.id) {
       dismissReader();
-      setOpenBook(null);
-      setParagraphs([]);
-      setReaderProgressPercent(0);
-      setReaderPageInfo({ current: 1, total: 1 });
+      clearReaderBook();
       resetAskAi();
       navigation.selectTab("library");
     }
@@ -727,10 +754,7 @@ export default function Home() {
     });
     if (openBook && idsToDelete.includes(openBook.id)) {
       dismissReader();
-      setOpenBook(null);
-      setParagraphs([]);
-      setReaderProgressPercent(0);
-      setReaderPageInfo({ current: 1, total: 1 });
+      clearReaderBook();
       resetAskAi();
       navigation.selectTab("library");
     }
@@ -798,7 +822,7 @@ export default function Home() {
     : 0;
   const showBottomTabs =
     navigation.state.pushes.length === 0 &&
-    shouldShowBottomTabs(activeTab, Boolean(openBook));
+    shouldShowBottomTabs(activeTab, readerPresented);
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
@@ -905,7 +929,10 @@ export default function Home() {
     return () => window.clearTimeout(timeout);
   }, [books]);
 
-  const openBookForReading = useCallback(async (book: BookRecord) => {
+  const openBookForReading = useCallback(async (
+    book: BookRecord,
+    originId?: string
+  ) => {
     const now = new Date().toISOString();
     await saveBook({ ...book, lastOpenedAt: now });
     const [nextBooks, savedPosition] = await Promise.all([
@@ -914,33 +941,12 @@ export default function Home() {
     ]);
     setBooks(nextBooks);
 
-    setOpenBook(book);
-    setReaderMode(sanitizeReaderMode(savedPosition?.readingMode));
-    readerModeRestoreProgressRef.current =
-      savedPosition?.progressPercent ?? null;
-    presentReader();
     scrollRestoredRef.current = false;
     resetAskAi();
-    setTocItems([]);
-    setTocDrawerOpen(false);
-    setReaderProgressPercent(0);
-    setReaderPageInfo({ current: 1, total: 1 });
-    dispatchReaderChrome({ type: "hide" });
-
-    if (book.format === "txt") {
-      setReaderLoading(true);
-      try {
-        const text = await book.fileBlob.text();
-        setParagraphs(parseTxtParagraphs(text));
-      } catch {
-        setParagraphs([UI_TEXT.ERROR_READ_FILE]);
-      } finally {
-        setReaderLoading(false);
-      }
-    } else {
-      setParagraphs([]);
-    }
-  }, [presentReader, resetAskAi]);
+    const contentReady = prepareReaderBook(book, savedPosition);
+    navigation.presentReader(book.id, { originId });
+    await contentReady;
+  }, [navigation, prepareReaderBook, resetAskAi]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -967,7 +973,7 @@ export default function Home() {
     async function syncWakeLock() {
       const shouldLock =
         appPrefs.keepScreenAwake &&
-        activeTab === "reading" &&
+        readerPresented &&
         openBook !== null &&
         document.visibilityState === "visible";
 
@@ -1000,7 +1006,7 @@ export default function Home() {
       document.removeEventListener("visibilitychange", syncWakeLock);
       void releaseCurrentLock();
     };
-  }, [activeTab, appPrefs.keepScreenAwake, openBook]);
+  }, [appPrefs.keepScreenAwake, openBook, readerPresented]);
 
   useEffect(() => {
     if (!openBook || openBook.format !== "txt" || paragraphs.length === 0) return;
@@ -1046,7 +1052,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [openBook, paragraphs, readerMode]);
+  }, [openBook, paragraphs, readerMode, readerModeRestoreProgressRef]);
 
   useEffect(() => {
     return () => {
@@ -1195,13 +1201,7 @@ export default function Home() {
       const restoredBooks = await listBooks();
       const restoredPositions = await listReadingPositions();
       dismissReader();
-      setOpenBook(null);
-      setParagraphs([]);
-      setReaderLoading(false);
-      setReaderProgressPercent(0);
-      setReaderPageInfo({ current: 1, total: 1 });
-      setTocItems([]);
-      setTocDrawerOpen(false);
+      clearReaderBook();
       resetAskAi();
       setBooks(restoredBooks);
       setReadingProgressMap(buildReadingProgressMap(restoredPositions));
@@ -1231,14 +1231,10 @@ export default function Home() {
   }
 
   function handleToolbarBack() {
-    dismissReader("library");
+    dismissReader();
   }
 
   function handleOpenReadingTab() {
-    if (openBook) {
-      presentReader();
-      return;
-    }
     navigation.selectTab("reading");
   }
 
@@ -1276,7 +1272,7 @@ export default function Home() {
         });
       }
     },
-    [openBook, readerMode, readerProgressPercent]
+    [openBook, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
   );
 
   const turnReaderPage = useCallback(async (
@@ -1583,6 +1579,62 @@ export default function Home() {
   const useCustomBackgroundImage =
     appPrefs.backgroundMode === "custom" && background.customBackgroundBlob !== null;
 
+  const readerContent = (
+    <ReadingSession
+      book={openBook}
+      loading={readerLoading}
+      mode={readerMode}
+      preferences={readerPrefs}
+      pageInfo={readerPageInfo}
+      paragraphChunks={paragraphChunks}
+      chromeVisible={readerChromeVisible}
+      tocItems={tocItems}
+      shellRef={readerShellRef}
+      textReaderRef={readerRef}
+      epubReaderRef={epubReaderRef}
+      getReadingPosition={getReadingPosition}
+      saveReadingPosition={saveReadingPosition}
+      onPointerDown={handleReaderPointerDown}
+      onPointerMove={handleReaderPointerMove}
+      onPointerUp={handleReaderPointerUp}
+      onPointerCancel={() => {
+        const pointerDown = readerPointerDownRef.current;
+        readerPointerDownRef.current = null;
+        const viewportWidth = readerRef.current?.clientWidth ?? 0;
+        settleReaderSwipe(
+          "none",
+          pointerDown?.baseOffset ?? 0,
+          viewportWidth
+        );
+      }}
+      onTextSelect={(text) => {
+        const selectionUpdate = resolveEpubSelectionUpdate(text);
+        setSelectedText(selectionUpdate.selectedText);
+        if (selectionUpdate.shouldShowChrome) {
+          dispatchReaderChrome({ type: "selection" });
+        }
+      }}
+      onReaderTap={() =>
+        dispatchReaderChrome({ type: "tap", at: performance.now() })
+      }
+      onReaderScrollStart={() =>
+        dispatchReaderChrome({ type: "scroll", at: performance.now() })
+      }
+      onSwipeTurn={(direction) =>
+        void turnReaderPage(direction, { instant: true })
+      }
+      onTocChange={setTocItems}
+      onProgressChange={handleEpubProgressChange}
+      onPageInfoChange={setReaderPageInfo}
+      onTextReaderScroll={handleReaderScroll}
+      onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
+      onBack={handleToolbarBack}
+      onOpenContents={() => setTocDrawerOpen(true)}
+      onOpenSettings={() => setReaderSettingsOpen(true)}
+      onAsk={() => setAskSheetOpen(true)}
+    />
+  );
+
   return (
     <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
       <NavigationProvider value={navigation}>
@@ -1600,14 +1652,22 @@ export default function Home() {
         onChange={handleImport}
       />
 
+      <SharedBookTransition
+        readerEntry={readerEntry}
+        book={openBook}
+        readerContent={readerContent}
+      >
       <main
         className={`${styles.content} ${
-          activeTab === "reading" && readerPresented ? styles.readingContent : ""
-        } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
+          activeTab === "library" && libraryEditing
+            ? styles.libraryEditingContent
+            : ""
+        }`}
       >
         <NavigationStack
           activeTab={activeTab}
           pushes={navigation.state.pushes}
+          readerPresented={readerPresented}
           renderPush={(entry) => (
             <AppPushSurfaces
               entry={entry}
@@ -1708,60 +1768,9 @@ export default function Home() {
           }}
         />
         </NavigationRoot>
-        <ReadingSession
-          active={readerPresented && activeTab === "reading"}
-          book={openBook}
-          loading={readerLoading}
-          mode={readerMode}
-          preferences={readerPrefs}
-          pageInfo={readerPageInfo}
-          paragraphChunks={paragraphChunks}
-          chromeVisible={readerChromeVisible}
-          tocItems={tocItems}
-          shellRef={readerShellRef}
-          textReaderRef={readerRef}
-          epubReaderRef={epubReaderRef}
-          getReadingPosition={getReadingPosition}
-          saveReadingPosition={saveReadingPosition}
-          onPointerDown={handleReaderPointerDown}
-          onPointerMove={handleReaderPointerMove}
-          onPointerUp={handleReaderPointerUp}
-          onPointerCancel={() => {
-            const pointerDown = readerPointerDownRef.current;
-            readerPointerDownRef.current = null;
-            const viewportWidth = readerRef.current?.clientWidth ?? 0;
-            settleReaderSwipe(
-              "none",
-              pointerDown?.baseOffset ?? 0,
-              viewportWidth
-            );
-          }}
-          onTextSelect={(text) => { const selectionUpdate = resolveEpubSelectionUpdate(text); setSelectedText(selectionUpdate.selectedText); if (selectionUpdate.shouldShowChrome) dispatchReaderChrome({ type: "selection" }); }}
-          onReaderTap={() =>
-            dispatchReaderChrome({ type: "tap", at: performance.now() })
-          }
-          onReaderScrollStart={() =>
-            dispatchReaderChrome({ type: "scroll", at: performance.now() })
-          }
-          onSwipeTurn={(direction) =>
-            void turnReaderPage(direction, { instant: true })
-          }
-          onTocChange={setTocItems}
-          onProgressChange={handleEpubProgressChange}
-          onPageInfoChange={setReaderPageInfo}
-          onTextReaderScroll={handleReaderScroll}
-          onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
-          onBack={handleToolbarBack}
-          onOpenContents={() => setTocDrawerOpen(true)}
-          onOpenSettings={() => setReaderSettingsOpen(true)}
-          onAsk={() => setAskSheetOpen(true)}
-        />
-
         <NavigationRoot tab="reading">
         <ReadingDashboard
-          className={`${styles.readingDashboard} ${
-            readerPresented ? styles.readingDashboardReaderOpen : ""
-          }`}
+          className={styles.readingDashboard}
           ariaHidden={activeTab !== "reading" || readerPresented}
           todayMinutes={todayMinutesValue}
           targetMinutes={readingGoal.targetMinutes}
@@ -1771,7 +1780,9 @@ export default function Home() {
           latestBook={latestBook ?? null}
           latestBookProgress={latestBookProgress}
           onOpenGoal={handleOpenGoalSheet}
-          onOpenBook={(book) => void openBookForReading(book)}
+          onOpenBook={(book, originId) =>
+            void openBookForReading(book, originId)
+          }
           onImport={() => fileInputRef.current?.click()}
         />
         </NavigationRoot>
@@ -1809,6 +1820,7 @@ export default function Home() {
         </NavigationRoot>
         </NavigationStack>
       </main>
+      </SharedBookTransition>
 
       <AppNavigation
         activeTab={activeTab}

@@ -154,15 +154,15 @@ describe("persistent app surfaces", () => {
     expect(pageCssSource).not.toMatch(/\.appSurfaceAfter\b/);
   });
 
-  it("keeps the reader session mounted so its initial offset can be painted", () => {
-    const opening = findComponentOpening("ReadingSession");
+  it("keeps the shared reader host mounted so presence can finish exits", () => {
+    const opening = findComponentOpening("SharedBookTransition");
 
-    expect(opening, "Home should render <ReadingSession>").toBeDefined();
+    expect(opening, "Home should render <SharedBookTransition>").toBeDefined();
     if (!opening) return;
 
     expect(
       hasConditionalMountingAncestor(opening),
-      "<ReadingSession> should not have a conditional mounting ancestor"
+      "<SharedBookTransition> should not have a conditional mounting ancestor"
     ).toBe(false);
   });
 });
