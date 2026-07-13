@@ -3247,7 +3247,6 @@
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  animation: sheetBackdropIn var(--motion-standard) var(--ease-standard);
 }
 
 .sheetOverlay::before {
@@ -3256,7 +3255,6 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
   opacity: var(--sheet-backdrop-opacity, 1);
-  transition: opacity 180ms var(--ease-standard);
   pointer-events: none;
 }
 
@@ -3277,64 +3275,14 @@
   flex-direction: column;
   overflow: hidden;
   padding-bottom: calc(var(--safe-bottom) + 8px);
-  animation: sheetSlideUp var(--motion-sheet) var(--ease-emphasized);
 }
 
-.motionSheetOverlay {
-  opacity: 0;
-  animation: none;
-  transition: opacity var(--motion-sheet) var(--ease-navigation);
-}
-
-.motionSheetOverlay .bottomSheet {
-  animation: none;
-  transform: translate3d(0, var(--sheet-drag-y, 0), 0);
-  transition: transform var(--motion-sheet) var(--ease-navigation);
-}
-
-.motionSheetOpen {
-  opacity: 1;
-}
-
-.motionSheetEntering .bottomSheet {
-  transform: translate3d(0, 36px, 0);
-  will-change: transform;
-}
-
-.motionSheetSettling {
-  opacity: 1;
-}
-
-.motionSheetSettling .bottomSheet {
-  transition-duration: var(--motion-sheet-settle);
-  transition-timing-function: var(--ease-sheet-settle);
-  will-change: transform;
-}
-
-.motionSheetClosing {
-  opacity: 0;
-  transition-duration: var(--motion-sheet-exit);
-  transition-timing-function: var(--ease-sheet-settle);
-}
-
-.motionSheetClosing .bottomSheet {
-  transform: translate3d(0, 100%, 0);
-  transition-duration: var(--motion-sheet-exit);
-  transition-timing-function: var(--ease-sheet-settle);
-  will-change: transform;
-}
-
-.motionSheetDragging {
-  opacity: 1;
-}
-
-.motionSheetDragging .bottomSheet {
+.motionSheetOverlay::before {
   transition: none;
-  will-change: transform;
 }
 
-.motionSheetDragging::before {
-  transition: none;
+.motionSheetPanel {
+  touch-action: pan-y;
 }
 
 .sheetDragHandle {

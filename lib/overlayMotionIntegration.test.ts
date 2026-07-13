@@ -5,6 +5,10 @@ const bottomSheetSource = readFileSync(
   new URL("../app/BottomSheet.tsx", import.meta.url),
   "utf8"
 );
+const motionSheetUrl = new URL("../app/MotionSheet.tsx", import.meta.url);
+const motionSheetSource = existsSync(motionSheetUrl)
+  ? readFileSync(motionSheetUrl, "utf8")
+  : "";
 const librarySource = readFileSync(
   new URL("../app/LibrarySurface.tsx", import.meta.url),
   "utf8"
@@ -19,15 +23,20 @@ const css = readFileSync(
 );
 
 describe("overlay and nested view motion", () => {
-  it("paints the sheet entering state before opening it", () => {
-    const effectStart = bottomSheetSource.indexOf("useEffect(() => {");
-    const effectEnd = bottomSheetSource.indexOf("}, []);", effectStart);
-    const entranceEffect = bottomSheetSource.slice(effectStart, effectEnd);
-
-    expect(entranceEffect.match(/requestAnimationFrame/g)?.length).toBe(2);
-    expect(bottomSheetSource).toContain(
-      "window.setTimeout(finishClose, 380)"
-    );
+  it("adapts the legacy sheet contract to one interruptible Motion owner", () => {
+    expect(bottomSheetSource).toContain('import MotionSheet from "./MotionSheet"');
+    expect(bottomSheetSource).toContain("return <MotionSheet {...props} />");
+    expect(motionSheetSource).toContain("AnimatePresence");
+    expect(motionSheetSource).toContain("useMotionValue");
+    expect(motionSheetSource).toContain("useTransform");
+    expect(motionSheetSource).toContain('drag="y"');
+    expect(motionSheetSource).toContain("dragControls");
+    expect(motionSheetSource).toContain("shouldCompleteSheetDismiss");
+    expect(motionSheetSource).toContain("onExitComplete={finishClose}");
+    expect(motionSheetSource).toContain("useAppReducedMotion");
+    expect(motionSheetSource).not.toContain("requestAnimationFrame");
+    expect(motionSheetSource).not.toContain("setTimeout");
+    expect(motionSheetSource).not.toContain("panel.style");
   });
 
   it("removes standalone keyframes from library and AI nested views", () => {
@@ -42,15 +51,16 @@ describe("overlay and nested view motion", () => {
     expect(css).not.toContain("@keyframes subviewInBackward");
   });
 
-  it("keeps active motion on compositor-friendly properties", () => {
-    for (const selector of [
-      ".motionSheetEntering .bottomSheet {",
-      ".motionSheetClosing .bottomSheet {",
+  it("removes phase classes once Motion owns transforms and presence", () => {
+    for (const legacy of [
+      "motionSheetEntering",
+      "motionSheetOpen",
+      "motionSheetSettling",
+      "motionSheetClosing",
+      "motionSheetDragging",
     ]) {
-      const start = css.indexOf(selector);
-      const end = css.indexOf("}", start);
-      const rule = css.slice(start, end);
-      expect(rule).not.toMatch(/\b(?:top|left|width|height|margin):/);
+      expect(bottomSheetSource + motionSheetSource).not.toContain(legacy);
+      expect(css).not.toContain(`.${legacy}`);
     }
   });
 });

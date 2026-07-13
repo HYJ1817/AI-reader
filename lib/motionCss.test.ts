@@ -17,6 +17,10 @@ const readerControlsSource = readFileSync(
   new URL("../app/ReaderControls.tsx", import.meta.url),
   "utf8"
 );
+const motionSheetSource = readFileSync(
+  new URL("../app/MotionSheet.tsx", import.meta.url),
+  "utf8"
+);
 const navigationMotionSource = readFileSync(
   new URL("./navigationMotion.ts", import.meta.url),
   "utf8"
@@ -62,18 +66,10 @@ describe("motion CSS", () => {
     expect(css).toMatch(
       /\.readerShell\s*\{[^}]*opacity\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)[^}]*transform\s+var\(--motion-navigation\)\s+var\(--ease-navigation\)/s
     );
-    expect(css).toMatch(
-      /\.motionSheetOverlay\s*\{[^}]*opacity\s+var\(--motion-sheet\)\s+var\(--ease-navigation\)/s
-    );
-    expect(css).toMatch(
-      /\.motionSheetOverlay\s+\.bottomSheet\s*\{[^}]*transform\s+var\(--motion-sheet\)\s+var\(--ease-navigation\)/s
-    );
-    expect(css).toMatch(
-      /\.motionSheetClosing\s+\.bottomSheet\s*\{[^}]*transition-duration:\s*var\(--motion-sheet-exit\)[^}]*transition-timing-function:\s*var\(--ease-sheet-settle\)/s
-    );
-    expect(css).toMatch(
-      /\.motionSheetSettling\s+\.bottomSheet\s*\{[^}]*transition-duration:\s*var\(--motion-sheet-settle\)[^}]*transition-timing-function:\s*var\(--ease-sheet-settle\)/s
-    );
+    expect(motionSheetSource).toContain("MOTION_SPRING.sheet");
+    expect(motionSheetSource).toContain("MOTION_DURATION.sheetExit");
+    expect(motionSheetSource).toContain("ease: [0.32, 0.72, 0, 1]");
+    expect(motionSheetSource).toContain("useAppReducedMotion");
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.app,[\s\S]*?transition-duration:\s*0\.001ms !important;/s
     );
@@ -257,10 +253,10 @@ describe("motion CSS", () => {
   });
 
   it("keeps a dismissing sheet available for an interrupting drag", () => {
-    const start = css.indexOf(".motionSheetClosing {");
-    const end = css.indexOf("}", start);
-    const rule = css.slice(start, end);
-    expect(rule).not.toContain("pointer-events: none");
+    expect(motionSheetSource).toContain("interruptClose();");
+    expect(motionSheetSource).toContain("dragControls.start(event)");
+    expect(motionSheetSource).toContain("activeAnimationRef.current?.stop()");
+    expect(motionSheetSource).not.toContain("pointerEvents: \"none\"");
   });
 
   it("does not move multiple live backdrop-filter layers with reader chrome", () => {
