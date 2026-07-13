@@ -7,12 +7,11 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest code commit: `cf659a4` (`fix: use whole-book epub page counts`)
-- If branch HEAD is newer than `cf659a4`, that newer commit should be this handoff-only documentation update.
-- Latest pushed branch state before this handoff update:
-  - `codex/custom-background-settings`
-  - `origin/codex/custom-background-settings`
-  - local branch includes `cf659a4`; push it before handing off if not already pushed
+- Latest implementation commit: `7a5d178` (`test: verify native navigation on mobile`)
+- If branch HEAD is newer than `7a5d178`, that newer commit should be this handoff-only documentation update.
+- Latest deployed Worker version: `cafbbbed-52fc-442f-9181-c18637427b8b`
+- Push `codex/custom-background-settings` after the handoff commit so local and
+  `origin/codex/custom-background-settings` match.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -43,6 +42,101 @@ Product direction:
 - Preserve IndexedDB books, groups, progress, settings, custom backgrounds, and backups.
 - Prefer restrained iOS-like product UI: simple lists, large tap targets, bottom sheets, no marketing-style screens.
 - Real iPhone screenshots from the user are the acceptance source for visual bugs.
+
+## Native Navigation and Motion System (2026-07-13)
+
+Implementation commit: `7a5d178` and the 13 implementation commits immediately
+before it, starting with `3512c7a`.
+
+Current architecture:
+
+- `AppMotionRoot` owns one Motion runtime, reduced-motion policy, and shared
+  layout group.
+- `useAppNavigation`, `NavigationProvider`, and `NavigationStack` own typed
+  root, push, reader, and sheet navigation state.
+- Library, Reading, and Settings roots remain mounted, retain scroll state, and
+  move through the shared root transition protocol.
+- Collections, AI provider list/configuration, and custom-background settings
+  use the push stack. Browser Back, visible Back, and completed edge Back all
+  resolve through the same reducer/history state.
+- Reader presentation uses stable book-cover origins and shared layout IDs,
+  with a fallback transition when the source is unavailable.
+- All 11 overlay routes use the shared interruptible `MotionSheet` layer.
+- Reader chrome, list insertion/removal, numeric changes, reading bars, Ask AI
+  messages, and settings switches use state-driven Motion behavior.
+- Legacy surface navigation keyframes and phase classes were removed. The only
+  retained `will-change` is scoped to an actively tracked reader swipe.
+
+Important reliability fixes discovered by mobile browser testing:
+
+- AI Reader history entries now merge with Next App Router fields such as
+  `__NA` instead of replacing them. Browser Back no longer causes a full page
+  navigation/remount, so root scroll and source focus survive.
+- Reader close synchronously records the source origin through a layout effect
+  and restores focus only after a real focus target is available.
+- `MotionSheet` follows `window.visualViewport` resize/scroll geometry, keeping
+  Ask AI and other composers above a mobile software keyboard.
+- The Library root exposes an explicit loading state so automated import waits
+  for IndexedDB initialization instead of racing startup.
+
+Gesture ownership:
+
+- A horizontal drag beginning in the left 20px of the top push layer may claim
+  edge Back after direction/threshold arbitration.
+- Vertical scrolling, sheet dragging, reader scrolling/page turns, EPUB/TXT
+  selection, sliders, inputs, and wheels keep their own gestures.
+- Reader presentation covers and disables push edge Back, so a reader swipe
+  cannot pop application navigation.
+- Reduced motion removes spatial travel while keeping every destination and
+  dismissal path functional.
+
+Verification and evidence:
+
+- Vitest: 133 files, 1339 tests passed.
+- ESLint: full configured repository passed; generated `.next`, `.open-next`,
+  test result, and nested worktree outputs are explicitly ignored.
+- `next build --webpack`: passed, including TypeScript and static generation.
+- Development mobile emulation: iPhone 14 11/11 and iPhone 15 Pro Max 11/11.
+- Local `next start` production mode: 22/22 across both mobile projects.
+- Deployed `https://881817.xyz`: iPhone 14 11/11.
+- Browser coverage includes source-focus return, History Back, root scroll
+  retention, visible/edge Back equivalence, reader gesture isolation, all four
+  push routes, all 11 sheet routes, keyboard-sized Ask AI, reduced motion,
+  transition screenshots, and performance sampling.
+- The 800ms performance probe requires at least 40 frames, no interval over
+  80ms, and no long task over 100ms. Both mobile projects passed. Keep 50ms as
+  the physical-device long-task target.
+- Start/mid/completion screenshots for root, push, reader, and sheet are written
+  under `test-results/native-navigation/` and intentionally gitignored.
+
+Production deployment:
+
+- Worker: `ai-reader-pwa`
+- Route: `881817.xyz/*`
+- Version: `cafbbbed-52fc-442f-9181-c18637427b8b`
+- Main deployed page chunk:
+  `/_next/static/chunks/app/page-a767c3d60387414c.js`
+- Deployed CSS:
+  `/_next/static/css/17bc67107d065b45.css` and
+  `/_next/static/css/5c296e628dadff61.css`
+- Every deployed JS/CSS asset returned 200. JS contains the navigation, reader,
+  sheet, shared-cover, and `visualViewport` markers. CSS contains none of the
+  old subview/sheet keyframe or phase markers.
+- Root, manifest, assetlinks, and APK endpoints returned 200. APK remains at
+  `https://881817.xyz/downloads/ai-reader-twa.apk` and targets
+  `https://881817.xyz`.
+
+Residual real-device risk:
+
+- Playwright uses Chromium mobile emulation. Recheck gesture velocity, keyboard
+  behavior, frame pacing, safe areas, and shared-cover geometry on physical
+  iPhone Safari/PWA before calling the tactile polish final.
+- There is still no representative EPUB fixture. EPUB whole-book paging and
+  every EPUB interaction have unit/integration coverage, but the user's real
+  book remains the final visual source.
+- The dark-mode transparent EPUB ambient rectangle remains unresolved. Do not
+  resume speculative CSS work without the affected EPUB or Safari Web
+  Inspector evidence.
 
 ## Current Feature Work
 
@@ -238,9 +332,17 @@ Latest EPUB whole-book page-indicator and scrollbar fix:
   an iPhone test with the user's book. Production assets were inspected after
   deploy to confirm both changes are present.
 - Windows OpenNext note: the wrapper's nested `npm run build` can stop before
-  producing `.open-next/worker.js`. The reliable deployment sequence is
-  `npm.cmd run build`, then `node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild`, then
-  `node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy`.
+  producing `.open-next/worker.js`. A plain `npm.cmd run build` also does not
+  create `.next/standalone`, so `--skipNextBuild` will fail unless standalone
+  mode is enabled for that build. Use this exact PowerShell sequence:
+
+  ```powershell
+  $env:NEXT_PRIVATE_STANDALONE='true'
+  $env:NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path
+  npm.cmd run build
+  node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild
+  node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
+  ```
 
 Latest follow-up hardening:
 
@@ -606,6 +708,8 @@ Latest Cloudflare production deployment work:
 - Added `docs/cloudflare-deploy.md`.
 - Changed `npm.cmd run build` to `next build --webpack`; OpenNext on Windows failed at runtime when a stale Turbopack server chunk was deployed.
 - Latest deployed Cloudflare Worker version:
+  `cafbbbed-52fc-442f-9181-c18637427b8b`.
+- Earlier storage-hardening deployment version:
   `58b2700f-6fc0-4a3f-abfb-0f9c76abe8a4`.
 - Earlier Ask AI deployment version:
   `fd1acd88-b982-4af6-9255-a077fd75a348`.
@@ -625,6 +729,22 @@ Latest Cloudflare production deployment work:
 Useful recent commits on `codex/custom-background-settings`:
 
 ```text
+7a5d178 test: verify native navigation on mobile
+00082ec refactor: remove legacy navigation motion
+bcb8d4a feat: coordinate application state motion
+c0fa5a7 feat: add native edge back gesture
+6363101 feat: unify overlays in navigation sheet layer
+5864600 feat: replace sheets with interruptible motion
+9d00011 feat: coordinate reader chrome motion
+6272b76 feat: add shared book reader presentation
+ca47d27 feat: migrate subviews to native push navigation
+96b6fad feat: move root tabs onto navigation stack
+890573f feat: synchronize app navigation history
+0151e3d feat: add typed app navigation reducer
+c0c7bb8 fix: complete motion runtime capabilities
+3512c7a feat: add application motion runtime
+dcb5c0c docs: plan native navigation motion system
+6cd7cc8 docs: design native navigation motion system
 597e7ac fix: persist book files as array buffers
 7ce7b78 fix: strip publisher canvas backgrounds
 4c7afc5 fix: enforce transparent epub view layers
@@ -698,9 +818,19 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest code commit `597e7ac`, these passed:
+After the latest implementation commit `7a5d178`, these passed:
 
 ```powershell
+npm.cmd test
+npm.cmd run lint
+npm.cmd run build
+$env:PLAYWRIGHT_BASE_URL='http://localhost:3030'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+$env:PLAYWRIGHT_BASE_URL='http://localhost:3030'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max
+$env:PLAYWRIGHT_BASE_URL='http://localhost:3040'; npx.cmd playwright test e2e/native-navigation.spec.ts
+$env:NEXT_PRIVATE_STANDALONE='true'; $env:NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path; npm.cmd run build
+node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild
+node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
+$env:PLAYWRIGHT_BASE_URL='https://881817.xyz'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
 npm.cmd run test -- lib\readerMenuIntegration.test.ts
 npm.cmd run test -- lib\readerMenuIntegration.test.ts lib\readerChromeIntegration.test.ts lib\motionCss.test.ts
 npm.cmd run test -- lib\serviceWorkerUpdate.test.ts lib\readerMenuIntegration.test.ts lib\readerChromeIntegration.test.ts lib\motionCss.test.ts
@@ -731,6 +861,25 @@ git diff --check
 
 Observed results:
 
+- Native navigation full suite: 133 files, 1339 tests passed.
+- Full configured ESLint passed.
+- Production webpack build and standalone webpack build passed.
+- Development mobile browser verification: 11/11 on iPhone 14 and 11/11
+  on iPhone 15 Pro Max.
+- Local `next start` production verification: 22/22 across both projects.
+- Deployed `https://881817.xyz` browser verification: iPhone 14 11/11.
+- Frame probes passed the 40-frame, 80ms interval, and 100ms long-task gates.
+- Cloudflare OpenNext deployment published Worker version
+  `cafbbbed-52fc-442f-9181-c18637427b8b` to `881817.xyz/*`.
+- Production page chunk
+  `/_next/static/chunks/app/page-a767c3d60387414c.js` contains navigation,
+  reader, sheet, shared-cover, and visual-viewport markers.
+- Production CSS `/_next/static/css/17bc67107d065b45.css` and
+  `/_next/static/css/5c296e628dadff61.css` contain none of the legacy
+  subview/sheet keyframe or phase markers.
+- Production root, manifest, assetlinks, all discovered JS/CSS, and APK
+  endpoints returned 200. `/api/models` retained its expected validation
+  response for an empty request.
 - Latest whole-book EPUB focused tests: 3 files, 18 tests passed.
 - Latest full suite: 124 files, 1248 tests passed.
 - Latest production webpack build passed.
@@ -847,9 +996,10 @@ Observed results:
 Before making another code commit, rerun:
 
 ```powershell
-npm.cmd run test
-npm.cmd exec -- eslint app lib
+npm.cmd test
+npm.cmd run lint
 npm.cmd run build
+$env:PLAYWRIGHT_BASE_URL='http://localhost:<unused-port>'; npx.cmd playwright test e2e/native-navigation.spec.ts
 git diff --check
 git status -sb
 ```
@@ -870,15 +1020,15 @@ https://ai-reader-pwa.hyjsb1817.workers.dev
 
 Do not use temporary `trycloudflare.com` tunnel links as the primary preview now that the production Worker route is live. If the next session sees stale CSS or naked HTML on production:
 
-1. Rebuild with `npm.cmd run build`.
-2. Redeploy with `npm.cmd run deploy:cf`.
-3. Verify the HTML's `/_next/static/chunks/*.css` URLs return `200` from `https://881817.xyz`.
+1. Rebuild in standalone mode with the exact Windows sequence documented above.
+2. Run OpenNext `build --skipNextBuild`, then `deploy`.
+3. Verify the HTML's `/_next/static/css/*.css` URLs return `200` from `https://881817.xyz`.
 
 Example CSS verification:
 
 ```powershell
 $html=(Invoke-WebRequest -UseBasicParsing https://881817.xyz).Content
-$css=$html | Select-String -Pattern '/_next/static/chunks/[^"'']+\.css' -AllMatches | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
+$css=$html | Select-String -Pattern '/_next/static/css/[^"'']+\.css' -AllMatches | ForEach-Object { $_.Matches.Value } | Select-Object -Unique
 $css
 foreach($u in $css){ $r=Invoke-WebRequest -UseBasicParsing "https://881817.xyz$u"; "$u $($r.StatusCode) $($r.Headers['Content-Type']) len=$($r.RawContentLength)" }
 ```
@@ -909,12 +1059,12 @@ Files related to EPUB background work:
 
 Use this opener in the new conversation:
 
-The opener below includes the latest reliability/security deployment state.
-
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新代码提交以 cf659a4 为准：EPUB 底部页码已改为全书统一页数，优先使用书内 page-list；没有 page-list 的 EPUB 会后台生成全书 CFI locations，以 relocated.start.location/book.locations.total 实时计算，章节 displayed.page/total 不再参与底部页码。右侧条的宿主确认是 epub.js 外层 .epub-container，已加 scrollbar-width、WebKit 零宽及透明轨道/滑块三层规则。最新 Worker 版本是 077f1420-c978-4ac5-a7b9-a4ac6cac6537。Windows 上部署请先 npm.cmd run build，再直接执行 node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild 和 node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy；不要依赖会在内部 npm run build 后中断的包装命令。书籍持久化仍以 597e7ac 的 IndexedDB v5 bookFiles ArrayBuffer 方案为准；已经损坏的旧 Blob 需要重新导入一次。下面较早提交与 Worker 版本仅为历史摘要。
-重要：EPUB 深色模式透明 ambient 截至 2026-07-12 仍未解决。用户确认在 Worker f178b2ef-727b-4f5d-b561-b40f74532c34 上完全关闭并重开 PWA 后白色矩形仍存在。不要继续猜 CSS；只有拿到问题 EPUB 文件做本地复现，或取得 Safari Web Inspector 的真实 iframe 节点/computed style 后再继续。
-最新代码提交是 08db3d9，主要修复备份恢复可能先清空再失败的数据丢失风险；备份 v2 现已包含阅读统计、自定义背景和不含密钥的当前 AI 服务商设置，并保持 v1 兼容；AI API 已限制内网/回环地址、非 HTTPS、重定向、请求/响应大小和超时；Ask AI 会在切书/关闭时中止旧请求、忽略过期响应、只发送最近 20 条历史并自动滚动；localStorage 写入失败不会再打断界面；Service Worker cache 已更新为 ai-reader-v5。此前功能还包括自选背景图片、独立自选背景弹窗、近全屏 sheet、完整图片预览、预览跟随背景虚化/强度滑条变化，AI 服务商预设、移除重复的 API 格式列表、API 地址自动随服务商切换、自动附加路径可见化、旧 OpenAI 地址迁移、阅读器 Ask AI 现在保留对话历史、发送后清空输入、把历史消息和当前可见正文片段一起传给 AI、EPUB 通过 getVisibleText 读取当前渲染 iframe 文本、TXT 读取可见段落上下文、阅读器主题/自定义设置 UI 优化、共享 BottomSheet 的非关闭拖拽松手 settling 动效、阅读器设置 popover/custom entry 的 micro-press 动效、书库 grid/list 书籍封面和更多按钮的 press-depth 动效、底部导航 active/pressed tab 的 icon+label 微抬和回弹、设置 segmented / 书库视图切换 / 藏书列表行的 compact press 动效、书库 grid/list 内容切换的轻量进入动效、书库编辑选择态徽标的层级增强、藏书集合 active row 的侧边高亮、icon 微放大和 chevron 右移动效、Service Worker 离线 cache miss 正确返回错误响应、书籍/备份导出 Blob URL 延迟释放以降低 iPhone 下载失败风险、阅读页 7 天柱状图的底部进入动效和今日状态高亮、阅读页今日目标卡片的进度环/chevron 按压层级动效、阅读页继续阅读卡片的封面/进度条/chevron 分层按压动效、EPUB 阅读界面外层/stage 恢复透明以继续显示主界面 ambient 背景、阅读器菜单退场动画期间保持可点并在动画结束后才 visibility hidden、EPUB 正文短距离点按漂移仍可唤出阅读器菜单且旧选择/光标不会阻断 click fallback、TXT 阅读页短距离点按漂移仍会唤出菜单、EPUB iframe 触摸/click 监听已改为 capture 阶段以避免内容页拦截、菜单隐藏时新增独立于正文/iframe 的 readerMenuWakeButton 小按钮用于唤出菜单、readerMenuWakeButton 现在在菜单打开时仍保持可见可点，再点一次可收起菜单、右上角 readerOverlayBack 关闭按钮已改成 48px 圆形按钮，以及 Android TWA 测试包工程、PNG manifest 图标、assetlinks、本地 APK 下载链接，并已把 Android TWA 正式目标域名改为 https://881817.xyz。Cloudflare Workers/OpenNext 生产部署已完成，最新 Worker 版本是 d38b8847-10ee-4633-befa-9b29906cec1c，线上地址是 https://881817.xyz，Worker 是 ai-reader-pwa，路由是 881817.xyz/*。主题设置里的小/大只调字号；自定义设置上方是真实文本预览；自定义滑块左侧必须使用固定 SVG 图标，不要再用中文字符或 emoji 拼图标。滑条控制实际背景效果，不是图片本身透明度。APK 下载地址是 https://881817.xyz/downloads/ai-reader-twa.apk。Cloudflare 部署使用 npm.cmd run deploy:cf；如果 Windows/OpenNext 出现 stale chunk，先删除 .next 和 .open-next 再部署。
+最新实现提交是 7a5d178：已完成统一 Motion 运行时、四层导航栈、持久根页面、原生 push、共享书封阅读器转场、统一 MotionSheet、边缘返回、状态动画、旧动画清理，以及两档 iPhone Playwright/性能回归。若 HEAD 更新，更新内容应仅为 HANDOFF 文档。
+最新正式 Worker 版本是 cafbbbed-52fc-442f-9181-c18637427b8b；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 133 文件/1339 项、全仓 ESLint、webpack 构建均通过；开发模式 iPhone 14 与 iPhone 15 Pro Max 各 11/11，next start 生产模式合计 22/22，正式域名 iPhone 14 为 11/11。正式 JS/CSS 已确认包含新导航/工作表/共享书封/visualViewport，并且不含旧 subview/sheet 动画标记。
+Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
+下一步优先用真实 iPhone Safari/PWA 检查手势速度、键盘、安全区、共享书封几何和体感帧率。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
