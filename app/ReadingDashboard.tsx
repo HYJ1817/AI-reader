@@ -1,9 +1,13 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { AnimatePresence, m } from "motion/react";
+import AnimatedNumber from "@/app/AnimatedNumber";
+import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import MotionBookCover from "@/app/MotionBookCover";
 import type { BookRecord } from "@/lib/db";
 import { formatLibraryProgressLabel } from "@/lib/libraryProgress";
+import { MOTION_DURATION } from "@/lib/motionSystem";
 import type { ReadingDayInsight } from "@/lib/readingInsights";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
@@ -42,6 +46,7 @@ export default function ReadingDashboard({
   onOpenBook,
   onImport,
 }: ReadingDashboardProps) {
+  const reduceMotion = useAppReducedMotion();
   const latestBookOriginId = latestBook
     ? `reading-dashboard-${latestBook.id}`
     : null;
@@ -58,8 +63,8 @@ export default function ReadingDashboard({
             className={styles.dashboardGoalRing}
             style={{ background: goalRingBackground }}
           >
-            <span>{todayMinutes}</span>
-            <small>{targetMinutes}</small>
+            <span><AnimatedNumber value={todayMinutes} /></span>
+            <small><AnimatedNumber value={targetMinutes} /></small>
           </span>
           <span className={styles.readingGoalText}>
             <strong>{UI_TEXT.TODAY_READING}</strong>
@@ -133,7 +138,7 @@ export default function ReadingDashboard({
         <div className={styles.sectionHeader}>
           <h2>{UI_TEXT.LAST_SEVEN_DAYS}</h2>
           <span>
-            {UI_TEXT.TOTAL_READING}: {totalMinutes} {UI_TEXT.MINUTES}
+            {UI_TEXT.TOTAL_READING}: <AnimatedNumber value={totalMinutes} /> {UI_TEXT.MINUTES}
           </span>
         </div>
         <div className={styles.weekBars}>
@@ -143,14 +148,31 @@ export default function ReadingDashboard({
               className={day.isToday ? styles.weekBarToday : ""}
             >
               <span className={styles.weekBarTrack}>
-                <span
-                  style={{
-                    height: `${Math.max(
-                      day.progress * 100,
-                      day.minutes > 0 ? 10 : 0
-                    )}%`,
-                  }}
-                />
+                <AnimatePresence initial={false} mode="popLayout">
+                  <m.span
+                    key={`${day.date}:${day.minutes}`}
+                    initial={{
+                      opacity: 0,
+                      scaleY: reduceMotion ? 1 : 0.7,
+                    }}
+                    animate={{ opacity: 1, scaleY: 1 }}
+                    exit={{
+                      opacity: 0,
+                      scaleY: reduceMotion ? 1 : 0.9,
+                    }}
+                    transition={{
+                      duration: reduceMotion
+                        ? MOTION_DURATION.reduced
+                        : MOTION_DURATION.state,
+                    }}
+                    style={{
+                      height: `${Math.max(
+                        day.progress * 100,
+                        day.minutes > 0 ? 10 : 0
+                      )}%`,
+                    }}
+                  />
+                </AnimatePresence>
               </span>
               <small>{day.label}</small>
             </div>

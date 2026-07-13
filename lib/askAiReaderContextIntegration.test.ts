@@ -40,6 +40,14 @@ describe("Ask AI reader context integration", () => {
     expect(askPanelSource).not.toContain("answer: string | null");
   });
 
+  it("mounts each message once by stable ID without replaying streamed text", () => {
+    expect(askPanelSource).toContain("AnimatePresence");
+    expect(askPanelSource).toContain("<m.div");
+    expect(askPanelSource).toContain("key={message.id}");
+    expect(askPanelSource).toContain('layout={reduceMotion ? false : "position"}');
+    expect(askPanelSource).not.toContain("key={message.content}");
+  });
+
   it("keeps the Ask AI composer fixed below the scrollable conversation", () => {
     const messagesIndex = askPanelSource.indexOf("styles.askMessages");
     const inputIndex = askPanelSource.indexOf("styles.askInput");

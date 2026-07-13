@@ -271,6 +271,19 @@ describe("ambient book background state", () => {
     expect(source).toContain("styles.ambientBookLayer");
   });
 
+  it("crossfades presence only when the ambient identity changes", () => {
+    const source = readFileSync(
+      new URL("../app/AmbientBookBackground.tsx", import.meta.url),
+      "utf8"
+    );
+
+    expect(source).toContain("AnimatePresence");
+    expect(source).toContain("key={layers.current.key}");
+    expect(source).toContain("onExitComplete={finishTransition}");
+    expect(source).toContain("styles.ambientBookMotionLayer");
+    expect(source).not.toContain("window.setTimeout");
+  });
+
   it("mounts the shared ambient background once at the app root", () => {
     const source = readFileSync(
       new URL("../app/page.tsx", import.meta.url),
@@ -360,28 +373,20 @@ describe("ambient book background state", () => {
     expect(readerRule).toContain("z-index: 20");
   });
 
-  it("renders bounded blurred cover layers with an opacity-only crossfade", () => {
+  it("keeps bounded blur static while Motion owns the crossfade", () => {
     const layerRule = cssRule(moduleCss, ".ambientBookLayer");
     const currentRule = cssRule(
       moduleCss,
       '.ambientBookLayer[data-layer="current"]'
     );
-    const previousRule = cssRule(
-      moduleCss,
-      '.ambientBookLayer[data-layer="previous"]'
-    );
-
     expect(layerRule).toMatch(/inset:\s*-(?:3[6-9]|4[0-8])px/);
     expect(layerRule).toContain("background-size: cover");
     expect(layerRule).toContain("background-position: center");
     expect(layerRule).toMatch(
       /filter:\s*blur\((?:3[6-9]|4[0-8])px\)\s+saturate\(var\(--ambient-saturate\)\)/
     );
-    expect(layerRule).toContain("transition:");
-    expect(layerRule).toContain(
-      "opacity var(--motion-navigation) var(--ease-navigation)"
-    );
-    expect(layerRule).not.toMatch(/transition:[^;]*(?:filter|transform)/s);
+    expect(layerRule).not.toContain("transition:");
+    expect(layerRule).not.toContain("will-change:");
     expect(layerRule).not.toContain("animation:");
     expect(layerRule).not.toContain("scale(");
     expect(currentRule).toContain("z-index: 0");
@@ -393,8 +398,7 @@ describe("ambient book background state", () => {
     expect(moduleCss).toContain("opacity: var(--ambient-custom-effect)");
     expect(moduleCss).not.toContain("var(--ambient-custom-opacity)");
     expect(moduleCss).not.toContain("calc(var(--ambient-strength) *");
-    expect(previousRule).toContain("z-index: 1");
-    expect(previousRule).toContain("opacity: 0");
+    expect(moduleCss).toContain(".ambientBookMotionLayer");
     expect(cssRule(moduleCss, ".ambientBookBackground::after")).toContain(
       "z-index: 2"
     );
@@ -437,12 +441,16 @@ describe("ambient book background state", () => {
     }
   });
 
-  it("disables ambient layer transitions for both motion preferences", () => {
-    expect(moduleCss).toMatch(
-      /\.app\[data-reduce-motion="true"\]\s+\.ambientBookLayer\s*\{[^}]*transition:\s*none/s
+  it("uses the reactive reduced-motion value for bounded crossfades", () => {
+    const source = readFileSync(
+      new URL("../app/AmbientBookBackground.tsx", import.meta.url),
+      "utf8"
     );
-    expect(moduleCss).toMatch(
-      /@media\s*\(prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?\.ambientBookLayer\s*\{[^}]*transition:\s*none/s
+
+    expect(source).toContain("scale: reduceMotion ? 1 : 1.012");
+    expect(source).toContain("MOTION_DURATION.reduced");
+    expect(moduleCss).not.toContain(
+      '.app[data-reduce-motion="true"] .ambientBookLayer'
     );
   });
 });

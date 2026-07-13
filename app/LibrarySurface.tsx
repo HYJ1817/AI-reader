@@ -1,6 +1,8 @@
 "use client";
 
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
+import { AnimatePresence, LayoutGroup, m } from "motion/react";
+import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import MotionBookCover from "@/app/MotionBookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
 import type { BookGroup, BookRecord } from "@/lib/db";
@@ -10,6 +12,7 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { formatBookSize } from "@/lib/libraryPresentation";
+import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -69,6 +72,70 @@ export default function LibrarySurface({
     loading,
     importError,
   } = data;
+  const reduceMotion = useAppReducedMotion();
+  const bookIds = books.map((book) => book.id);
+  const visibleBookIds = visibleBooks.map((book) => book.id);
+  const currentSignature = JSON.stringify({
+    bookIds,
+    visibleBookIds,
+    count: view.visibleBookCount,
+    searchQuery: view.searchQuery,
+    groupFilter: view.groupFilter,
+  });
+  const [libraryMotionSnapshot, setLibraryMotionSnapshot] = useState<{
+    signature: string;
+    bookIds: Set<string>;
+    ids: Set<string>;
+    count: number;
+    searchQuery: string;
+    groupFilter: string | null;
+    entranceOrder: Map<string, number>;
+  }>(() => ({
+    signature: currentSignature,
+    bookIds: new Set(bookIds),
+    ids: new Set(visibleBookIds),
+    count: view.visibleBookCount,
+    searchQuery: view.searchQuery,
+    groupFilter: view.groupFilter,
+    entranceOrder: new Map(),
+  }));
+
+  if (libraryMotionSnapshot.signature !== currentSignature) {
+    const previousBookSnapshot = libraryMotionSnapshot;
+    const newlyAddedBookIds = new Set(
+      bookIds.filter((bookId) => !previousBookSnapshot.bookIds.has(bookId))
+    );
+
+    if (
+      previousBookSnapshot.searchQuery === view.searchQuery &&
+      previousBookSnapshot.groupFilter === view.groupFilter &&
+      view.visibleBookCount > previousBookSnapshot.count
+    ) {
+      for (const bookId of visibleBookIds) {
+        if (!previousBookSnapshot.ids.has(bookId)) {
+          newlyAddedBookIds.add(bookId);
+        }
+      }
+    }
+
+    setLibraryMotionSnapshot({
+      signature: currentSignature,
+      bookIds: new Set(bookIds),
+      ids: new Set(visibleBookIds),
+      count: view.visibleBookCount,
+      searchQuery: view.searchQuery,
+      groupFilter: view.groupFilter,
+      entranceOrder: new Map(
+        visibleBooks
+          .filter((book) => newlyAddedBookIds.has(book.id))
+          .slice(0, 6)
+          .map((book, index) => [book.id, index])
+      ),
+    });
+  }
+
+  const entranceOrder = libraryMotionSnapshot.entranceOrder;
+
   return (
     <div className={className} aria-hidden={ariaHidden}>
       <div className={styles.pageHeader}>
@@ -137,6 +204,16 @@ export default function LibrarySurface({
                     aria-label={mode === "grid" ? UI_TEXT.GRID_VIEW : UI_TEXT.LIST_VIEW}
                     title={mode === "grid" ? UI_TEXT.GRID_VIEW : UI_TEXT.LIST_VIEW}
                   >
+                    {view.mode === mode && (
+                      <m.span
+                        className={styles.libraryViewIndicator}
+                        layoutId={
+                          reduceMotion ? undefined : "library-view-indicator"
+                        }
+                        transition={MOTION_SPRING.navigation}
+                        aria-hidden="true"
+                      />
+                    )}
                     {mode === "grid" ? (
                       <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                         <rect x="3" y="3" width="5" height="5" rx="1" />
@@ -189,15 +266,46 @@ export default function LibrarySurface({
                   <h2 className={styles.emptyTitle}>{UI_TEXT.NO_MATCHING_BOOKS}</h2>
                   <p className={styles.emptyText}>{view.searchQuery || UI_TEXT.UNGROUPED}</p>
                 </div>
-              ) : view.mode === "grid" ? (
-                <div className={styles.bookGrid}>
+              ) : (
+                <LayoutGroup id="library-books">
+                {view.mode === "grid" ? (
+                <m.div
+                  className={styles.bookGrid}
+                  layout={reduceMotion ? false : "position"}
+                >
+                  <AnimatePresence initial={false} mode="popLayout">
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
                     const originId = `library-grid-${book.id}`;
+                    const entranceIndex = entranceOrder.get(book.id);
                     return (
-                      <div
+                      <m.div
                         key={book.id}
+                        layout={reduceMotion ? false : "position"}
+                        initial={
+                          reduceMotion || entranceIndex === undefined
+                            ? false
+                            : { opacity: 0, y: 8, scale: 0.985 }
+                        }
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={
+                          reduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, scale: 0.96 }
+                        }
+                        transition={
+                          reduceMotion
+                            ? { duration: MOTION_DURATION.reduced }
+                            : {
+                                layout: MOTION_SPRING.navigation,
+                                duration: MOTION_DURATION.state,
+                                delay:
+                                  entranceIndex === undefined
+                                    ? 0
+                                    : entranceIndex * 0.03,
+                              }
+                        }
                         className={`${styles.bookGridCell} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
                       >
                         <button
@@ -222,19 +330,46 @@ export default function LibrarySurface({
                             onClick={() => actions.openBookActions(book)}
                           />
                         )}
-                      </div>
+                      </m.div>
                     );
                   })}
-                </div>
+                  </AnimatePresence>
+                </m.div>
               ) : (
                 <ul className={styles.bookItems}>
+                  <AnimatePresence initial={false} mode="popLayout">
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
                     const originId = `library-list-${book.id}`;
+                    const entranceIndex = entranceOrder.get(book.id);
                     return (
-                      <li
+                      <m.li
                         key={book.id}
+                        layout={reduceMotion ? false : "position"}
+                        initial={
+                          reduceMotion || entranceIndex === undefined
+                            ? false
+                            : { opacity: 0, y: 8, scale: 0.985 }
+                        }
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={
+                          reduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, scale: 0.96 }
+                        }
+                        transition={
+                          reduceMotion
+                            ? { duration: MOTION_DURATION.reduced }
+                            : {
+                                layout: MOTION_SPRING.navigation,
+                                duration: MOTION_DURATION.state,
+                                delay:
+                                  entranceIndex === undefined
+                                    ? 0
+                                    : entranceIndex * 0.03,
+                              }
+                        }
                         className={`${styles.bookItem} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
                         onClick={() => actions.pressBook(book, originId)}
                       >
@@ -270,10 +405,13 @@ export default function LibrarySurface({
                             }}
                           />
                         )}
-                      </li>
+                      </m.li>
                     );
                   })}
+                  </AnimatePresence>
                 </ul>
+              )}
+                </LayoutGroup>
               )}
               {view.visibleBookCount < filteredBookCount && (
                 <div ref={sentinelRef} className={styles.libraryLoadSentinel} aria-hidden="true" />

@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { AnimatePresence, m } from "motion/react";
+import { useAppReducedMotion } from "./AppMotionRoot";
 import styles from "./page.module.css";
+import { MOTION_DURATION } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 
 export type AiConversationMessage = {
@@ -37,6 +40,7 @@ export default function AskAiPanel({
   onOpenSettings,
 }: Props) {
   const threadRef = useRef<HTMLDivElement>(null);
+  const reduceMotion = useAppReducedMotion();
 
   useEffect(() => {
     const thread = threadRef.current;
@@ -46,7 +50,11 @@ export default function AskAiPanel({
 
   return (
     <div className={styles.askPanel}>
-      <div className={styles.askThread} ref={threadRef}>
+      <m.div
+        className={styles.askThread}
+        ref={threadRef}
+        layout={reduceMotion ? false : "position"}
+      >
         {selectedText && (
           <div className={styles.selectedTextPreview}>
             <button
@@ -72,18 +80,37 @@ export default function AskAiPanel({
 
         {messages.length > 0 && (
           <div className={styles.askMessages}>
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`${styles.askMessage} ${
-                  message.role === "user"
-                    ? styles.askMessageUser
-                    : styles.askMessageAssistant
-                }`}
-              >
-                {message.content}
-              </div>
-            ))}
+            <AnimatePresence initial={false} mode="popLayout">
+              {messages.map((message) => (
+                <m.div
+                  key={message.id}
+                  layout={reduceMotion ? false : "position"}
+                  initial={{
+                    opacity: 0,
+                    y: reduceMotion ? 0 : 5,
+                    scale: reduceMotion || message.role === "assistant" ? 1 : 0.985,
+                  }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    y: reduceMotion ? 0 : -3,
+                    scale: reduceMotion ? 1 : 0.985,
+                  }}
+                  transition={{
+                    duration: reduceMotion
+                      ? MOTION_DURATION.reduced
+                      : MOTION_DURATION.state,
+                  }}
+                  className={`${styles.askMessage} ${
+                    message.role === "user"
+                      ? styles.askMessageUser
+                      : styles.askMessageAssistant
+                  }`}
+                >
+                  {message.content}
+                </m.div>
+              ))}
+            </AnimatePresence>
           </div>
         )}
 
@@ -98,9 +125,12 @@ export default function AskAiPanel({
         {error && (
           <div className={styles.errorBox}>{error}</div>
         )}
-      </div>
+      </m.div>
 
-      <div className={styles.askComposer}>
+      <m.div
+        className={styles.askComposer}
+        layout={reduceMotion ? false : "position"}
+      >
         <div className={styles.askInput}>
           <input
             type="text"
@@ -123,7 +153,7 @@ export default function AskAiPanel({
             </svg>
           </button>
         </div>
-      </div>
+      </m.div>
     </div>
   );
 }

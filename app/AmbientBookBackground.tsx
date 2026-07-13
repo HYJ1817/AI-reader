@@ -7,8 +7,8 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { AnimatePresence, m } from "motion/react";
 import {
-  AMBIENT_CROSSFADE_MS,
   completeAmbientTransition,
   createAmbientBlobUrlRegistry,
   createAmbientLayer,
@@ -20,6 +20,7 @@ import {
   type AmbientTransitionState,
 } from "@/lib/ambientBookBackground";
 import type { BookRecord } from "@/lib/db";
+import { MOTION_DURATION } from "@/lib/motionSystem";
 import styles from "./page.module.css";
 
 type AmbientBookBackgroundProps = {
@@ -103,27 +104,13 @@ export default function AmbientBookBackground({
     return () => window.cancelAnimationFrame(frame);
   }, [book, commitLayers, customBackgroundBlob, getRegistry, reduceMotion]);
 
-  useEffect(() => {
+  const finishTransition = useCallback(() => {
+    const generation = layersRef.current.generation;
+    commitLayers(
+      completeAmbientTransition(layersRef.current, generation)
+    );
     registryRef.current?.releaseUnretained(layersRef.current);
-  }, [layers]);
-
-  useEffect(() => {
-    if (!layers.previous || reduceMotion) return;
-
-    const generation = layers.generation;
-    const timeout = window.setTimeout(() => {
-      commitLayers(
-        completeAmbientTransition(layersRef.current, generation)
-      );
-    }, AMBIENT_CROSSFADE_MS);
-
-    return () => window.clearTimeout(timeout);
-  }, [
-    commitLayers,
-    layers.generation,
-    layers.previous,
-    reduceMotion,
-  ]);
+  }, [commitLayers]);
 
   useEffect(
     () => () => {
@@ -146,24 +133,33 @@ export default function AmbientBookBackground({
         } as CSSProperties
       }
     >
-      {layers.previous ? (
-        <span
-          key={layers.previous.key}
-          className={styles.ambientBookLayer}
-          data-kind={layers.previous.kind}
-          data-layer="previous"
-          data-custom={isCustomLayer(layers.previous)}
-          style={layerStyle(layers.previous, customBackgroundOpacity)}
-        />
-      ) : null}
-      <span
-        key={layers.current.key}
-        className={styles.ambientBookLayer}
-        data-kind={layers.current.kind}
-        data-layer="current"
-        data-custom={isCustomLayer(layers.current)}
-        style={layerStyle(layers.current, customBackgroundOpacity)}
-      />
+      <AnimatePresence
+        initial={false}
+        mode="sync"
+        onExitComplete={finishTransition}
+      >
+        <m.span
+          key={layers.current.key}
+          className={styles.ambientBookMotionLayer}
+          initial={{ opacity: 0, scale: reduceMotion ? 1 : 1.012 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.995 }}
+          transition={{
+            duration: reduceMotion
+              ? MOTION_DURATION.reduced
+              : MOTION_DURATION.pushEnter,
+            ease: [0.32, 0.72, 0, 1],
+          }}
+        >
+          <span
+            className={styles.ambientBookLayer}
+            data-kind={layers.current.kind}
+            data-layer="current"
+            data-custom={isCustomLayer(layers.current)}
+            style={layerStyle(layers.current, customBackgroundOpacity)}
+          />
+        </m.span>
+      </AnimatePresence>
     </div>
   );
 }

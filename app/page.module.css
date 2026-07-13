@@ -63,8 +63,13 @@
   background-size: cover;
   filter: blur(42px) saturate(var(--ambient-saturate));
   opacity: 0;
-  will-change: opacity;
-  transition: opacity var(--motion-navigation) var(--ease-navigation);
+}
+
+.ambientBookMotionLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform-origin: center;
 }
 
 .ambientBookLayer[data-layer="current"] {
@@ -81,11 +86,6 @@
   opacity: 1;
 }
 
-.ambientBookLayer[data-layer="previous"] {
-  z-index: 1;
-  opacity: 0;
-}
-
 .ambientBookLayer[data-kind="fallback"] {
   background-image:
     linear-gradient(
@@ -99,14 +99,6 @@
       var(--ambient-cover-paper) 58%,
       color-mix(in srgb, var(--ambient-cover-spine) 72%, black)
     );
-}
-
-.app[data-reduce-motion="true"] .ambientBookLayer {
-  transition: none;
-}
-
-.ambientBookBackground[data-reduce-motion="true"] .ambientBookLayer {
-  transition: none;
 }
 
 .app[data-reduce-motion="true"],
@@ -130,9 +122,6 @@
     transition-duration: 0.001ms !important;
   }
 
-  .ambientBookLayer {
-    transition: none;
-  }
 }
 
 .header {
@@ -332,6 +321,73 @@
   --switch-x: 20px;
   background: #34c759;
   border-color: #34c759;
+}
+
+.motionSwitch {
+  flex-shrink: 0;
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 32px;
+}
+
+.motionSwitchInput {
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.motionSwitchTrack {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  padding: 2px;
+  border: 0.5px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--control-fill);
+  pointer-events: none;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.motionSwitch[data-checked="true"] .motionSwitchTrack {
+  justify-content: flex-end;
+  background: #34c759;
+  border-color: #34c759;
+}
+
+.motionSwitchThumbPosition,
+.motionSwitchThumb {
+  display: block;
+  width: 27px;
+  height: 27px;
+}
+
+.motionSwitchThumb {
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.24);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.motionSwitch:active .motionSwitchThumb {
+  transform: scale(0.94);
+}
+
+.motionSwitchInput:focus-visible + .motionSwitchTrack {
+  outline: 2px solid color-mix(in srgb, var(--tint) 58%, transparent);
+  outline-offset: 2px;
 }
 
 .settingsSegmentControl {
@@ -1246,6 +1302,8 @@
 }
 
 .libraryViewToggle button {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1255,9 +1313,23 @@
   color: var(--text-secondary);
   transform: scale(1);
   transition:
-    background var(--motion-fast) var(--ease-standard),
     color var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard);
+}
+
+.libraryViewToggle button > svg {
+  position: relative;
+  z-index: 1;
+}
+
+.libraryViewIndicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--surface-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
 }
 
 .libraryViewToggle button:not(:disabled):active {
@@ -1265,9 +1337,7 @@
 }
 
 .libraryViewToggle .libraryViewActive {
-  background: var(--surface-primary);
   color: var(--tint);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   transform: scale(1);
 }
 
@@ -2331,12 +2401,13 @@
 }
 
 .weekBarTrack span {
+  position: absolute;
+  inset: auto 0 0;
   width: 100%;
   min-height: 0;
   border-radius: inherit;
   background: linear-gradient(180deg, #56ccff, var(--tint));
   transform-origin: bottom;
-  animation: weekBarIn var(--motion-standard) var(--ease-standard) both;
 }
 
 .weekBars small {
@@ -2364,18 +2435,6 @@
     transform var(--motion-fast) var(--ease-standard);
 }
 
-@keyframes weekBarIn {
-  from {
-    opacity: 0;
-    transform: scaleY(0.7);
-  }
-
-  to {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .featureBookCard .bookCover,
   .featureBookCard:active .bookCover,
@@ -2394,7 +2453,6 @@
   }
 
   .weekBars > div,
-  .weekBarTrack span,
   .weekBarToday .weekBarTrack,
   .weekBarToday small {
     animation: none;

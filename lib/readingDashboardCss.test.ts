@@ -1,10 +1,21 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const source = readFileSync(
+  new URL("../app/ReadingDashboard.tsx", import.meta.url),
+  "utf8"
+);
+const animatedNumberUrl = new URL(
+  "../app/AnimatedNumber.tsx",
+  import.meta.url
+);
+const animatedNumberSource = existsSync(animatedNumberUrl)
+  ? readFileSync(animatedNumberUrl, "utf8")
+  : "";
 
 function rule(selector: string): string {
   const start = css.indexOf(`${selector} {`);
@@ -30,18 +41,23 @@ describe("reading dashboard composition", () => {
     expect(rule(".readingDashboardSection")).toContain("var(--separator)");
   });
 
-  it("gives week bars a calm data-state motion hierarchy", () => {
+  it("animates reading values and bars only when their data changes", () => {
+    expect(source).toContain('import AnimatedNumber from "@/app/AnimatedNumber"');
+    expect(source).toContain("<AnimatedNumber value={todayMinutes}");
+    expect(source).toContain("<AnimatedNumber value={totalMinutes}");
+    expect(animatedNumberSource).toContain("key={value}");
+    expect(animatedNumberSource).toContain('fontVariantNumeric: "tabular-nums"');
+    expect(source).toContain('key={`${day.date}:${day.minutes}`}');
+    expect(source).toContain("scaleY:");
+
     const dayRule = rule(".weekBars > div");
     expect(dayRule).toContain("transform: translate3d(0, 0, 0)");
     expect(dayRule).toMatch(/transition:[^}]*transform/s);
 
     const fillRule = rule(".weekBarTrack span");
     expect(fillRule).toContain("transform-origin: bottom");
-    expect(fillRule).toMatch(/animation:\s*weekBarIn\s+var\(--motion-standard\)/);
-
-    expect(css).toMatch(
-      /@keyframes\s+weekBarIn\s*\{[\s\S]*?from\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?scaleY\(0\.7\)[\s\S]*?to\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?scaleY\(1\)/s
-    );
+    expect(fillRule).not.toContain("animation:");
+    expect(css).not.toContain("@keyframes weekBarIn");
 
     const todayTrackRule = rule(".weekBarToday .weekBarTrack");
     expect(todayTrackRule).toMatch(/transition:[^}]*box-shadow[^}]*transform/s);
@@ -51,9 +67,7 @@ describe("reading dashboard composition", () => {
     expect(todayLabelRule).toMatch(/transition:[^}]*color[^}]*transform/s);
     expect(todayLabelRule).toContain("translate3d(0, -1px, 0)");
 
-    expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.weekBars > div,[\s\S]*?\.weekBarTrack span,[\s\S]*?\.weekBarToday \.weekBarTrack,[\s\S]*?\.weekBarToday small\s*\{[\s\S]*?animation:\s*none;[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s
-    );
+    expect(source).toContain("useAppReducedMotion");
   });
 
   it("gives the reading goal card layered press affordances", () => {

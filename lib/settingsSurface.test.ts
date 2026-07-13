@@ -69,6 +69,16 @@ describe("settings surface copy", () => {
     expect(source).not.toContain("useState");
   });
 
+  it("keeps native checkboxes while projecting one motion thumb per switch", () => {
+    expect(source).toContain("NativeMotionSwitch");
+    expect(source).toContain('type="checkbox"');
+    expect(source).toContain("styles.motionSwitchInput");
+    expect(source).toContain("styles.motionSwitchThumb");
+    expect(source).toContain("layoutId={reduceMotion ? undefined :");
+    expect(source).toContain("settings-switch-thumb-${id}");
+    expect(source).toContain("useAppReducedMotion");
+  });
+
   it("shows custom background controls in a pushed surface with a compatibility sheet", () => {
     expect(backgroundSheetSource).toContain("<BottomSheet");
     expect(backgroundSheetSource).toContain("CustomBackgroundSettingsSurface");
