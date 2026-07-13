@@ -9,7 +9,6 @@ import {
 } from "@/lib/readerPreferences";
 import { UI_TEXT } from "@/lib/uiText";
 import BottomSheet from "./BottomSheet";
-import ReaderCustomSettingsPanel from "./ReaderCustomSettingsPanel";
 import styles from "./page.module.css";
 
 type Props = {
@@ -17,6 +16,7 @@ type Props = {
   mode: ReaderMode;
   onChange: (prefs: ReaderPreferences) => void;
   onModeChange: (mode: ReaderMode) => void;
+  onOpenCustomSettings: () => void;
   onClose: () => void;
 };
 
@@ -49,10 +49,10 @@ export default function ReaderSettingsPanel({
   mode,
   onChange,
   onModeChange,
+  onOpenCustomSettings,
   onClose,
 }: Props) {
   const [draft, setDraft] = useState(preferences);
-  const [customSettingsOpen, setCustomSettingsOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<ReaderSettingsMenu | null>(null);
   const draftRef = useRef(preferences);
 
@@ -269,7 +269,7 @@ export default function ReaderSettingsPanel({
 
               <button
                 className={styles.readerCustomEntryButton}
-                onClick={() => setCustomSettingsOpen(true)}
+                onClick={onOpenCustomSettings}
               >
                 <span className={styles.readerCustomGearIcon} aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -287,17 +287,6 @@ export default function ReaderSettingsPanel({
           </>
         )}
       </BottomSheet>
-      {customSettingsOpen && (
-        <ReaderCustomSettingsPanel
-          preferences={draft}
-          onChange={(next) => {
-            draftRef.current = next;
-            setDraft(next);
-            onChange(next);
-          }}
-          onClose={() => setCustomSettingsOpen(false)}
-        />
-      )}
     </>
   );
 }

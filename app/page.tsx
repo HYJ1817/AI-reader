@@ -175,6 +175,7 @@ export default function Home() {
   const readerEntry = navigation.state.reader;
   const readerPresented = readerEntry !== null;
   const pendingReaderTargetRef = useRef<NavigationTab | null>(null);
+  const pendingPushAfterReaderRef = useRef<"ai-providers" | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
@@ -187,9 +188,7 @@ export default function Home() {
 
   const [readerPrefs, setReaderPrefs] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const [appPrefs, setAppPrefs] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES);
-  const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   const [tocItems, setTocItems] = useState<EpubTocItem[]>([]);
-  const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [readerProgressPercent, setReaderProgressPercent] = useState(0);
   const [readerPageInfo, setReaderPageInfo] = useState<ReaderPageInfo>({
     current: 1,
@@ -217,7 +216,6 @@ export default function Home() {
     removeInvalid: navigation.removeInvalid,
     setReaderMode,
     setTocItems,
-    setTocDrawerOpen,
     setReaderProgressPercent,
     setReaderPageInfo,
     dispatchReaderChrome,
@@ -247,12 +245,10 @@ export default function Home() {
   const pendingReaderPrefsRef = useRef<ReaderPreferences | null>(null);
   const readerPrefsGenerationRef = useRef(0);
   const readerShellRef = useRef<HTMLDivElement>(null);
-  const [askSheetOpen, setAskSheetOpen] = useState(false);
 
   const [readingGoal, setReadingGoal] = useState(() => loadReadingGoal());
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [readingStats, setReadingStats] = useState<DailyReadingStat[]>([]);
-  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const [goalInputValue, setGoalInputValue] = useState(readingGoal.targetMinutes);
   const tickRef = useRef<{
     date: string;
@@ -272,16 +268,9 @@ export default function Home() {
   const [libraryView, setLibraryView] = useState<LibraryViewMode>(
     DEFAULT_APP_PREFERENCES.libraryView
   );
-  const [groupSheetOpen, setGroupSheetOpen] = useState(false);
-  const [groupSheetBook, setGroupSheetBook] = useState<BookRecord | null>(null);
-  const [bookActionSheetBook, setBookActionSheetBook] = useState<BookRecord | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [libraryEditing, setLibraryEditing] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
-  const [batchGroupSheetOpen, setBatchGroupSheetOpen] = useState(false);
-  const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
   const [collectionsEditing, setCollectionsEditing] = useState(false);
-  const [collectionCreateSheetOpen, setCollectionCreateSheetOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
@@ -438,11 +427,39 @@ export default function Home() {
   }, [openBook, readerPresented]);
 
   useEffect(() => {
+    const pendingPush = pendingPushAfterReaderRef.current;
+    if (pendingPush) {
+      if (navigation.state.sheets.length > 0) return;
+      if (readerPresented) {
+        navigation.dismissReader();
+        return;
+      }
+      pendingPushAfterReaderRef.current = null;
+      pendingReaderTargetRef.current = null;
+      navigation.selectTab("settings");
+      navigation.push(pendingPush);
+      return;
+    }
+
     if (readerPresented) return;
     const targetTab = pendingReaderTargetRef.current;
     pendingReaderTargetRef.current = null;
     if (targetTab) navigation.selectTab(targetTab);
   }, [navigation, readerPresented]);
+
+  function openAiSettingsFromAsk() {
+    if (!readerPresented && navigation.state.sheets.length === 0) {
+      navigation.selectTab("settings");
+      navigation.push("ai-providers");
+      return;
+    }
+    pendingPushAfterReaderRef.current = "ai-providers";
+    if (navigation.state.sheets.length > 0) {
+      navigation.dismissSheet();
+    } else {
+      navigation.dismissReader();
+    }
+  }
 
   function dismissReader(targetTab?: NavigationTab) {
     if (!readerPresented) {
@@ -556,16 +573,19 @@ export default function Home() {
     handleAppPreferencesChange({ libraryView: view });
   }
 
+  const activeSheet = navigation.state.sheets.at(-1);
+  const groupSheetBook =
+    activeSheet?.route === "book-groups" && activeSheet.entityId
+      ? books.find((book) => book.id === activeSheet.entityId) ?? null
+      : null;
+
   function enterLibraryEditing() {
     setLibraryEditing(true);
-    setBookActionSheetBook(null);
   }
 
   function exitLibraryEditing() {
     setLibraryEditing(false);
     setSelectedBookIds([]);
-    setBatchGroupSheetOpen(false);
-    setBatchDeleteConfirmOpen(false);
   }
 
   function handleBookPress(book: BookRecord, originId: string) {
@@ -589,7 +609,7 @@ export default function Home() {
   function openBatchGroupSheet() {
     if (selectedBookIds.length === 0) return;
     setNewGroupName("");
-    setBatchGroupSheetOpen(true);
+    navigation.presentSheet("batch-groups");
   }
 
   function openBookActionSheet(book: BookRecord) {
@@ -597,21 +617,7 @@ export default function Home() {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
     }
-    setBookActionSheetBook(book);
-    setDeleteConfirmOpen(false);
-  }
-
-  function closeBookActionSheet() {
-    setBookActionSheetBook(null);
-    setDeleteConfirmOpen(false);
-  }
-
-  function openGroupSheet(book: BookRecord) {
-    setGroupSheetBook(book);
-    setNewGroupName("");
-    setEditingGroupId(null);
-    setEditingGroupName("");
-    setGroupSheetOpen(true);
+    navigation.presentSheet("book-actions", { entityId: book.id });
   }
 
   async function handleCreateGroup() {
@@ -628,8 +634,6 @@ export default function Home() {
     setGroups(updatedGroups);
     const currentIds = groupSheetBook.groupIds ?? [];
     await updateBookGroupMembership(groupSheetBook.id, [...currentIds, group.id]);
-    const updatedBook = (await listBooks()).find((b) => b.id === groupSheetBook.id);
-    if (updatedBook) setGroupSheetBook(updatedBook);
     setBooks(await listBooks());
     setNewGroupName("");
   }
@@ -641,8 +645,6 @@ export default function Home() {
       ? currentIds.filter((id) => id !== groupId)
       : [...currentIds, groupId];
     await updateBookGroupMembership(groupSheetBook.id, newIds);
-    const updatedBook = (await listBooks()).find((b) => b.id === groupSheetBook.id);
-    if (updatedBook) setGroupSheetBook(updatedBook);
     setBooks(await listBooks());
   }
 
@@ -650,10 +652,6 @@ export default function Home() {
     await deleteBookGroup(groupId);
     const updatedGroups = await listBookGroups();
     setGroups(updatedGroups);
-    if (groupSheetBook) {
-      const updatedBook = (await listBooks()).find((b) => b.id === groupSheetBook.id);
-      if (updatedBook) setGroupSheetBook(updatedBook);
-    }
     setBooks(await listBooks());
     if (groupFilter === groupId) setGroupFilter(null);
   }
@@ -672,7 +670,6 @@ export default function Home() {
     try {
       const exported = await createBookFileExport(book);
       triggerBlobDownload(exported.blob, exported.fileName);
-      closeBookActionSheet();
     } catch (err) {
       setImportError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
     }
@@ -693,7 +690,6 @@ export default function Home() {
       resetAskAi();
       navigation.selectTab("library");
     }
-    closeBookActionSheet();
   }
 
   async function handleAddSelectedBooksToGroup(groupId: string) {
@@ -705,7 +701,6 @@ export default function Home() {
       await updateBookGroupMembership(book.id, nextGroupIds);
     }
     setBooks(await listBooks());
-    setBatchGroupSheetOpen(false);
     exitLibraryEditing();
   }
 
@@ -736,7 +731,6 @@ export default function Home() {
     await saveBookGroup(group);
     setGroups(await listBookGroups());
     setNewGroupName("");
-    setCollectionCreateSheetOpen(false);
   }
 
   async function handleDeleteSelectedBooks() {
@@ -816,9 +810,6 @@ export default function Home() {
   const latestBook = selectFeaturedLibraryBook(books);
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
-    : 0;
-  const actionSheetBookProgress = bookActionSheetBook
-    ? getBookProgressPercent(readingProgressMap, bookActionSheetBook.id)
     : 0;
   const showBottomTabs =
     navigation.state.pushes.length === 0 &&
@@ -1322,7 +1313,7 @@ export default function Home() {
 
   function handleOpenGoalSheet() {
     setGoalInputValue(readingGoal.targetMinutes);
-    setGoalSheetOpen(true);
+    navigation.presentSheet("reading-goal");
   }
 
   function handleSaveGoal() {
@@ -1629,9 +1620,9 @@ export default function Home() {
       onTextReaderScroll={handleReaderScroll}
       onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
       onBack={handleToolbarBack}
-      onOpenContents={() => setTocDrawerOpen(true)}
-      onOpenSettings={() => setReaderSettingsOpen(true)}
-      onAsk={() => setAskSheetOpen(true)}
+      onOpenContents={() => navigation.presentSheet("toc")}
+      onOpenSettings={() => navigation.presentSheet("reader-settings")}
+      onAsk={() => navigation.presentSheet("ask-ai")}
     />
   );
 
@@ -1697,7 +1688,7 @@ export default function Home() {
                   onDeleteGroup: (id) => void handleDeleteGroup(id),
                   onOpenCreateCollection: () => {
                     setNewGroupName("");
-                    setCollectionCreateSheetOpen(true);
+                    navigation.presentSheet("collection-create");
                   },
                 },
                 ai: {
@@ -1814,7 +1805,9 @@ export default function Home() {
           onOpenAiProviders={() => navigation.push("ai-providers")}
           onExportBackup={handleExportBackup}
           onImportBackup={handleImportBackup}
-          onOpenReaderSettings={() => setReaderSettingsOpen(true)}
+          onOpenReaderSettings={() =>
+            navigation.presentSheet("reader-settings")
+          }
           onOpenGoal={handleOpenGoalSheet}
         />
         </NavigationRoot>
@@ -1839,16 +1832,13 @@ export default function Home() {
         onOpenSettings={switchToSettings}
         onToggleSelectAll={handleSelectAllVisible}
         onOpenBatchGroup={openBatchGroupSheet}
-        onOpenBatchDelete={() => setBatchDeleteConfirmOpen(true)}
+        onOpenBatchDelete={() => navigation.presentSheet("batch-delete")}
       />
 
       <AppOverlays
         reader={{
-          settingsOpen: readerSettingsOpen,
           preferences: readerPrefs,
-          tocOpen: tocDrawerOpen,
           tocItems,
-          askOpen: askSheetOpen,
           selectedText,
           question,
           messages: askMessages,
@@ -1858,64 +1848,41 @@ export default function Home() {
           bookTitle: openBook?.title ?? null,
           mode: readerMode,
           pageInfo: readerPageInfo,
-          goalOpen: goalSheetOpen,
           todayMinutes: formatReadingMinutes(todaySeconds),
           targetMinutes: readingGoal.targetMinutes,
           goalInputValue,
         }}
         library={{
+          books,
+          booksLoading: loading,
+          progressMap: readingProgressMap,
           groups,
           selectedCountLabel,
           newGroupName,
-          batchGroupOpen: batchGroupSheetOpen,
-          batchDeleteOpen: batchDeleteConfirmOpen,
-          createCollectionOpen: collectionCreateSheetOpen,
-        }}
-        bookAction={{
-          book: bookActionSheetBook,
-          progress: actionSheetBookProgress,
-          deleteConfirmOpen,
         }}
         group={{
-          open: groupSheetOpen,
-          book: groupSheetBook,
-          groups,
           editingGroupId,
           editingGroupName,
           newGroupName,
         }}
         actions={{
-          closeReaderSettings: () => setReaderSettingsOpen(false),
           changeReaderPreferences: handleReaderPrefsChange,
           changeReaderMode: handleReaderModeChange,
-          closeToc: () => setTocDrawerOpen(false),
           selectTocItem: handleTocSelect,
-          closeAsk: () => setAskSheetOpen(false),
           setQuestion,
           ask: () => void handleAsk(),
           clearSelection: handleClearSelection,
-          openAiSettingsFromAsk: () => {
-            switchToSettings();
-            navigation.push("ai-providers");
-          },
-          closeGoal: () => setGoalSheetOpen(false),
+          openAiSettingsFromAsk,
           setGoalInputValue,
           saveGoal: handleSaveGoal,
-          closeBatchGroup: () => setBatchGroupSheetOpen(false),
           addSelectedBooksToGroup: (groupId) =>
             void handleAddSelectedBooksToGroup(groupId),
           createBatchGroup: () => void handleCreateBatchGroup(),
-          closeBatchDelete: () => setBatchDeleteConfirmOpen(false),
           deleteSelectedBooks: () => void handleDeleteSelectedBooks(),
-          closeCreateCollection: () => setCollectionCreateSheetOpen(false),
           createCollection: () => void handleCreateCollectionGroup(),
-          closeBookActions: closeBookActionSheet,
           openBook: (book) => void openBookForReading(book),
-          openGroupSheet,
           exportBook: (book) => void handleExportBook(book),
-          setDeleteConfirmOpen,
           deleteBook: (book) => void handleDeleteBook(book),
-          closeGroupSheet: () => setGroupSheetOpen(false),
           toggleBookGroup: (groupId) => void handleToggleGroup(groupId),
           setEditingGroup: (groupId, name) => {
             setEditingGroupId(groupId);

@@ -53,7 +53,7 @@ describe("reading goal fullscreen overlay", () => {
 describe("reading goal orchestration", () => {
   const goalMount =
     overlaysSource.match(
-      /\{reader\.goalOpen && \([\s\S]*?<ReadingGoalSheet[\s\S]*?\/>[\s\S]*?\)\}/
+      /case "reading-goal":[\s\S]*?<ReadingGoalSheet[\s\S]*?\/>/
     )?.[0] ?? "";
 
   it("keeps the goal overlay mounted through AppOverlays", () => {
@@ -64,7 +64,7 @@ describe("reading goal orchestration", () => {
       "onGoalInputChange={actions.setGoalInputValue}"
     );
     expect(goalMount).toContain("onSaveGoal={actions.saveGoal}");
-    expect(goalMount).toContain("onClose={actions.closeGoal}");
+    expect(goalMount).toContain("onClose={navigation.dismissSheet}");
   });
 
   it("does not pass obsolete goal-only props", () => {
@@ -74,7 +74,7 @@ describe("reading goal orchestration", () => {
 
   it("keeps persistence in page orchestration", () => {
     expect(pageSource).toMatch(
-      /function handleOpenGoalSheet\(\)[\s\S]*setGoalInputValue\(readingGoal\.targetMinutes\);[\s\S]*setGoalSheetOpen\(true\);/
+      /function handleOpenGoalSheet\(\)[\s\S]*setGoalInputValue\(readingGoal\.targetMinutes\);[\s\S]*navigation\.presentSheet\("reading-goal"\);/
     );
     expect(pageSource).toMatch(
       /function handleSaveGoal\(\)[\s\S]*saveReadingGoalToStorage\(sanitized\);[\s\S]*setReadingGoal\(saved\);/

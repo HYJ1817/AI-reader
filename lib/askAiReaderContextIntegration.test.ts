@@ -56,6 +56,13 @@ describe("Ask AI reader context integration", () => {
     expect(cssSource).toContain("flex-shrink: 0");
   });
 
+  it("opens Ask AI through the navigation sheet route", () => {
+    expect(pageSource).toContain('navigation.presentSheet("ask-ai")');
+    expect(overlaysSource).toContain('case "ask-ai"');
+    expect(overlaysSource).toContain("onClose={navigation.dismissSheet}");
+    expect(pageSource).not.toContain("setAskSheetOpen");
+  });
+
   it("clears submitted input and sends prior messages plus current reader text", () => {
     expect(pageSource).toContain("useAskAi({");
     expect(askHookSource).toContain("setQuestion(\"\")");

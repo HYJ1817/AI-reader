@@ -95,12 +95,16 @@ export function reduceAppNavigation(
 ): AppNavigationState {
   switch (action.type) {
     case "select-tab":
-      if (state.activeTab === action.tab && state.pushes.length === 0) {
+      if (
+        state.activeTab === action.tab &&
+        state.pushes.length === 0 &&
+        state.sheets.length === 0
+      ) {
         return state;
       }
       return next(
         state,
-        { activeTab: action.tab, pushes: [] },
+        { activeTab: action.tab, pushes: [], sheets: [] },
         "replace"
       );
     case "push":

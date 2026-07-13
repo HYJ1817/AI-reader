@@ -32,7 +32,7 @@ describe("library book progress presentation", () => {
 });
 
 describe("book delete confirmation", () => {
-  it("keeps single-book deletion in a separate confirmation dialog", () => {
+  it("keeps single-book deletion in a separate navigation sheet route", () => {
     const sheetStart = overlaysSource.indexOf(
       "className={styles.bookActionSheet}"
     );
@@ -43,11 +43,8 @@ describe("book delete confirmation", () => {
     expect(sheetEnd).toBeGreaterThan(sheetStart);
     expect(bookActionSheet).not.toContain("deleteConfirmBox");
     expect(bookActionSheet).not.toContain("bookAction.deleteConfirmOpen ?");
-    expect(overlaysSource).toContain(
-      "{actionBook && bookAction.deleteConfirmOpen && ("
-    );
-    expect(overlaysSource).toContain("styles.bookDeleteDialogOverlay");
-    expect(overlaysSource).toContain('role="dialog"');
-    expect(overlaysSource).toContain("aria-modal=\"true\"");
+    expect(overlaysSource).toContain('case "book-delete"');
+    expect(overlaysSource).toContain("<BookDeleteSheet");
+    expect(overlaysSource).not.toContain("bookAction.deleteConfirmOpen");
   });
 });

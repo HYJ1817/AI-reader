@@ -1,18 +1,22 @@
 "use client";
 
-import BookCover from "@/app/BookCover";
-import BottomSheet from "@/app/BottomSheet";
-import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
-import TocDrawer from "@/app/TocDrawer";
+import { useEffect } from "react";
 import AskAiPanel, { type AiConversationMessage } from "@/app/AskAiPanel";
+import BookCover from "@/app/BookCover";
+import BottomSheet, { type CloseSheet } from "@/app/BottomSheet";
+import ReaderCustomSettingsPanel from "@/app/ReaderCustomSettingsPanel";
+import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
+import TocDrawer from "@/app/TocDrawer";
+import { useNavigation } from "@/app/NavigationProvider";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
-import { formatLibraryProgressLabel } from "@/lib/libraryProgress";
 import {
-  formatBookDate,
-  formatBookSize,
-} from "@/lib/libraryPresentation";
+  formatLibraryProgressLabel,
+  getBookProgressPercent,
+  type ReadingProgressMap,
+} from "@/lib/libraryProgress";
+import { formatBookDate, formatBookSize } from "@/lib/libraryPresentation";
 import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
@@ -21,11 +25,8 @@ import styles from "./page.module.css";
 
 export type AppOverlaysProps = {
   reader: {
-    settingsOpen: boolean;
     preferences: ReaderPreferences;
-    tocOpen: boolean;
     tocItems: EpubTocItem[];
-    askOpen: boolean;
     selectedText: string | null;
     question: string;
     messages: AiConversationMessage[];
@@ -35,60 +36,40 @@ export type AppOverlaysProps = {
     bookTitle: string | null;
     mode: ReaderMode;
     pageInfo: ReaderPageInfo;
-    goalOpen: boolean;
     todayMinutes: number;
     targetMinutes: number;
     goalInputValue: number;
   };
   library: {
+    books: BookRecord[];
+    booksLoading: boolean;
+    progressMap: ReadingProgressMap;
     groups: BookGroup[];
     selectedCountLabel: string;
     newGroupName: string;
-    batchGroupOpen: boolean;
-    batchDeleteOpen: boolean;
-    createCollectionOpen: boolean;
-  };
-  bookAction: {
-    book: BookRecord | null;
-    progress: number;
-    deleteConfirmOpen: boolean;
   };
   group: {
-    open: boolean;
-    book: BookRecord | null;
-    groups: BookGroup[];
     editingGroupId: string | null;
     editingGroupName: string;
     newGroupName: string;
   };
   actions: {
-    closeReaderSettings: () => void;
     changeReaderPreferences: (preferences: ReaderPreferences) => void;
     changeReaderMode: (mode: ReaderMode) => void;
-    closeToc: () => void;
     selectTocItem: (href: string) => void;
-    closeAsk: () => void;
     setQuestion: (question: string) => void;
     ask: () => void;
     clearSelection: () => void;
     openAiSettingsFromAsk: () => void;
-    closeGoal: () => void;
     setGoalInputValue: (value: number) => void;
     saveGoal: () => void;
-    closeBatchGroup: () => void;
     addSelectedBooksToGroup: (groupId: string) => void;
     createBatchGroup: () => void;
-    closeBatchDelete: () => void;
     deleteSelectedBooks: () => void;
-    closeCreateCollection: () => void;
     createCollection: () => void;
-    closeBookActions: () => void;
     openBook: (book: BookRecord) => void;
-    openGroupSheet: (book: BookRecord) => void;
     exportBook: (book: BookRecord) => void;
-    setDeleteConfirmOpen: (open: boolean) => void;
     deleteBook: (book: BookRecord) => void;
-    closeGroupSheet: () => void;
     toggleBookGroup: (groupId: string) => void;
     setEditingGroup: (groupId: string | null, name: string) => void;
     setEditingGroupName: (name: string) => void;
@@ -99,505 +80,592 @@ export type AppOverlaysProps = {
   };
 };
 
+const BOOK_ROUTES = new Set([
+  "book-actions",
+  "book-delete",
+  "book-groups",
+]);
+
 export default function AppOverlays({
   reader,
   library,
-  bookAction,
   group,
   actions,
 }: AppOverlaysProps) {
-  const actionBook = bookAction.book;
-  const groupBook = group.book;
+  const navigation = useNavigation();
+  const sheet = navigation.state.sheets.at(-1);
+  const sheetBook = sheet?.entityId
+    ? library.books.find((book) => book.id === sheet.entityId) ?? null
+    : null;
 
-  return (
-    <>
-      {reader.settingsOpen && (
+  useEffect(() => {
+    if (
+      sheet &&
+      BOOK_ROUTES.has(sheet.route) &&
+      !library.booksLoading &&
+      !sheetBook
+    ) {
+      navigation.removeInvalid(sheet.key);
+    }
+  }, [
+    library.booksLoading,
+    navigation,
+    navigation.removeInvalid,
+    sheet,
+    sheetBook,
+  ]);
+
+  if (!sheet) return null;
+
+  switch (sheet.route) {
+    case "reader-settings":
+      return (
         <ReaderSettingsPanel
           preferences={reader.preferences}
           mode={reader.mode}
           onChange={actions.changeReaderPreferences}
           onModeChange={actions.changeReaderMode}
-          onClose={actions.closeReaderSettings}
+          onOpenCustomSettings={() =>
+            navigation.presentSheet("reader-custom-settings")
+          }
+          onClose={navigation.dismissSheet}
         />
-      )}
-
-      {reader.tocOpen && (
+      );
+    case "reader-custom-settings":
+      return (
+        <ReaderCustomSettingsPanel
+          preferences={reader.preferences}
+          onChange={actions.changeReaderPreferences}
+          onClose={navigation.dismissSheet}
+        />
+      );
+    case "toc":
+      return (
         <TocDrawer
           items={reader.tocItems}
           bookTitle={reader.bookTitle}
           pageInfo={reader.pageInfo}
           onSelect={actions.selectTocItem}
-          onClose={actions.closeToc}
+          onClose={navigation.dismissSheet}
         />
-      )}
-
-      {reader.askOpen && (
-        <BottomSheet
-          onClose={actions.closeAsk}
-          ariaLabel={UI_TEXT.ASK_AI}
-          className={styles.askBottomSheet}
-        >
-          {(close) => (
-            <>
-              <SheetHeader title={UI_TEXT.ASK_AI} close={close} />
-              <div className={styles.sheetBody}>
-                <div className={styles.askSheetInner}>
-                  <AskAiPanel
-                    selectedText={reader.selectedText}
-                    question={reader.question}
-                    onQuestionChange={actions.setQuestion}
-                    messages={reader.messages}
-                    loading={reader.askLoading}
-                    error={reader.askError}
-                    onAsk={actions.ask}
-                    onClearSelection={actions.clearSelection}
-                    aiSettingsUsable={reader.aiUsable}
-                    onOpenSettings={() =>
-                      close(actions.openAiSettingsFromAsk)
-                    }
-                  />
-                </div>
-              </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {reader.goalOpen && (
+      );
+    case "ask-ai":
+      return (
+        <AskAiSheet
+          reader={reader}
+          actions={actions}
+          onClose={navigation.dismissSheet}
+        />
+      );
+    case "reading-goal":
+      return (
         <ReadingGoalSheet
           todayMinutes={reader.todayMinutes}
           targetMinutes={reader.targetMinutes}
           goalInputValue={reader.goalInputValue}
           onGoalInputChange={actions.setGoalInputValue}
           onSaveGoal={actions.saveGoal}
-          onClose={actions.closeGoal}
+          onClose={navigation.dismissSheet}
         />
-      )}
+      );
+    case "book-actions":
+      return sheetBook ? (
+        <BookActionSheet
+          book={sheetBook}
+          progress={getBookProgressPercent(library.progressMap, sheetBook.id)}
+          actions={actions}
+          onOpenGroups={() =>
+            navigation.presentSheet("book-groups", {
+              entityId: sheetBook.id,
+            })
+          }
+          onOpenDelete={() =>
+            navigation.presentSheet("book-delete", {
+              entityId: sheetBook.id,
+            })
+          }
+          onClose={navigation.dismissSheet}
+        />
+      ) : null;
+    case "book-delete":
+      return sheetBook ? (
+        <BookDeleteSheet
+          book={sheetBook}
+          onDelete={actions.deleteBook}
+          onClose={navigation.dismissSheet}
+        />
+      ) : null;
+    case "book-groups":
+      return sheetBook ? (
+        <BookGroupSheet
+          book={sheetBook}
+          groups={library.groups}
+          group={group}
+          actions={actions}
+          onClose={navigation.dismissSheet}
+        />
+      ) : null;
+    case "batch-groups":
+      return (
+        <BatchGroupSheet
+          library={library}
+          actions={actions}
+          onClose={navigation.dismissSheet}
+        />
+      );
+    case "batch-delete":
+      return (
+        <BatchDeleteSheet
+          selectedCountLabel={library.selectedCountLabel}
+          onDelete={actions.deleteSelectedBooks}
+          onClose={navigation.dismissSheet}
+        />
+      );
+    case "collection-create":
+      return (
+        <CollectionCreateSheet
+          newGroupName={library.newGroupName}
+          onNameChange={actions.setNewGroupName}
+          onCreate={actions.createCollection}
+          onClose={navigation.dismissSheet}
+        />
+      );
+  }
+}
 
-      {library.batchGroupOpen && (
-        <BottomSheet
-          onClose={actions.closeBatchGroup}
-          ariaLabel={UI_TEXT.ADD_SELECTED_TO_GROUP}
-        >
-          {(close) => (
-            <>
-              <SheetHeader title={UI_TEXT.ADD_SELECTED_TO_GROUP} close={close} />
-              <div className={styles.sheetBody}>
-                <div className={styles.groupSheetBookTitle}>
-                  {library.selectedCountLabel}
-                </div>
-
-                {library.groups.length === 0 ? (
-                  <div className={styles.groupEmpty}>
-                    <p className={styles.emptyText}>{UI_TEXT.NO_GROUPS_YET}</p>
-                    <p className={styles.groupEmptyHint}>
-                      {UI_TEXT.CREATE_FIRST_GROUP_HINT}
-                    </p>
-                  </div>
-                ) : (
-                  <div className={styles.actionListGroup}>
-                    {library.groups.map((item) => (
-                      <button
-                        key={item.id}
-                        className={styles.actionListRow}
-                        onClick={() =>
-                          close(() => actions.addSelectedBooksToGroup(item.id))
-                        }
-                      >
-                        <span className={styles.actionIcon}>
-                          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                            <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                        <span>{item.name}</span>
-                        <small>{UI_TEXT.ADD_TO_THIS_GROUP}</small>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                <div className={styles.groupCreateRow}>
-                  <input
-                    type="text"
-                    className={styles.groupCreateInput}
-                    value={library.newGroupName}
-                    onChange={(event) =>
-                      actions.setNewGroupName(event.target.value)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        close(actions.createBatchGroup);
-                      }
-                    }}
-                    placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-                  />
-                  <button
-                    className={styles.groupCreateButton}
-                    onClick={() => close(actions.createBatchGroup)}
-                    disabled={!library.newGroupName.trim()}
-                  >
-                    {UI_TEXT.NEW_GROUP}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {library.batchDeleteOpen && (
-        <BottomSheet
-          onClose={actions.closeBatchDelete}
-          ariaLabel={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}
-        >
-          {(close) => (
-            <>
-              <SheetHeader
-                title={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}
-                close={close}
+function AskAiSheet({
+  reader,
+  actions,
+  onClose,
+}: {
+  reader: AppOverlaysProps["reader"];
+  actions: AppOverlaysProps["actions"];
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet
+      onClose={onClose}
+      ariaLabel={UI_TEXT.ASK_AI}
+      className={styles.askBottomSheet}
+    >
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.ASK_AI} close={close} />
+          <div className={styles.sheetBody}>
+            <div className={styles.askSheetInner}>
+              <AskAiPanel
+                selectedText={reader.selectedText}
+                question={reader.question}
+                onQuestionChange={actions.setQuestion}
+                messages={reader.messages}
+                loading={reader.askLoading}
+                error={reader.askError}
+                onAsk={actions.ask}
+                onClearSelection={actions.clearSelection}
+                aiSettingsUsable={reader.aiUsable}
+                onOpenSettings={actions.openAiSettingsFromAsk}
               />
-              <div className={styles.sheetBody}>
-                <div className={styles.deleteConfirmBox}>
-                  <strong>{library.selectedCountLabel}</strong>
-                  <p>{UI_TEXT.BATCH_DELETE_CONFIRM_HINT}</p>
-                  <div>
-                    <button
-                      className={styles.secondaryButton}
-                      onClick={() => close()}
-                    >
-                      {UI_TEXT.CANCEL}
-                    </button>
-                    <button
-                      className={styles.dangerButton}
-                      onClick={() => close(actions.deleteSelectedBooks)}
-                    >
-                      {UI_TEXT.BATCH_DELETE}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {library.createCollectionOpen && (
-        <BottomSheet
-          onClose={actions.closeCreateCollection}
-          ariaLabel="新建藏书"
-        >
-          {(close) => (
-            <>
-              <SheetHeader title="新建藏书" close={close} />
-              <div className={styles.sheetBody}>
-                <div className={styles.groupCreateRow}>
-                  <input
-                    type="text"
-                    className={styles.groupCreateInput}
-                    value={library.newGroupName}
-                    onChange={(event) =>
-                      actions.setNewGroupName(event.target.value)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        close(actions.createCollection);
-                      }
-                    }}
-                    placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-                    autoFocus
-                  />
-                  <button
-                    className={styles.groupCreateButton}
-                    onClick={() => close(actions.createCollection)}
-                    disabled={!library.newGroupName.trim()}
-                  >
-                    {UI_TEXT.NEW_GROUP}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {actionBook && (
-        <BottomSheet
-          onClose={actions.closeBookActions}
-          ariaLabel={UI_TEXT.BOOK_ACTIONS}
-          className={styles.bookActionSheet}
-        >
-          {(close) => (
-            <>
-              <SheetHeader title={UI_TEXT.BOOK_ACTIONS} close={close} />
-              <div className={styles.sheetBody}>
-                <div className={styles.bookActionHero}>
-                  <BookCover
-                    title={actionBook.title}
-                    format={actionBook.format}
-                    coverImageBlob={actionBook.coverImageBlob}
-                  />
-                  <div className={styles.bookActionHeroText}>
-                    <strong>{actionBook.title}</strong>
-                    <span>
-                      {actionBook.format.toUpperCase()} ·{" "}
-                      {formatBookSize(actionBook.size)}
-                    </span>
-                    <span>
-                      {formatLibraryProgressLabel(bookAction.progress)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className={styles.actionListGroup}>
-                  <ActionRow
-                    label={UI_TEXT.OPEN_BOOK}
-                    icon="book"
-                    onClick={() => {
-                      const book = actionBook;
-                      close(() => actions.openBook(book));
-                    }}
-                  />
-                  <ActionRow
-                    label={UI_TEXT.MANAGE_GROUPS}
-                    icon="list"
-                    onClick={() => {
-                      const book = actionBook;
-                      close(() => actions.openGroupSheet(book));
-                    }}
-                  />
-                  <ActionRow
-                    label={UI_TEXT.EXPORT_BOOK}
-                    icon="export"
-                    onClick={() => {
-                      const book = actionBook;
-                      close(() => actions.exportBook(book));
-                    }}
-                  />
-                </div>
-
-                <div className={styles.bookDetailGroup}>
-                  <h3>{UI_TEXT.BOOK_DETAILS}</h3>
-                  <DetailRow
-                    label={UI_TEXT.FORMAT}
-                    value={actionBook.format.toUpperCase()}
-                  />
-                  <DetailRow
-                    label={UI_TEXT.FILE_SIZE}
-                    value={formatBookSize(actionBook.size)}
-                  />
-                  <DetailRow
-                    label={UI_TEXT.ADDED_AT}
-                    value={formatBookDate(actionBook.createdAt)}
-                  />
-                  <DetailRow
-                    label={UI_TEXT.LAST_OPENED_AT}
-                    value={formatBookDate(actionBook.lastOpenedAt)}
-                  />
-                </div>
-
-                <div className={styles.actionListGroup}>
-                  <button
-                    className={`${styles.actionListRow} ${styles.actionListDanger}`}
-                    onClick={() => actions.setDeleteConfirmOpen(true)}
-                  >
-                    <span className={styles.actionIcon}>
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
-                        <path d="M5 6h10M8 6V4h4v2m-6 0 .7 10h6.6L14 6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </span>
-                    <span>{UI_TEXT.DELETE_BOOK}</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-
-      {actionBook && bookAction.deleteConfirmOpen && (
-        <div
-          className={styles.bookDeleteDialogOverlay}
-          onClick={() => actions.setDeleteConfirmOpen(false)}
-        >
-          <div
-            className={styles.bookDeleteDialog}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="book-delete-confirm-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <strong id="book-delete-confirm-title">
-              {UI_TEXT.DELETE_BOOK_CONFIRM_TITLE}
-            </strong>
-            <p>{UI_TEXT.DELETE_BOOK_CONFIRM_HINT}</p>
-            <div className={styles.bookDeleteDialogActions}>
-              <button
-                className={styles.secondaryButton}
-                onClick={() => actions.setDeleteConfirmOpen(false)}
-              >
-                {UI_TEXT.CANCEL}
-              </button>
-              <button
-                className={styles.dangerButton}
-                onClick={() => actions.deleteBook(actionBook)}
-              >
-                {UI_TEXT.DELETE_BOOK}
-              </button>
             </div>
           </div>
-        </div>
+        </>
       )}
-
-      {group.open && groupBook && (
-        <BottomSheet
-          onClose={actions.closeGroupSheet}
-          ariaLabel={UI_TEXT.MANAGE_GROUPS}
-        >
-          {(close) => (
-            <>
-              <SheetHeader title={UI_TEXT.MANAGE_GROUPS} close={close} />
-              <div className={styles.sheetBody}>
-                <div className={styles.groupSheetBookTitle}>
-                  {groupBook.title}
-                </div>
-
-                {group.groups.length === 0 ? (
-                  <div className={styles.groupEmpty}>
-                    <p className={styles.emptyText}>{UI_TEXT.NO_GROUPS_YET}</p>
-                    <p className={styles.groupEmptyHint}>
-                      {UI_TEXT.CREATE_FIRST_GROUP_HINT}
-                    </p>
-                  </div>
-                ) : (
-                  <ul className={styles.groupList}>
-                    {group.groups.map((item) => {
-                      const isChecked =
-                        groupBook.groupIds?.includes(item.id) ?? false;
-                      const isEditing = group.editingGroupId === item.id;
-                      return (
-                        <li key={item.id} className={styles.groupListItem}>
-                          {isEditing ? (
-                            <div className={styles.groupEditRow}>
-                              <input
-                                type="text"
-                                className={styles.groupEditInput}
-                                value={group.editingGroupName}
-                                onChange={(event) =>
-                                  actions.setEditingGroupName(event.target.value)
-                                }
-                                onKeyDown={(event) => {
-                                  if (event.key === "Enter") {
-                                    actions.renameGroup(item.id);
-                                  }
-                                }}
-                                autoFocus
-                              />
-                              <button
-                                className={styles.groupEditSave}
-                                onClick={() => actions.renameGroup(item.id)}
-                              >
-                                {UI_TEXT.SAVE}
-                              </button>
-                              <button
-                                className={styles.groupEditCancel}
-                                onClick={() => actions.setEditingGroup(null, "")}
-                              >
-                                {UI_TEXT.CANCEL}
-                              </button>
-                            </div>
-                          ) : (
-                            <div className={styles.groupItemRow}>
-                              <label className={styles.groupCheckLabel}>
-                                <input
-                                  type="checkbox"
-                                  className={styles.groupCheckbox}
-                                  checked={isChecked}
-                                  onChange={() =>
-                                    actions.toggleBookGroup(item.id)
-                                  }
-                                />
-                                <span className={styles.groupName}>
-                                  {item.name}
-                                </span>
-                              </label>
-                              <div className={styles.groupItemActions}>
-                                <button
-                                  className={styles.groupAction}
-                                  onClick={() =>
-                                    actions.setEditingGroup(item.id, item.name)
-                                  }
-                                  title={UI_TEXT.RENAME}
-                                  aria-label={UI_TEXT.RENAME}
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5-3.5 1 1-3.5 8.172-8.828z" strokeLinecap="round" strokeLinejoin="round" />
-                                  </svg>
-                                </button>
-                                <button
-                                  className={styles.groupActionDelete}
-                                  onClick={() => actions.deleteGroup(item.id)}
-                                  title={UI_TEXT.DELETE_GROUP}
-                                  aria-label={UI_TEXT.DELETE_GROUP}
-                                >
-                                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-                                    <path d="M6 6l8 8M14 6l-8 8" strokeLinecap="round" />
-                                  </svg>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                <div className={styles.groupCreateRow}>
-                  <input
-                    type="text"
-                    className={styles.groupCreateInput}
-                    value={group.newGroupName}
-                    onChange={(event) =>
-                      actions.setNewGroupName(event.target.value)
-                    }
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") actions.createGroup();
-                    }}
-                    placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-                  />
-                  <button
-                    className={styles.groupCreateButton}
-                    onClick={actions.createGroup}
-                    disabled={!group.newGroupName.trim()}
-                  >
-                    {UI_TEXT.NEW_GROUP}
-                  </button>
-                </div>
-
-                <div className={styles.groupSheetActions}>
-                  <button
-                    className={styles.primaryButton}
-                    onClick={() => close()}
-                  >
-                    {UI_TEXT.DONE}
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </BottomSheet>
-      )}
-    </>
+    </BottomSheet>
   );
 }
 
-function SheetHeader({
-  title,
-  close,
+function BatchGroupSheet({
+  library,
+  actions,
+  onClose,
 }: {
-  title: string;
-  close: (afterClose?: () => void) => void;
+  library: AppOverlaysProps["library"];
+  actions: AppOverlaysProps["actions"];
+  onClose: () => void;
 }) {
+  return (
+    <BottomSheet onClose={onClose} ariaLabel={UI_TEXT.ADD_SELECTED_TO_GROUP}>
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.ADD_SELECTED_TO_GROUP} close={close} />
+          <div className={styles.sheetBody}>
+            <div className={styles.groupSheetBookTitle}>
+              {library.selectedCountLabel}
+            </div>
+            {library.groups.length === 0 ? (
+              <GroupEmpty />
+            ) : (
+              <div className={styles.actionListGroup}>
+                {library.groups.map((item) => (
+                  <button
+                    key={item.id}
+                    className={styles.actionListRow}
+                    onClick={() =>
+                      close(() => actions.addSelectedBooksToGroup(item.id))
+                    }
+                  >
+                    <span className={styles.actionIcon}>
+                      <ListIcon />
+                    </span>
+                    <span>{item.name}</span>
+                    <small>{UI_TEXT.ADD_TO_THIS_GROUP}</small>
+                  </button>
+                ))}
+              </div>
+            )}
+            <GroupCreateRow
+              value={library.newGroupName}
+              onChange={actions.setNewGroupName}
+              onCreate={() => close(actions.createBatchGroup)}
+            />
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function BatchDeleteSheet({
+  selectedCountLabel,
+  onDelete,
+  onClose,
+}: {
+  selectedCountLabel: string;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} ariaLabel={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}>
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE} close={close} />
+          <div className={styles.sheetBody}>
+            <div className={styles.deleteConfirmBox}>
+              <strong>{selectedCountLabel}</strong>
+              <p>{UI_TEXT.BATCH_DELETE_CONFIRM_HINT}</p>
+              <div>
+                <button className={styles.secondaryButton} onClick={() => close()}>
+                  {UI_TEXT.CANCEL}
+                </button>
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => close(onDelete)}
+                >
+                  {UI_TEXT.BATCH_DELETE}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function CollectionCreateSheet({
+  newGroupName,
+  onNameChange,
+  onCreate,
+  onClose,
+}: {
+  newGroupName: string;
+  onNameChange: (name: string) => void;
+  onCreate: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} ariaLabel="新建藏书">
+      {(close) => (
+        <>
+          <SheetHeader title="新建藏书" close={close} />
+          <div className={styles.sheetBody}>
+            <GroupCreateRow
+              value={newGroupName}
+              onChange={onNameChange}
+              onCreate={() => close(onCreate)}
+              autoFocus
+            />
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function BookActionSheet({
+  book,
+  progress,
+  actions,
+  onOpenGroups,
+  onOpenDelete,
+  onClose,
+}: {
+  book: BookRecord;
+  progress: number;
+  actions: AppOverlaysProps["actions"];
+  onOpenGroups: () => void;
+  onOpenDelete: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet
+      onClose={onClose}
+      ariaLabel={UI_TEXT.BOOK_ACTIONS}
+      className={styles.bookActionSheet}
+    >
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.BOOK_ACTIONS} close={close} />
+          <div className={styles.sheetBody}>
+            <div className={styles.bookActionHero}>
+              <BookCover
+                title={book.title}
+                format={book.format}
+                coverImageBlob={book.coverImageBlob}
+              />
+              <div className={styles.bookActionHeroText}>
+                <strong>{book.title}</strong>
+                <span>
+                  {book.format.toUpperCase()} · {formatBookSize(book.size)}
+                </span>
+                <span>{formatLibraryProgressLabel(progress)}</span>
+              </div>
+            </div>
+            <div className={styles.actionListGroup}>
+              <ActionRow
+                label={UI_TEXT.OPEN_BOOK}
+                icon="book"
+                onClick={() => actions.openBook(book)}
+              />
+              <ActionRow
+                label={UI_TEXT.MANAGE_GROUPS}
+                icon="list"
+                onClick={onOpenGroups}
+              />
+              <ActionRow
+                label={UI_TEXT.EXPORT_BOOK}
+                icon="export"
+                onClick={() => close(() => actions.exportBook(book))}
+              />
+            </div>
+            <div className={styles.bookDetailGroup}>
+              <h3>{UI_TEXT.BOOK_DETAILS}</h3>
+              <DetailRow label={UI_TEXT.FORMAT} value={book.format.toUpperCase()} />
+              <DetailRow label={UI_TEXT.FILE_SIZE} value={formatBookSize(book.size)} />
+              <DetailRow label={UI_TEXT.ADDED_AT} value={formatBookDate(book.createdAt)} />
+              <DetailRow
+                label={UI_TEXT.LAST_OPENED_AT}
+                value={formatBookDate(book.lastOpenedAt)}
+              />
+            </div>
+            <div className={styles.actionListGroup}>
+              <button
+                className={`${styles.actionListRow} ${styles.actionListDanger}`}
+                onClick={onOpenDelete}
+              >
+                <span className={styles.actionIcon}>
+                  <DeleteIcon />
+                </span>
+                <span>{UI_TEXT.DELETE_BOOK}</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function BookDeleteSheet({
+  book,
+  onDelete,
+  onClose,
+}: {
+  book: BookRecord;
+  onDelete: (book: BookRecord) => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} ariaLabel={UI_TEXT.DELETE_BOOK_CONFIRM_TITLE}>
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.DELETE_BOOK_CONFIRM_TITLE} close={close} />
+          <div className={styles.sheetBody}>
+            <div className={styles.deleteConfirmBox}>
+              <strong>{book.title}</strong>
+              <p>{UI_TEXT.DELETE_BOOK_CONFIRM_HINT}</p>
+              <div>
+                <button className={styles.secondaryButton} onClick={() => close()}>
+                  {UI_TEXT.CANCEL}
+                </button>
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => close(() => onDelete(book))}
+                >
+                  {UI_TEXT.DELETE_BOOK}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function BookGroupSheet({
+  book,
+  groups,
+  group,
+  actions,
+  onClose,
+}: {
+  book: BookRecord;
+  groups: BookGroup[];
+  group: AppOverlaysProps["group"];
+  actions: AppOverlaysProps["actions"];
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet onClose={onClose} ariaLabel={UI_TEXT.MANAGE_GROUPS}>
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.MANAGE_GROUPS} close={close} />
+          <div className={styles.sheetBody}>
+            <div className={styles.groupSheetBookTitle}>{book.title}</div>
+            {groups.length === 0 ? (
+              <GroupEmpty />
+            ) : (
+              <ul className={styles.groupList}>
+                {groups.map((item) => {
+                  const isChecked = book.groupIds?.includes(item.id) ?? false;
+                  const isEditing = group.editingGroupId === item.id;
+                  return (
+                    <li key={item.id} className={styles.groupListItem}>
+                      {isEditing ? (
+                        <div className={styles.groupEditRow}>
+                          <input
+                            type="text"
+                            className={styles.groupEditInput}
+                            value={group.editingGroupName}
+                            onChange={(event) =>
+                              actions.setEditingGroupName(event.target.value)
+                            }
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") actions.renameGroup(item.id);
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            className={styles.groupEditSave}
+                            onClick={() => actions.renameGroup(item.id)}
+                          >
+                            {UI_TEXT.SAVE}
+                          </button>
+                          <button
+                            className={styles.groupEditCancel}
+                            onClick={() => actions.setEditingGroup(null, "")}
+                          >
+                            {UI_TEXT.CANCEL}
+                          </button>
+                        </div>
+                      ) : (
+                        <div className={styles.groupItemRow}>
+                          <label className={styles.groupCheckLabel}>
+                            <input
+                              type="checkbox"
+                              className={styles.groupCheckbox}
+                              checked={isChecked}
+                              onChange={() => actions.toggleBookGroup(item.id)}
+                            />
+                            <span className={styles.groupName}>{item.name}</span>
+                          </label>
+                          <div className={styles.groupItemActions}>
+                            <button
+                              className={styles.groupAction}
+                              onClick={() => actions.setEditingGroup(item.id, item.name)}
+                              title={UI_TEXT.RENAME}
+                              aria-label={UI_TEXT.RENAME}
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              className={styles.groupActionDelete}
+                              onClick={() => actions.deleteGroup(item.id)}
+                              title={UI_TEXT.DELETE_GROUP}
+                              aria-label={UI_TEXT.DELETE_GROUP}
+                            >
+                              <CloseIcon />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <GroupCreateRow
+              value={group.newGroupName}
+              onChange={actions.setNewGroupName}
+              onCreate={actions.createGroup}
+            />
+            <div className={styles.groupSheetActions}>
+              <button className={styles.primaryButton} onClick={() => close()}>
+                {UI_TEXT.DONE}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function GroupEmpty() {
+  return (
+    <div className={styles.groupEmpty}>
+      <p className={styles.emptyText}>{UI_TEXT.NO_GROUPS_YET}</p>
+      <p className={styles.groupEmptyHint}>{UI_TEXT.CREATE_FIRST_GROUP_HINT}</p>
+    </div>
+  );
+}
+
+function GroupCreateRow({
+  value,
+  onChange,
+  onCreate,
+  autoFocus = false,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onCreate: () => void;
+  autoFocus?: boolean;
+}) {
+  return (
+    <div className={styles.groupCreateRow}>
+      <input
+        type="text"
+        className={styles.groupCreateInput}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") onCreate();
+        }}
+        placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
+        autoFocus={autoFocus}
+      />
+      <button
+        className={styles.groupCreateButton}
+        onClick={onCreate}
+        disabled={!value.trim()}
+      >
+        {UI_TEXT.NEW_GROUP}
+      </button>
+    </div>
+  );
+}
+
+function SheetHeader({ title, close }: { title: string; close: CloseSheet }) {
   return (
     <div className={styles.sheetHeader}>
       <h2 className={styles.sheetTitle}>{title}</h2>
@@ -607,9 +675,7 @@ function SheetHeader({
         title={UI_TEXT.CLOSE}
         aria-label={UI_TEXT.CLOSE}
       >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
-        </svg>
+        <CloseIcon width={20} height={20} />
       </button>
     </div>
   );
@@ -653,7 +719,38 @@ function ActionRow({
         </svg>
       </span>
       <span>{label}</span>
-      <span className={styles.continueChevron}>{"\u203a"}</span>
     </button>
+  );
+}
+
+function ListIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
+      <path d="M5 6h10M8 6V4h4v2m-6 0 .7 10h6.6L14 6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M13.586 3.586a2 2 0 112.828 2.828l-8.5 8.5-3.5 1 1-3.5 8.172-8.828z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CloseIcon({ width = 16, height = 16 }: { width?: number; height?: number }) {
+  return (
+    <svg width={width} height={height} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M5 5l10 10M15 5L5 15" strokeLinecap="round" />
+    </svg>
   );
 }

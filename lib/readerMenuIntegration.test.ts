@@ -181,8 +181,13 @@ describe("reader contents and theme sheets", () => {
   });
 
   it("opens detailed custom settings in a separate sheet", () => {
-    expect(settingsSource).toContain("ReaderCustomSettingsPanel");
-    expect(settingsSource).toContain("setCustomSettingsOpen(true)");
+    expect(settingsSource).toContain("onOpenCustomSettings");
+    expect(settingsSource).not.toContain("customSettingsOpen");
+    expect(overlaysSource).toContain("ReaderCustomSettingsPanel");
+    expect(overlaysSource).toContain('case "reader-custom-settings"');
+    expect(overlaysSource).toContain(
+      'navigation.presentSheet("reader-custom-settings")'
+    );
     expect(customSettingsSource).toContain("ariaLabel=\"自定义设置\"");
     expect(customSettingsSource).toContain("无障碍与布局选项");
     expect(customSettingsSource).toContain("letterSpacingPercent");

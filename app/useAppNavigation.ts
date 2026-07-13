@@ -183,6 +183,8 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
   const presentReader = useCallback(
     (bookId: string, options?: ReaderOptions) => {
+      const historyWrite: HistoryWrite =
+        stateRef.current.sheets.length > 0 ? "replace" : "push";
       commit(
         {
           type: "present-reader",
@@ -193,7 +195,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
             bookId,
           },
         },
-        "push"
+        historyWrite
       );
     },
     [commit, nextKey]

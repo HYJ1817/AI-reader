@@ -28,7 +28,6 @@ type Options = {
   removeInvalid: (key: string) => void;
   setReaderMode: (mode: ReaderMode) => void;
   setTocItems: (items: EpubTocItem[]) => void;
-  setTocDrawerOpen: (open: boolean) => void;
   setReaderProgressPercent: (progress: number) => void;
   setReaderPageInfo: (pageInfo: ReaderPageInfo) => void;
   dispatchReaderChrome: Dispatch<ReaderChromeEvent>;
@@ -53,7 +52,6 @@ export default function useReaderBookState({
   removeInvalid,
   setReaderMode,
   setTocItems,
-  setTocDrawerOpen,
   setReaderProgressPercent,
   setReaderPageInfo,
   dispatchReaderChrome,
@@ -73,11 +71,9 @@ export default function useReaderBookState({
     setReaderProgressPercent(0);
     setReaderPageInfo({ current: 1, total: 1 });
     setTocItems([]);
-    setTocDrawerOpen(false);
   }, [
     setReaderPageInfo,
     setReaderProgressPercent,
-    setTocDrawerOpen,
     setTocItems,
   ]);
 
@@ -91,7 +87,6 @@ export default function useReaderBookState({
     setReaderMode(sanitizeReaderMode(savedPosition?.readingMode));
     readerModeRestoreProgressRef.current = savedPosition?.progressPercent ?? null;
     setTocItems([]);
-    setTocDrawerOpen(false);
     setReaderProgressPercent(0);
     setReaderPageInfo({ current: 1, total: 1 });
     dispatchReaderChrome({ type: "hide" });
@@ -118,7 +113,6 @@ export default function useReaderBookState({
     setReaderMode,
     setReaderPageInfo,
     setReaderProgressPercent,
-    setTocDrawerOpen,
     setTocItems,
   ]);
 

@@ -17,6 +17,18 @@ const aiSettingsUrl = new URL("../app/AiSettingsSurface.tsx", import.meta.url);
 const aiSettingsSource = existsSync(aiSettingsUrl)
   ? readFileSync(aiSettingsUrl, "utf8")
   : "";
+const overlaysSource = readFileSync(
+  new URL("../app/AppOverlays.tsx", import.meta.url),
+  "utf8"
+);
+const pageSource = readFileSync(
+  new URL("../app/page.tsx", import.meta.url),
+  "utf8"
+);
+const readerSettingsSource = readFileSync(
+  new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
+  "utf8"
+);
 const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -62,5 +74,44 @@ describe("overlay and nested view motion", () => {
       expect(bottomSheetSource + motionSheetSource).not.toContain(legacy);
       expect(css).not.toContain(`.${legacy}`);
     }
+  });
+
+  it("renders exactly one overlay from the navigation sheet stack", () => {
+    expect(overlaysSource).toContain("useNavigation()");
+    expect(overlaysSource).toContain("navigation.state.sheets.at(-1)");
+    expect(overlaysSource).toContain("switch (sheet.route)");
+    for (const route of [
+      "reader-settings",
+      "reader-custom-settings",
+      "toc",
+      "ask-ai",
+      "reading-goal",
+      "book-actions",
+      "book-delete",
+      "book-groups",
+      "batch-groups",
+      "batch-delete",
+      "collection-create",
+    ]) {
+      expect(overlaysSource).toContain(`case "${route}"`);
+    }
+  });
+
+  it("removes independent overlay-open booleans", () => {
+    for (const stateName of [
+      "readerSettingsOpen",
+      "tocDrawerOpen",
+      "askSheetOpen",
+      "goalSheetOpen",
+      "groupSheetOpen",
+      "deleteConfirmOpen",
+      "batchGroupSheetOpen",
+      "batchDeleteConfirmOpen",
+      "collectionCreateSheetOpen",
+    ]) {
+      expect(pageSource).not.toContain(`const [${stateName},`);
+    }
+    expect(readerSettingsSource).not.toContain("customSettingsOpen");
+    expect(readerSettingsSource).toContain("onOpenCustomSettings");
   });
 });

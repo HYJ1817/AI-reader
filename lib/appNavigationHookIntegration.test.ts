@@ -40,6 +40,11 @@ describe("app navigation hook integration", () => {
     expect(hookSource).toContain("window.history.back()");
   });
 
+  it("replaces a transient sheet when it presents the reader", () => {
+    expect(hookSource).toContain("stateRef.current.sheets.length > 0");
+    expect(hookSource).toContain('? "replace" : "push"');
+  });
+
   it("restores valid popstate payloads and replaces invalid ones", () => {
     expect(hookSource).toContain('window.addEventListener("popstate"');
     expect(hookSource).toContain('window.removeEventListener("popstate"');

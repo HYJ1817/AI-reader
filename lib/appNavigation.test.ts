@@ -17,6 +17,23 @@ describe("app navigation", () => {
     expect(state.direction).toBe("replace");
   });
 
+  it("clears transient sheets when selecting a root", () => {
+    const withSheet: AppNavigationState = {
+      ...createAppNavigationState(),
+      sheets: [
+        { key: "sheet-1", kind: "sheet", route: "reading-goal" },
+      ],
+    };
+
+    const selected = reduceAppNavigation(withSheet, {
+      type: "select-tab",
+      tab: "library",
+    });
+
+    expect(selected.sheets).toEqual([]);
+    expect(selected.revision).toBe(1);
+  });
+
   it("pushes and pops with direction", () => {
     const pushed = reduceAppNavigation(createAppNavigationState(), {
       type: "push",
