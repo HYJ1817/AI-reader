@@ -108,11 +108,25 @@ async function hideDevelopmentChrome(page: Page) {
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
   await hideDevelopmentChrome(page);
-  await page.waitForTimeout(800);
+  const visibleCover = page
+    .locator(`${readingRoot} [data-book-cover-origin]:visible`)
+    .first();
+  if ((await visibleCover.count()) > 0) {
+    await expect
+      .poll(() =>
+        visibleCover.evaluate((element) => getComputedStyle(element).transform)
+      )
+      .toBe("none");
+  }
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+  );
   await page.screenshot({
     path: testInfo.outputPath(`${name}.png`),
     fullPage: false,
-    animations: "disabled",
   });
 }
 
