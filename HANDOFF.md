@@ -7,10 +7,10 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `ce0bdad` (`style: harden accessibility and interaction`)
-- Phase 5 design commit: `8c7fa5b` (`docs: design accessibility hardening`).
-- If branch HEAD is newer than `ce0bdad`, that newer commit should be this handoff-only documentation update.
-- Latest deployed Worker version: `8a227c89-47f4-4e41-9dd3-fc3178e100b2`
+- Latest implementation commit: `9f6beee` (`style: match reading goal ring themes`)
+- Reading-goal ring design commit: `a61a474`; implementation plan commit: `f925231`.
+- If branch HEAD is newer than `9f6beee`, that newer commit should be this handoff-only documentation update.
+- Latest deployed Worker version: `36f48759-2b50-4a53-af54-c6800d72355f`
 - Push `codex/custom-background-settings` after the handoff commit so local and
   `origin/codex/custom-background-settings` match.
 
@@ -426,6 +426,44 @@ The UI quality goal is closed. Physical iPhone Safari/PWA and real VoiceOver
 confirmation remain non-blocking device risks. The unresolved EPUB dark-mode
 transparent ambient white rectangle still requires the affected EPUB or Safari
 Web Inspector evidence before any additional CSS work.
+
+## Themed Reading Goal Ring (2026-07-14)
+
+Design commit: `a61a474`. Implementation plan commit: `f925231`.
+Implementation commit: `9f6beee`.
+
+Implemented behavior:
+
+- The compact `阅读 > 今日阅读` goal ring now follows the user's supplied
+  references: a cyan open-bottom U-shaped arc, centered current minutes, and
+  the target minutes below it.
+- Light mode uses a white circular surface, fine gray rim, cyan current value,
+  and black target value. Dark mode uses a dark circular surface, restrained
+  light rim, cyan current value, and white target value.
+- The ring is an inline SVG rather than a raster asset, so it remains crisp at
+  every device scale. A permanent base arc preserves the supplied zero-state
+  appearance, while a brighter overlay communicates actual goal progress.
+- Goal editing, IndexedDB persistence, reading-time totals, dashboard state,
+  navigation, and surrounding button semantics are unchanged.
+
+Verification and production evidence:
+
+- Focused source/presentation coverage passed: 2 files, 10 tests.
+- Full Vitest passed: 138 files, 1363 tests.
+- Full configured ESLint and webpack production build passed.
+- Full local Playwright passed: 58/58 across iPhone 14 and iPhone 15 Pro Max.
+- Impeccable's changed-source detector returned exit code 0 and JSON `[]`.
+- `git diff --check` passed.
+- OpenNext deployed Worker version
+  `36f48759-2b50-4a53-af54-c6800d72355f` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned HTTP 200. The
+  root serves page chunk `/_next/static/chunks/app/page-aeb21d9870321949.js`.
+- The production light/dark goal-ring Playwright case passed 2/2 across both
+  phone projects. Both production screenshots were inspected and match the
+  supplied light/dark visual direction.
+
+The goal-ring change is complete. Physical iPhone Safari/PWA confirmation
+remains a non-blocking device risk.
 
 ## Current Feature Work
 
@@ -1383,9 +1421,9 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 ce0bdad，设计提交是 8c7fa5b：UI 品质路线图 Phase 1-6 已全部完成。最终 Impeccable critique 从 26/40、4 个 P1 提升到 32/40、0 个 P0/P1，归档在 .impeccable/critique/2026-07-14T13-33-07Z__app.md；最终 detector 对 app 返回空数组。若 HEAD 更新，更新内容应仅为本次 critique/HANDOFF/路线图收尾文档。
-最新正式 Worker 版本是 8a227c89-47f4-4e41-9dd3-fc3178e100b2；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 138 文件/1362 项、全仓 ESLint、webpack 构建均再次通过；本地 Playwright 56/56。最终正式域名全量首轮 53/56，3 项均停在 Chromium 自身 This page couldn't load 传输页；自定义域和 Workers 域随后各连续 3/3 返回 200，原失败项不改代码复跑 3/3 通过。根页面及发现的 10 个 JS/CSS 资源全部 200。
+最新实现提交是 9f6beee，设计提交是 a61a474，实施计划提交是 f925231：阅读页“今日阅读”目标圆环已按用户提供的浅色/深色参考图改为主题化 SVG U 形圆环；浅色为白底灰边、深色为深色底浅边，0 分钟时仍显示完整基础圆弧，实际进度用更亮叠层表达。UI 品质路线图 Phase 1-6 仍保持全部关闭。
+最新正式 Worker 版本是 36f48759-2b50-4a53-af54-c6800d72355f；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 138 文件/1363 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 58/58。正式域名目标圆环用例在 iPhone 14 与 iPhone 15 Pro Max 上 2/2 通过，浅色/深色截图已人工核对；根页面及发现的 10 个 JS/CSS 资源全部 200。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，可从最终 critique 的三个非阻塞项选择：进一步安静阅读器菜单把手、增加轻量首次发现提示、下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```

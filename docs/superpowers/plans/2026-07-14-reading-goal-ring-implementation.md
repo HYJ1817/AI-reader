@@ -176,7 +176,7 @@ git commit -m "style: match reading goal ring themes"
 - Modify: `HANDOFF.md`
 - Modify: `docs/superpowers/plans/2026-07-14-reading-goal-ring-implementation.md`
 
-- [ ] **Step 1: Run the full local gate**
+- [x] **Step 1: Run the full local gate**
 
 ```powershell
 npm.cmd test
@@ -188,7 +188,7 @@ git diff --check
 
 Expected: full Vitest, ESLint, webpack, and both Playwright projects pass.
 
-- [ ] **Step 2: Run the Impeccable changed-source detector**
+- [x] **Step 2: Run the Impeccable changed-source detector**
 
 ```powershell
 node C:\aaa\.agents\skills\impeccable\scripts\detect.mjs --json app\ReadingDashboard.tsx app\page.tsx
@@ -196,7 +196,7 @@ node C:\aaa\.agents\skills\impeccable\scripts\detect.mjs --json app\ReadingDashb
 
 Expected: JSON `[]` and exit code 0.
 
-- [ ] **Step 3: Deploy with the established Windows OpenNext sequence**
+- [x] **Step 3: Deploy with the established Windows OpenNext sequence**
 
 ```powershell
 $env:NEXT_PRIVATE_STANDALONE='true'
@@ -208,14 +208,14 @@ node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
 
 Record the new Worker version.
 
-- [ ] **Step 4: Verify production and close out**
+- [x] **Step 4: Verify production and close out**
 
 Verify `https://881817.xyz` plus every discovered JS/CSS asset returns HTTP
 200. Run the focused goal-ring Playwright test on both iPhone projects against
 production and inspect light/dark screenshots. Update `HANDOFF.md` with the
 implementation commit, Worker version, test totals, and next-chat opener.
 
-- [ ] **Step 5: Commit, push, and verify equality**
+- [x] **Step 5: Commit, push, and verify equality**
 
 ```powershell
 git add HANDOFF.md docs/superpowers/plans/2026-07-14-reading-goal-ring-implementation.md
