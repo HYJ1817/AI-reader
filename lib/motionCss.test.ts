@@ -638,7 +638,7 @@ describe("motion CSS", () => {
 
     const reduceStart = css.indexOf(
       "@media (prefers-reduced-motion: reduce)",
-      css.indexOf(".activeTab:hover {")
+      css.indexOf(".tab.activeTab:hover {")
     );
     const reduceEnd = css.indexOf(
       "}",

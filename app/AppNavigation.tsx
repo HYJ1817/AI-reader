@@ -44,7 +44,7 @@ export default function AppNavigation({
   return (
     <>
       {showBottomTabs && (
-        <nav className={styles.tabBar}>
+        <nav className={styles.tabBar} aria-label="主要导航">
           <m.span
             className={styles.tabIndicator}
             layoutId="root-tab-indicator"
@@ -58,6 +58,7 @@ export default function AppNavigation({
           <button
             className={`${styles.tab} ${activeTab === "library" ? styles.activeTab : ""}`}
             data-navigation-tab="library"
+            aria-current={activeTab === "library" ? "page" : undefined}
             onClick={onOpenLibrary}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
@@ -74,6 +75,7 @@ export default function AppNavigation({
           <button
             className={`${styles.tab} ${activeTab === "reading" ? styles.activeTab : ""}`}
             data-navigation-tab="reading"
+            aria-current={activeTab === "reading" ? "page" : undefined}
             onClick={onOpenReading}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
@@ -88,6 +90,7 @@ export default function AppNavigation({
           <button
             className={`${styles.tab} ${activeTab === "settings" ? styles.activeTab : ""}`}
             data-navigation-tab="settings"
+            aria-current={activeTab === "settings" ? "page" : undefined}
             onClick={onOpenSettings}
           >
             <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">

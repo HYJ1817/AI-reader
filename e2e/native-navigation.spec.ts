@@ -251,6 +251,14 @@ async function capture(
   });
 }
 
+async function hideNextDevIndicator(page: Page) {
+  await page.locator("nextjs-portal").evaluateAll((elements) => {
+    for (const element of elements) {
+      (element as HTMLElement).style.display = "none";
+    }
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     const timestamp = "2026-07-13T00:00:00.000Z";
@@ -333,6 +341,84 @@ test("root scroll position survives tab changes", async ({ page }) => {
 
   const after = await libraryRoot.evaluate((element) => element.scrollTop);
   expect(Math.abs(after - before)).toBeLessThanOrEqual(2);
+});
+
+test("root chrome stays compact, semantic, and safely tappable", async ({
+  page,
+}, testInfo) => {
+  const navigation = page.getByRole("navigation", { name: "主要导航" });
+  const tabs = navigation.locator("[data-navigation-tab]");
+  const title = page.locator(`${libraryRootSelector} h1`).first();
+
+  await expect(navigation).toBeVisible();
+  await expect(tabs).toHaveCount(3);
+  await expect(title).toHaveCSS("font-size", "34px");
+  await expect(title).toHaveCSS("font-weight", "750");
+  await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(
+    navigation.locator('[data-navigation-tab="library"]')
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    navigation.locator('[data-navigation-tab="library"]')
+  ).toHaveCSS("color", "rgb(0, 122, 255)");
+
+  const geometry = await navigation.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const tabRects = Array.from(
+      element.querySelectorAll<HTMLElement>("[data-navigation-tab]")
+    ).map((tab) => {
+      const tabRect = tab.getBoundingClientRect();
+      return { width: tabRect.width, height: tabRect.height };
+    });
+    const indicator = element.querySelector<HTMLElement>("[aria-hidden='true']");
+    const line = indicator ? getComputedStyle(indicator, "::after") : null;
+    return {
+      height: rect.height,
+      bottomGap: window.innerHeight - rect.bottom,
+      tabRects,
+      lineWidth: line?.width,
+      lineHeight: line?.height,
+    };
+  });
+
+  expect(geometry.height).toBe(60);
+  expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
+  for (const rect of geometry.tabRects) {
+    expect(rect.width).toBeGreaterThanOrEqual(44);
+    expect(rect.height).toBeGreaterThanOrEqual(44);
+  }
+  expect(geometry.lineWidth).toBe("24px");
+  expect(geometry.lineHeight).toBe("2px");
+
+  await hideNextDevIndicator(page);
+  await capture(page, testInfo, "chrome-library");
+  await navigation.locator('[data-navigation-tab="reading"]').click();
+  await expect(
+    page.locator('[data-navigation-root="reading"][aria-hidden="false"]')
+  ).toBeVisible();
+  await expect(
+    navigation.locator('[data-navigation-tab="reading"]')
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    navigation.locator('[data-navigation-tab="reading"]')
+  ).toHaveCSS("color", "rgb(0, 122, 255)");
+  await page.waitForTimeout(420);
+  await hideNextDevIndicator(page);
+  await capture(page, testInfo, "chrome-reading");
+  await navigation.locator('[data-navigation-tab="settings"]').click();
+  await expect(
+    page.locator('[data-navigation-root="settings"][aria-hidden="false"]')
+  ).toBeVisible();
+  await expect(navigation.locator('[aria-current="page"]')).toHaveCount(1);
+  await expect(
+    navigation.locator('[data-navigation-tab="settings"]')
+  ).toHaveAttribute("aria-current", "page");
+  await expect(
+    navigation.locator('[data-navigation-tab="settings"]')
+  ).toHaveCSS("color", "rgb(0, 122, 255)");
+  await page.waitForTimeout(420);
+  await hideNextDevIndicator(page);
+  await capture(page, testInfo, "chrome-settings");
 });
 
 test("visible back button and edge swipe pop the same route", async ({
