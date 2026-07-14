@@ -7,9 +7,9 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `7a5d178` (`test: verify native navigation on mobile`)
-- If branch HEAD is newer than `7a5d178`, that newer commit should be this handoff-only documentation update.
-- Latest deployed Worker version: `cafbbbed-52fc-442f-9181-c18637427b8b`
+- Latest implementation commit: `3ddb099` (`fix: polish reader typography and menu affordance`)
+- If branch HEAD is newer than `3ddb099`, that newer commit should be this handoff-only documentation update.
+- Latest deployed Worker version: `683beaa5-e2e1-46b2-aa18-28d929ba1410`
 - Push `codex/custom-background-settings` after the handoff commit so local and
   `origin/codex/custom-background-settings` match.
 
@@ -137,6 +137,53 @@ Residual real-device risk:
 - The dark-mode transparent EPUB ambient rectangle remains unresolved. Do not
   resume speculative CSS work without the affected EPUB or Safari Web
   Inspector evidence.
+
+## UI Quality Roadmap Phase 1: Reader Typography (2026-07-14)
+
+Phase 1 of `docs/superpowers/plans/2026-07-14-ui-quality-roadmap.md` is complete.
+The approved design is
+`docs/superpowers/specs/2026-07-14-reader-typography-design.md`, and the executed
+plan is
+`docs/superpowers/plans/2026-07-14-reader-typography-implementation.md`.
+
+Implementation commit: `3ddb099` (`fix: polish reader typography and menu affordance`).
+
+Implemented behavior:
+
+- TXT paragraphs use natural `start` alignment by default. Justification is
+  applied only when both custom layout and the explicit justify preference are
+  enabled; no language or heading heuristics were introduced.
+- EPUB layout and preferences are unchanged.
+- The existing reader-menu button remains one 48px target and one click path.
+  Its collapsed state is a quiet, partially inset right-edge surface; its
+  expanded state retains the stronger material and shadow.
+- TXT content has 96px plus safe-area bottom clearance so the last paragraph
+  can scroll clear of the menu affordance.
+
+Verification and production evidence:
+
+- Full Vitest: 134 files, 1342 tests passed.
+- Full configured ESLint and webpack production build passed.
+- Native-navigation Playwright: iPhone 14 11/11 and iPhone 15 Pro Max 11/11.
+- Reader-typography Playwright: iPhone 14 6/6 and iPhone 15 Pro Max 6/6.
+- `git diff --check` passed.
+- OpenNext deployed Worker version
+  `683beaa5-e2e1-46b2-aa18-28d929ba1410` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned HTTP 200.
+- Production reader-typography Playwright passed 6/6 on iPhone 14; the two
+  critical reader close/root-history navigation cases passed 2/2.
+- Production CSS contains `readerMenuWakeButtonCollapsed`, `text-align:start`,
+  and `right:-10px`; production JS contains `data-txt-reader` and `justifyText`.
+
+The current production screenshots are under:
+
+- `test-results/native-navigation/reader-typography-english--90aa4-s-natural-default-alignment-iphone-14/english-default.png`
+- `test-results/native-navigation/reader-typography-final-TX-6b3a1-e-collapsed-menu-affordance-iphone-14/final-content-clearance.png`
+- `test-results/native-navigation/reader-typography-paged-TX-b5eda-nt-and-horizontal-page-flow-iphone-14/paged-default.png`
+
+These iPhone-sized production screenshots were reviewed and are clean. Physical
+iPhone Safari/PWA confirmation remains a non-blocking device risk. The next
+roadmap item is Phase 2: distill global chrome and navigation scale.
 
 ## Current Feature Work
 
@@ -818,12 +865,19 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest implementation commit `7a5d178`, these passed:
+After the latest implementation commit `3ddb099`, these passed:
 
 ```powershell
 npm.cmd test
 npm.cmd run lint
 npm.cmd run build
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max
+npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-14
+npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-15-pro-max
+$env:PLAYWRIGHT_BASE_URL='https://881817.xyz'; npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-14
+$env:PLAYWRIGHT_BASE_URL='https://881817.xyz'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14 --grep "reader closes back|captures root"
+Remove-Item Env:PLAYWRIGHT_BASE_URL
 $env:PLAYWRIGHT_BASE_URL='http://localhost:3030'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
 $env:PLAYWRIGHT_BASE_URL='http://localhost:3030'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max
 $env:PLAYWRIGHT_BASE_URL='http://localhost:3040'; npx.cmd playwright test e2e/native-navigation.spec.ts
@@ -861,6 +915,15 @@ git diff --check
 
 Observed results:
 
+- Reader typography phase: 134 files, 1342 tests passed; full ESLint and
+  webpack build passed.
+- Native-navigation Playwright passed 11/11 on both iPhone projects; typography
+  Playwright passed 6/6 on both projects.
+- Production typography passed 6/6 and critical navigation passed 2/2 on
+  iPhone 14 emulation.
+- Cloudflare OpenNext deployment published Worker version
+  `683beaa5-e2e1-46b2-aa18-28d929ba1410`; the root and 10 discovered assets
+  returned 200 and contained the expected Phase 1 markers.
 - Native navigation full suite: 133 files, 1339 tests passed.
 - Full configured ESLint passed.
 - Production webpack build and standalone webpack build passed.
@@ -1062,9 +1125,9 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 7a5d178：已完成统一 Motion 运行时、四层导航栈、持久根页面、原生 push、共享书封阅读器转场、统一 MotionSheet、边缘返回、状态动画、旧动画清理，以及两档 iPhone Playwright/性能回归。若 HEAD 更新，更新内容应仅为 HANDOFF 文档。
-最新正式 Worker 版本是 cafbbbed-52fc-442f-9181-c18637427b8b；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 133 文件/1339 项、全仓 ESLint、webpack 构建均通过；开发模式 iPhone 14 与 iPhone 15 Pro Max 各 11/11，next start 生产模式合计 22/22，正式域名 iPhone 14 为 11/11。正式 JS/CSS 已确认包含新导航/工作表/共享书封/visualViewport，并且不含旧 subview/sheet 动画标记。
+最新实现提交是 3ddb099：UI 品质路线图 Phase 1 已完成。TXT 默认使用自然 start 对齐，仅在自定义排版和明确的 justify 偏好同时开启时两端对齐；阅读菜单保留 48px 点击区并改为安静的右侧边缘形态；末段可滚动避开菜单。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
+最新正式 Worker 版本是 683beaa5-e2e1-46b2-aa18-28d929ba1410；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 134 文件/1342 项、全仓 ESLint、webpack 构建均通过；native-navigation 在 iPhone 14 与 iPhone 15 Pro Max 各 11/11，reader-typography 在两档各 6/6；正式域名 typography 6/6、关键导航 2/2，根页面及发现的 10 个 JS/CSS 资源全部 200。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
-下一步优先用真实 iPhone Safari/PWA 检查手势速度、键盘、安全区、共享书封几何和体感帧率。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
+下一步直接进入 UI 品质路线图 Phase 2：收敛全局 chrome 与导航尺度，先写设计规格和实施计划，再按 TDD、双尺寸回归、部署、截图和 HANDOFF 的顺序完成并勾选。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```

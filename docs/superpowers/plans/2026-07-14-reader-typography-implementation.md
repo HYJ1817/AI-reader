@@ -31,7 +31,7 @@
 - Modify: `lib/readerMenuIntegration.test.ts`
 - Create: `e2e/reader-typography.spec.ts`
 
-- [ ] **Step 1: Create the failing TXT typography contract test**
+- [x] **Step 1: Create the failing TXT typography contract test**
 
 Create `lib/readerTypography.test.ts` with helpers that extract a CSS rule and the inline style block, then assert the approved behavior:
 
@@ -81,7 +81,7 @@ describe("TXT reader typography", () => {
 });
 ```
 
-- [ ] **Step 2: Extend the existing menu integration contract**
+- [x] **Step 2: Extend the existing menu integration contract**
 
 In the existing `keeps a chrome-owned menu button tappable for both opening and closing` test, replace the exact single-class assertion and add state/material assertions:
 
@@ -102,7 +102,7 @@ expect(expandedRule).toContain("box-shadow:");
 
 Keep the existing ordering assertion that the wake button appears before `readerChromeAnimated` and the assertion that `onWakeMenu` remains the one click path.
 
-- [ ] **Step 3: Add real-browser script fixtures and assertions**
+- [x] **Step 3: Add real-browser script fixtures and assertions**
 
 Create `e2e/reader-typography.spec.ts`. Use three inline samples so encoding and expected text stay local to the test:
 
@@ -201,7 +201,7 @@ test("explicit justification and the menu wake target remain available", async (
 });
 ```
 
-- [ ] **Step 4: Run the focused tests and confirm RED**
+- [x] **Step 4: Run the focused tests and confirm RED**
 
 Run:
 
@@ -220,7 +220,7 @@ Expected: Vitest fails because `.paragraph` is still justified, the `start` bran
 - Modify: `app/ReaderControls.tsx`
 - Modify: `app/page.module.css`
 
-- [ ] **Step 1: Implement the minimal TXT alignment and clearance change**
+- [x] **Step 1: Implement the minimal TXT alignment and clearance change**
 
 In `ReadingSession.tsx`, add the locator and make both branches explicit:
 
@@ -245,7 +245,7 @@ textAlign:
     : "start",
 ```
 
-- [ ] **Step 2: Derive visual button state without adding interaction state**
+- [x] **Step 2: Derive visual button state without adding interaction state**
 
 Replace the wake button's single class in `ReaderControls.tsx` with:
 
@@ -259,7 +259,7 @@ className={`${styles.readerMenuWakeButton} ${
 
 Do not change `onClick`, `aria-label`, `aria-expanded`, `data-reader-menu-toggle`, DOM ordering, or the `controlsInert` animation lifecycle.
 
-- [ ] **Step 3: Implement the CSS fallback and material states**
+- [x] **Step 3: Implement the CSS fallback and material states**
 
 Change `.paragraph` to:
 
@@ -349,7 +349,7 @@ Keep the existing reduced-motion block. Add only `transition: none` for the new 
 }
 ```
 
-- [ ] **Step 4: Run the focused tests and confirm GREEN**
+- [x] **Step 4: Run the focused tests and confirm GREEN**
 
 Run:
 
@@ -358,9 +358,9 @@ npm.cmd test -- lib/readerTypography.test.ts lib/readerMenuIntegration.test.ts l
 npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-14
 ```
 
-Expected: all focused Vitest files and all four Playwright typography cases pass. The screenshots are written under `test-results/native-navigation/reader-typography-*iphone-14/`.
+Expected: all focused Vitest files and all six Playwright typography cases pass. The screenshots are written under `test-results/native-navigation/reader-typography-*iphone-14/`.
 
-- [ ] **Step 5: Review the generated screenshots before committing**
+- [x] **Step 5: Review the generated screenshots before committing**
 
 Open the English, Chinese, mixed, collapsed-menu, and expanded-menu PNG files. Confirm:
 
@@ -372,7 +372,7 @@ Open the English, Chinese, mixed, collapsed-menu, and expanded-menu PNG files. C
 
 If a screenshot contradicts a criterion, add or tighten a failing assertion before changing production CSS.
 
-- [ ] **Step 6: Commit the verified implementation**
+- [x] **Step 6: Commit the verified implementation**
 
 Run:
 
@@ -391,7 +391,7 @@ Expected: the commit contains only Phase 1 implementation and regression files.
 
 - Modify only if verification exposes a Phase 1 defect.
 
-- [ ] **Step 1: Run the full unit and static gates**
+- [x] **Step 1: Run the full unit and static gates**
 
 Run each command separately and inspect its exit code:
 
@@ -404,7 +404,7 @@ git diff --check
 
 Expected: Vitest reports zero failing tests, ESLint exits 0, the webpack build exits 0, and `git diff --check` produces no error.
 
-- [ ] **Step 2: Run the full native-navigation matrix**
+- [x] **Step 2: Run the full native-navigation matrix**
 
 Run:
 
@@ -417,7 +417,7 @@ npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-15-pro-ma
 
 Expected: every test passes. The existing reader close/reopen, focus restoration, reduced motion, sheet, and frame-cadence coverage remains green on both iPhone viewports.
 
-- [ ] **Step 3: Confirm repository scope**
+- [x] **Step 3: Confirm repository scope**
 
 Run:
 
@@ -435,7 +435,7 @@ Expected: generated Playwright and build artifacts remain ignored. No unrelated 
 - Modify: `docs/superpowers/plans/2026-07-14-ui-quality-roadmap.md`
 - Modify: `HANDOFF.md`
 
-- [ ] **Step 1: Build and deploy with the established Windows OpenNext sequence**
+- [x] **Step 1: Build and deploy with the established Windows OpenNext sequence**
 
 Run:
 
@@ -449,7 +449,7 @@ node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
 
 Expected: OpenNext completes and Wrangler publishes a new `ai-reader-pwa` Worker version for `881817.xyz/*`. Record the Worker version ID from the deploy output.
 
-- [ ] **Step 2: Smoke-test production assets and behavior**
+- [x] **Step 2: Smoke-test production assets and behavior**
 
 Request `https://881817.xyz`, extract its current script and stylesheet asset URLs, and request each discovered asset. Expected: root and assets return HTTP 200.
 
@@ -464,7 +464,7 @@ Remove-Item Env:PLAYWRIGHT_BASE_URL
 
 Expected: production computed styles and the reader toggle path match the local build.
 
-- [ ] **Step 3: Refresh the roadmap and handoff with evidence**
+- [x] **Step 3: Refresh the roadmap and handoff with evidence**
 
 In `docs/superpowers/plans/2026-07-14-ui-quality-roadmap.md`:
 
@@ -482,7 +482,7 @@ In `HANDOFF.md`, record:
 - the remaining real-iPhone visual check as a non-blocking physical-device risk if no device evidence is available;
 - Phase 2 as the next roadmap item.
 
-- [ ] **Step 4: Verify and commit the closeout documentation**
+- [x] **Step 4: Verify and commit the closeout documentation**
 
 Run:
 

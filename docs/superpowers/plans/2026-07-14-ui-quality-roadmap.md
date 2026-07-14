@@ -28,17 +28,17 @@
   - [x] Record the 26/40 critique baseline in `.impeccable/critique/2026-07-14T05-35-13Z__app.md`.
   - [x] Create this ordered roadmap with measurable completion gates.
 
-- [ ] **Phase 1: Reading typography and unobstructed reading canvas**
+- [x] **Phase 1: Reading typography and unobstructed reading canvas**
   - [x] Approve `docs/superpowers/specs/2026-07-14-reader-typography-design.md`.
-  - [ ] Create the phase implementation plan under `docs/superpowers/plans/`.
-  - [ ] Add failing regression coverage for English, Chinese, and mixed-language TXT typography.
-  - [ ] Implement explicit preference-driven alignment while preserving the approved line rhythm and paragraph spacing.
-  - [ ] Prevent the reader menu affordance from obscuring readable text.
-  - [ ] Verify focused typography, reader chrome, EPUB ambient, and motion tests.
-  - [ ] Run the full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check` gates.
-  - [ ] Deploy to `https://881817.xyz` and verify the production assets and reading path.
-  - [ ] Confirm the visible result with iPhone-sized screenshots and, when available, the user's real iPhone.
-  - [ ] Refresh `HANDOFF.md`, commit the phase, and mark Phase 1 complete.
+  - [x] Create the phase implementation plan under `docs/superpowers/plans/`.
+  - [x] Add failing regression coverage for English, Chinese, and mixed-language TXT typography.
+  - [x] Implement explicit preference-driven alignment while preserving the approved line rhythm and paragraph spacing.
+  - [x] Prevent the reader menu affordance from obscuring readable text.
+  - [x] Verify focused typography, reader chrome, EPUB ambient, and motion tests.
+  - [x] Run the full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check` gates.
+  - [x] Deploy to `https://881817.xyz` and verify the production assets and reading path.
+  - [x] Confirm the visible result with iPhone-sized screenshots; physical-iPhone confirmation remains a documented non-blocking risk until a device is available.
+  - [x] Refresh `HANDOFF.md`, commit the phase, and mark Phase 1 complete.
 
 - [ ] **Phase 2: Distill global chrome and navigation scale**
   - [ ] Approve a global chrome design spec and phase implementation plan.
@@ -94,6 +94,7 @@
 - Test: `lib/readerChromeIntegration.test.ts`
 - Test: `lib/epubAmbientIntegration.test.ts`
 - Create: `lib/readerTypography.test.ts`
+- Create: `e2e/reader-typography.spec.ts`
 
 ### Phase 2
 
