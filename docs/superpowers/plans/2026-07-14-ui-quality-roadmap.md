@@ -29,10 +29,10 @@
   - [x] Create this ordered roadmap with measurable completion gates.
 
 - [ ] **Phase 1: Reading typography and unobstructed reading canvas**
-  - [ ] Approve `docs/superpowers/specs/2026-07-14-reader-typography-design.md`.
+  - [x] Approve `docs/superpowers/specs/2026-07-14-reader-typography-design.md`.
   - [ ] Create the phase implementation plan under `docs/superpowers/plans/`.
   - [ ] Add failing regression coverage for English, Chinese, and mixed-language TXT typography.
-  - [ ] Implement language-aware alignment, line rhythm, heading scale, and paragraph spacing.
+  - [ ] Implement explicit preference-driven alignment while preserving the approved line rhythm and paragraph spacing.
   - [ ] Prevent the reader menu affordance from obscuring readable text.
   - [ ] Verify focused typography, reader chrome, EPUB ambient, and motion tests.
   - [ ] Run the full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check` gates.
