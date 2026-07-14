@@ -106,6 +106,8 @@ export const UI_TEXT = {
   DONE: "\u5b8c\u6210",
   SAVE_GOAL: "\u4fdd\u5b58\u76ee\u6807",
   CONTINUE_READING: "\u7ee7\u7eed\u9605\u8bfb",
+  START_READING: "\u5f00\u59cb\u9605\u8bfb",
+  READING_EMPTY_HINT: "\u5bfc\u5165 EPUB \u6216 TXT\uff0c\u5f00\u59cb\u4f60\u7684\u7b2c\u4e00\u672c\u4e66\u3002",
   CURRENT_READING: "\u6b63\u5728\u9605\u8bfb",
   RECENTLY_OPENED: "\u6700\u8fd1\u6253\u5f00",
   RECENT_BOOKS: "\u6700\u8fd1\u9605\u8bfb",

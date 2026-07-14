@@ -2227,9 +2227,49 @@
   border-bottom: 0;
 }
 
+.readingEmptyState {
+  display: flex;
+  min-height: 300px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 36px 18px 44px;
+  text-align: center;
+}
+
+.readingEmptyState h2,
+.readingEmptyState p {
+  margin: 0;
+}
+
+.readingEmptyState h2 {
+  font-size: 22px;
+  font-weight: 750;
+}
+
+.readingEmptyState p {
+  max-width: 26ch;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.readingEmptyState .emptyCoverMini {
+  width: 58px;
+  height: 58px;
+  border-radius: 18px;
+}
+
+.readingEmptyState .primaryButton {
+  min-height: 44px;
+  margin-top: 4px;
+  padding-inline: 24px;
+}
+
 .readingGoalCard {
   margin: 0;
-  min-height: 96px;
+  min-height: 72px;
   padding: 0;
   border: 0;
   border-radius: 0;
@@ -2243,8 +2283,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 70px;
-  height: 70px;
+  width: 52px;
+  height: 52px;
   border-radius: 50%;
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
@@ -2263,7 +2303,7 @@
 .dashboardGoalRing::after {
   content: "";
   position: absolute;
-  inset: 7px;
+  inset: 5px;
   border-radius: 50%;
   background: var(--surface-primary);
 }
@@ -2277,14 +2317,14 @@
 
 .dashboardGoalRing span {
   color: var(--tint);
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .dashboardGoalRing small {
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 

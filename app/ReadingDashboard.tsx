@@ -8,6 +8,7 @@ import MotionBookCover from "@/app/MotionBookCover";
 import type { BookRecord } from "@/lib/db";
 import { formatLibraryProgressLabel } from "@/lib/libraryProgress";
 import { MOTION_DURATION } from "@/lib/motionSystem";
+import { buildReadingDashboardPresentation } from "@/lib/readingDashboardPresentation";
 import type { ReadingDayInsight } from "@/lib/readingInsights";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
@@ -27,11 +28,6 @@ export type ReadingDashboardProps = {
   onImport: () => void;
 };
 
-function formatBookSize(size: number): string {
-  if (size >= 1024 * 1024) return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  return `${Math.max(1, Math.round(size / 1024))} KB`;
-}
-
 export default function ReadingDashboard({
   className,
   ariaHidden,
@@ -50,67 +46,64 @@ export default function ReadingDashboard({
   const latestBookOriginId = latestBook
     ? `reading-dashboard-${latestBook.id}`
     : null;
+  const presentation = buildReadingDashboardPresentation({
+    hasBook: latestBook !== null,
+    progressPercent: latestBookProgress,
+    totalMinutes,
+  });
 
   return (
-    <div className={className} aria-hidden={ariaHidden}>
+    <div
+      className={className}
+      aria-hidden={ariaHidden}
+      data-reading-dashboard-state={presentation.state}
+    >
       <div className={styles.pageHeader}>
         <h1 className={styles.libraryTitle}>{UI_TEXT.READING}</h1>
       </div>
 
-      <section className={styles.readingDashboardSection}>
-        <button className={styles.readingGoalCard} onClick={onOpenGoal}>
-          <span
-            className={styles.dashboardGoalRing}
-            style={{ background: goalRingBackground }}
-          >
-            <span><AnimatedNumber value={todayMinutes} /></span>
-            <small><AnimatedNumber value={targetMinutes} /></small>
-          </span>
-          <span className={styles.readingGoalText}>
-            <strong>{UI_TEXT.TODAY_READING}</strong>
-            <small>
-              {UI_TEXT.TODAY_READING_PROGRESS} · {todayMinutes}/{targetMinutes}{" "}
-              {UI_TEXT.MINUTES}
-            </small>
-          </span>
-          <span className={styles.continueChevron}>{"\u203a"}</span>
-        </button>
-      </section>
-
-      <section className={styles.readingDashboardSection}>
-        <div className={styles.sectionHeader}>
-          <h2>{UI_TEXT.CONTINUE_READING}</h2>
-        </div>
+      <section
+        className={styles.readingDashboardSection}
+        data-reading-primary="true"
+      >
         {latestBook ? (
-          <button
-            className={styles.featureBookCard}
-            onClick={() =>
-              onOpenBook(latestBook, latestBookOriginId ?? latestBook.id)
-            }
-          >
-            <MotionBookCover
-              book={latestBook}
-              originId={latestBookOriginId ?? latestBook.id}
-            />
-            <span className={styles.featureBookText}>
-              <strong>{latestBook.title}</strong>
-              <small>
-                {latestBook.format.toUpperCase()}
-                {" \u00b7 "}
-                {formatBookSize(latestBook.size)}
-              </small>
-              <span className={styles.libraryProgressRow}>
-                <span className={styles.libraryProgressTrack} aria-hidden="true">
-                  <span style={{ width: `${latestBookProgress}%` }} />
-                </span>
-                <span>{formatLibraryProgressLabel(latestBookProgress)}</span>
+          <>
+            <div className={styles.sectionHeader}>
+              <h2>{presentation.primaryHeading}</h2>
+            </div>
+            <button
+              className={styles.featureBookCard}
+              aria-label={`${presentation.primaryActionLabel}：${latestBook.title}`}
+              onClick={() =>
+                onOpenBook(latestBook, latestBookOriginId ?? latestBook.id)
+              }
+            >
+              <MotionBookCover
+                book={latestBook}
+                originId={latestBookOriginId ?? latestBook.id}
+              />
+              <span className={styles.featureBookText}>
+                <strong>{latestBook.title}</strong>
+                {presentation.showProgress ? (
+                  <span className={styles.libraryProgressRow}>
+                    <span
+                      className={styles.libraryProgressTrack}
+                      aria-hidden="true"
+                    >
+                      <span style={{ width: `${latestBookProgress}%` }} />
+                    </span>
+                    <span>{formatLibraryProgressLabel(latestBookProgress)}</span>
+                  </span>
+                ) : (
+                  <small>{formatLibraryProgressLabel(latestBookProgress)}</small>
+                )}
               </span>
-            </span>
-            <span className={styles.continueChevron}>{"\u203a"}</span>
-          </button>
+              <span className={styles.continueChevron}>{"\u203a"}</span>
+            </button>
+          </>
         ) : (
-          <button className={styles.featureBookCard} onClick={onImport}>
-            <span className={styles.emptyCoverMini}>
+          <div className={styles.readingEmptyState}>
+            <span className={styles.emptyCoverMini} aria-hidden="true">
               <svg
                 width="26"
                 height="26"
@@ -123,62 +116,91 @@ export default function ReadingDashboard({
                 <path d="M12 8h2M12 18h2" />
               </svg>
             </span>
-            <span className={styles.featureBookText}>
-              <strong>{UI_TEXT.NO_BOOK_OPEN}</strong>
-              <small>{UI_TEXT.SELECT_BOOK_HINT}</small>
-            </span>
-            <span className={styles.continueChevron}>{"\u203a"}</span>
-          </button>
+            <h2>{UI_TEXT.START_READING}</h2>
+            <p>{UI_TEXT.READING_EMPTY_HINT}</p>
+            <button className={styles.primaryButton} onClick={onImport}>
+              {UI_TEXT.IMPORT_BOOKS}
+            </button>
+          </div>
         )}
       </section>
 
-      <section
-        className={`${styles.readingDashboardSection} ${styles.readingWeekCard}`}
-      >
-        <div className={styles.sectionHeader}>
-          <h2>{UI_TEXT.LAST_SEVEN_DAYS}</h2>
-          <span>
-            {UI_TEXT.TOTAL_READING}: <AnimatedNumber value={totalMinutes} /> {UI_TEXT.MINUTES}
-          </span>
-        </div>
-        <div className={styles.weekBars}>
-          {insights.map((day) => (
-            <div
-              key={day.date}
-              className={day.isToday ? styles.weekBarToday : ""}
+      {presentation.showGoal && (
+        <section
+          className={styles.readingDashboardSection}
+          data-reading-goal="true"
+        >
+          <button
+            className={styles.readingGoalCard}
+            aria-label={UI_TEXT.READING_GOAL}
+            onClick={onOpenGoal}
+          >
+            <span
+              className={styles.dashboardGoalRing}
+              style={{ background: goalRingBackground }}
             >
-              <span className={styles.weekBarTrack}>
-                <AnimatePresence initial={false} mode="popLayout">
-                  <m.span
-                    key={`${day.date}:${day.minutes}`}
-                    initial={{
-                      opacity: 0,
-                      scaleY: reduceMotion ? 1 : 0.7,
-                    }}
-                    animate={{ opacity: 1, scaleY: 1 }}
-                    exit={{
-                      opacity: 0,
-                      scaleY: reduceMotion ? 1 : 0.9,
-                    }}
-                    transition={{
-                      duration: reduceMotion
-                        ? MOTION_DURATION.reduced
-                        : MOTION_DURATION.state,
-                    }}
-                    style={{
-                      height: `${Math.max(
-                        day.progress * 100,
-                        day.minutes > 0 ? 10 : 0
-                      )}%`,
-                    }}
-                  />
-                </AnimatePresence>
-              </span>
-              <small>{day.label}</small>
-            </div>
-          ))}
-        </div>
-      </section>
+              <span><AnimatedNumber value={todayMinutes} /></span>
+              <small><AnimatedNumber value={targetMinutes} /></small>
+            </span>
+            <span className={styles.readingGoalText}>
+              <strong>{UI_TEXT.TODAY_READING}</strong>
+              <small>{todayMinutes}/{targetMinutes} {UI_TEXT.MINUTES}</small>
+            </span>
+            <span className={styles.continueChevron}>{"\u203a"}</span>
+          </button>
+        </section>
+      )}
+
+      {presentation.showWeek && (
+        <section
+          className={`${styles.readingDashboardSection} ${styles.readingWeekCard}`}
+          data-reading-week="true"
+        >
+          <div className={styles.sectionHeader}>
+            <h2>{UI_TEXT.LAST_SEVEN_DAYS}</h2>
+            <span>
+              {UI_TEXT.TOTAL_READING}: <AnimatedNumber value={totalMinutes} /> {UI_TEXT.MINUTES}
+            </span>
+          </div>
+          <div className={styles.weekBars}>
+            {insights.map((day) => (
+              <div
+                key={day.date}
+                className={day.isToday ? styles.weekBarToday : ""}
+              >
+                <span className={styles.weekBarTrack}>
+                  <AnimatePresence initial={false} mode="popLayout">
+                    <m.span
+                      key={`${day.date}:${day.minutes}`}
+                      initial={{
+                        opacity: 0,
+                        scaleY: reduceMotion ? 1 : 0.7,
+                      }}
+                      animate={{ opacity: 1, scaleY: 1 }}
+                      exit={{
+                        opacity: 0,
+                        scaleY: reduceMotion ? 1 : 0.9,
+                      }}
+                      transition={{
+                        duration: reduceMotion
+                          ? MOTION_DURATION.reduced
+                          : MOTION_DURATION.state,
+                      }}
+                      style={{
+                        height: `${Math.max(
+                          day.progress * 100,
+                          day.minutes > 0 ? 10 : 0
+                        )}%`,
+                      }}
+                    />
+                  </AnimatePresence>
+                </span>
+                <small>{day.label}</small>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

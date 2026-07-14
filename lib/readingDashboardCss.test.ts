@@ -24,6 +24,40 @@ function rule(selector: string): string {
 }
 
 describe("reading dashboard composition", () => {
+  it("puts the state-aware reading action before optional progress surfaces", () => {
+    expect(source).toContain(
+      "buildReadingDashboardPresentation"
+    );
+    expect(source).toContain(
+      "data-reading-dashboard-state={presentation.state}"
+    );
+    expect(source).toContain('data-reading-primary="true"');
+    expect(source).toContain('data-reading-goal="true"');
+    expect(source).toContain('data-reading-week="true"');
+    expect(source).toContain("presentation.showGoal &&");
+    expect(source).toContain("presentation.showWeek &&");
+    expect(source).toContain("presentation.showProgress ?");
+
+    const primaryIndex = source.indexOf('data-reading-primary="true"');
+    const goalIndex = source.indexOf('data-reading-goal="true"');
+    const weekIndex = source.indexOf('data-reading-week="true"');
+    expect(primaryIndex).toBeGreaterThan(0);
+    expect(goalIndex).toBeGreaterThan(primaryIndex);
+    expect(weekIndex).toBeGreaterThan(goalIndex);
+    expect(source).not.toContain("formatBookSize");
+  });
+
+  it("keeps the secondary goal row compact and the empty state open", () => {
+    const ringRule = rule(".dashboardGoalRing");
+    const emptyRule = rule(".readingEmptyState");
+
+    expect(ringRule).toContain("width: 52px");
+    expect(ringRule).toContain("height: 52px");
+    expect(emptyRule).toContain("text-align: center");
+    expect(emptyRule).not.toContain("box-shadow");
+    expect(emptyRule).not.toContain("border:");
+  });
+
   it("uses unframed content sections", () => {
     for (const selector of [
       ".readingGoalCard",
