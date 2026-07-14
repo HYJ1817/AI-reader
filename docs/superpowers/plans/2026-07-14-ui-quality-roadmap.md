@@ -50,8 +50,8 @@
   - [x] Deploy, verify production screenshots and frame cadence, refresh `HANDOFF.md`, commit, and mark Phase 2 complete.
 
 - [ ] **Phase 3: Redesign the Reading tab's low-data experience and semantics**
-  - [ ] Approve a low-data information-architecture design spec and phase implementation plan.
-  - [ ] Decide explicitly whether the destination remains `阅读`, becomes `进度`, or opens the most recent book directly.
+  - [x] Approve `docs/superpowers/specs/2026-07-14-reading-low-data-design.md` and `docs/superpowers/plans/2026-07-14-reading-low-data-implementation.md`.
+  - [x] Keep `阅读` as a predictable root; do not rename it to `进度` or auto-open the latest book.
   - [ ] Add failing tests for empty library, imported-but-unread, active-reading, and populated-week states.
   - [ ] Make continue/import the primary low-data action and progressively reveal goals and charts only when they carry information.
   - [ ] Preserve reading-minute calculations, goals, streak data, and continue-reading behavior.
