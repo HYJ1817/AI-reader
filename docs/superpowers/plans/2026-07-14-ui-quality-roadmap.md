@@ -49,14 +49,14 @@
   - [x] Run the full Vitest, ESLint, webpack build, and `git diff --check` gates.
   - [x] Deploy, verify production screenshots and frame cadence, refresh `HANDOFF.md`, commit, and mark Phase 2 complete.
 
-- [ ] **Phase 3: Redesign the Reading tab's low-data experience and semantics**
+- [x] **Phase 3: Redesign the Reading tab's low-data experience and semantics**
   - [x] Approve `docs/superpowers/specs/2026-07-14-reading-low-data-design.md` and `docs/superpowers/plans/2026-07-14-reading-low-data-implementation.md`.
   - [x] Keep `阅读` as a predictable root; do not rename it to `进度` or auto-open the latest book.
-  - [ ] Add failing tests for empty library, imported-but-unread, active-reading, and populated-week states.
-  - [ ] Make continue/import the primary low-data action and progressively reveal goals and charts only when they carry information.
-  - [ ] Preserve reading-minute calculations, goals, streak data, and continue-reading behavior.
-  - [ ] Run focused dashboard tests plus full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check`.
-  - [ ] Deploy, verify every data state on production, refresh `HANDOFF.md`, commit, and mark Phase 3 complete.
+  - [x] Add failing tests for empty library, imported-but-unread, active-reading, and populated-week states.
+  - [x] Make continue/import the primary low-data action and progressively reveal goals and charts only when they carry information.
+  - [x] Preserve reading-minute calculations, goals, streak data, and continue-reading behavior.
+  - [x] Run focused dashboard tests plus full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check`.
+  - [x] Deploy, verify every data state on production, refresh `HANDOFF.md`, commit, and mark Phase 3 complete.
 
 - [ ] **Phase 4: Make the Library book-first instead of file-first**
   - [ ] Approve a library information-hierarchy design spec and phase implementation plan.
@@ -108,12 +108,12 @@
 ### Phase 3
 
 - Modify: `app/ReadingDashboard.tsx`
-- Modify: `app/AppNavigation.tsx` only if the approved design changes the destination label or behavior.
-- Modify: `app/page.tsx` only if the approved design changes root orchestration.
 - Modify: `app/page.module.css`
+- Modify: `lib/uiText.ts`
+- Create: `lib/readingDashboardPresentation.ts`
+- Create: `lib/readingDashboardPresentation.test.ts`
 - Test: `lib/readingDashboardCss.test.ts`
-- Create: `lib/readingDashboardIntegration.test.ts`
-- Test: `e2e/native-navigation.spec.ts`
+- Create: `e2e/reading-dashboard.spec.ts`
 
 ### Phase 4
 

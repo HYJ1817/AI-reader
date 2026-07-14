@@ -23,33 +23,32 @@
 
 ## Task 1: Add failing state and composition coverage
 
-- [ ] Create the pure state tests for `empty-library`, `imported-unread`, `active-reading`, and `populated-week` with explicit `showGoal`, `showWeek`, `showProgress`, and action-label assertions.
-- [ ] Extend the CSS/source contract to require primary-before-goal ordering, stable state locators, 52px goal ring, no `formatBookSize`, and conditional week rendering.
-- [ ] Create the four IndexedDB-backed Playwright cases and screenshot names `reading-empty.png`, `reading-unread.png`, `reading-active.png`, and `reading-week.png`.
-- [ ] Run `npm.cmd test -- lib/readingDashboardPresentation.test.ts lib/readingDashboardCss.test.ts` and the iPhone 14 Playwright file; confirm RED is caused by the missing helper and state markup.
+- [x] Create the pure state tests for `empty-library`, `imported-unread`, `active-reading`, and `populated-week` with explicit `showGoal`, `showWeek`, `showProgress`, and action-label assertions.
+- [x] Extend the CSS/source contract to require primary-before-goal ordering, stable state locators, 52px goal ring, no `formatBookSize`, and conditional week rendering.
+- [x] Create the four IndexedDB-backed Playwright cases and screenshot names `reading-empty.png`, `reading-unread.png`, `reading-active.png`, and `reading-week.png`.
+- [x] Run `npm.cmd test -- lib/readingDashboardPresentation.test.ts lib/readingDashboardCss.test.ts` and the iPhone 14 Playwright file; confirm RED is caused by the missing helper and state markup.
 
 ## Task 2: Implement the state-aware hierarchy
 
-- [ ] Add `buildReadingDashboardPresentation` with `totalMinutes > 0` taking precedence for `populated-week`, followed by positive progress for `active-reading`, then imported and empty states.
-- [ ] Keep the label `阅读`; render import/start/continue first and attach the approved data attributes and accessible labels.
-- [ ] Remove file format/size from the Reading surface and show semantic progress only when useful.
-- [ ] Render the compact goal row only when a book exists and the week chart only when total minutes are positive.
-- [ ] Add only the approved copy tokens and CSS; retain existing handlers, Motion values, hairlines, and reduced-motion rules.
-- [ ] Run the focused Vitest and iPhone 14 Playwright cases until GREEN, then inspect all four screenshots.
-- [ ] Commit the implementation as `style: prioritize reading actions by data state`.
+- [x] Add `buildReadingDashboardPresentation` with `totalMinutes > 0` taking precedence for `populated-week`, followed by positive progress for `active-reading`, then imported and empty states.
+- [x] Keep the label `阅读`; render import/start/continue first and attach the approved data attributes and accessible labels.
+- [x] Remove file format/size from the Reading surface and show semantic progress only when useful.
+- [x] Render the compact goal row only when a book exists and the week chart only when total minutes are positive.
+- [x] Add only the approved copy tokens and CSS; retain existing handlers, Motion values, hairlines, and reduced-motion rules.
+- [x] Run the focused Vitest and iPhone 14 Playwright cases until GREEN, then inspect all four screenshots.
+- [x] Commit the implementation as `style: prioritize reading actions by data state`.
 
 ## Task 3: Full local verification
 
-- [ ] Run full Vitest, configured ESLint, webpack build, and `git diff --check`.
-- [ ] Run native-navigation on iPhone 14 and iPhone 15 Pro Max.
-- [ ] Run reader-typography and reading-dashboard Playwright on both iPhone projects.
-- [ ] Confirm generated artifacts remain ignored and no unrelated user files changed.
+- [x] Run full Vitest, configured ESLint, webpack build, and `git diff --check`.
+- [x] Run native-navigation on iPhone 14 and iPhone 15 Pro Max.
+- [x] Run reader-typography and reading-dashboard Playwright on both iPhone projects.
+- [x] Confirm generated artifacts remain ignored and no unrelated user files changed.
 
 ## Task 4: Deploy and close Phase 3
 
-- [ ] Deploy with `NEXT_PRIVATE_STANDALONE=true`, `NEXT_PRIVATE_OUTPUT_TRACE_ROOT`, webpack build, OpenNext build, and OpenNext deploy.
-- [ ] Verify the production root and all discovered JS/CSS assets return 200 and contain the new dashboard markers.
-- [ ] Run all four production dashboard states plus critical navigation on iPhone 14 and inspect the production screenshots.
-- [ ] Update `HANDOFF.md`, check every Phase 3 roadmap item and this plan, then commit `docs: complete reading low-data phase`.
-- [ ] Push the current branch without rewriting history and confirm local/remote equality.
-
+- [x] Deploy with `NEXT_PRIVATE_STANDALONE=true`, `NEXT_PRIVATE_OUTPUT_TRACE_ROOT`, webpack build, OpenNext build, and OpenNext deploy.
+- [x] Verify the production root and all discovered JS/CSS assets return 200 and contain the new dashboard markers.
+- [x] Run all four production dashboard states plus critical navigation on iPhone 14 and inspect the production screenshots.
+- [x] Update `HANDOFF.md`, check every Phase 3 roadmap item and this plan, then commit `docs: complete reading low-data phase`.
+- [x] Push the current branch without rewriting history and confirm local/remote equality.

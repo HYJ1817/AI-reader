@@ -7,9 +7,10 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `c692cc9` (`style: distill global navigation chrome`)
-- If branch HEAD is newer than `c692cc9`, that newer commit should be this handoff-only documentation update.
-- Latest deployed Worker version: `b7865b31-c91d-410b-9a97-5db37c37dfad`
+- Latest implementation commit: `04e82e8` (`style: prioritize reading actions by data state`)
+- Screenshot-harness stabilization commit: `d61eaeb` (`test: stabilize reading dashboard screenshots`).
+- If branch HEAD is newer than `d61eaeb`, that newer commit should be this handoff-only documentation update.
+- Latest deployed Worker version: `a18a4a43-6aac-4a0f-acb1-3fb403744a93`
 - Push `codex/custom-background-settings` after the handoff commit so local and
   `origin/codex/custom-background-settings` match.
 
@@ -235,8 +236,65 @@ The current production screenshots are under:
 - `test-results/native-navigation/native-navigation-root-chr-87d2b-emantic-and-safely-tappable-iphone-14/chrome-settings.png`
 
 All three production screenshots were reviewed and are clean. Physical iPhone
-Safari/PWA confirmation remains a non-blocking device risk. The next roadmap
-item is Phase 3: redesign the Reading tab's low-data experience and semantics.
+Safari/PWA confirmation remains a non-blocking device risk. Phase 3 was
+completed afterward as recorded below.
+
+## UI Quality Roadmap Phase 3: Reading Low-Data Experience (2026-07-14)
+
+Phase 3 of `docs/superpowers/plans/2026-07-14-ui-quality-roadmap.md` is complete.
+The approved design is
+`docs/superpowers/specs/2026-07-14-reading-low-data-design.md`, and the executed
+plan is
+`docs/superpowers/plans/2026-07-14-reading-low-data-implementation.md`.
+
+Implementation commit: `04e82e8` (`style: prioritize reading actions by data state`).
+Screenshot-harness stabilization: `d61eaeb` (`test: stabilize reading dashboard screenshots`).
+
+Implemented behavior:
+
+- `阅读` remains a predictable root destination; it does not auto-open the
+  latest book or change meaning based on stored data.
+- A pure presentation builder selects `empty-library`, `imported-unread`,
+  `active-reading`, or `populated-week` from book, progress, and reading-time
+  inputs.
+- Empty libraries show one open import action. A newly imported book shows
+  start reading. Positive progress changes that action to continue reading.
+- The primary book action always precedes the compact reading-goal row. The
+  seven-day chart is absent until recorded minutes make it informative.
+- File format and byte size were removed from the Reading root. Progress is
+  shown once, semantically, and only after reading has begun.
+- Existing book-open/import/goal handlers, IndexedDB persistence, reading-time
+  calculations, goal math, chart math, Motion behavior, and reduced-motion
+  policy remain unchanged.
+
+Verification and production evidence:
+
+- Focused presentation/composition coverage: 3 files, 13 tests passed.
+- Full Vitest: 136 files, 1352 tests passed.
+- Full configured ESLint and webpack production build passed.
+- Full local Playwright: 44/44 across iPhone 14 and iPhone 15 Pro Max, including
+  native navigation 12/12 per device, reader typography 6/6 per device, and
+  reading dashboard 4/4 per device.
+- Impeccable's targeted scan of `ReadingDashboard.tsx` and `page.module.css`
+  reported no anti-patterns. URL scanning was unavailable because Puppeteer is
+  not a project dependency; no dependency was added for the scan.
+- `git diff --check` passed and generated artifacts remained ignored.
+- OpenNext deployed Worker version
+  `a18a4a43-6aac-4a0f-acb1-3fb403744a93` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned HTTP 200. The
+  server HTML contains `data-reading-dashboard-state="empty-library"`, the
+  primary-state locator, the new empty copy, and the import action.
+- Production iPhone 14 native-navigation plus reading-dashboard coverage passed
+  16/16. A final focused rerun passed all four dashboard states after the
+  screenshot harness began waiting for the shared cover transform to settle.
+
+The production dashboard screenshots are under the four
+`test-results/native-navigation/reading-dashboard-*-iphone-14/` directories as
+`reading-empty.png`, `reading-unread.png`, `reading-active.png`, and
+`reading-week.png`. All four were reviewed in their final settled state and are
+clean. Physical iPhone Safari/PWA confirmation remains a non-blocking device
+risk. The next roadmap item is Phase 4: make the Library book-first instead of
+file-first.
 
 ## Current Feature Work
 
@@ -1194,9 +1252,9 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 c692cc9：UI 品质路线图 Phase 2 已完成。根标题从 40px/800 收敛到 34px/750；底栏从 72px 收敛为 60px，去掉嵌套活动胶囊与顶部高光，改用语义、蓝色图标/文字和 24×2px 移动短线共同表示活动项；所有相关点击区仍至少 44px。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
-最新正式 Worker 版本是 b7865b31-c91d-410b-9a97-5db37c37dfad；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 135 文件/1346 项、全仓 ESLint、webpack 构建均通过；native-navigation 在 iPhone 14 与 iPhone 15 Pro Max 各 12/12，reader-typography 在两档各 6/6；正式域名紧凑 chrome、焦点返回、根滚动保持和帧率探针 4/4，根页面及发现的 10 个 JS/CSS 资源全部 200。
+最新实现提交是 04e82e8，截图验收稳定化提交是 d61eaeb：UI 品质路线图 Phase 3 已完成。“阅读”仍是稳定根目的地；空书库只显示导入，刚导入显示开始阅读，有进度显示继续阅读，目标行位于主动作之后，最近 7 天只在存在阅读分钟时出现；阅读根不再显示格式和文件大小。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
+最新正式 Worker 版本是 a18a4a43-6aac-4a0f-acb1-3fb403744a93；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 136 文件/1352 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 44/44，覆盖 native-navigation、reader-typography 和 reading-dashboard 的两档 iPhone 尺寸；正式域名 iPhone 14 导航与四种阅读状态 16/16，最后四状态复验 4/4，根页面及发现的 10 个 JS/CSS 资源全部 200。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
-下一步直接进入 UI 品质路线图 Phase 3：重做“阅读”页的低数据体验与语义，先明确目的地命名/行为和四种数据状态，再按 TDD、双尺寸回归、部署、截图和 HANDOFF 的顺序完成并勾选。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
+下一步直接进入 UI 品质路线图 Phase 4：让书库从“文件优先”转为“图书优先”，先审核封面、书名、作者/来源、进度与最近阅读时间的信息层级，再按设计稿、TDD、双尺寸回归、部署、截图和 HANDOFF 的顺序完成并勾选。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
