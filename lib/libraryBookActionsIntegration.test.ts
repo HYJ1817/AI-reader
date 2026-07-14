@@ -22,11 +22,12 @@ describe("library book progress presentation", () => {
     expect(formatLibraryProgressValue(100)).toBe("100%");
   });
 
-  it("renders library item progress without visual tracks", () => {
-    expect(librarySource).toContain("formatLibraryProgressValue(progress)");
-    expect(librarySource).not.toContain("bookListProgressTrack");
+  it("renders semantic progress with a compact visual track", () => {
+    expect(librarySource).toContain("buildLibraryBookPresentation(book, progress)");
+    expect(librarySource).toContain('data-library-book-progress="true"');
+    expect(librarySource).toContain("bookListProgressTrack");
     expect(librarySource).not.toContain("bookGridProgress");
-    expect(moduleCss).not.toContain(".bookListProgressTrack");
+    expect(moduleCss).toContain(".bookListProgressTrack");
     expect(moduleCss).not.toContain(".bookGridProgress");
   });
 });

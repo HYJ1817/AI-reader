@@ -1715,6 +1715,25 @@
   flex-direction: column;
 }
 
+.libraryShelfAction {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  margin: -8px -8px -8px 0;
+  padding: 8px;
+  color: var(--tint);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.libraryShelfAction small {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .libraryLoadSentinel {
   width: 100%;
   height: 1px;
@@ -1800,7 +1819,8 @@
   margin-top: -4px;
   color: var(--text-secondary);
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
+  line-height: 1.25;
 }
 
 .bookGridMoreButton {
@@ -2005,7 +2025,7 @@
 
 .bookTitle {
   font-size: 16px;
-  font-weight: 500;
+  font-weight: 650;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -2013,16 +2033,52 @@
 }
 
 .bookMeta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow: hidden;
   font-size: 13px;
   color: var(--text-secondary);
 }
 
+.bookMeta span {
+  flex-shrink: 0;
+}
+
+.bookMeta span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .bookListProgressRow {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: var(--text-tertiary);
-  font-size: 18px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 650;
   line-height: 1.2;
+}
+
+.bookListProgressTrack {
+  position: relative;
+  flex: 1;
+  min-width: 44px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-secondary) 16%, transparent);
+}
+
+.bookListProgressTrack span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tint);
 }
 
 .bookMoreButton {

@@ -7,11 +7,10 @@ import MotionBookCover from "@/app/MotionBookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import {
-  formatLibraryProgressValue,
   getBookProgressPercent,
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
-import { formatBookSize } from "@/lib/libraryPresentation";
+import { buildLibraryBookPresentation } from "@/lib/libraryPresentation";
 import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
@@ -170,20 +169,6 @@ export default function LibrarySurface({
       </div>
 
       <div>
-          <button className={styles.collectionEntryRow} onClick={actions.openCollections}>
-            <span className={styles.collectionEntryIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                <path d="M4 6.5h6.5c1.1 0 2 .9 2 2v9.5H6a2 2 0 0 1-2-2V6.5Z" />
-                <path d="M12.5 8.5c0-1.1.9-2 2-2H21V16a2 2 0 0 1-2 2h-6.5V8.5Z" />
-              </svg>
-            </span>
-            <span className={styles.collectionEntryText}>
-              <strong>{UI_TEXT.COLLECTIONS}</strong>
-              <small>{books.length} {UI_TEXT.BOOK_COUNT}</small>
-            </span>
-            <span className={styles.continueChevron}>{"\u203a"}</span>
-          </button>
-
           {books.length > 0 && (
             <div className={styles.librarySearchRow}>
               <label className={styles.librarySearchBox}>
@@ -250,7 +235,7 @@ export default function LibrarySurface({
               </button>
             </div>
           ) : (
-            <div className={styles.bookList}>
+            <div className={styles.bookList} data-library-shelf="true">
               {importError && <p className={styles.importError}>{importError}</p>}
               <div className={styles.sectionHeader}>
                 <h2>{UI_TEXT.RECENT_BOOKS}</h2>
@@ -259,7 +244,16 @@ export default function LibrarySurface({
                     {editing.allVisibleSelected ? UI_TEXT.CLEAR_SELECTION : UI_TEXT.SELECT_ALL}
                   </button>
                 ) : (
-                  <span>{view.activeCollectionName} · {filteredBookCount}</span>
+                  <button
+                    className={styles.libraryShelfAction}
+                    data-library-collections="true"
+                    aria-label={`${UI_TEXT.COLLECTIONS}：${view.activeCollectionName}，${filteredBookCount} ${UI_TEXT.BOOK_COUNT}`}
+                    onClick={actions.openCollections}
+                  >
+                    <span>{view.activeCollectionName}</span>
+                    <small>{filteredBookCount}</small>
+                    <span aria-hidden="true">{"\u203a"}</span>
+                  </button>
                 )}
               </div>
               {editing.library && (
@@ -281,6 +275,7 @@ export default function LibrarySurface({
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
+                    const presentation = buildLibraryBookPresentation(book, progress);
                     const originId = `library-grid-${book.id}`;
                     const entranceIndex = entranceOrder.get(book.id);
                     return (
@@ -311,6 +306,7 @@ export default function LibrarySurface({
                               }
                         }
                         className={`${styles.bookGridCell} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
+                        data-library-book-state={presentation.state}
                       >
                         <button
                           className={styles.bookGridItem}
@@ -320,7 +316,10 @@ export default function LibrarySurface({
                           <MotionBookCover book={book} originId={originId} />
                           <span className={styles.bookGridTitle}>{book.title}</span>
                           <span className={styles.bookGridMeta}>
-                            {formatLibraryProgressValue(progress)}
+                            {presentation.progressLabel}
+                            {presentation.state !== "unread" && (
+                              <> · {presentation.lastReadLabel}</>
+                            )}
                           </span>
                         </button>
                         {editing.library ? (
@@ -345,6 +344,7 @@ export default function LibrarySurface({
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
+                    const presentation = buildLibraryBookPresentation(book, progress);
                     const originId = `library-list-${book.id}`;
                     const entranceIndex = entranceOrder.get(book.id);
                     return (
@@ -375,6 +375,7 @@ export default function LibrarySurface({
                               }
                         }
                         className={`${styles.bookItem} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
+                        data-library-book-state={presentation.state}
                         onClick={() => actions.pressBook(book, originId)}
                       >
                         {editing.library && (
@@ -386,11 +387,30 @@ export default function LibrarySurface({
                         <div className={styles.bookInfo}>
                           <span className={styles.bookTitle}>{book.title}</span>
                           <span className={styles.bookMeta}>
-                            {book.format.toUpperCase()}{" \u00b7 "}{formatBookSize(book.size)}
+                            <span>{presentation.sourceLabel}</span>
+                            <span aria-hidden="true">·</span>
+                            <span>{presentation.lastReadLabel}</span>
                           </span>
-                          <span className={styles.bookListProgressRow}>
-                            {formatLibraryProgressValue(progress)}
-                          </span>
+                          {presentation.showProgress ? (
+                            <span
+                              className={styles.bookListProgressRow}
+                              data-library-book-progress="true"
+                            >
+                              <span
+                                className={styles.bookListProgressTrack}
+                                aria-hidden="true"
+                              >
+                                <span
+                                  style={{ width: `${presentation.progressPercent}%` }}
+                                />
+                              </span>
+                              <span>{presentation.progressLabel}</span>
+                            </span>
+                          ) : (
+                            <span className={styles.bookListProgressRow}>
+                              {presentation.progressLabel}
+                            </span>
+                          )}
                           {book.groupIds && book.groupIds.length > 0 && (
                             <span className={styles.bookGroupLabels}>
                               {book.groupIds
