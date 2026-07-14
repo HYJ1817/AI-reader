@@ -76,13 +76,13 @@
   - [x] Run full Vitest, ESLint, webpack build, both iPhone Playwright projects, production smoke, and `git diff --check`.
   - [x] Deploy, complete real-iPhone verification where available, refresh `HANDOFF.md`, commit, and mark Phase 5 complete.
 
-- [ ] **Phase 6: Final critique and closeout**
-  - [ ] Re-run Impeccable critique against `app` and record the new score and trend.
-  - [ ] Confirm a score of at least 32/40 with no P0 or P1 findings; if the gate fails, add only the remaining findings as new checked tasks below this phase.
-  - [ ] Run the complete repository verification and deployed `https://881817.xyz` smoke suite once more.
-  - [ ] Update `HANDOFF.md` with the final code commit, Worker version, completed roadmap, remaining physical-device risks, and next-chat opener.
-  - [ ] Push the branch and confirm local and remote branch state match.
-  - [ ] Mark Phase 6 complete and close the UI quality goal.
+- [x] **Phase 6: Final critique and closeout**
+  - [x] Re-run Impeccable critique against `app` and record the new score and trend.
+  - [x] Confirm a score of at least 32/40 with no P0 or P1 findings; if the gate fails, add only the remaining findings as new checked tasks below this phase.
+  - [x] Run the complete repository verification and deployed `https://881817.xyz` smoke suite once more.
+  - [x] Update `HANDOFF.md` with the final code commit, Worker version, completed roadmap, remaining physical-device risks, and next-chat opener.
+  - [x] Push the branch and confirm local and remote branch state match.
+  - [x] Mark Phase 6 complete and close the UI quality goal.
 
 ## Phase File Map
 
