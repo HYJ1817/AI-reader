@@ -7,9 +7,9 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `3ddb099` (`fix: polish reader typography and menu affordance`)
-- If branch HEAD is newer than `3ddb099`, that newer commit should be this handoff-only documentation update.
-- Latest deployed Worker version: `683beaa5-e2e1-46b2-aa18-28d929ba1410`
+- Latest implementation commit: `c692cc9` (`style: distill global navigation chrome`)
+- If branch HEAD is newer than `c692cc9`, that newer commit should be this handoff-only documentation update.
+- Latest deployed Worker version: `b7865b31-c91d-410b-9a97-5db37c37dfad`
 - Push `codex/custom-background-settings` after the handoff commit so local and
   `origin/codex/custom-background-settings` match.
 
@@ -182,8 +182,61 @@ The current production screenshots are under:
 - `test-results/native-navigation/reader-typography-paged-TX-b5eda-nt-and-horizontal-page-flow-iphone-14/paged-default.png`
 
 These iPhone-sized production screenshots were reviewed and are clean. Physical
-iPhone Safari/PWA confirmation remains a non-blocking device risk. The next
-roadmap item is Phase 2: distill global chrome and navigation scale.
+iPhone Safari/PWA confirmation remains a non-blocking device risk. Phase 2 was
+completed afterward as recorded below.
+
+## UI Quality Roadmap Phase 2: Global Chrome (2026-07-14)
+
+Phase 2 of `docs/superpowers/plans/2026-07-14-ui-quality-roadmap.md` is complete.
+The approved design is
+`docs/superpowers/specs/2026-07-14-global-chrome-design.md`, and the executed
+plan is `docs/superpowers/plans/2026-07-14-global-chrome-implementation.md`.
+
+Implementation commit: `c692cc9` (`style: distill global navigation chrome`).
+
+Implemented behavior:
+
+- Root titles are 34px/750 instead of 40px/800.
+- The persistent bottom bar is 60px high with an 8px safe-area offset, 22px
+  radius, one hairline, one soft shadow, and no decorative top glint.
+- The full active capsule was replaced by a shared Motion track whose visible
+  material is a centered 24px by 2px tint line.
+- Active state now combines `aria-current="page"`, tint, label weight, icon
+  treatment, and the moving line. A selector-specificity defect found during
+  screenshot review was fixed so newly tapped destinations stay tinted.
+- Icons are 24px, labels are 11px, and every tab plus existing root-header
+  action retains at least a 44px target.
+- Root content and library batch-bar clearance now use shared navigation tokens
+  and preserve the safe-area calculation.
+- The three destinations, persistent roots, handlers, Motion spring, history,
+  reader presentation, edge Back, and reduced-motion architecture are unchanged.
+
+Verification and production evidence:
+
+- Focused chrome/motion/navigation coverage: 9 files, 97 tests passed.
+- Full Vitest: 135 files, 1346 tests passed.
+- Full configured ESLint and webpack production build passed.
+- Native-navigation Playwright: iPhone 14 12/12 and iPhone 15 Pro Max 12/12.
+- Reader-typography regression: iPhone 14 6/6 and iPhone 15 Pro Max 6/6.
+- `git diff --check` passed and generated artifacts remained ignored.
+- OpenNext deployed Worker version
+  `b7865b31-c91d-410b-9a97-5db37c37dfad` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned HTTP 200.
+- Production CSS contains `--root-tab-height:60px`, the 24px/2px active line,
+  and the quiet 2px/8px shadow; production JS contains `aria-current`,
+  `root-tab-indicator`, and `data-navigation-tab`.
+- Production iPhone 14 chrome, focus return, root scroll preservation, and
+  frame-cadence coverage passed 4/4.
+
+The current production screenshots are under:
+
+- `test-results/native-navigation/native-navigation-root-chr-87d2b-emantic-and-safely-tappable-iphone-14/chrome-library.png`
+- `test-results/native-navigation/native-navigation-root-chr-87d2b-emantic-and-safely-tappable-iphone-14/chrome-reading.png`
+- `test-results/native-navigation/native-navigation-root-chr-87d2b-emantic-and-safely-tappable-iphone-14/chrome-settings.png`
+
+All three production screenshots were reviewed and are clean. Physical iPhone
+Safari/PWA confirmation remains a non-blocking device risk. The next roadmap
+item is Phase 3: redesign the Reading tab's low-data experience and semantics.
 
 ## Current Feature Work
 
@@ -865,12 +918,19 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest implementation commit `3ddb099`, these passed:
+After the latest implementation commit `c692cc9`, these passed:
 
 ```powershell
 npm.cmd test
 npm.cmd run lint
 npm.cmd run build
+npm.cmd test -- lib/navigationChrome.test.ts lib/motionCss.test.ts lib/navigationMotion.test.ts lib/persistentSurfaces.test.ts lib/ambientBookBackground.test.ts
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max
+npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-14
+npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-15-pro-max
+$env:PLAYWRIGHT_BASE_URL='https://881817.xyz'; npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14 --grep "reader closes back|root scroll position|root chrome stays compact|push transition meets"
+Remove-Item Env:PLAYWRIGHT_BASE_URL
 npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
 npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max
 npx.cmd playwright test e2e/reader-typography.spec.ts --project=iphone-14
@@ -915,6 +975,15 @@ git diff --check
 
 Observed results:
 
+- Global chrome phase: focused coverage 9 files/97 tests; full Vitest 135
+  files/1346 tests; full ESLint and webpack build passed.
+- Native-navigation passed 12/12 on both iPhone projects; Phase 1 typography
+  regression passed 6/6 on both projects.
+- Cloudflare OpenNext deployment published Worker version
+  `b7865b31-c91d-410b-9a97-5db37c37dfad`; root and 10 discovered assets
+  returned 200 with the expected compact-chrome markers.
+- Production chrome, focus return, root scroll preservation, and frame cadence
+  passed 4/4 on iPhone 14 emulation, and all three root screenshots were clean.
 - Reader typography phase: 134 files, 1342 tests passed; full ESLint and
   webpack build passed.
 - Native-navigation Playwright passed 11/11 on both iPhone projects; typography
@@ -1125,9 +1194,9 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 3ddb099：UI 品质路线图 Phase 1 已完成。TXT 默认使用自然 start 对齐，仅在自定义排版和明确的 justify 偏好同时开启时两端对齐；阅读菜单保留 48px 点击区并改为安静的右侧边缘形态；末段可滚动避开菜单。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
-最新正式 Worker 版本是 683beaa5-e2e1-46b2-aa18-28d929ba1410；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 134 文件/1342 项、全仓 ESLint、webpack 构建均通过；native-navigation 在 iPhone 14 与 iPhone 15 Pro Max 各 11/11，reader-typography 在两档各 6/6；正式域名 typography 6/6、关键导航 2/2，根页面及发现的 10 个 JS/CSS 资源全部 200。
+最新实现提交是 c692cc9：UI 品质路线图 Phase 2 已完成。根标题从 40px/800 收敛到 34px/750；底栏从 72px 收敛为 60px，去掉嵌套活动胶囊与顶部高光，改用语义、蓝色图标/文字和 24×2px 移动短线共同表示活动项；所有相关点击区仍至少 44px。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
+最新正式 Worker 版本是 b7865b31-c91d-410b-9a97-5db37c37dfad；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 135 文件/1346 项、全仓 ESLint、webpack 构建均通过；native-navigation 在 iPhone 14 与 iPhone 15 Pro Max 各 12/12，reader-typography 在两档各 6/6；正式域名紧凑 chrome、焦点返回、根滚动保持和帧率探针 4/4，根页面及发现的 10 个 JS/CSS 资源全部 200。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
-下一步直接进入 UI 品质路线图 Phase 2：收敛全局 chrome 与导航尺度，先写设计规格和实施计划，再按 TDD、双尺寸回归、部署、截图和 HANDOFF 的顺序完成并勾选。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
+下一步直接进入 UI 品质路线图 Phase 3：重做“阅读”页的低数据体验与语义，先明确目的地命名/行为和四种数据状态，再按 TDD、双尺寸回归、部署、截图和 HANDOFF 的顺序完成并勾选。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```

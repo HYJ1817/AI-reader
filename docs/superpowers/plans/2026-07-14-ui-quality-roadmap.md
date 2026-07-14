@@ -40,14 +40,14 @@
   - [x] Confirm the visible result with iPhone-sized screenshots; physical-iPhone confirmation remains a documented non-blocking risk until a device is available.
   - [x] Refresh `HANDOFF.md`, commit the phase, and mark Phase 1 complete.
 
-- [ ] **Phase 2: Distill global chrome and navigation scale**
+- [x] **Phase 2: Distill global chrome and navigation scale**
   - [x] Approve `docs/superpowers/specs/2026-07-14-global-chrome-design.md` and `docs/superpowers/plans/2026-07-14-global-chrome-implementation.md`.
-  - [ ] Add failing CSS and integration coverage for compact titles, tab-bar dimensions, active state, safe areas, and 44px minimum targets.
-  - [ ] Reduce the visual weight of large titles, the 72px tab bar, active-tab capsule, highlights, and shadows without changing the three root destinations.
-  - [ ] Preserve root state, focus restoration, reduced motion, edge Back, and reader presentation behavior.
-  - [ ] Run focused motion/navigation tests and both iPhone Playwright projects.
-  - [ ] Run the full Vitest, ESLint, webpack build, and `git diff --check` gates.
-  - [ ] Deploy, verify production screenshots and frame cadence, refresh `HANDOFF.md`, commit, and mark Phase 2 complete.
+  - [x] Add failing CSS and integration coverage for compact titles, tab-bar dimensions, active state, safe areas, and 44px minimum targets.
+  - [x] Reduce the visual weight of large titles, the 72px tab bar, active-tab capsule, highlights, and shadows without changing the three root destinations.
+  - [x] Preserve root state, focus restoration, reduced motion, edge Back, and reader presentation behavior.
+  - [x] Run focused motion/navigation tests and both iPhone Playwright projects.
+  - [x] Run the full Vitest, ESLint, webpack build, and `git diff --check` gates.
+  - [x] Deploy, verify production screenshots and frame cadence, refresh `HANDOFF.md`, commit, and mark Phase 2 complete.
 
 - [ ] **Phase 3: Redesign the Reading tab's low-data experience and semantics**
   - [ ] Approve a low-data information-architecture design spec and phase implementation plan.
@@ -102,6 +102,7 @@
 - Modify: `app/page.module.css`
 - Test: `lib/motionCss.test.ts`
 - Test: `lib/navigationMotion.test.ts`
+- Create: `lib/navigationChrome.test.ts`
 - Test: `e2e/native-navigation.spec.ts`
 
 ### Phase 3

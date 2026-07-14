@@ -8,34 +8,33 @@
 
 ## Task 1: Lock the approved chrome contract in failing tests
 
-- [ ] Create `lib/navigationChrome.test.ts` for title scale, navigation tokens, 44px targets, quiet material, active semantics, indicator shape, and safe-area clearance.
-- [ ] Extend `e2e/native-navigation.spec.ts` with computed geometry, `aria-current`, active-state switching, and screenshot evidence.
-- [ ] Run the focused Vitest and iPhone 14 browser test and confirm failures describe only the missing Phase 2 behavior.
+- [x] Create `lib/navigationChrome.test.ts` for title scale, navigation tokens, 44px targets, quiet material, active semantics, indicator shape, and safe-area clearance.
+- [x] Extend `e2e/native-navigation.spec.ts` with computed geometry, `aria-current`, active-state switching, and screenshot evidence.
+- [x] Run the focused Vitest and iPhone 14 browser test and confirm failures describe only the missing Phase 2 behavior.
 
 ## Task 2: Implement the minimal chrome changes
 
-- [ ] Add an accessible name to the root navigation and `aria-current="page"` to exactly the active destination without changing click paths.
-- [ ] Add root-navigation dimension tokens and update content/batch-bar clearance to use them.
-- [ ] Reduce the root title to 34px/750 and normalize header action targets to 44px.
-- [ ] Reduce the tab bar to 60px, quiet its material, remove the decorative glint, and use 24px icons with 11px labels.
-- [ ] Replace the active capsule material with a centered 24px by 2px moving tint line while retaining the shared Motion track and spring.
-- [ ] Run focused Vitest plus the iPhone 14 browser test and confirm GREEN.
-- [ ] Inspect library, reading, settings, and mid-transition screenshots; tighten a failing assertion before any corrective styling.
-- [ ] Commit the verified implementation separately from closeout documentation.
+- [x] Add an accessible name to the root navigation and `aria-current="page"` to exactly the active destination without changing click paths.
+- [x] Add root-navigation dimension tokens and update content/batch-bar clearance to use them.
+- [x] Reduce the root title to 34px/750 and normalize header action targets to 44px.
+- [x] Reduce the tab bar to 60px, quiet its material, remove the decorative glint, and use 24px icons with 11px labels.
+- [x] Replace the active capsule material with a centered 24px by 2px moving tint line while retaining the shared Motion track and spring.
+- [x] Run focused Vitest plus the iPhone 14 browser test and confirm GREEN.
+- [x] Inspect library, reading, settings, and mid-transition screenshots; tighten a failing assertion before any corrective styling.
+- [x] Commit the verified implementation separately from closeout documentation.
 
 ## Task 3: Run the full local gate
 
-- [ ] Run full Vitest, configured ESLint, webpack build, and `git diff --check`.
-- [ ] Run the complete native-navigation suite on iPhone 14 and iPhone 15 Pro Max.
-- [ ] Run Phase 1 reader-typography regression on both iPhone projects.
-- [ ] Confirm generated artifacts remain ignored and no unrelated user files changed.
+- [x] Run full Vitest, configured ESLint, webpack build, and `git diff --check`.
+- [x] Run the complete native-navigation suite on iPhone 14 and iPhone 15 Pro Max.
+- [x] Run Phase 1 reader-typography regression on both iPhone projects.
+- [x] Confirm generated artifacts remain ignored and no unrelated user files changed.
 
 ## Task 4: Deploy and close Phase 2
 
-- [ ] Build and deploy with the established Windows OpenNext sequence.
-- [ ] Verify the production root and every discovered JS/CSS asset return 200 and contain the Phase 2 markers.
-- [ ] Run the focused production chrome test, critical navigation smoke, and screenshot capture on iPhone 14.
-- [ ] Update `HANDOFF.md` with implementation commit, Worker version, local/production evidence, screenshot paths, and remaining physical-device risk.
-- [ ] Check every Phase 2 roadmap child item, then check Phase 2 itself.
-- [ ] Run the documentation diff gate, commit closeout documentation, push the current branch without rewriting history, and confirm local/remote equality.
-
+- [x] Build and deploy with the established Windows OpenNext sequence.
+- [x] Verify the production root and every discovered JS/CSS asset return 200 and contain the Phase 2 markers.
+- [x] Run the focused production chrome test, critical navigation smoke, and screenshot capture on iPhone 14.
+- [x] Update `HANDOFF.md` with implementation commit, Worker version, local/production evidence, screenshot paths, and remaining physical-device risk.
+- [x] Check every Phase 2 roadmap child item, then check Phase 2 itself.
+- [x] Run the documentation diff gate, commit closeout documentation, push the current branch without rewriting history, and confirm local/remote equality.
