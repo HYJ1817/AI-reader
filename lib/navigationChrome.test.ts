@@ -42,7 +42,7 @@ describe("compact root chrome", () => {
     const iconRule = cssRule(".tabIcon");
     const labelRule = cssRule(".tabLabel");
 
-    expect(titleRule).toContain("font-size: 34px");
+    expect(titleRule).toContain("font-size: var(--type-title)");
     expect(titleRule).toContain("font-weight: 750");
     expect(titleRule).toContain("line-height: 1.1");
     expect(actionRule).toContain("min-height: 44px");
@@ -50,7 +50,7 @@ describe("compact root chrome", () => {
     expect(tabRule).toContain("min-height: 44px");
     expect(iconRule).toContain("width: 24px");
     expect(iconRule).toContain("height: 24px");
-    expect(labelRule).toContain("font-size: 11px");
+    expect(labelRule).toContain("font-size: var(--type-caption)");
   });
 
   it("uses one quiet surface and a small moving line instead of nested capsules", () => {
@@ -89,4 +89,3 @@ describe("compact root chrome", () => {
     expect(navigationSource).toContain('layoutId="root-tab-indicator"');
   });
 });
-

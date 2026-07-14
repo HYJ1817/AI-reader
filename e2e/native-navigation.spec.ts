@@ -296,7 +296,7 @@ test.beforeEach(async ({ page }) => {
   await importBook(page);
 });
 
-test("reader closes back to its source cover and restores focus", async ({
+test("reader closes back to its source action and restores focus", async ({
   page,
 }) => {
   const cover = firstLibraryCover(page);
@@ -309,7 +309,7 @@ test("reader closes back to its source cover and restores focus", async ({
   const restoredCover = page.locator(
     `[data-book-cover-origin="${originId}"]`
   );
-  await expect(restoredCover).toBeFocused();
+  await expect(restoredCover.locator("xpath=ancestor::button[1]")).toBeFocused();
 });
 
 test("browser Back restores the root after a pushed route", async ({ page }) => {

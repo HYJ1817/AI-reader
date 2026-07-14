@@ -131,7 +131,7 @@
 }
 
 .title {
-  font-size: 34px;
+  font-size: var(--type-title);
   font-weight: 700;
   letter-spacing: -0.4px;
   color: var(--text-primary);
@@ -146,8 +146,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--tint);
   transition: opacity var(--motion-fast) var(--ease-standard);
@@ -210,6 +210,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   padding: 8px 0 4px;
 }
 
@@ -218,6 +219,7 @@
   align-items: center;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
   flex-shrink: 0;
 }
 
@@ -236,7 +238,7 @@
   margin: 0;
   padding: 0 16px;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--type-footnote);
   font-weight: 500;
   line-height: 1.2;
 }
@@ -276,14 +278,14 @@
 
 .settingsRowText strong {
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: var(--type-body);
   font-weight: 500;
   line-height: 1.24;
 }
 
 .settingsRowText small {
   color: var(--text-secondary);
-  font-size: 12.5px;
+  font-size: var(--type-caption);
   line-height: 1.28;
 }
 
@@ -406,7 +408,7 @@
 
 .settingsSegmentControl button {
   min-width: 42px;
-  height: 30px;
+  min-height: 44px;
   padding: 0 10px;
   border-radius: 9px;
   color: var(--text-secondary);
@@ -551,7 +553,8 @@
 }
 
 .settingsActionRow button {
-  min-height: 34px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0 16px;
   border-radius: 8px;
   font-size: 15px;
@@ -764,8 +767,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border: none;
   border-radius: 50%;
   background: color-mix(in srgb, #ff3b30 12%, transparent);
@@ -786,15 +789,15 @@
 }
 
 .settingsStatusOk {
-  color: #30d158;
+  color: var(--status-success);
 }
 
 .settingsStatusErr {
-  color: #ff453a;
+  color: var(--status-error);
 }
 
 .libraryTitle {
-  font-size: 34px;
+  font-size: var(--type-title);
   font-weight: 750;
   letter-spacing: -0.3px;
   color: var(--text-primary);
@@ -846,7 +849,7 @@
   padding: 0 10px;
   border-radius: 10px;
   color: var(--tint);
-  font-size: 15px;
+  font-size: var(--type-body);
   font-weight: 700;
   transform: translate3d(0, 0, 0);
   transition:
@@ -872,6 +875,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
+  flex-wrap: wrap;
   margin: 18px 0 12px;
 }
 
@@ -886,7 +890,7 @@
 
 .sectionHeader span {
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: var(--type-footnote);
   font-weight: 500;
 }
 
@@ -1287,7 +1291,7 @@
   background: transparent;
   color: var(--text-primary);
   font: inherit;
-  font-size: 15px;
+  font-size: var(--type-body);
 }
 
 .librarySearchBox input::placeholder {
@@ -1299,7 +1303,7 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 42px;
+  min-height: 50px;
   padding: 3px;
   border-radius: 12px;
   background: var(--control-fill);
@@ -1311,8 +1315,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 10px;
   color: var(--text-secondary);
   transform: scale(1);
@@ -1451,8 +1455,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: var(--tint);
   color: #ffffff;
@@ -1534,7 +1538,7 @@
   justify-content: center;
   gap: 2px;
   min-height: 44px;
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 500;
   color: var(--text-tertiary);
   transform: translate3d(0, 0, 0);
@@ -1546,12 +1550,9 @@
   border-radius: 16px;
 }
 
-.tab:focus {
-  outline: none;
-}
-
 .tab:focus-visible {
-  outline: none;
+  outline: 3px solid var(--focus-ring);
+  outline-offset: -3px;
   border-radius: 999px;
 }
 
@@ -1566,7 +1567,8 @@
 
 .tabLabel {
   display: block;
-  font-size: 11px;
+  font-size: var(--type-caption);
+  line-height: 1;
   transform: translate3d(0, 0, 0) scale(1);
   transition: transform var(--motion-fast) var(--ease-standard);
 }
@@ -1672,7 +1674,7 @@
 
 .batchTextButton,
 .batchDangerButton {
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 10px;
   border-radius: 12px;
   font-size: 13px;
@@ -1808,7 +1810,7 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 13px;
+  font-size: var(--type-footnote);
   font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -1818,20 +1820,20 @@
 .bookGridMeta {
   margin-top: -4px;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--type-caption);
   font-weight: 500;
   line-height: 1.25;
 }
 
 .bookGridMoreButton {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 0;
+  right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: #ffffff;
   background: rgba(0, 0, 0, 0.34);
@@ -1908,13 +1910,31 @@
 .bookItem {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 13px 0;
+  gap: 0;
+  padding: 0;
   border-bottom: 0.5px solid var(--hairline);
   cursor: pointer;
   transition: opacity var(--motion-fast) var(--ease-standard), transform var(--motion-fast) var(--ease-standard);
   content-visibility: auto;
   contain-intrinsic-size: 74px;
+}
+
+.bookItemMain {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  color: inherit;
+  text-align: left;
+}
+
+.bookItemMain:focus-visible,
+.bookGridItem:focus-visible {
+  outline-offset: -3px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--tint) 7%, transparent);
 }
 
 .bookItem:hover {
@@ -2024,12 +2044,14 @@
 }
 
 .bookTitle {
-  font-size: 16px;
+  font-size: var(--type-body);
   font-weight: 650;
   color: var(--text-primary);
-  white-space: nowrap;
+  display: -webkit-box;
+  white-space: normal;
   overflow: hidden;
-  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .bookMeta {
@@ -2037,8 +2059,9 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  flex-wrap: wrap;
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--type-footnote);
   color: var(--text-secondary);
 }
 
@@ -2058,7 +2081,7 @@
   align-items: center;
   gap: 8px;
   color: var(--text-tertiary);
-  font-size: 12px;
+  font-size: var(--type-caption);
   font-weight: 650;
   line-height: 1.2;
 }
@@ -2086,8 +2109,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--text-tertiary);
   transform: scale(1);
@@ -2300,14 +2323,14 @@
 }
 
 .readingEmptyState h2 {
-  font-size: 22px;
+  font-size: var(--type-headline);
   font-weight: 750;
 }
 
 .readingEmptyState p {
   max-width: 26ch;
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: var(--type-body);
   line-height: 1.5;
 }
 
@@ -2845,8 +2868,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--text-secondary);
   flex-shrink: 0;
@@ -2894,8 +2917,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--tint);
   pointer-events: auto;
@@ -2924,8 +2947,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   pointer-events: auto;
   transition:
@@ -2991,8 +3014,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
+  margin-right: -8px;
   border-radius: 50%;
   color: var(--text-secondary);
   flex-shrink: 0;
@@ -3205,10 +3229,10 @@
 
 .clearSelectionButton {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 20px;
-  height: 20px;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3276,10 +3300,15 @@
 }
 
 .settingsPrompt {
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: var(--type-footnote);
   color: var(--tint);
   cursor: pointer;
   text-decoration: underline;
+  text-align: left;
 }
 
 .backupSection {
@@ -3727,7 +3756,7 @@
 
 .bookDeleteDialog strong {
   display: block;
-  color: #ff453a;
+  color: var(--status-error);
   font-size: 18px;
   font-weight: 800;
   line-height: 1.25;
@@ -3736,7 +3765,7 @@
 .bookDeleteDialog p {
   margin: 8px 0 18px;
   color: var(--text-secondary);
-  font-size: 14px;
+  font-size: var(--type-footnote);
   line-height: 1.45;
 }
 
@@ -4283,8 +4312,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--text-secondary);
   transition: opacity var(--motion-fast) var(--ease-standard);
@@ -4298,8 +4327,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: #ff453a;
   transition: opacity var(--motion-fast) var(--ease-standard);
@@ -4477,7 +4506,7 @@
 
 .readerThemeSegment button {
   min-width: 42px;
-  height: 28px;
+  min-height: 44px;
   padding: 0 8px;
   border-radius: 6px;
   color: var(--text-secondary);
@@ -4697,7 +4726,7 @@
 }
 
 .tocTabs button {
-  min-height: 36px;
+  min-height: 44px;
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.78);
   font-size: 15px;
@@ -5558,8 +5587,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--text-secondary);
   background: var(--control-fill);
@@ -5966,7 +5995,8 @@
 }
 
 .providerRefreshButton {
-  min-height: 30px;
+  min-width: 44px;
+  min-height: 44px;
   margin: 0 4px 10px 0;
   padding: 0 12px;
   border-radius: 999px;
@@ -6021,6 +6051,18 @@
 .providerModelRow:active {
   background: var(--control-fill);
   transform: translate3d(0, 1px, 0);
+}
+
+.providerModelSelect {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: inherit;
+  text-align: left;
 }
 
 .providerModelRow[data-selected="true"] {
@@ -6121,6 +6163,8 @@
 }
 
 .providerModelDelete {
+  min-width: 44px;
+  min-height: 44px;
   color: #ff453a;
   font-size: 13px;
   font-weight: 500;
@@ -6245,7 +6289,8 @@
 
 .providerManualModelRow button {
   flex-shrink: 0;
-  height: 38px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0 12px;
   border-radius: 10px;
   color: #ffffff;

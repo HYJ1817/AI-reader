@@ -184,12 +184,18 @@ export default function LibrarySurface({
                   aria-label={UI_TEXT.SEARCH}
                 />
               </label>
-              <div className={styles.libraryViewToggle} aria-label={UI_TEXT.GRID_VIEW}>
+              <div
+                className={styles.libraryViewToggle}
+                role="group"
+                aria-label={UI_TEXT.GRID_VIEW}
+              >
                 {(["grid", "list"] as const).map((mode) => (
                   <button
                     key={mode}
+                    type="button"
                     className={view.mode === mode ? styles.libraryViewActive : ""}
                     onClick={() => actions.setViewMode(mode)}
+                    aria-pressed={view.mode === mode}
                     aria-label={mode === "grid" ? UI_TEXT.GRID_VIEW : UI_TEXT.LIST_VIEW}
                     title={mode === "grid" ? UI_TEXT.GRID_VIEW : UI_TEXT.LIST_VIEW}
                   >
@@ -376,55 +382,66 @@ export default function LibrarySurface({
                         }
                         className={`${styles.bookItem} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
                         data-library-book-state={presentation.state}
-                        onClick={() => actions.pressBook(book, originId)}
                       >
-                        {editing.library && (
-                          <span className={styles.selectionBadgeInline} aria-hidden="true">
-                            {isSelected && <Checkmark />}
-                          </span>
-                        )}
-                        <MotionBookCover book={book} originId={originId} />
-                        <div className={styles.bookInfo}>
-                          <span className={styles.bookTitle}>{book.title}</span>
-                          <span className={styles.bookMeta}>
-                            <span>{presentation.sourceLabel}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>{presentation.lastReadLabel}</span>
-                          </span>
-                          {presentation.showProgress ? (
+                        <button
+                          type="button"
+                          className={styles.bookItemMain}
+                          data-library-book-open="true"
+                          aria-pressed={editing.library ? isSelected : undefined}
+                          onClick={() => actions.pressBook(book, originId)}
+                        >
+                          {editing.library && (
+                            <span className={styles.selectionBadgeInline} aria-hidden="true">
+                              {isSelected && <Checkmark />}
+                            </span>
+                          )}
+                          <MotionBookCover book={book} originId={originId} />
+                          <span className={styles.bookInfo}>
                             <span
-                              className={styles.bookListProgressRow}
-                              data-library-book-progress="true"
+                              className={styles.bookTitle}
+                              data-library-book-title="true"
                             >
+                              {book.title}
+                            </span>
+                            <span className={styles.bookMeta}>
+                              <span>{presentation.sourceLabel}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{presentation.lastReadLabel}</span>
+                            </span>
+                            {presentation.showProgress ? (
                               <span
-                                className={styles.bookListProgressTrack}
-                                aria-hidden="true"
+                                className={styles.bookListProgressRow}
+                                data-library-book-progress="true"
                               >
                                 <span
-                                  style={{ width: `${presentation.progressPercent}%` }}
-                                />
+                                  className={styles.bookListProgressTrack}
+                                  aria-hidden="true"
+                                >
+                                  <span
+                                    style={{ width: `${presentation.progressPercent}%` }}
+                                  />
+                                </span>
+                                <span>{presentation.progressLabel}</span>
                               </span>
-                              <span>{presentation.progressLabel}</span>
-                            </span>
-                          ) : (
-                            <span className={styles.bookListProgressRow}>
-                              {presentation.progressLabel}
-                            </span>
-                          )}
-                          {book.groupIds && book.groupIds.length > 0 && (
-                            <span className={styles.bookGroupLabels}>
-                              {book.groupIds
-                                .map((groupId) => groups.find((group) => group.id === groupId)?.name)
-                                .filter(Boolean)
-                                .join(", ")}
-                            </span>
-                          )}
-                        </div>
+                            ) : (
+                              <span className={styles.bookListProgressRow}>
+                                {presentation.progressLabel}
+                              </span>
+                            )}
+                            {book.groupIds && book.groupIds.length > 0 && (
+                              <span className={styles.bookGroupLabels}>
+                                {book.groupIds
+                                  .map((groupId) => groups.find((group) => group.id === groupId)?.name)
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </span>
+                            )}
+                          </span>
+                        </button>
                         {!editing.library && (
                           <MoreButton
                             className={styles.bookMoreButton}
-                            onClick={(event) => {
-                              event.stopPropagation();
+                            onClick={() => {
                               actions.openBookActions(book);
                             }}
                           />
@@ -467,6 +484,7 @@ function MoreButton({
   return (
     <button
       className={className}
+      data-library-book-more="true"
       title={UI_TEXT.MORE}
       aria-label={UI_TEXT.MORE_OPTIONS}
       onClick={onClick}

@@ -76,6 +76,8 @@ export const UI_TEXT = {
   SELECTED_TEXT: "\u5df2\u9009\u6587\u672c",
   CONFIGURE_AI_PROMPT: "\u8bf7\u5148\u914d\u7f6e AI \u8bbe\u7f6e\u4ee5\u5f00\u59cb\u63d0\u95ee\u3002",
   ASK_PLACEHOLDER: "\u63d0\u95ee\u2026",
+  SEND: "\u53d1\u9001",
+  AI_THINKING: "AI \u6b63\u5728\u601d\u8003\u2026",
   REQUEST_FAILED: "\u8bf7\u6c42\u5931\u8d25",
   IMPORT_FAILED: "\u5bfc\u5165\u5931\u8d25",
   EXPORT_FAILED: "\u5bfc\u51fa\u5931\u8d25",

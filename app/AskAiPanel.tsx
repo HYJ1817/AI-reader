@@ -54,6 +54,7 @@ export default function AskAiPanel({
         className={styles.askThread}
         ref={threadRef}
         layout={reduceMotion ? false : "position"}
+        aria-busy={loading}
       >
         {selectedText && (
           <div className={styles.selectedTextPreview}>
@@ -73,13 +74,17 @@ export default function AskAiPanel({
         )}
 
         {!aiSettingsUsable && (
-          <p className={styles.settingsPrompt} onClick={onOpenSettings}>
+          <button
+            type="button"
+            className={styles.settingsPrompt}
+            onClick={onOpenSettings}
+          >
             {UI_TEXT.CONFIGURE_AI_PROMPT}
-          </p>
+          </button>
         )}
 
         {messages.length > 0 && (
-          <div className={styles.askMessages}>
+          <div className={styles.askMessages} aria-live="polite">
             <AnimatePresence initial={false} mode="popLayout">
               {messages.map((message) => (
                 <m.div
@@ -115,15 +120,19 @@ export default function AskAiPanel({
         )}
 
         {loading && (
-          <div className={styles.loadingDots}>
-            <span></span>
-            <span></span>
-            <span></span>
+          <div
+            className={styles.loadingDots}
+            role="status"
+            aria-label={UI_TEXT.AI_THINKING}
+          >
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
+            <span aria-hidden="true"></span>
           </div>
         )}
 
         {error && (
-          <div className={styles.errorBox}>{error}</div>
+          <div className={styles.errorBox} role="alert">{error}</div>
         )}
       </m.div>
 
@@ -134,6 +143,7 @@ export default function AskAiPanel({
         <div className={styles.askInput}>
           <input
             type="text"
+            aria-label={UI_TEXT.ASK_AI}
             placeholder={UI_TEXT.ASK_PLACEHOLDER}
             className={styles.input}
             value={question}
@@ -144,11 +154,13 @@ export default function AskAiPanel({
             disabled={!aiSettingsUsable}
           />
           <button
+            type="button"
             className={styles.sendButton}
+            aria-label={UI_TEXT.SEND}
             onClick={onAsk}
             disabled={!aiSettingsUsable || loading || !question.trim()}
           >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
               <path d="M3 10l14-7-7 14-2-5z" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </button>

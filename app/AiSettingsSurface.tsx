@@ -411,6 +411,7 @@ export default function AiSettingsSurface({
                   className={styles.providerRefreshButton}
                   onClick={refreshModels}
                   disabled={refreshingModels}
+                  aria-busy={refreshingModels}
                 >
                   {refreshingModels ? "刷新中..." : "刷新"}
                 </button>
@@ -418,44 +419,36 @@ export default function AiSettingsSurface({
               <div className={styles.providerListCard}>
                 {draft.models.length > 0 ? (
                   draft.models.map((model) => (
-                    <button
+                    <div
                       key={model.id}
-                      type="button"
                       className={styles.providerModelRow}
-                      aria-pressed={draft.model === model.id}
                       data-selected={draft.model === model.id ? "true" : undefined}
-                      onClick={() => updateDraft({ model: model.id })}
                     >
-                      <span className={styles.providerChoiceText}>
-                        <strong>{model.label}</strong>
-                        <small>{model.id}</small>
-                      </span>
-                      <span className={styles.providerModelActions}>
-                        {model.source === "manual" && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className={styles.providerModelDelete}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              removeModel(model.id);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                removeModel(model.id);
-                              }
-                            }}
-                          >
-                            删除
-                          </span>
-                        )}
-                        <span className={styles.providerModelCheck}>
+                      <button
+                        type="button"
+                        className={styles.providerModelSelect}
+                        aria-pressed={draft.model === model.id}
+                        onClick={() => updateDraft({ model: model.id })}
+                      >
+                        <span className={styles.providerChoiceText}>
+                          <strong>{model.label}</strong>
+                          <small>{model.id}</small>
+                        </span>
+                        <span className={styles.providerModelCheck} aria-hidden="true">
                           {draft.model === model.id ? "✓" : ""}
                         </span>
-                      </span>
-                    </button>
+                      </button>
+                      {model.source === "manual" && (
+                        <button
+                          type="button"
+                          className={styles.providerModelDelete}
+                          aria-label={`删除 ${model.label}`}
+                          onClick={() => removeModel(model.id)}
+                        >
+                          删除
+                        </button>
+                      )}
+                    </div>
                   ))
                 ) : (
                   <div className={styles.providerEmptyState}>还没有模型。可以刷新，或手动添加。</div>
@@ -475,7 +468,9 @@ export default function AiSettingsSurface({
                 </div>
               </div>
               {modelRefreshStatus && (
-                <p className={styles.providerHelpText}>{modelRefreshStatus}</p>
+                <p className={styles.providerHelpText} role="status">
+                  {modelRefreshStatus}
+                </p>
               )}
 
               <button

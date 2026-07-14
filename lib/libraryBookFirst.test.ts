@@ -40,7 +40,7 @@ describe("book-first library hierarchy", () => {
 
     const progressRule = rule(".bookListProgressRow");
     const trackRule = rule(".bookListProgressTrack");
-    expect(progressRule).toContain("font-size: 12px");
+    expect(progressRule).toContain("font-size: var(--type-caption)");
     expect(progressRule).toContain("display: flex");
     expect(trackRule).toContain("height: 4px");
   });

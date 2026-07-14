@@ -1610,6 +1610,7 @@ export default function Home() {
       <NavigationProvider value={navigation}>
       <div
         className={styles.app}
+        data-app-shell="true"
         {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
         {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
       >

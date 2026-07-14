@@ -238,6 +238,7 @@ export default function SettingsSurface({
         {backupStatus && (
           <p
             className={`${styles.settingsStatusText} ${styles.settingsStatusOk}`}
+            role="status"
           >
             {backupStatus}
           </p>
@@ -245,6 +246,7 @@ export default function SettingsSurface({
         {backupError && (
           <p
             className={`${styles.settingsStatusText} ${styles.settingsStatusErr}`}
+            role="alert"
           >
             {backupError}
           </p>
