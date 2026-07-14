@@ -117,6 +117,7 @@ export default function ReadingSession({
         ) : (
           <div
             ref={textReaderRef}
+            data-txt-reader="true"
             className={`${styles.readerBody} ${
               mode === "paged" ? styles.readerBodyPaged : ""
             }`}
@@ -144,11 +145,11 @@ export default function ReadingSession({
               margin: "0 auto",
               padding: `20px ${
                 24 + (preferences.customLayoutEnabled ? preferences.pageMarginPx : 0)
-              }px 36px`,
+              }px calc(var(--safe-bottom) + 96px)`,
               textAlign:
                 preferences.customLayoutEnabled && preferences.justifyText
                   ? "justify"
-                  : undefined,
+                  : "start",
               width: "100%",
               wordSpacing:
                 preferences.customLayoutEnabled &&

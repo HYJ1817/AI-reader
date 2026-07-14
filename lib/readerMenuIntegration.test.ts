@@ -120,15 +120,24 @@ describe("reader action menu", () => {
 
   it("keeps a chrome-owned menu button tappable for both opening and closing", () => {
     const wakeRule = cssRule(".readerMenuWakeButton");
+    const collapsedRule = cssRule(".readerMenuWakeButtonCollapsed::before");
+    const expandedRule = cssRule(".readerMenuWakeButtonExpanded::before");
     const wakeStart = controlsSource.indexOf("styles.readerMenuWakeButton");
     const animatedStart = controlsSource.indexOf("styles.readerChromeAnimated");
 
     expect(sessionSource).toContain("onWakeMenu={onReaderTap}");
     expect(controlsSource).toContain("onWakeMenu: () => void");
-    expect(controlsSource).toContain("className={styles.readerMenuWakeButton}");
+    expect(controlsSource).toContain("styles.readerMenuWakeButtonCollapsed");
+    expect(controlsSource).toContain("styles.readerMenuWakeButtonExpanded");
     expect(controlsSource).toContain("onClick={onWakeMenu}");
+    expect(controlsSource).toContain("aria-expanded={visible}");
+    expect(wakeRule).toContain("width: 48px");
+    expect(wakeRule).toContain("height: 48px");
     expect(wakeRule).toContain("pointer-events: auto");
     expect(wakeRule).toContain("visibility: visible");
+    expect(collapsedRule).toContain("box-shadow: none");
+    expect(collapsedRule).toContain("right: -10px");
+    expect(expandedRule).toContain("box-shadow:");
     expect(wakeStart).toBeGreaterThanOrEqual(0);
     expect(wakeStart).toBeLessThan(animatedStart);
   });

@@ -99,7 +99,11 @@ export default function ReaderControls({
   return (
     <div className={styles.readerChrome}>
       <button
-        className={styles.readerMenuWakeButton}
+        className={`${styles.readerMenuWakeButton} ${
+          visible
+            ? styles.readerMenuWakeButtonExpanded
+            : styles.readerMenuWakeButtonCollapsed
+        }`}
         data-reader-menu-toggle="true"
         onClick={onWakeMenu}
         title={UI_TEXT.MORE_OPTIONS}
