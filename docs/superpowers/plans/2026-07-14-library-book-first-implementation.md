@@ -31,8 +31,8 @@ while all current shelf operations remain intact.
 - [x] Run focused and full Vitest, ESLint, webpack build, `git diff --check`, and
   the complete two-device Playwright suite.
 - [x] Run the Impeccable targeted scan on the changed Library source/CSS.
-- [ ] Deploy with the established Windows OpenNext sequence.
-- [ ] Verify production root/assets, Library states, actions, screenshots, and
+- [x] Deploy with the established Windows OpenNext sequence.
+- [x] Verify production root/assets, Library states, actions, screenshots, and
   critical navigation.
-- [ ] Update the roadmap and `HANDOFF.md`, commit, push, and confirm local/remote
+- [x] Update the roadmap and `HANDOFF.md`, commit, push, and confirm local/remote
   equality.

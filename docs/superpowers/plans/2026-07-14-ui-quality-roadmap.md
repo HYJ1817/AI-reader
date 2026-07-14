@@ -58,14 +58,14 @@
   - [x] Run focused dashboard tests plus full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check`.
   - [x] Deploy, verify every data state on production, refresh `HANDOFF.md`, commit, and mark Phase 3 complete.
 
-- [ ] **Phase 4: Make the Library book-first instead of file-first**
-  - [ ] Approve a library information-hierarchy design spec and phase implementation plan.
-  - [ ] Add failing coverage for title, author/source fallback, last-read position, progress, and missing-cover presentation.
-  - [ ] Prioritize cover, title, author/source, current position, and last-read time; move file format and byte size to secondary detail.
-  - [ ] Reduce duplicated collection/count/search/view-toggle visual weight while preserving edit, grouping, filtering, pagination, and import behavior.
-  - [ ] Verify grid and list views, selection mode, book actions, collection filters, focus return, and large libraries.
-  - [ ] Run focused library tests plus full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check`.
-  - [ ] Deploy, verify production library states, refresh `HANDOFF.md`, commit, and mark Phase 4 complete.
+- [x] **Phase 4: Make the Library book-first instead of file-first**
+  - [x] Approve a library information-hierarchy design spec and phase implementation plan.
+  - [x] Add failing coverage for title, author/source fallback, last-read position, progress, and missing-cover presentation.
+  - [x] Prioritize cover, title, author/source, current position, and last-read time; move file format and byte size to secondary detail.
+  - [x] Reduce duplicated collection/count/search/view-toggle visual weight while preserving edit, grouping, filtering, pagination, and import behavior.
+  - [x] Verify grid and list views, selection mode, book actions, collection filters, focus return, and large libraries.
+  - [x] Run focused library tests plus full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check`.
+  - [x] Deploy, verify production library states, refresh `HANDOFF.md`, commit, and mark Phase 4 complete.
 
 - [ ] **Phase 5: Accessibility and final interaction hardening**
   - [ ] Approve an accessibility hardening spec and phase implementation plan against the stabilized Phase 1-4 UI.
@@ -118,13 +118,13 @@
 ### Phase 4
 
 - Modify: `app/LibrarySurface.tsx`
-- Modify: `app/BookCover.tsx`
 - Modify: `app/page.module.css`
+- Modify: `lib/uiText.ts`
 - Modify: `lib/libraryPresentation.ts`
 - Test: `lib/libraryPresentation.test.ts`
-- Test: `lib/libraryDashboard.test.ts`
 - Test: `lib/libraryBookActionsIntegration.test.ts`
-- Test: `lib/libraryMotionIntegration.test.ts`
+- Create: `lib/libraryBookFirst.test.ts`
+- Create: `e2e/library-book-first.spec.ts`
 
 ### Phase 5
 
