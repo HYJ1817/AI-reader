@@ -67,14 +67,14 @@
   - [x] Run focused library tests plus full Vitest, ESLint, webpack build, native-navigation E2E, and `git diff --check`.
   - [x] Deploy, verify production library states, refresh `HANDOFF.md`, commit, and mark Phase 4 complete.
 
-- [ ] **Phase 5: Accessibility and final interaction hardening**
-  - [ ] Approve an accessibility hardening spec and phase implementation plan against the stabilized Phase 1-4 UI.
-  - [ ] Add failing coverage for `:focus-visible`, non-color state cues, 200% text scaling, reduced motion, contrast-sensitive surfaces, and keyboard navigation.
-  - [ ] Introduce scalable UI typography tokens and responsive stacking for crowded metadata and actions.
-  - [ ] Restore a consistent visible focus treatment and audit accessible names, roles, disabled/loading states, and 44px targets.
-  - [ ] Verify light, dark, sepia, custom-background, software-keyboard, and safe-area states.
-  - [ ] Run full Vitest, ESLint, webpack build, both iPhone Playwright projects, production smoke, and `git diff --check`.
-  - [ ] Deploy, complete real-iPhone verification where available, refresh `HANDOFF.md`, commit, and mark Phase 5 complete.
+- [x] **Phase 5: Accessibility and final interaction hardening**
+  - [x] Approve an accessibility hardening spec and phase implementation plan against the stabilized Phase 1-4 UI.
+  - [x] Add failing coverage for `:focus-visible`, non-color state cues, 200% text scaling, reduced motion, contrast-sensitive surfaces, and keyboard navigation.
+  - [x] Introduce scalable UI typography tokens and responsive stacking for crowded metadata and actions.
+  - [x] Restore a consistent visible focus treatment and audit accessible names, roles, disabled/loading states, and 44px targets.
+  - [x] Verify light, dark, sepia, custom-background, software-keyboard, and safe-area states.
+  - [x] Run full Vitest, ESLint, webpack build, both iPhone Playwright projects, production smoke, and `git diff --check`.
+  - [x] Deploy, complete real-iPhone verification where available, refresh `HANDOFF.md`, commit, and mark Phase 5 complete.
 
 - [ ] **Phase 6: Final critique and closeout**
   - [ ] Re-run Impeccable critique against `app` and record the new score and trend.

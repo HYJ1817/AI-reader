@@ -7,10 +7,10 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `0e56e9c` (`style: make library book-first`)
-- Phase 4 design commit: `6829d91` (`docs: design book-first library`).
-- If branch HEAD is newer than `0e56e9c`, that newer commit should be this handoff-only documentation update.
-- Latest deployed Worker version: `166f1808-08e0-43e6-be4f-bb81f05bb0f6`
+- Latest implementation commit: `ce0bdad` (`style: harden accessibility and interaction`)
+- Phase 5 design commit: `8c7fa5b` (`docs: design accessibility hardening`).
+- If branch HEAD is newer than `ce0bdad`, that newer commit should be this handoff-only documentation update.
+- Latest deployed Worker version: `8a227c89-47f4-4e41-9dd3-fc3178e100b2`
 - Push `codex/custom-background-settings` after the handoff commit so local and
   `origin/codex/custom-background-settings` match.
 
@@ -345,8 +345,46 @@ Production screenshots are under the two
 `test-results/library-book-first-*-iphone-*/` directories as
 `library-grid-unread.png` and `library-list-active.png`; both phone sizes were
 reviewed and are clean. Physical iPhone Safari/PWA confirmation remains a
-non-blocking device risk. The next roadmap item is Phase 5: accessibility and
-final interaction hardening.
+non-blocking device risk.
+
+## Accessibility and Interaction Hardening (2026-07-14)
+
+Design commit: `8c7fa5b`. Implementation commit: `ce0bdad`.
+
+Phase 5 of `docs/superpowers/plans/2026-07-14-ui-quality-roadmap.md` is complete:
+
+- The shared visual system now exposes scalable caption, footnote, body,
+  headline, and title tokens plus theme-aware focus, success, and error colors.
+- Keyboard focus has one visible 3px treatment across light, dark, sepia, and
+  custom ambient backgrounds; clipped book targets use an inset variant.
+- Library view mode exposes pressed state. List rows now use separate native
+  buttons for opening/selecting a book and opening More actions, preserving
+  focus return, selection, Motion, and shared-cover behavior.
+- Ask AI and backup/model feedback expose busy, status, alert, label, and native
+  button semantics. The AI model row no longer nests a simulated button inside
+  another button.
+- Frequent compact controls meet the 44px target contract. Library metadata and
+  action groups wrap under enlarged text, and the daily path remains usable at
+  200% browser text size without horizontal overflow.
+- Existing reduced-motion, software-keyboard, safe-area, theme, import, reader,
+  and navigation behavior remains covered by regression tests.
+
+Verification and production evidence:
+
+- Full Vitest: 138 files, 1362 tests passed.
+- Full configured ESLint and webpack production build passed.
+- Full local Playwright: 56/56 across iPhone 14 and iPhone 15 Pro Max.
+- Impeccable's targeted changed-source scan returned no findings; `git diff
+  --check` passed.
+- OpenNext deployed Worker version
+  `8a227c89-47f4-4e41-9dd3-fc3178e100b2` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned HTTP 200.
+- Production accessibility hardening passed 8/8 across both phone projects;
+  production native navigation passed 12/12 on iPhone 14.
+
+Physical iPhone Safari/PWA confirmation remains a non-blocking device risk. The
+next roadmap item is Phase 6: final Impeccable critique, score gate, complete
+repository/production verification, and closeout.
 
 ## Current Feature Work
 
@@ -1304,9 +1342,9 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 0e56e9c，设计提交是 6829d91：UI 品质路线图 Phase 4 已完成。书库根页面现在以图书为先，集合入口收进书架标题；列表显示来源、最近阅读和语义化进度，格式和字节大小只保留在详情中；未读、在读、读完状态共享确定性呈现，不虚构 BookRecord 中不存在的作者字段。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
-最新正式 Worker 版本是 166f1808-08e0-43e6-be4f-bb81f05bb0f6；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 137 文件/1357 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 48/48，覆盖 library-book-first、native-navigation、reader-typography 和 reading-dashboard 的两档 iPhone 尺寸；正式域名两档书架状态均通过，iPhone 15 原生导航复验 12/12，根页面及发现的 10 个 JS/CSS 资源全部 200。
+最新实现提交是 ce0bdad，设计提交是 8c7fa5b：UI 品质路线图 Phase 5 已完成。全局焦点、语义状态、可访问名称/角色、44px 目标、可缩放排版、200% 文本、主题与软件键盘状态均已加固；书库列表的打开与更多操作现在是分离的原生按钮，Ask AI 与设置异步反馈可被辅助技术识别。若 HEAD 更新，更新内容应仅为本次 HANDOFF/路线图收尾文档。
+最新正式 Worker 版本是 8a227c89-47f4-4e41-9dd3-fc3178e100b2；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 138 文件/1362 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 56/56；正式域名无障碍专项两档 iPhone 8/8、iPhone 14 原生导航 12/12，根页面及发现的 10 个 JS/CSS 资源全部 200。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
-下一步直接进入 UI 品质路线图 Phase 5：在 Phase 1-4 稳定界面上做可访问性与最终交互加固，先审核 focus-visible、非颜色状态提示、200% 文本缩放、减弱动态效果、对比度、键盘导航、可访问名称/角色/禁用与加载状态、44px 目标，再按设计稿、TDD、双尺寸回归、部署、截图和 HANDOFF 的顺序完成并勾选。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
+下一步直接进入 UI 品质路线图 Phase 6：重新运行 Impeccable 全局 critique，记录新分数和趋势，要求至少 32/40 且无 P0/P1；通过后再跑完整仓库验证与正式域名 smoke，更新 HANDOFF、推送并关闭 UI 品质目标。真实 iPhone Safari/PWA 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
