@@ -2362,11 +2362,14 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 52px;
-  height: 52px;
+  width: 64px;
+  height: 64px;
+  border: 1px solid var(--goal-ring-border);
   border-radius: 50%;
+  background: var(--goal-ring-surface);
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+  isolation: isolate;
   transform: translate3d(0, 0, 0) scale(1);
   transition: transform var(--motion-fast) var(--ease-standard);
 }
@@ -2379,32 +2382,54 @@
   transform: translate3d(2px, 1px, 0);
 }
 
-.dashboardGoalRing::after {
-  content: "";
+.dashboardGoalRingSvg {
   position: absolute;
-  inset: 5px;
-  border-radius: 50%;
-  background: var(--surface-primary);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
 }
 
-.dashboardGoalRing span,
-.dashboardGoalRing small {
+.dashboardGoalArcBase {
+  fill: none;
+  stroke: var(--goal-ring-arc);
+  stroke-width: 7px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.dashboardGoalArcProgress {
+  fill: none;
+  stroke: var(--goal-ring-progress);
+  stroke-width: 7px;
+  stroke-dasharray: 0 100;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  transition:
+    stroke-dasharray var(--motion-standard) var(--ease-standard),
+    opacity var(--motion-fast) var(--ease-standard);
+}
+
+.dashboardGoalCurrent,
+.dashboardGoalTarget {
   position: relative;
   z-index: 1;
   line-height: 1;
 }
 
-.dashboardGoalRing span {
-  color: var(--tint);
-  font-size: 18px;
+.dashboardGoalCurrent {
+  margin-top: -2px;
+  color: var(--goal-ring-arc);
+  font-size: 20px;
   font-weight: 800;
 }
 
-.dashboardGoalRing small {
-  margin-top: 3px;
-  color: var(--text-primary);
-  font-size: 11px;
-  font-weight: 700;
+.dashboardGoalTarget {
+  margin-top: 2px;
+  color: var(--goal-ring-target);
+  font-size: 13px;
+  font-weight: 750;
 }
 
 .featureBookCard {
@@ -2530,6 +2555,10 @@
   .readingGoalCard:active .continueChevron {
     transition: none;
     transform: none;
+  }
+
+  .dashboardGoalArcProgress {
+    transition: none;
   }
 
   .weekBars > div,

@@ -1,6 +1,5 @@
 "use client";
 
-import type { CSSProperties } from "react";
 import { AnimatePresence, m } from "motion/react";
 import AnimatedNumber from "@/app/AnimatedNumber";
 import { useAppReducedMotion } from "@/app/AppMotionRoot";
@@ -18,7 +17,7 @@ export type ReadingDashboardProps = {
   ariaHidden: boolean;
   todayMinutes: number;
   targetMinutes: number;
-  goalRingBackground: CSSProperties["background"];
+  goalPercent: number;
   totalMinutes: number;
   insights: ReadingDayInsight[];
   latestBook: BookRecord | null;
@@ -33,7 +32,7 @@ export default function ReadingDashboard({
   ariaHidden,
   todayMinutes,
   targetMinutes,
-  goalRingBackground,
+  goalPercent,
   totalMinutes,
   insights,
   latestBook,
@@ -51,6 +50,7 @@ export default function ReadingDashboard({
     progressPercent: latestBookProgress,
     totalMinutes,
   });
+  const safeGoalPercent = Math.max(0, Math.min(goalPercent, 100));
 
   return (
     <div
@@ -137,10 +137,37 @@ export default function ReadingDashboard({
           >
             <span
               className={styles.dashboardGoalRing}
-              style={{ background: goalRingBackground }}
+              data-reading-goal-ring="true"
+              data-goal-percent={safeGoalPercent}
             >
-              <span><AnimatedNumber value={todayMinutes} /></span>
-              <small><AnimatedNumber value={targetMinutes} /></small>
+              <svg
+                className={styles.dashboardGoalRingSvg}
+                viewBox="0 0 64 64"
+                aria-hidden="true"
+              >
+                <path
+                  className={styles.dashboardGoalArcBase}
+                  data-goal-arc="base"
+                  d="M 13 44 A 23 23 0 1 1 51 44"
+                  pathLength="100"
+                />
+                <path
+                  className={styles.dashboardGoalArcProgress}
+                  data-goal-arc="progress"
+                  d="M 13 44 A 23 23 0 1 1 51 44"
+                  pathLength="100"
+                  style={{
+                    strokeDasharray: `${safeGoalPercent} 100`,
+                    opacity: safeGoalPercent > 0 ? 1 : 0,
+                  }}
+                />
+              </svg>
+              <span className={styles.dashboardGoalCurrent}>
+                <AnimatedNumber value={todayMinutes} />
+              </span>
+              <small className={styles.dashboardGoalTarget}>
+                <AnimatedNumber value={targetMinutes} />
+              </small>
             </span>
             <span className={styles.readingGoalText}>
               <strong>{UI_TEXT.TODAY_READING}</strong>

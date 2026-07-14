@@ -824,7 +824,7 @@ export default function Home() {
   const todayGoalProgress = readingGoal.targetMinutes > 0
     ? Math.min(todayMinutesValue / readingGoal.targetMinutes, 1)
     : 0;
-  const goalRingBackground = `conic-gradient(var(--tint) ${Math.round(todayGoalProgress * 360)}deg, rgba(120, 130, 160, 0.18) 0deg)`;
+  const goalPercent = Math.round(todayGoalProgress * 1000) / 10;
   const readerThemeLabel =
     readerPrefs.theme === "system"
       ? "\u8ddf\u968f\u7cfb\u7edf"
@@ -1745,7 +1745,7 @@ export default function Home() {
           ariaHidden={activeTab !== "reading" || readerPresented}
           todayMinutes={todayMinutesValue}
           targetMinutes={readingGoal.targetMinutes}
-          goalRingBackground={goalRingBackground}
+          goalPercent={goalPercent}
           totalMinutes={totalMinutesValue}
           insights={weeklyReadingInsights}
           latestBook={latestBook ?? null}

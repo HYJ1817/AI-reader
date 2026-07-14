@@ -5,6 +5,10 @@ const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const globals = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8"
+);
 const source = readFileSync(
   new URL("../app/ReadingDashboard.tsx", import.meta.url),
   "utf8"
@@ -51,11 +55,42 @@ describe("reading dashboard composition", () => {
     const ringRule = rule(".dashboardGoalRing");
     const emptyRule = rule(".readingEmptyState");
 
-    expect(ringRule).toContain("width: 52px");
-    expect(ringRule).toContain("height: 52px");
+    expect(ringRule).toContain("width: 64px");
+    expect(ringRule).toContain("height: 64px");
     expect(emptyRule).toContain("text-align: center");
     expect(emptyRule).not.toContain("box-shadow");
     expect(emptyRule).not.toContain("border:");
+  });
+
+  it("renders a theme-aware U-shaped reading goal ring", () => {
+    expect(source).toContain('className={styles.dashboardGoalRingSvg}');
+    expect(source).toContain('className={styles.dashboardGoalArcBase}');
+    expect(source).toContain('className={styles.dashboardGoalArcProgress}');
+    expect(source).toContain('pathLength="100"');
+    expect(source).toContain("goalPercent");
+    expect(source).not.toContain("goalRingBackground");
+
+    for (const token of [
+      "--goal-ring-surface",
+      "--goal-ring-border",
+      "--goal-ring-arc",
+      "--goal-ring-progress",
+      "--goal-ring-target",
+    ]) {
+      expect(globals).toContain(token);
+    }
+    expect(globals).toMatch(
+      /\[data-reader-theme="dark"\][^{]*\{[^}]*--goal-ring-surface:\s*#1c1c1e/s
+    );
+
+    const ringRule = rule(".dashboardGoalRing");
+    expect(ringRule).toContain("width: 64px");
+    expect(ringRule).toContain("height: 64px");
+    expect(ringRule).toContain("var(--goal-ring-surface)");
+    expect(rule(".dashboardGoalArcBase")).toContain("stroke-linecap: round");
+    expect(rule(".dashboardGoalArcProgress")).toContain(
+      "stroke-dasharray"
+    );
   });
 
   it("uses unframed content sections", () => {

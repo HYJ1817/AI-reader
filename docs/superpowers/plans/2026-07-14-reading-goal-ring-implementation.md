@@ -16,7 +16,7 @@
 - Modify: `lib/readingDashboardCss.test.ts`
 - Modify: `e2e/reading-dashboard.spec.ts`
 
-- [ ] **Step 1: Add a failing source/CSS contract test**
+- [x] **Step 1: Add a failing source/CSS contract test**
 
 Extend `lib/readingDashboardCss.test.ts` with assertions that require:
 
@@ -38,7 +38,7 @@ it("renders a theme-aware U-shaped reading goal ring", () => {
 });
 ```
 
-- [ ] **Step 2: Add failing Playwright theme evidence**
+- [x] **Step 2: Add failing Playwright theme evidence**
 
 In `e2e/reading-dashboard.spec.ts`, add a test that imports a book, opens the
 Reading tab, and asserts:
@@ -56,7 +56,7 @@ Switch `[data-app-shell="true"]` between `light` and `dark`, verify the ring
 surface/target colors change, and save `goal-ring-light.png` and
 `goal-ring-dark.png`.
 
-- [ ] **Step 3: Run the focused tests and verify RED**
+- [x] **Step 3: Run the focused tests and verify RED**
 
 Run:
 
@@ -78,7 +78,7 @@ geometry, and ring marker do not exist yet.
 - Test: `lib/readingDashboardCss.test.ts`
 - Test: `e2e/reading-dashboard.spec.ts`
 
-- [ ] **Step 1: Replace the background prop with a percentage**
+- [x] **Step 1: Replace the background prop with a percentage**
 
 Change the dashboard prop from:
 
@@ -100,7 +100,7 @@ const goalPercent = Math.round(todayGoalProgress * 1000) / 10;
 
 and pass `goalPercent={goalPercent}` to `ReadingDashboard`.
 
-- [ ] **Step 2: Render the permanent arc and live progress overlay**
+- [x] **Step 2: Render the permanent arc and live progress overlay**
 
 Inside `.dashboardGoalRing`, render:
 
@@ -129,7 +129,7 @@ Inside `.dashboardGoalRing`, render:
 Keep the two animated numeric values above the SVG and add
 `data-reading-goal-ring="true"` to the ring wrapper.
 
-- [ ] **Step 3: Add theme tokens and reference-matched styling**
+- [x] **Step 3: Add theme tokens and reference-matched styling**
 
 Add light defaults to `:root`, dark values to system dark and
 `[data-reader-theme="dark"]`, explicit light values to
@@ -150,7 +150,7 @@ surface with a fine rim; absolutely position the SVG; use `fill: none`, 7px
 strokes, rounded caps, and a dash transition on the progress path. Preserve the
 existing press transform and reduced-motion override.
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
 Run:
 
@@ -163,7 +163,7 @@ npm.cmd exec -- eslint app/ReadingDashboard.tsx app/page.tsx
 Expected: all focused tests pass and light/dark screenshots contain the
 reference-matched open-bottom cyan ring.
 
-- [ ] **Step 5: Commit the implementation**
+- [x] **Step 5: Commit the implementation**
 
 ```powershell
 git add app/ReadingDashboard.tsx app/page.tsx app/globals.css app/page.module.css lib/readingDashboardCss.test.ts e2e/reading-dashboard.spec.ts docs/superpowers/plans/2026-07-14-reading-goal-ring-implementation.md

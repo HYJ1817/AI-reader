@@ -176,6 +176,46 @@ test("imported unread book offers start reading without an empty chart", async (
   await capture(page, testInfo, "reading-unread");
 });
 
+test("theme-aware goal ring matches the supplied light and dark references", async ({
+  page,
+}, testInfo) => {
+  await importBook(page);
+  await openReading(page);
+
+  const dashboard = page.locator(dashboardRoot);
+  const ring = dashboard.locator('[data-reading-goal-ring="true"]');
+  const baseArc = ring.locator('[data-goal-arc="base"]');
+  const progressArc = ring.locator('[data-goal-arc="progress"]');
+
+  await expect(ring).toHaveCSS("width", "64px");
+  await expect(ring).toHaveCSS("height", "64px");
+  await expect(baseArc).toHaveCSS("stroke-linecap", "round");
+  await expect(ring.getByText("0", { exact: true })).toBeVisible();
+  await expect(ring.getByText("120", { exact: true })).toBeVisible();
+  await expect(progressArc).toHaveAttribute("style", /0(?:,| ) 100/);
+  await expect(progressArc).toHaveCSS("opacity", "0");
+
+  await page.evaluate(() => {
+    document
+      .querySelector('[data-app-shell="true"]')
+      ?.setAttribute("data-reader-theme", "light");
+  });
+  await expect(ring).toHaveCSS("background-color", "rgb(255, 255, 255)");
+  await expect(baseArc).toHaveCSS("stroke", "rgb(36, 191, 220)");
+  await expect(ring.locator("small")).toHaveCSS("color", "rgb(17, 17, 17)");
+  await capture(page, testInfo, "goal-ring-light");
+
+  await page.evaluate(() => {
+    document
+      .querySelector('[data-app-shell="true"]')
+      ?.setAttribute("data-reader-theme", "dark");
+  });
+  await expect(ring).toHaveCSS("background-color", "rgb(28, 28, 30)");
+  await expect(baseArc).toHaveCSS("stroke", "rgb(85, 212, 242)");
+  await expect(ring.locator("small")).toHaveCSS("color", "rgb(255, 255, 255)");
+  await capture(page, testInfo, "goal-ring-dark");
+});
+
 test("active book prioritizes continue reading and semantic progress", async ({
   page,
 }, testInfo) => {
