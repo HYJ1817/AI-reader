@@ -41,7 +41,7 @@
   - [x] Refresh `HANDOFF.md`, commit the phase, and mark Phase 1 complete.
 
 - [ ] **Phase 2: Distill global chrome and navigation scale**
-  - [ ] Approve a global chrome design spec and phase implementation plan.
+  - [x] Approve `docs/superpowers/specs/2026-07-14-global-chrome-design.md` and `docs/superpowers/plans/2026-07-14-global-chrome-implementation.md`.
   - [ ] Add failing CSS and integration coverage for compact titles, tab-bar dimensions, active state, safe areas, and 44px minimum targets.
   - [ ] Reduce the visual weight of large titles, the 72px tab bar, active-tab capsule, highlights, and shadows without changing the three root destinations.
   - [ ] Preserve root state, focus restoration, reduced motion, edge Back, and reader presentation behavior.
