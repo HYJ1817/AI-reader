@@ -531,8 +531,12 @@ Implementation and verification commits:
 - `0f3532b` preserves the stable current-view return origin.
 - `c81a868`, `9f1a225`, and `d9463a5` verify and harden the feature and the
   existing active list.
-- `31b082a` keeps the accessibility browser fixture representative after the
-  single opened book is promoted into the feature; it changes test data only.
+- `31b082a` keeps the accessibility browser case representative after the
+  single opened book is promoted into the feature. It generalizes the import
+  fixture, synchronizes on the live cover count/first-row locator, and imports
+  a second book so the existing live More locator can resolve the remaining
+  shelf action. It changes only the E2E test; no product code or behavior
+  changed.
 
 Implemented behavior:
 
@@ -569,8 +573,21 @@ Fresh local verification:
 
 Production deployment and evidence:
 
+- Before the standalone build, PowerShell resolved the workspace root as
+  `C:\aaa\ai-reader-pwa` and constructed the absolute generated targets
+  `C:\aaa\ai-reader-pwa\.next` and
+  `C:\aaa\ai-reader-pwa\.open-next`. For each target, the parent matched the
+  workspace root, the target did not equal the root, and the leaf matched the
+  allowlist (`.next` or `.open-next`). Only after those checks passed,
+  `Remove-Item -LiteralPath ... -Recurse -Force` removed those two generated
+  directories. No `git clean` or `git reset` was used. A later non-destructive
+  rerun reproduced the same direct-child checks and performed no deletion.
 - OpenNext deployed Worker `ai-reader-pwa` version
   `ff701748-184d-4c32-8941-ce09745fe557` to route `881817.xyz/*`.
+- The initial Cloudflare static-asset upload needed one automatic retry, then
+  uploaded all 3 changed assets, completed deployment, and passed every
+  production check below. Treat this as a deployment reliability note, not a
+  product failure.
 - `https://881817.xyz` returned 200 (`text/html`, 17153 bytes). Every asset
   discovered from that HTML returned 200 with the expected content type and a
   nonzero length: 8 JavaScript chunks and 2 CSS files (10 total).
@@ -1573,10 +1590,11 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新功能是 Library Featured Reading：批准设计在 docs/superpowers/specs/2026-07-15-library-featured-reading-design.md（5eaf3a3），实施计划在 docs/superpowers/plans/2026-07-15-library-featured-reading-implementation.md（91a8450）。功能与覆盖提交依次为 48e9791、7620704、4b093c1、0f3532b、c81a868、9f1a225、d9463a5；浏览器代表性夹具修复是仅测试提交 31b082a。最新功能代码提交是 0f3532b，若 HEAD 更新，应只比它多测试或 HANDOFF 文档提交。
+最新功能是 Library Featured Reading：批准设计在 docs/superpowers/specs/2026-07-15-library-featured-reading-design.md（5eaf3a3），实施计划在 docs/superpowers/plans/2026-07-15-library-featured-reading-implementation.md（91a8450）。功能与覆盖提交依次为 48e9791、7620704、4b093c1、0f3532b、c81a868、9f1a225、d9463a5；浏览器代表性夹具修复是仅测试提交 31b082a，它调整导入夹具、等待同步与实时 locator，并增加第二本书，没有改产品代码或行为。最新功能代码提交是 0f3532b，若 HEAD 更新，应只比它多测试或 HANDOFF 文档提交。
 功能只使用真实 lastOpenedAt，在中性的全部书籍根页面展示；搜索、分组和编辑状态隐藏；被精选的书不会在“其他书籍”重复出现。精选卡只有一个原生“继续阅读”按钮，使用当前视图稳定 origin，关闭阅读器后焦点可返回。布局适配主题，状态动效限制在 200ms 并遵循 reduced motion；没有新增依赖、持久化字段或作者元数据。
 最新正式 Worker 版本是 ff701748-184d-4c32-8941-ce09745fe557；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
 聚焦 Vitest 12 文件/48 项、全量 Vitest 141 文件/1375 项、全仓 ESLint、普通与 standalone webpack 构建、OpenNext 构建、git diff --check 均通过。本地完整 Playwright 在 iPhone 14 与 iPhone 15 Pro Max 上各 35/35（合计 70/70）；正式域名 Library 专项 7/7，原生关闭阅读器并返回来源焦点 1/1。正式根页面与发现的 10 个资源（8 JS、2 CSS）全部 200，部署包包含 data-library-featured 与 libraryFeaturedButton；浅色精选、深色精选、列表进度三张截图已按原始分辨率核对且干净。
+独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
