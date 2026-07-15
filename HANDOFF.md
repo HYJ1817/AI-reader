@@ -7,10 +7,12 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `9f6beee` (`style: match reading goal ring themes`)
-- Reading-goal ring design commit: `a61a474`; implementation plan commit: `f925231`.
-- If branch HEAD is newer than `9f6beee`, that newer commit should be this handoff-only documentation update.
-- Latest deployed Worker version: `36f48759-2b50-4a53-af54-c6800d72355f`
+- Latest implementation commit: `0f8ec52` (`style: quiet reader menu affordance`)
+- Reader-menu design commit: `8306ecc`; implementation plan commit: `bf7d399`;
+  browser coverage commit: `a4a8a29`.
+- If branch HEAD is newer than `a4a8a29`, that newer commit should be this
+  handoff-only documentation update.
+- Latest deployed Worker version: `a39a32bb-7746-4c5b-af13-d01df15f0c0e`
 - Push `codex/custom-background-settings` after the handoff commit so local and
   `origin/codex/custom-background-settings` match.
 
@@ -464,6 +466,50 @@ Verification and production evidence:
 
 The goal-ring change is complete. Physical iPhone Safari/PWA confirmation
 remains a non-blocking device risk.
+
+## Quieter Reader Menu Affordance (2026-07-15)
+
+Design commit: `8306ecc`. Implementation plan commit: `bf7d399`.
+Implementation commit: `0f8ec52`. Browser coverage commit: `a4a8a29`.
+
+Implemented behavior:
+
+- The always-available reader menu toggle remains one native 48px by 48px
+  button with the existing `onWakeMenu`, `aria-expanded`, and open/close path.
+- When reader chrome is closed, only a narrower right-edge surface is painted.
+  The collapsed surface has no shadow, uses a lower-contrast theme-aware fill
+  and border, and renders a smaller, quieter menu glyph.
+- When reader chrome is open, the same button keeps its complete circular
+  surface, stronger glyph, border, shadow, and press feedback.
+- State transitions reuse the existing motion tokens. Reduced-motion mode
+  removes the new interpolation while preserving the static collapsed cue.
+- No timers, scroll listeners, persistence, onboarding state, reader layout,
+  EPUB publisher styles, menu behavior, or gesture ownership changed.
+- UI quality roadmap Phases 1 through 6 remain closed.
+
+Verification and production evidence:
+
+- TDD red/green was observed against `lib/readerMenuIntegration.test.ts`.
+- Focused reader-menu/chrome/motion/ambient coverage passed: 9 files, 136 tests.
+- Full Vitest passed: 138 files, 1363 tests.
+- Full configured ESLint, webpack production build, and `git diff --check`
+  passed.
+- Full local Playwright passed 60/60: iPhone 14 30/30 and iPhone 15 Pro Max
+  30/30. Both sizes' light collapsed, dark collapsed, expanded, and final-text
+  clearance evidence was reviewed; the cue is quieter without losing its
+  safe-area placement or clear expanded state.
+- OpenNext deployed Worker version
+  `a39a32bb-7746-4c5b-af13-d01df15f0c0e` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned HTTP 200. The
+  deployed reader CSS is `/_next/static/css/f78ad7e31e86a679.css`; the page
+  chunk remains `/_next/static/chunks/app/page-aeb21d9870321949.js`.
+- Production focused reader-menu coverage passed 3/3 on iPhone 14 and 3/3 on
+  iPhone 15 Pro Max. Production light, dark, expanded, and final-text evidence
+  was reviewed on the larger device and matches the local approved result.
+
+Physical iPhone Safari/PWA confirmation remains a non-blocking device risk.
+The evidence-gated EPUB dark ambient rectangle remains unchanged and must not
+resume without the affected EPUB or Safari Web Inspector evidence.
 
 ## Current Feature Work
 
@@ -1421,9 +1467,9 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 9f6beee，设计提交是 a61a474，实施计划提交是 f925231：阅读页“今日阅读”目标圆环已按用户提供的浅色/深色参考图改为主题化 SVG U 形圆环；浅色为白底灰边、深色为深色底浅边，0 分钟时仍显示完整基础圆弧，实际进度用更亮叠层表达。UI 品质路线图 Phase 1-6 仍保持全部关闭。
-最新正式 Worker 版本是 36f48759-2b50-4a53-af54-c6800d72355f；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 138 文件/1363 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 58/58。正式域名目标圆环用例在 iPhone 14 与 iPhone 15 Pro Max 上 2/2 通过，浅色/深色截图已人工核对；根页面及发现的 10 个 JS/CSS 资源全部 200。
+最新实现提交是 0f8ec52，设计提交是 8306ecc，实施计划提交是 bf7d399，浏览器覆盖提交是 a4a8a29：阅读器右下菜单入口仍保留单一 48x48 原生按钮与原有开关路径，但收起态只绘制更窄、更低对比度、无阴影的右缘提示；展开态仍保持清晰圆形按钮。没有增加计时、滚动监听、持久化或首次提示。UI 品质路线图 Phase 1-6 仍保持全部关闭。
+最新正式 Worker 版本是 a39a32bb-7746-4c5b-af13-d01df15f0c0e；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+全量 Vitest 138 文件/1363 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 60/60。正式域名菜单专项在 iPhone 14 与 iPhone 15 Pro Max 上各 3/3 通过，浅色收起、深色收起、展开与末段避让截图已人工核对；根页面及发现的 10 个 JS/CSS 资源全部 200。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
-UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，可从最终 critique 的三个非阻塞项选择：进一步安静阅读器菜单把手、增加轻量首次发现提示、下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
+UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
