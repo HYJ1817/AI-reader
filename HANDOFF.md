@@ -7,14 +7,18 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest implementation commit: `0f8ec52` (`style: quiet reader menu affordance`)
-- Reader-menu design commit: `8306ecc`; implementation plan commit: `bf7d399`;
-  browser coverage commit: `a4a8a29`.
-- If branch HEAD is newer than `a4a8a29`, that newer commit should be this
+- Latest feature implementation commit: `0f3532b` (`fix: preserve library
+  return origin`).
+- Featured-Library design commit: `5eaf3a3`; implementation plan commit:
+  `91a8450`; implementation and verification continue through `d9463a5`.
+- Latest test-only closeout commit: `31b082a` (`test: keep library
+  accessibility fixture representative`).
+- If branch HEAD is newer than `31b082a`, that newer commit should be this
   handoff-only documentation update.
-- Latest deployed Worker version: `a39a32bb-7746-4c5b-af13-d01df15f0c0e`
-- Push `codex/custom-background-settings` after the handoff commit so local and
-  `origin/codex/custom-background-settings` match.
+- Latest deployed Worker version: `ff701748-184d-4c32-8941-ce09745fe557`
+- Local `codex/custom-background-settings` and
+  `origin/codex/custom-background-settings` should match after this handoff is
+  committed and pushed.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -510,6 +514,85 @@ Verification and production evidence:
 Physical iPhone Safari/PWA confirmation remains a non-blocking device risk.
 The evidence-gated EPUB dark ambient rectangle remains unchanged and must not
 resume without the affected EPUB or Safari Web Inspector evidence.
+
+## Library Featured Reading (2026-07-15)
+
+Approved design:
+`docs/superpowers/specs/2026-07-15-library-featured-reading-design.md`
+(`5eaf3a3`). Executed plan:
+`docs/superpowers/plans/2026-07-15-library-featured-reading-implementation.md`
+(`91a8450`).
+
+Implementation and verification commits:
+
+- `48e9791` selects the truthful recent-reading candidate.
+- `7620704` models the featured shelf presentation.
+- `4b093c1` adds the feature surface.
+- `0f3532b` preserves the stable current-view return origin.
+- `c81a868`, `9f1a225`, and `d9463a5` verify and harden the feature and the
+  existing active list.
+- `31b082a` keeps the accessibility browser fixture representative after the
+  single opened book is promoted into the feature; it changes test data only.
+
+Implemented behavior:
+
+- Eligibility uses truthful `lastOpenedAt` only. An imported unread book is
+  not promoted by import/update time or inferred progress.
+- The feature appears only on the neutral all-books Library root. Search,
+  group filtering, and edit/selection mode restore the complete working shelf.
+- Exactly one eligible book is featured and removed from the `其他书籍` shelf,
+  so the same book is never duplicated.
+- The feature is one native continuation button with one click path. It uses
+  the shared stable `library-${view.mode}-${featuredBook.id}` current-view
+  origin so reader close returns focus correctly.
+- The layout is theme-aware and preserves the existing grid/list model. State
+  motion is bounded to 200ms and has the existing reduced-motion branch.
+- No dependency, persisted metadata, database schema, or invented author data
+  was added.
+
+Fresh local verification:
+
+- Focused Vitest command covering the requested Library selector/model/surface,
+  selection, incremental-list, and shared-transition paths passed 12 files / 48
+  tests.
+- Full Vitest passed 141 files / 1375 tests.
+- Full configured ESLint, normal webpack production build, standalone webpack
+  production build, OpenNext build, and `git diff --check` passed.
+- The initial full browser run exposed one stale accessibility fixture: after
+  its only book was opened, that book correctly became the feature and there
+  was no remaining shelf More action. The 34/35 red result was preserved, the
+  fixture was corrected in `31b082a`, and the focused case then passed 1/1 on
+  both phone projects without weakening its keyboard, focus, or dialog checks.
+- Final full local Playwright passed 35/35 on iPhone 14 and 35/35 on iPhone 15
+  Pro Max (70/70 total) against a verified local `next start` server on an
+  unused port. Only that server process was stopped afterward.
+
+Production deployment and evidence:
+
+- OpenNext deployed Worker `ai-reader-pwa` version
+  `ff701748-184d-4c32-8941-ce09745fe557` to route `881817.xyz/*`.
+- `https://881817.xyz` returned 200 (`text/html`, 17153 bytes). Every asset
+  discovered from that HTML returned 200 with the expected content type and a
+  nonzero length: 8 JavaScript chunks and 2 CSS files (10 total).
+- The deployed page chunk is
+  `/_next/static/chunks/app/page-336ba40ae6165dd1.js`; deployed CSS includes
+  `/_next/static/css/417b1b08d96e4c93.css`. The live bundles contain
+  `data-library-featured` and `.libraryFeaturedButton`; production Playwright
+  confirms the continuation, `其他书籍`, exact shelf, and stable focus-return
+  behavior.
+- Production `e2e/library-book-first.spec.ts` passed 7/7 on iPhone 14. The
+  critical native reader-close source-focus case passed 1/1 separately.
+- The final production light, dark, and active-list screenshots were inspected
+  at original resolution and are clean:
+  - `test-results/native-navigation/library-book-first-one-act-6bd6d-e-above-the-remaining-shelf-iphone-14/library-featured-light.png`
+  - `test-results/native-navigation/library-book-first-capture-cbe25-d-reading-in-the-dark-theme-iphone-14/library-featured-dark.png`
+  - `test-results/native-navigation/library-book-first-list-sh-966bb-ading-and-semantic-progress-iphone-14/library-list-active.png`
+
+UI quality roadmap Phases 1 through 6 remain closed. Physical iPhone
+Safari/PWA and real VoiceOver checks remain non-blocking device risks. The
+unresolved dark EPUB ambient white rectangle was not touched; do not resume
+speculative CSS work without the affected EPUB or Safari Web Inspector
+evidence.
 
 ## Current Feature Work
 
@@ -1191,7 +1274,30 @@ de02470 feat: improve ai provider configuration
 
 ## Verification Already Run
 
-After the latest implementation commit `c692cc9`, these passed:
+The current Featured Library closeout adds the following fresh evidence to the
+historical verification record below:
+
+```powershell
+npm.cmd test -- lib/libraryShelves.test.ts lib/libraryHomePresentation.test.ts lib/libraryHomeComposition.test.ts lib/libraryFeaturedReadingIntegration.test.ts lib/libraryBookFirst.test.ts lib/libraryMotionIntegration.test.ts lib/librarySelection.test.ts lib/incrementalList.test.ts lib/sharedBookTransition.test.ts
+npm.cmd test
+npm.cmd run lint
+npm.cmd run build
+npx.cmd playwright test --project=iphone-14
+npx.cmd playwright test --project=iphone-15-pro-max
+$env:NEXT_PRIVATE_STANDALONE='true'
+$env:NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path
+npm.cmd run build
+node node_modules\@opennextjs\cloudflare\dist\cli\index.js build --skipNextBuild
+node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
+$env:PLAYWRIGHT_BASE_URL='https://881817.xyz'
+npx.cmd playwright test e2e/library-book-first.spec.ts --project=iphone-14
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14 --grep "reader closes back to its source action and restores focus"
+Remove-Item Env:PLAYWRIGHT_BASE_URL
+git diff --check
+```
+
+Earlier phase verification commands and results are retained below for
+historical context:
 
 ```powershell
 npm.cmd test
@@ -1467,9 +1573,10 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新实现提交是 0f8ec52，设计提交是 8306ecc，实施计划提交是 bf7d399，浏览器覆盖提交是 a4a8a29：阅读器右下菜单入口仍保留单一 48x48 原生按钮与原有开关路径，但收起态只绘制更窄、更低对比度、无阴影的右缘提示；展开态仍保持清晰圆形按钮。没有增加计时、滚动监听、持久化或首次提示。UI 品质路线图 Phase 1-6 仍保持全部关闭。
-最新正式 Worker 版本是 a39a32bb-7746-4c5b-af13-d01df15f0c0e；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-全量 Vitest 138 文件/1363 项、全仓 ESLint、webpack 构建均通过；本地 Playwright 60/60。正式域名菜单专项在 iPhone 14 与 iPhone 15 Pro Max 上各 3/3 通过，浅色收起、深色收起、展开与末段避让截图已人工核对；根页面及发现的 10 个 JS/CSS 资源全部 200。
+最新功能是 Library Featured Reading：批准设计在 docs/superpowers/specs/2026-07-15-library-featured-reading-design.md（5eaf3a3），实施计划在 docs/superpowers/plans/2026-07-15-library-featured-reading-implementation.md（91a8450）。功能与覆盖提交依次为 48e9791、7620704、4b093c1、0f3532b、c81a868、9f1a225、d9463a5；浏览器代表性夹具修复是仅测试提交 31b082a。最新功能代码提交是 0f3532b，若 HEAD 更新，应只比它多测试或 HANDOFF 文档提交。
+功能只使用真实 lastOpenedAt，在中性的全部书籍根页面展示；搜索、分组和编辑状态隐藏；被精选的书不会在“其他书籍”重复出现。精选卡只有一个原生“继续阅读”按钮，使用当前视图稳定 origin，关闭阅读器后焦点可返回。布局适配主题，状态动效限制在 200ms 并遵循 reduced motion；没有新增依赖、持久化字段或作者元数据。
+最新正式 Worker 版本是 ff701748-184d-4c32-8941-ce09745fe557；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+聚焦 Vitest 12 文件/48 项、全量 Vitest 141 文件/1375 项、全仓 ESLint、普通与 standalone webpack 构建、OpenNext 构建、git diff --check 均通过。本地完整 Playwright 在 iPhone 14 与 iPhone 15 Pro Max 上各 35/35（合计 70/70）；正式域名 Library 专项 7/7，原生关闭阅读器并返回来源焦点 1/1。正式根页面与发现的 10 个资源（8 JS、2 CSS）全部 200，部署包包含 data-library-featured 与 libraryFeaturedButton；浅色精选、深色精选、列表进度三张截图已按原始分辨率核对且干净。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
