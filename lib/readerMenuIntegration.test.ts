@@ -13,6 +13,14 @@ const sessionSource = readFileSync(
   new URL("../app/ReadingSession.tsx", import.meta.url),
   "utf8"
 );
+const epubReaderSource = readFileSync(
+  new URL("../app/EpubReader.tsx", import.meta.url),
+  "utf8"
+);
+const readerBookStateSource = readFileSync(
+  new URL("../app/useReaderBookState.ts", import.meta.url),
+  "utf8"
+);
 const overlaysSource = readFileSync(
   new URL("../app/AppOverlays.tsx", import.meta.url),
   "utf8"
@@ -63,6 +71,17 @@ describe("reader page indicator", () => {
     expect(controlsSource).toContain("styles.readerPagePill");
     expect(controlsSource).toContain("formatReaderPageLabel(pageInfo)");
     expect(css).toContain(".readerPagePill");
+  });
+
+  it("models the EPUB calculation lifecycle instead of exposing a 1/1 placeholder", () => {
+    expect(readerBookStateSource).toContain(
+      'book.format === "epub" ? "calculating" : undefined'
+    );
+    expect(epubReaderSource).toContain("hasResolvedPageInfoRef");
+    expect(epubReaderSource).toContain("hasGeneratedLocationsRef");
+    expect(epubReaderSource).toContain("await currentLocation?.()");
+    expect(epubReaderSource).toContain("await reportLocation?.()");
+    expect(epubReaderSource).toContain('status: "unavailable"');
   });
 });
 

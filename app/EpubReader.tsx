@@ -145,6 +145,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const onTocChangeRef = useRef(onTocChange);
   const onProgressChangeRef = useRef(onProgressChange);
   const onPageInfoChangeRef = useRef(onPageInfoChange);
+  const hasResolvedPageInfoRef = useRef(false);
+  const hasGeneratedLocationsRef = useRef(false);
   const attachedTapDocsRef = useRef<WeakSet<Document>>(new WeakSet());
   const saveTimerRef = useRef<number | null>(null);
   const pendingPositionRef = useRef<ReadingPosition | null>(null);
@@ -161,6 +163,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   useEffect(() => {
     if (bookIdRef.current !== bookId) {
       latestLocatorRef.current = null;
+      hasResolvedPageInfoRef.current = false;
+      hasGeneratedLocationsRef.current = false;
     }
     bookIdRef.current = bookId;
   }, [bookId]);
@@ -376,10 +380,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       const book = bookRef.current as EpubBook | null;
       const pageInfo = getEpubBookPageInfo(
         location,
-        book?.locations?.total ?? 0,
+        hasGeneratedLocationsRef.current
+          ? book?.locations?.total ?? -1
+          : -1,
         book?.pageList
       );
       if (pageInfo) {
+        hasResolvedPageInfoRef.current = true;
         onPageInfoChangeRef.current?.(pageInfo);
       }
     },
@@ -782,6 +789,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
     setStatus("loading");
     setErrorMsg("");
+    hasResolvedPageInfoRef.current = false;
+    hasGeneratedLocationsRef.current = false;
 
     (async () => {
       try {
@@ -851,16 +860,36 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         // stable whole-book index when the publisher did not supply a page-list.
         const locations = book.locations;
         if (locations?.generate) {
+          const locationApi = rendition as Rendition & {
+            currentLocation?: () => Promise<unknown> | unknown;
+            reportLocation?: () => Promise<unknown> | unknown;
+          };
+          const currentLocation = locationApi.currentLocation?.bind(rendition);
+          const reportLocation = locationApi.reportLocation?.bind(rendition);
           void locations
             .generate(EPUB_LOCATION_CHARS_PER_PAGE)
-            .then(() => {
+            .then(async () => {
               if (cancelled) return;
-              (
-                rendition as Rendition & { reportLocation?: () => unknown }
-              ).reportLocation?.();
+              hasGeneratedLocationsRef.current = true;
+              const location = await currentLocation?.();
+              if (!cancelled && location) handleRelocated(location);
+              await reportLocation?.();
+              if (!cancelled && !hasResolvedPageInfoRef.current) {
+                onPageInfoChangeRef.current?.({
+                  current: 1,
+                  total: 1,
+                  status: "unavailable",
+                });
+              }
             })
             .catch(() => {
-              // Reading still works when a malformed EPUB cannot generate locations.
+              if (!cancelled && !hasResolvedPageInfoRef.current) {
+                onPageInfoChangeRef.current?.({
+                  current: 1,
+                  total: 1,
+                  status: "unavailable",
+                });
+              }
             });
         }
 

@@ -9,7 +9,10 @@ import {
   getInitialVisibleItemCount,
   getNextVisibleItemCount,
 } from "@/lib/incrementalList";
-import type { ReaderPageInfo } from "@/lib/readerPageInfo";
+import {
+  formatReaderPageSummary,
+  type ReaderPageInfo,
+} from "@/lib/readerPageInfo";
 import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
 
@@ -82,9 +85,7 @@ export default function TocDrawer({
               <h2 className={styles.tocHeaderTitle}>
                 {bookTitle || "目录"}
               </h2>
-              <p>
-                第 {pageInfo.current} 页（共 {pageInfo.total} 页）
-              </p>
+              <p>{formatReaderPageSummary(pageInfo)}</p>
             </div>
             <button
               className={styles.tocDoneButton}

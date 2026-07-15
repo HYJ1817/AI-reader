@@ -1,6 +1,7 @@
 export type ReaderPageInfo = {
   current: number;
   total: number;
+  status?: "calculating" | "unavailable";
 };
 
 export type EpubPageListInfo = {
@@ -20,8 +21,17 @@ export function normalizeReaderPageInfo(pageInfo: ReaderPageInfo): ReaderPageInf
 }
 
 export function formatReaderPageLabel(pageInfo: ReaderPageInfo): string {
+  if (pageInfo.status === "calculating") return "正在计算页数…";
+  if (pageInfo.status === "unavailable") return "页数未知";
   const normalized = normalizeReaderPageInfo(pageInfo);
   return `${normalized.current}/${normalized.total}页`;
+}
+
+export function formatReaderPageSummary(pageInfo: ReaderPageInfo): string {
+  if (pageInfo.status === "calculating") return "正在计算页数…";
+  if (pageInfo.status === "unavailable") return "页数未知";
+  const normalized = normalizeReaderPageInfo(pageInfo);
+  return `第 ${normalized.current} 页（共 ${normalized.total} 页）`;
 }
 
 export function estimateReaderPageInfo(
@@ -57,7 +67,9 @@ export function getEpubBookPageInfo(
     Number.isFinite(lastPage) &&
     lastPage >= firstPage &&
     typeof publishedPage === "number" &&
-    Number.isFinite(publishedPage)
+    Number.isFinite(publishedPage) &&
+    publishedPage >= firstPage &&
+    publishedPage <= lastPage
   ) {
     return normalizeReaderPageInfo({
       current: publishedPage - firstPage + 1,
@@ -71,14 +83,14 @@ export function getEpubBookPageInfo(
     !Number.isFinite(locationIndex) ||
     locationIndex < 0 ||
     !Number.isFinite(locationTotal) ||
-    locationTotal <= 0
+    locationTotal < 0
   ) {
     return null;
   }
 
   return normalizeReaderPageInfo({
     current: Math.floor(locationIndex) + 1,
-    total: Math.floor(locationTotal),
+    total: Math.floor(locationTotal) + 1,
   });
 }
 

@@ -88,7 +88,11 @@ export default function useReaderBookState({
     readerModeRestoreProgressRef.current = savedPosition?.progressPercent ?? null;
     setTocItems([]);
     setReaderProgressPercent(0);
-    setReaderPageInfo({ current: 1, total: 1 });
+    setReaderPageInfo({
+      current: 1,
+      total: 1,
+      status: book.format === "epub" ? "calculating" : undefined,
+    });
     dispatchReaderChrome({ type: "hide" });
 
     if (book.format !== "txt") {
