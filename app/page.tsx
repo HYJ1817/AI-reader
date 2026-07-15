@@ -128,6 +128,10 @@ import {
 } from "@/lib/incrementalList";
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
 import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
+import {
+  markReaderControlsDiscovered,
+  shouldDiscoverReaderControls,
+} from "@/lib/readerControlDiscovery";
 import useCustomBackground from "@/app/useCustomBackground";
 import { requestPersistentStorage } from "@/lib/storagePersistence";
 import useAskAi from "@/app/useAskAi";
@@ -202,6 +206,11 @@ export default function Home() {
     createReaderChromeState
   );
   const readerChromeVisible = readerChromeState.visible;
+  useEffect(() => {
+    if (shouldDiscoverReaderControls()) {
+      dispatchReaderChrome({ type: "require-discovery" });
+    }
+  }, []);
   const {
     openBook,
     paragraphs,
@@ -1297,8 +1306,11 @@ export default function Home() {
   }, [appPrefs.reduceMotion, openBook, readerMode]);
 
   const toggleReaderChrome = useCallback(() => {
+    if (readerChromeState.discoveryPending) {
+      markReaderControlsDiscovered();
+    }
     dispatchReaderChrome({ type: "tap", at: performance.now() });
-  }, []);
+  }, [readerChromeState.discoveryPending]);
 
   const handleTocSelect = useCallback(async (href: string) => {
     await epubReaderRef.current?.goTo(href);
@@ -1597,9 +1609,7 @@ export default function Home() {
           dispatchReaderChrome({ type: "selection" });
         }
       }}
-      onReaderTap={() =>
-        dispatchReaderChrome({ type: "tap", at: performance.now() })
-      }
+      onReaderTap={toggleReaderChrome}
       onReaderScrollStart={() =>
         dispatchReaderChrome({ type: "scroll", at: performance.now() })
       }
