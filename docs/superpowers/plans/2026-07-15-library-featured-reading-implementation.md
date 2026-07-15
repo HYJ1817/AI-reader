@@ -1000,7 +1000,32 @@ Expected: all configured browser suites pass on both projects.
 - [ ] **Step 4: Build and deploy with the documented Windows OpenNext sequence**
 
 ```powershell
-Remove-Item -Recurse -Force .next,.open-next -ErrorAction SilentlyContinue
+$workspace = (Resolve-Path -LiteralPath .).Path
+$allowedLeaves = @('.next', '.open-next')
+
+foreach ($leaf in $allowedLeaves) {
+  $target = [IO.Path]::GetFullPath((Join-Path $workspace $leaf))
+  $parent = [IO.Directory]::GetParent($target).FullName
+  $parentMatchesWorkspace = [StringComparer]::OrdinalIgnoreCase.Equals(
+    $parent.TrimEnd('\'),
+    $workspace.TrimEnd('\')
+  )
+  $targetMatchesWorkspace = [StringComparer]::OrdinalIgnoreCase.Equals(
+    $target.TrimEnd('\'),
+    $workspace.TrimEnd('\')
+  )
+  $leafIsAllowed = $leaf -in $allowedLeaves -and
+    [IO.Path]::GetFileName($target) -in $allowedLeaves
+
+  if (-not $parentMatchesWorkspace -or $targetMatchesWorkspace -or -not $leafIsAllowed) {
+    throw "Unsafe generated target: $target"
+  }
+
+  if (Test-Path -LiteralPath $target) {
+    Remove-Item -LiteralPath $target -Recurse -Force
+  }
+}
+
 $env:NEXT_PRIVATE_STANDALONE='true'
 $env:NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path
 npm.cmd run build

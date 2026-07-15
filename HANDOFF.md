@@ -13,8 +13,9 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest test-only closeout commit: `31b082a` (`test: keep library
   accessibility fixture representative`).
-- If branch HEAD is newer than `31b082a`, that newer commit should be this
-  handoff-only documentation update.
+- If branch HEAD is newer than `31b082a`, those later commits should contain
+  only handoff and deployment-plan safety documentation updates, not product
+  or test behavior changes.
 - Latest deployed Worker version: `ff701748-184d-4c32-8941-ce09745fe557`
 - Local `codex/custom-background-settings` and
   `origin/codex/custom-background-settings` should match after this handoff is
