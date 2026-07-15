@@ -22,6 +22,8 @@ export type LibrarySurfaceProps = {
     books: BookRecord[];
     visibleBooks: BookRecord[];
     filteredBookCount: number;
+    featuredBook: BookRecord | null;
+    featuredLayout: boolean;
     groups: BookGroup[];
     progressMap: ReadingProgressMap;
     loading: boolean;
@@ -66,6 +68,8 @@ export default function LibrarySurface({
     books,
     visibleBooks,
     filteredBookCount,
+    featuredBook,
+    featuredLayout,
     groups,
     progressMap,
     loading,
@@ -134,6 +138,15 @@ export default function LibrarySurface({
   }
 
   const entranceOrder = libraryMotionSnapshot.entranceOrder;
+  const featuredOriginId = featuredBook
+    ? `library-featured-${featuredBook.id}`
+    : "";
+  const featuredProgress = featuredBook
+    ? getBookProgressPercent(progressMap, featuredBook.id)
+    : 0;
+  const featuredPresentation = featuredBook
+    ? buildLibraryBookPresentation(featuredBook, featuredProgress)
+    : null;
 
   return (
     <div
@@ -241,10 +254,77 @@ export default function LibrarySurface({
               </button>
             </div>
           ) : (
+            <>
+            <AnimatePresence initial={false} mode="popLayout">
+              {featuredBook && featuredPresentation && (
+                <m.section
+                  key={featuredBook.id}
+                  className={styles.libraryFeatured}
+                  data-library-featured="true"
+                  initial={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }
+                  }
+                  animate={
+                    reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
+                  }
+                  exit={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }
+                  }
+                  transition={
+                    reduceMotion
+                      ? { duration: MOTION_DURATION.reduced }
+                      : { duration: MOTION_DURATION.state }
+                  }
+                >
+                  <button
+                    type="button"
+                    className={styles.libraryFeaturedButton}
+                    aria-label={`${UI_TEXT.CONTINUE_READING}：${featuredBook.title}`}
+                    onClick={() =>
+                      actions.pressBook(featuredBook, featuredOriginId)
+                    }
+                  >
+                    <MotionBookCover
+                      book={featuredBook}
+                      originId={featuredOriginId}
+                    />
+                    <span className={styles.libraryFeaturedCopy}>
+                      <span className={styles.libraryFeaturedContext}>
+                        {featuredPresentation.lastReadLabel}
+                      </span>
+                      <span className={styles.libraryFeaturedTitle}>
+                        {featuredBook.title}
+                      </span>
+                      <span className={styles.libraryFeaturedSource}>
+                        {featuredPresentation.sourceLabel}
+                      </span>
+                      {featuredPresentation.showProgress && (
+                        <span className={styles.libraryFeaturedProgress}>
+                          <span aria-hidden="true">
+                            <span
+                              style={{
+                                width: `${featuredPresentation.progressPercent}%`,
+                              }}
+                            />
+                          </span>
+                          <small>{featuredPresentation.progressLabel}</small>
+                        </span>
+                      )}
+                      <span className={styles.libraryFeaturedContinue}>
+                        {UI_TEXT.CONTINUE_READING}
+                        <span aria-hidden="true">{"\u203a"}</span>
+                      </span>
+                    </span>
+                  </button>
+                </m.section>
+              )}
+            </AnimatePresence>
             <div className={styles.bookList} data-library-shelf="true">
               {importError && <p className={styles.importError}>{importError}</p>}
               <div className={styles.sectionHeader}>
-                <h2>{UI_TEXT.RECENT_BOOKS}</h2>
+                <h2>
+                  {featuredLayout ? UI_TEXT.OTHER_BOOKS : UI_TEXT.RECENT_BOOKS}
+                </h2>
                 {editing.library ? (
                   <button className={styles.libraryTextButton} onClick={actions.selectAllVisible}>
                     {editing.allVisibleSelected ? UI_TEXT.CLEAR_SELECTION : UI_TEXT.SELECT_ALL}
@@ -265,12 +345,12 @@ export default function LibrarySurface({
               {editing.library && (
                 <p className={styles.selectionSummary}>{editing.selectedCountLabel}</p>
               )}
-              {filteredBookCount === 0 ? (
+              {filteredBookCount === 0 && !featuredLayout ? (
                 <div className={styles.emptyStateCompact}>
                   <h2 className={styles.emptyTitle}>{UI_TEXT.NO_MATCHING_BOOKS}</h2>
                   <p className={styles.emptyText}>{view.searchQuery || UI_TEXT.UNGROUPED}</p>
                 </div>
-              ) : (
+              ) : filteredBookCount > 0 ? (
                 <LayoutGroup id="library-books">
                 {view.mode === "grid" ? (
                 <m.div
@@ -453,11 +533,12 @@ export default function LibrarySurface({
                 </ul>
               )}
                 </LayoutGroup>
-              )}
+              ) : null}
               {view.visibleBookCount < filteredBookCount && (
                 <div ref={sentinelRef} className={styles.libraryLoadSentinel} aria-hidden="true" />
               )}
             </div>
+            </>
           )}
         </div>
     </div>

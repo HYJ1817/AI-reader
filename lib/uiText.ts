@@ -113,6 +113,7 @@ export const UI_TEXT = {
   CURRENT_READING: "\u6b63\u5728\u9605\u8bfb",
   RECENTLY_OPENED: "\u6700\u8fd1\u6253\u5f00",
   RECENT_BOOKS: "\u6700\u8fd1\u9605\u8bfb",
+  OTHER_BOOKS: "\u5176\u4ed6\u4e66\u7c4d",
   COLLECTIONS: "\u85cf\u4e66",
   BOOK_COUNT: "\u672c\u56fe\u4e66",
   GROUP_COUNT: "\u4e2a\u5206\u7ec4",

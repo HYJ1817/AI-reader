@@ -88,6 +88,7 @@ import {
   type ReaderMode,
 } from "@/lib/readerMode";
 import { filterBooksByQuery } from "@/lib/libraryFilters";
+import { buildLibraryHomePresentation } from "@/lib/libraryHomePresentation";
 import { getDailyReadingStat, incrementDailyReadingSeconds, listDailyReadingStats } from "@/lib/db";
 import {
   loadReadingGoal,
@@ -771,24 +772,36 @@ export default function Home() {
     groupFilteredBooks,
     librarySearchQuery
   );
-  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}`;
+  const libraryHomePresentation = buildLibraryHomePresentation({
+    books,
+    filteredBooks,
+    searchQuery: librarySearchQuery,
+    groupFilter,
+    editing: libraryEditing,
+  });
+  const libraryShelfBooks = libraryHomePresentation.shelfBooks;
+  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
   const visibleBookCount = Math.min(
-    filteredBooks.length,
+    libraryShelfBooks.length,
     libraryRenderWindow.key === libraryRenderKey
       ? libraryRenderWindow.count
       : getInitialVisibleItemCount(
-          filteredBooks.length,
+          libraryShelfBooks.length,
           LIBRARY_RENDER_BATCH
         )
   );
-  const visibleBooks = filteredBooks.slice(0, visibleBookCount);
+  const visibleBooks = libraryShelfBooks.slice(0, visibleBookCount);
   const collectionListItems = buildCollectionListItems(
     books, groups, UI_TEXT.ALL_BOOKS, UI_TEXT.UNGROUPED,
   );
   const activeCollectionName =
     collectionListItems.find((item) => item.filter === groupFilter)?.name ?? UI_TEXT.ALL_BOOKS;
-  const selectedVisibleCount = filteredBooks.filter((book) => selectedBookIds.includes(book.id)).length;
-  const allVisibleSelected = filteredBooks.length > 0 && selectedVisibleCount === filteredBooks.length;
+  const selectedVisibleCount = libraryShelfBooks.filter((book) =>
+    selectedBookIds.includes(book.id)
+  ).length;
+  const allVisibleSelected =
+    libraryShelfBooks.length > 0 &&
+    selectedVisibleCount === libraryShelfBooks.length;
   const selectedCountLabel = UI_TEXT.SELECTED_COUNT.replace("{count}", String(selectedBookIds.length));
   const latestBook = selectFeaturedLibraryBook(books);
   const latestBookProgress = latestBook
@@ -853,7 +866,7 @@ export default function Home() {
   useEffect(() => {
     if (
       activeTab !== "library" ||
-      visibleBookCount >= filteredBooks.length
+      visibleBookCount >= libraryShelfBooks.length
     ) {
       return;
     }
@@ -868,7 +881,7 @@ export default function Home() {
       const frame = window.requestAnimationFrame(() => {
         setLibraryRenderWindow({
           key: libraryRenderKey,
-          count: filteredBooks.length,
+          count: libraryShelfBooks.length,
         });
       });
       return () => window.cancelAnimationFrame(frame);
@@ -880,7 +893,7 @@ export default function Home() {
           key: libraryRenderKey,
           count: getNextVisibleItemCount(
             visibleBookCount,
-            filteredBooks.length,
+            libraryShelfBooks.length,
             LIBRARY_RENDER_BATCH
           ),
         });
@@ -891,8 +904,8 @@ export default function Home() {
     return () => observer.disconnect();
   }, [
     activeTab,
-    filteredBooks.length,
     libraryRenderKey,
+    libraryShelfBooks.length,
     visibleBookCount,
   ]);
 
@@ -1701,7 +1714,9 @@ export default function Home() {
           data={{
             books,
             visibleBooks,
-            filteredBookCount: filteredBooks.length,
+            filteredBookCount: libraryShelfBooks.length,
+            featuredBook: libraryHomePresentation.featuredBook,
+            featuredLayout: libraryHomePresentation.featuredLayout,
             groups,
             progressMap: readingProgressMap,
             loading,
