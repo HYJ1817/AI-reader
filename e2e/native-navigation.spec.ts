@@ -65,7 +65,10 @@ async function openReader(page: Page) {
 }
 
 async function closeReaderWithControls(page: Page) {
-  await page.locator('[data-reader-menu-toggle="true"]').click();
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  if ((await menuToggle.getAttribute("aria-expanded")) !== "true") {
+    await menuToggle.click();
+  }
   const closeButton = page.locator('[data-reader-close="true"]');
   await expect(closeButton).toBeVisible();
   await closeButton.click();
@@ -317,6 +320,38 @@ test("reader closes back to its source action and restores focus", async ({
   ).toBeFocused();
 });
 
+test("first reader controls stay visible until an explicit toggle", async ({
+  page,
+}) => {
+  await openReader(page);
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  await expect(menuToggle).toHaveAttribute("aria-expanded", "true");
+
+  await page.locator('[data-txt-reader="true"]').evaluate((element) => {
+    element.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+  });
+  await expect(menuToggle).toHaveAttribute("aria-expanded", "true");
+
+  await menuToggle.click();
+  await expect(menuToggle).toHaveAttribute("aria-expanded", "false");
+  await expect
+    .poll(() =>
+      page.evaluate(() =>
+        localStorage.getItem("ai-reader-reader-controls-discovered-v1")
+      )
+    )
+    .toBe("true");
+
+  await menuToggle.click();
+  await page.locator('[data-reader-close="true"]').click();
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator(libraryRootSelector)).toBeVisible();
+  await openReader(page);
+  await expect(menuToggle).toHaveAttribute("aria-expanded", "false");
+});
+
 test("browser Back restores the root after a pushed route", async ({ page }) => {
   await openCollections(page);
   await page.evaluate(() => window.history.back());
@@ -496,7 +531,28 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
     await injectSheet(page, route, entityId);
     const host = page.locator(`[data-sheet-route="${route}"]`);
     await expect(host).toHaveCount(1);
-    await expect(host.locator('[data-motion-sheet="panel"]')).toBeVisible();
+    const panel = host.locator('[data-motion-sheet="panel"]');
+    await expect(panel).toBeVisible();
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => element.contains(document.activeElement))
+      )
+      .toBe(true);
+    expect(
+      await host.evaluate((element) => {
+        const appShell = element.closest('[data-app-shell="true"]');
+        if (!appShell) return false;
+        return Array.from(appShell.children)
+          .filter((child) => child !== element)
+          .every((child) => (child as HTMLElement).inert);
+      })
+    ).toBe(true);
+    await page.keyboard.press("Shift+Tab");
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => element.contains(document.activeElement))
+      )
+      .toBe(true);
     await page.keyboard.press("Escape");
     await expect(host).toHaveCount(0);
   }
