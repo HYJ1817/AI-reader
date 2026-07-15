@@ -7,21 +7,21 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest feature implementation commit: `1b9036a` (`fix: animate library
-  progress with transforms`).
+- Latest feature implementation commit: `c1be7b1` (`fix: resolve epub
+  whole-book page counts`).
+- EPUB page-status design and implementation plan commit: `6fe098b`.
 - Motion-detail design commit: `204909a`; implementation plan commit:
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest test-only closeout commit: `31b082a` (`test: keep library
   accessibility fixture representative`).
-- If branch HEAD is newer than `31b082a`, those later commits should contain
-  only handoff and deployment-plan safety documentation updates, not product
-  or test behavior changes.
+- The latest product behavior is `c1be7b1`; a newer HEAD should only add the
+  closeout `HANDOFF.md` commit unless new work was explicitly requested.
 - Latest deployed Worker version: `ff701748-184d-4c32-8941-ce09745fe557`
-- Local `codex/custom-background-settings` and
-  `origin/codex/custom-background-settings` should match after this handoff is
-  committed and pushed.
+- Local `codex/custom-background-settings` is intentionally ahead of
+  `origin/codex/custom-background-settings`; this page-count batch has not been
+  pushed or deployed.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -615,6 +615,50 @@ Safari/PWA and real VoiceOver checks remain non-blocking device risks. The
 unresolved dark EPUB ambient white rectangle was not touched; do not resume
 speculative CSS work without the affected EPUB or Safari Web Inspector
 evidence.
+
+## EPUB Page Count Correctness (2026-07-16)
+
+Approved design and implementation plan:
+
+- `docs/superpowers/specs/2026-07-16-epub-page-status-design.md`
+- `docs/superpowers/plans/2026-07-16-epub-page-status-implementation.md`
+- documentation commit `6fe098b`; implementation commit `c1be7b1`.
+
+Root cause and behavior:
+
+- The reader previously initialized every EPUB with a numeric `1/1` and did
+  not distinguish unknown page information from a real one-page book.
+- epub.js exposes an empty page-list as `firstPage = 0`, `lastPage = 0`, and a
+  relocated `page = -1`; the previous validation normalized that invalid
+  combination into `1/1`.
+- During `locations.generate`, epub.js also appends partial locations before
+  setting the final zero-based `locations.total`. Relocation during that window
+  could publish another false `1/1` result.
+- EPUBs now display `正在计算页数…` until the whole-book location table is
+  complete. Invalid empty page-list defaults are rejected, generated location
+  totals convert their final index to a count with `+1`, and generation failure
+  displays `页数未知` instead of fake numbers. Publisher page-lists remain
+  authoritative, TXT page calculation is unchanged, and the TOC header shares
+  the same status-aware formatter.
+
+Verification:
+
+- TDD observed focused failures for both status labels, the total-index
+  conversion, empty page-list defaults, and the async generation lifecycle.
+- Focused page/menu tests pass 2 files / 21 tests; the broader reader regression
+  set passes 23 files / 261 tests.
+- A generated twelve-chapter EPUB first reproduced the screenshot's `1/1`
+  failure on both configured mobile viewports. After the final fix,
+  `e2e/epub-page-info.spec.ts` passes 2/2 on iPhone 14 and iPhone 15 Pro Max,
+  verifies the calculating state, resolves to a total greater than one, and
+  rejects any intermediate `1/1` label.
+- Fresh full Vitest passes 146 files / 1393 tests; full ESLint and
+  `next build --webpack` pass. Temporary local servers are stopped.
+
+This fix has not been pushed or deployed. Production still serves Worker
+version `ff701748-184d-4c32-8941-ce09745fe557`. The separate old-Android import
+failure remains unresolved: `lib/importBook.ts` and group creation still call
+`crypto.randomUUID()` without the fallback already used by AI settings.
 
 ## Motion Detail Polish (2026-07-15)
 
@@ -1662,10 +1706,10 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新完成的是 UI Motion Detail Polish：批准设计在 docs/superpowers/specs/2026-07-15-motion-detail-polish-design.md（204909a），实施计划在 docs/superpowers/plans/2026-07-15-motion-detail-polish-implementation.md（fda4867）。实现与覆盖提交依次为 556fd63、7b76004、4c2fae6、056652c、b3c2638、1b9036a；最新功能代码提交是 1b9036a，若 HEAD 更新，应只比它多 HANDOFF 文档提交。
-这批优化统一了 MotionSheet 的初始焦点、Tab containment、背景 inert 与退场后焦点恢复；将阅读器开/关调整为 300/220ms 且退场无继承延迟；书库阅读进度改为 200ms transform scaleX 状态反馈；首次用户的阅读器控制栏保持展开到第一次主动切换；并统一 TypeScript/CSS 动效时长角色与 TXT/EPUB 滑动回弹时长来源。Library Featured Reading 仍保持此前的中性根页面、无重复条目、稳定返回来源焦点等行为。
+最新完成的是 EPUB 整本页数修复：设计与计划在 docs/superpowers/specs/2026-07-16-epub-page-status-design.md 和 docs/superpowers/plans/2026-07-16-epub-page-status-implementation.md（6fe098b），功能与回归测试提交是 c1be7b1。EPUB 先显示“正在计算页数…”，位置表完成后才发布页数；空 page-list 默认值、生成中的部分 locations 和 zero-based total 均已正确处理，失败显示“页数未知”，不会再伪装成 1/1。TXT 页数逻辑未改。
+真实十二章 EPUB 先在 iPhone 14/15 Pro Max 两个视口复现了截图中的错误 1/1，再于修复后两个项目合计通过 2/2；测试同时拒绝任何中间 1/1 状态。聚焦 page/menu 2 文件/21 项、阅读器回归 23 文件/261 项、全量 Vitest 146 文件/1393 项、全仓 ESLint、next build --webpack、git diff --check 均通过。单独的旧安卓导入问题仍未修：lib/importBook.ts 与分组创建直接调用 crypto.randomUUID()。
 最新正式 Worker 版本是 ff701748-184d-4c32-8941-ce09745fe557；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-本次聚焦 Vitest 14 文件/73 项、全量 Vitest 146 文件/1388 项、全仓 ESLint、next build --webpack、git diff --check 均通过；Impeccable 定向检测为 []。native-navigation 在 iPhone 14 与 iPhone 15 Pro Max 上各 13/13，正式构建的 Library 专项各 7/7。本批改动尚未推送或部署，生产仍是上一行的 Worker 版本；真实 iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
+本次页数修复及上一批 UI 动效优化都尚未推送或部署，生产仍是上一行的 Worker 版本；真实安卓 WebView、iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
 独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
