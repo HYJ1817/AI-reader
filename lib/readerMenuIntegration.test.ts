@@ -121,6 +121,7 @@ describe("reader action menu", () => {
   it("keeps a chrome-owned menu button tappable for both opening and closing", () => {
     const wakeRule = cssRule(".readerMenuWakeButton");
     const collapsedRule = cssRule(".readerMenuWakeButtonCollapsed::before");
+    const collapsedIconRule = cssRule(".readerMenuWakeButtonCollapsed svg");
     const expandedRule = cssRule(".readerMenuWakeButtonExpanded::before");
     const wakeStart = controlsSource.indexOf("styles.readerMenuWakeButton");
     const animatedStart = controlsSource.indexOf("styles.readerChromeAnimated");
@@ -135,8 +136,19 @@ describe("reader action menu", () => {
     expect(wakeRule).toContain("height: 48px");
     expect(wakeRule).toContain("pointer-events: auto");
     expect(wakeRule).toContain("visibility: visible");
+    expect(collapsedRule).toContain("top: 9px");
+    expect(collapsedRule).toContain("right: -6px");
+    expect(collapsedRule).toContain("bottom: 9px");
+    expect(collapsedRule).toContain("left: 32px");
+    expect(collapsedRule).toContain(
+      "border-color: color-mix(in srgb, var(--foreground) 7%, transparent)"
+    );
+    expect(collapsedRule).toContain(
+      "background: color-mix(in srgb, var(--background) 44%, transparent)"
+    );
     expect(collapsedRule).toContain("box-shadow: none");
-    expect(collapsedRule).toContain("right: -10px");
+    expect(collapsedIconRule).toContain("opacity: 0.38");
+    expect(collapsedIconRule).toContain("translateX(10px) scale(0.7)");
     expect(expandedRule).toContain("box-shadow:");
     expect(wakeStart).toBeGreaterThanOrEqual(0);
     expect(wakeStart).toBeLessThan(animatedStart);

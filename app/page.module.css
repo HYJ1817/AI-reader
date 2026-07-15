@@ -2680,27 +2680,37 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--background) 74%, transparent);
   box-shadow: 0 5px 12px rgba(0, 0, 0, 0.12);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .readerMenuWakeButton svg {
   position: relative;
   z-index: 1;
+  opacity: 1;
+  transform: translateX(0) scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-emphasized);
 }
 
 .readerMenuWakeButtonCollapsed::before {
-  top: 6px;
-  right: -10px;
-  bottom: 6px;
-  left: 24px;
+  top: 9px;
+  right: -6px;
+  bottom: 9px;
+  left: 32px;
+  border-color: color-mix(in srgb, var(--foreground) 7%, transparent);
   border-right: 0;
   border-radius: 999px 0 0 999px;
-  background: color-mix(in srgb, var(--background) 58%, transparent);
+  background: color-mix(in srgb, var(--background) 44%, transparent);
   box-shadow: none;
 }
 
 .readerMenuWakeButtonCollapsed svg {
-  opacity: 0.58;
-  transform: translateX(7px) scale(0.82);
+  opacity: 0.38;
+  transform: translateX(10px) scale(0.7);
 }
 
 .readerMenuWakeButtonExpanded::before {
@@ -2836,6 +2846,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .readerMenuWakeButton::before,
+  .readerMenuWakeButton svg {
+    transition: none;
+  }
+
   .readerMenuWakeButton,
   .readerMenuRow {
     transition: none;
