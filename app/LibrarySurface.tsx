@@ -139,7 +139,7 @@ export default function LibrarySurface({
 
   const entranceOrder = libraryMotionSnapshot.entranceOrder;
   const featuredOriginId = featuredBook
-    ? `library-featured-${featuredBook.id}`
+    ? `library-${view.mode}-${featuredBook.id}`
     : "";
   const featuredProgress = featuredBook
     ? getBookProgressPercent(progressMap, featuredBook.id)

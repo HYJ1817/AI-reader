@@ -306,10 +306,15 @@ test("reader closes back to its source action and restores focus", async ({
   await closeReaderWithControls(page);
 
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
-  const restoredCover = page.locator(
+  const featured = page.locator('[data-library-featured="true"]');
+  await expect(featured).toBeVisible();
+  const restoredCover = featured.locator(
     `[data-book-cover-origin="${originId}"]`
   );
-  await expect(restoredCover.locator("xpath=ancestor::button[1]")).toBeFocused();
+  await expect(restoredCover).toHaveCount(1);
+  await expect(
+    restoredCover.locator("xpath=ancestor::button[1]")
+  ).toBeFocused();
 });
 
 test("browser Back restores the root after a pushed route", async ({ page }) => {

@@ -22,7 +22,7 @@ describe("featured Library reading", () => {
     expect(source).toContain('data-library-featured="true"');
     expect(source).toContain('type="button"');
     expect(source.match(/className=\{styles\.libraryFeaturedButton\}/g)).toHaveLength(1);
-    expect(source).toContain('`library-featured-${featuredBook.id}`');
+    expect(source).toContain('`library-${view.mode}-${featuredBook.id}`');
     expect(source).toContain("UI_TEXT.CONTINUE_READING");
     expect(source).toContain("UI_TEXT.OTHER_BOOKS");
     expect(source).toContain("<MotionBookCover");
