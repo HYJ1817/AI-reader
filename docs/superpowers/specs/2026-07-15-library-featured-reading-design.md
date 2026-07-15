@@ -1,6 +1,6 @@
 # Library Featured Reading Design
 
-**Status:** Approved visually on 2026-07-15. Written specification pending user review.
+**Status:** Approved on 2026-07-15.
 
 **Scope:** A focused redesign of the populated Library root. The completed UI quality roadmap remains closed.
 
@@ -116,7 +116,7 @@ Add theme-aware layout and typography for the feature using existing visual toke
 - Invalid or missing `lastOpenedAt` values do not produce a featured-reading claim.
 - Missing covers use the existing fallback and retain legible contrast.
 - Zero progress may still represent an opened book; the spread shows continuation context without a misleading zero-percent progress track.
-- A single opened book appears only in the feature, and the shelf may be absent if no other books remain.
+- A single opened book appears only in the feature. The empty book grid/list may be absent, while the shelf heading and Collections action remain reachable.
 - Entering search, a collection, or editing mode removes the feature and restores the complete relevant dataset without losing scroll, focus, or selection state.
 - Returning from the reader may update `lastOpenedAt`; feature replacement must not steal focus or replay a page-load choreography.
 - Light, dark, sepia, system-dark, and custom ambient themes retain readable text and a clear focus indicator.
