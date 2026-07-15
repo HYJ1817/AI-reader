@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type RefObject } from "react";
+import { useState, type CSSProperties, type RefObject } from "react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import MotionBookCover from "@/app/MotionBookCover";
@@ -303,8 +303,9 @@ export default function LibrarySurface({
                           <span aria-hidden="true">
                             <span
                               style={{
-                                width: `${featuredPresentation.progressPercent}%`,
-                              }}
+                                "--library-progress-scale":
+                                  featuredPresentation.progressPercent / 100,
+                              } as CSSProperties}
                             />
                           </span>
                           <small>{featuredPresentation.progressLabel}</small>
@@ -498,7 +499,10 @@ export default function LibrarySurface({
                                   aria-hidden="true"
                                 >
                                   <span
-                                    style={{ width: `${presentation.progressPercent}%` }}
+                                    style={{
+                                      "--library-progress-scale":
+                                        presentation.progressPercent / 100,
+                                    } as CSSProperties}
                                   />
                                 </span>
                                 <span>{presentation.progressLabel}</span>

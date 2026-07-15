@@ -56,7 +56,7 @@ describe("motion CSS", () => {
     expect(css).toContain("--motion-navigation: 340ms;");
     expect(css).toContain("--motion-sheet: 300ms;");
     expect(css).toContain("--motion-sheet-settle: 220ms;");
-    expect(css).toContain("--motion-sheet-exit: 260ms;");
+    expect(css).toContain("--motion-sheet-exit: 250ms;");
     expect(css).toContain(
       "--ease-sheet-settle: cubic-bezier(0.2, 0.86, 0.18, 1);"
     );
@@ -298,7 +298,8 @@ describe("motion CSS", () => {
 
   it("removes reader menu travel when motion is reduced", () => {
     expect(readerControlsSource).toContain("useAppReducedMotion");
-    expect(readerControlsSource).toContain("duration: reduceMotion ? 0 : 0.2");
+    expect(readerControlsSource).toContain("MOTION_DURATION.chromeEnter");
+    expect(readerControlsSource).toContain("MOTION_DURATION.chromeExit");
     expect(readerControlsSource).toContain("scale: reduceMotion ? 1 : 0.96");
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.readerMenuWakeButton,[\s\S]*?\.readerMenuRow\s*\{[\s\S]*?transition:\s*none;[\s\S]*?transform:\s*none;/s

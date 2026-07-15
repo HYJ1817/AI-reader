@@ -53,10 +53,13 @@ describe("featured Library reading", () => {
 
   it("settles featured and list progress over the local-state duration", () => {
     expect(rule(".libraryFeaturedProgress > span > span")).toContain(
-      "width var(--motion-standard) var(--ease-standard)"
+      "transform var(--motion-standard) var(--ease-standard)"
     );
     expect(rule(".bookListProgressTrack span")).toContain(
-      "width var(--motion-standard) var(--ease-standard)"
+      "transform var(--motion-standard) var(--ease-standard)"
     );
+    expect(source).toContain("--library-progress-scale");
+    expect(source).not.toContain("width: `${featuredPresentation.progressPercent}%`");
+    expect(source).not.toContain("width: `${presentation.progressPercent}%`");
   });
 });
