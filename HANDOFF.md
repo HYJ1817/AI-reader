@@ -7,8 +7,10 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest feature implementation commit: `0f3532b` (`fix: preserve library
-  return origin`).
+- Latest feature implementation commit: `1b9036a` (`fix: animate library
+  progress with transforms`).
+- Motion-detail design commit: `204909a`; implementation plan commit:
+  `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest test-only closeout commit: `31b082a` (`test: keep library
@@ -613,6 +615,70 @@ Safari/PWA and real VoiceOver checks remain non-blocking device risks. The
 unresolved dark EPUB ambient white rectangle was not touched; do not resume
 speculative CSS work without the affected EPUB or Safari Web Inspector
 evidence.
+
+## Motion Detail Polish (2026-07-15)
+
+Approved design:
+`docs/superpowers/specs/2026-07-15-motion-detail-polish-design.md`
+(`204909a`). Executed plan:
+`docs/superpowers/plans/2026-07-15-motion-detail-polish-implementation.md`
+(`fda4867`).
+
+Implementation commits:
+
+- `556fd63` centralizes initial focus, Tab containment, app-shell background
+  inert ownership, and post-exit focus restoration in `MotionSheet`.
+- `7b76004` shortens reader enter/exit to 300/220ms, removes inherited exit
+  delay, and introduces Library progress-settle feedback.
+- `4c2fae6` keeps first-use reader controls expanded until the first explicit
+  toggle and stores that discovery with a resilient local marker.
+- `056652c` aligns TypeScript/CSS duration roles and gives TXT/EPUB swipe
+  settle one pure duration owner.
+- `b3c2638` adds browser coverage for generic sheet focus/isolation, first-use
+  discovery persistence, and the existing reader close/focus-return loop.
+- `1b9036a` responds to the final detector warning by rendering progress from
+  a semantic CSS custom property through `scaleX`, avoiding width-layout
+  animation while preserving the 200ms state feedback.
+
+Implemented behavior:
+
+- Every shared sheet focuses inside, keeps Tab and Shift+Tab inside the active
+  panel, isolates app-shell siblings with `inert`, and restores a connected
+  opener only after the exit completes. Reading Goal now uses the shared
+  contract instead of a one-off focus trap.
+- The shared-cover transition remains the reader signature moment. Opening is
+  300ms; closing is 220ms and begins immediately without the prior entrance
+  delay leaking into exit.
+- Featured and list Library progress now settle over the 200ms local-state
+  role using `transform: scaleX(...)`, with the existing global reduced-motion
+  policy.
+- Fresh users see expanded reader controls until their first explicit toggle.
+  Automatic scroll, page-turn, and hide events cannot collapse the controls
+  before discovery. Returning users keep the prior quiet auto-hide behavior.
+- Motion roles for press, state, navigation, sheets, reader, chrome, gesture
+  settle, and reduced crossfade live in `lib/motionSystem.ts`; a parity test
+  locks the mirrored CSS variables. TXT and EPUB swipe settle both use
+  `getReaderSwipeSettleDuration`.
+
+Fresh local verification:
+
+- Focused motion-detail Vitest passed 14 files / 73 tests.
+- Full Vitest passed 146 files / 1388 tests.
+- Full configured ESLint and `next build --webpack` passed.
+- Targeted Impeccable detection returned `[]` after progress changed from
+  width transition to transform scaling.
+- `e2e/native-navigation.spec.ts` passed 13/13 on iPhone 14 and 13/13 on
+  iPhone 15 Pro Max. It covers shared-sheet focus and inert isolation,
+  first-use reader controls, reader close/source focus, navigation, reduced
+  motion, and frame cadence.
+- Final production-build Library coverage passed 7/7 on iPhone 14 and 7/7 on
+  iPhone 15 Pro Max, including active list progress and light/dark featured
+  states. Temporary local servers were verified stopped afterward.
+
+This motion-detail batch has not been deployed or pushed. Production still
+serves Worker version `ff701748-184d-4c32-8941-ce09745fe557`; deployment and
+production verification remain a separate authorized step. Physical iPhone
+Safari/PWA and real VoiceOver remain non-blocking device risks.
 
 ## Current Feature Work
 
@@ -1596,10 +1662,10 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新功能是 Library Featured Reading：批准设计在 docs/superpowers/specs/2026-07-15-library-featured-reading-design.md（5eaf3a3），实施计划在 docs/superpowers/plans/2026-07-15-library-featured-reading-implementation.md（91a8450）。功能与覆盖提交依次为 48e9791、7620704、4b093c1、0f3532b、c81a868、9f1a225、d9463a5；浏览器代表性夹具修复是仅测试提交 31b082a，它调整导入夹具、等待同步与实时 locator，并增加第二本书，没有改产品代码或行为。最新功能代码提交是 0f3532b，若 HEAD 更新，应只比它多测试或 HANDOFF 文档提交。
-功能只使用真实 lastOpenedAt，在中性的全部书籍根页面展示；搜索、分组和编辑状态隐藏；被精选的书不会在“其他书籍”重复出现。精选卡只有一个原生“继续阅读”按钮，使用当前视图稳定 origin，关闭阅读器后焦点可返回。布局适配主题，状态动效限制在 200ms 并遵循 reduced motion；没有新增依赖、持久化字段或作者元数据。
+最新完成的是 UI Motion Detail Polish：批准设计在 docs/superpowers/specs/2026-07-15-motion-detail-polish-design.md（204909a），实施计划在 docs/superpowers/plans/2026-07-15-motion-detail-polish-implementation.md（fda4867）。实现与覆盖提交依次为 556fd63、7b76004、4c2fae6、056652c、b3c2638、1b9036a；最新功能代码提交是 1b9036a，若 HEAD 更新，应只比它多 HANDOFF 文档提交。
+这批优化统一了 MotionSheet 的初始焦点、Tab containment、背景 inert 与退场后焦点恢复；将阅读器开/关调整为 300/220ms 且退场无继承延迟；书库阅读进度改为 200ms transform scaleX 状态反馈；首次用户的阅读器控制栏保持展开到第一次主动切换；并统一 TypeScript/CSS 动效时长角色与 TXT/EPUB 滑动回弹时长来源。Library Featured Reading 仍保持此前的中性根页面、无重复条目、稳定返回来源焦点等行为。
 最新正式 Worker 版本是 ff701748-184d-4c32-8941-ce09745fe557；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-聚焦 Vitest 12 文件/48 项、全量 Vitest 141 文件/1375 项、全仓 ESLint、普通与 standalone webpack 构建、OpenNext 构建、git diff --check 均通过。本地完整 Playwright 在 iPhone 14 与 iPhone 15 Pro Max 上各 35/35（合计 70/70）；正式域名 Library 专项 7/7，原生关闭阅读器并返回来源焦点 1/1。正式根页面与发现的 10 个资源（8 JS、2 CSS）全部 200，部署包包含 data-library-featured 与 libraryFeaturedButton；浅色精选、深色精选、列表进度三张截图已按原始分辨率核对且干净。
+本次聚焦 Vitest 14 文件/73 项、全量 Vitest 146 文件/1388 项、全仓 ESLint、next build --webpack、git diff --check 均通过；Impeccable 定向检测为 []。native-navigation 在 iPhone 14 与 iPhone 15 Pro Max 上各 13/13，正式构建的 Library 专项各 7/7。本批改动尚未推送或部署，生产仍是上一行的 Worker 版本；真实 iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
 独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
