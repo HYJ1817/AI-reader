@@ -238,13 +238,16 @@ test("featured continuation opens the reader and restores focus on close", async
 
   await continuation.click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
+  await expect(page.locator('[data-txt-reader="true"]')).toContainText(
+    sampleText
+  );
   await closeReaderWithControls(page);
 
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
   await expect(continuation).toBeFocused();
 });
 
-test("featured reading remains legible in the dark theme", async ({
+test("captures featured reading in the dark theme", async ({
   page,
 }, testInfo) => {
   await showFeaturedLibrary(page);
@@ -272,14 +275,17 @@ test("list shelf shows source, recent reading, and semantic progress", async ({
     "active-shelf-sample.txt",
     "An older active book remains represented in the list shelf."
   );
-  const now = Date.now();
+  const activeShelfOpenedAt = new Date();
+  activeShelfOpenedAt.setHours(10, 0, 0, 0);
+  const featuredOpenedAt = new Date(activeShelfOpenedAt);
+  featuredOpenedAt.setHours(12, 0, 0, 0);
   await seedActiveBook(page, {
     fileName: "active-shelf-sample.txt",
-    lastOpenedAt: new Date(now - 120_000).toISOString(),
+    lastOpenedAt: activeShelfOpenedAt.toISOString(),
     progressPercent: 42,
   });
   await seedActiveBook(page, {
-    lastOpenedAt: new Date(now - 60_000).toISOString(),
+    lastOpenedAt: featuredOpenedAt.toISOString(),
     progressPercent: 64,
   });
   await page.reload();
