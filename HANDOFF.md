@@ -600,7 +600,9 @@ Production deployment and evidence:
 - Production `e2e/library-book-first.spec.ts` passed 7/7 on iPhone 14. The
   critical native reader-close source-focus case passed 1/1 separately.
 - The final production light, dark, and active-list screenshots were inspected
-  at original resolution and are clean:
+  at original resolution and are clean. These paths record evidence from this
+  verification run, but `test-results/` is gitignored and ephemeral; later
+  Playwright runs may remove or replace them, so they are not durable artifacts:
   - `test-results/native-navigation/library-book-first-one-act-6bd6d-e-above-the-remaining-shelf-iphone-14/library-featured-light.png`
   - `test-results/native-navigation/library-book-first-capture-cbe25-d-reading-in-the-dark-theme-iphone-14/library-featured-dark.png`
   - `test-results/native-navigation/library-book-first-list-sh-966bb-ading-and-semantic-progress-iphone-14/library-list-active.png`
@@ -1171,7 +1173,8 @@ Latest Android TWA package work:
 - `https://881817.xyz/manifest.webmanifest` and `https://881817.xyz/.well-known/assetlinks.json` now return the AI Reader manifest and Android Digital Asset Links file.
 - Bubblewrap online build/update can now be retried because the production domain serves `/icon-512.png`, `/manifest.webmanifest`, and `/.well-known/assetlinks.json`.
 
-Latest Cloudflare production deployment work:
+Historical Cloudflare native-navigation deployment setup (2026-07-13;
+superseded by later deployments):
 
 - Cloudflare Wrangler was authenticated locally as `hyjsb1817@gmail.com`.
 - Added OpenNext for Cloudflare and Wrangler dev dependencies.
@@ -1180,8 +1183,10 @@ Latest Cloudflare production deployment work:
 - Added `public/_headers` for long-lived Next static chunk caching.
 - Added `docs/cloudflare-deploy.md`.
 - Changed `npm.cmd run build` to `next build --webpack`; OpenNext on Windows failed at runtime when a stale Turbopack server chunk was deployed.
-- Latest deployed Cloudflare Worker version:
-  `cafbbbed-52fc-442f-9181-c18637427b8b`.
+- Historical native-navigation Worker version:
+  `cafbbbed-52fc-442f-9181-c18637427b8b`. This is preserved as dated evidence
+  and is superseded by the current Worker version recorded at the top of this
+  handoff.
 - Earlier storage-hardening deployment version:
   `58b2700f-6fc0-4a3f-abfb-0f9c76abe8a4`.
 - Earlier Ask AI deployment version:
