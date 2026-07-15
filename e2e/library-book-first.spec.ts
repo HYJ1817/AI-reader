@@ -30,9 +30,17 @@ async function importBook(
 
 async function seedActiveBook(
   page: Page,
-  fileName: string = "library-book-first-sample.txt"
+  {
+    fileName = "library-book-first-sample.txt",
+    lastOpenedAt = new Date().toISOString(),
+    progressPercent = 42,
+  }: {
+    fileName?: string;
+    lastOpenedAt?: string;
+    progressPercent?: number;
+  } = {}
 ) {
-  await page.evaluate(async (targetFileName) => {
+  await page.evaluate(async ({ targetFileName, openedAt, progress }) => {
     const request = indexedDB.open("AiReader");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -54,14 +62,13 @@ async function seedActiveBook(
             transaction.abort();
             return;
           }
-          const now = new Date().toISOString();
-          books.put({ ...book, lastOpenedAt: now });
+          books.put({ ...book, lastOpenedAt: openedAt });
           transaction.objectStore("readingPositions").put({
             bookId: book.id,
             locator: "0",
-            progressPercent: 42,
+            progressPercent: progress,
             readingMode: "scroll",
-            updatedAt: now,
+            updatedAt: openedAt,
           });
         };
         getRequest.onerror = () => reject(getRequest.error);
@@ -72,7 +79,11 @@ async function seedActiveBook(
     } finally {
       database.close();
     }
-  }, fileName);
+  }, {
+    targetFileName: fileName,
+    openedAt: lastOpenedAt,
+    progress: progressPercent,
+  });
 }
 
 async function closeReaderWithControls(page: Page) {
@@ -253,23 +264,43 @@ test("featured reading remains legible in the dark theme", async ({
   await capture(page, testInfo, "library-featured-dark");
 });
 
-test("list view keeps source, recent reading, and progress in the active feature", async ({
+test("list shelf shows source, recent reading, and semantic progress", async ({
   page,
 }, testInfo) => {
-  await seedActiveBook(page);
+  await importBook(
+    page,
+    "active-shelf-sample.txt",
+    "An older active book remains represented in the list shelf."
+  );
+  const now = Date.now();
+  await seedActiveBook(page, {
+    fileName: "active-shelf-sample.txt",
+    lastOpenedAt: new Date(now - 120_000).toISOString(),
+    progressPercent: 42,
+  });
+  await seedActiveBook(page, {
+    lastOpenedAt: new Date(now - 60_000).toISOString(),
+    progressPercent: 64,
+  });
   await page.reload();
   await waitForLibrary(page);
   await page.getByRole("button", { name: "\u5217\u8868" }).click();
 
+  await expect(
+    page
+      .locator(`${libraryRoot} [data-library-featured="true"]`)
+      .getByRole("button", {
+        name: /继续阅读.*library book first sample/,
+      })
+  ).toBeVisible();
   const book = page.locator(
-    `${libraryRoot} [data-library-featured="true"]`
+    `${libraryRoot} [data-library-shelf="true"] [data-library-book-state="active"]`
   );
   await expect(book).toBeVisible();
   await expect(book.getByText("本地图书", { exact: true })).toBeVisible();
   await expect(book.getByText("今天阅读", { exact: true })).toBeVisible();
-  await expect(
-    book.locator("small").getByText("已读 42%", { exact: true })
-  ).toBeVisible();
+  await expect(book.getByText("已读 42%", { exact: true })).toBeVisible();
+  await expect(book.locator('[data-library-book-progress="true"]')).toBeVisible();
   await expect(book.getByText(/\d+\s*(?:KB|MB)/)).toHaveCount(0);
   await capture(page, testInfo, "library-list-active");
 });
