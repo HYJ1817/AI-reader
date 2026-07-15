@@ -283,7 +283,10 @@ export function NavigationRoot({
           reduceMotion
             ? { duration: MOTION_DURATION.reduced }
             : settlingPrevious && context.edgeBackSettleMode === "complete"
-              ? { duration: 0.22, ease: [0.32, 0.72, 0, 1] }
+              ? {
+                  duration: MOTION_DURATION.gestureSettle,
+                  ease: [0.32, 0.72, 0, 1],
+                }
               : MOTION_SPRING.navigation
         }
       >
@@ -468,7 +471,10 @@ function PushLayer({
         reduceMotion
           ? { duration: MOTION_DURATION.reduced }
           : (settlingTop || settlingPrevious) && settlingComplete
-            ? { duration: 0.22, ease: [0.32, 0.72, 0, 1] }
+            ? {
+                duration: MOTION_DURATION.gestureSettle,
+                ease: [0.32, 0.72, 0, 1],
+              }
             : MOTION_SPRING.navigation
       }
       onUpdate={(latest) => {

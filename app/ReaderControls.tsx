@@ -8,6 +8,7 @@ import {
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
 import { UI_TEXT } from "@/lib/uiText";
+import { MOTION_DURATION } from "@/lib/motionSystem";
 import styles from "./page.module.css";
 
 const chromeVariants = {
@@ -28,13 +29,17 @@ const menuRowVariants = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: reduceMotion ? 0 : 0.2 },
+    transition: {
+      duration: reduceMotion ? 0 : MOTION_DURATION.chromeEnter,
+    },
   }),
   hidden: (reduceMotion: boolean) => ({
     opacity: 0,
     y: reduceMotion ? 0 : 14,
     scale: reduceMotion ? 1 : 0.96,
-    transition: { duration: reduceMotion ? 0 : 0.16 },
+    transition: {
+      duration: reduceMotion ? 0 : MOTION_DURATION.chromeExit,
+    },
   }),
 } satisfies Variants;
 
@@ -43,13 +48,17 @@ const closeVariants = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: reduceMotion ? 0 : 0.2 },
+    transition: {
+      duration: reduceMotion ? 0 : MOTION_DURATION.chromeEnter,
+    },
   }),
   hidden: (reduceMotion: boolean) => ({
     opacity: 0,
     y: reduceMotion ? 0 : -8,
     scale: reduceMotion ? 1 : 0.96,
-    transition: { duration: reduceMotion ? 0 : 0.16 },
+    transition: {
+      duration: reduceMotion ? 0 : MOTION_DURATION.chromeExit,
+    },
   }),
 } satisfies Variants;
 
@@ -58,13 +67,17 @@ const pagePillVariants = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: { duration: reduceMotion ? 0 : 0.2 },
+    transition: {
+      duration: reduceMotion ? 0 : MOTION_DURATION.chromeEnter,
+    },
   }),
   hidden: (reduceMotion: boolean) => ({
     opacity: 0,
     y: reduceMotion ? 0 : 10,
     scale: reduceMotion ? 1 : 0.97,
-    transition: { duration: reduceMotion ? 0 : 0.16 },
+    transition: {
+      duration: reduceMotion ? 0 : MOTION_DURATION.chromeExit,
+    },
   }),
 } satisfies Variants;
 

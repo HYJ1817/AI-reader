@@ -38,6 +38,7 @@ import {
 } from "@/lib/motionInteractions";
 import {
   getReaderSwipeAction,
+  getReaderSwipeSettleDuration,
   getReaderSwipeSettleOffset,
   getReaderSwipeVisualOffset,
   hasActiveReaderSwipeOffset,
@@ -553,7 +554,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         ).matches,
       });
       const generation = ++swipeSettleGenerationRef.current;
-      const duration = reducedMotion ? 0 : action === "none" ? 180 : 160;
+      const duration = getReaderSwipeSettleDuration(action, reducedMotion);
       const targetOffset = getReaderSwipeSettleOffset(
         action,
         currentOffset,

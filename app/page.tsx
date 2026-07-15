@@ -108,6 +108,7 @@ import {
 } from "@/lib/librarySelection";
 import {
   getReaderSwipeAction,
+  getReaderSwipeSettleDuration,
   getReaderSwipeSettleOffset,
   getReaderSwipeVisualOffset,
   hasActiveReaderSwipeOffset,
@@ -1399,7 +1400,7 @@ export default function Home() {
         "(prefers-reduced-motion: reduce)"
       ).matches,
     });
-    const duration = reduceMotion ? 0 : action === "none" ? 180 : 160;
+    const duration = getReaderSwipeSettleDuration(action, reduceMotion);
     const targetOffset = getReaderSwipeSettleOffset(
       action,
       currentOffset,

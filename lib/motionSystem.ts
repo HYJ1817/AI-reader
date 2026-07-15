@@ -4,12 +4,15 @@ export const MOTION_DURATION = {
   press: 0.12,
   state: 0.2,
   tab: 0.26,
-  pushEnter: 0.36,
-  pushExit: 0.27,
+  pushEnter: 0.34,
+  pushExit: 0.24,
   readerEnter: 0.3,
   readerExit: 0.22,
-  sheetEnter: 0.34,
+  sheetEnter: 0.3,
   sheetExit: 0.25,
+  chromeEnter: 0.2,
+  chromeExit: 0.16,
+  gestureSettle: 0.22,
   reduced: 0.12,
 } as const;
 
