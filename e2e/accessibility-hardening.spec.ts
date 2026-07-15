@@ -10,20 +10,26 @@ async function waitForLibrary(page: Page) {
   ).toHaveCount(1);
 }
 
-async function importBook(page: Page) {
+async function importBook(
+  page: Page,
+  name = "accessible-library-sample.txt",
+  text = "Keyboard and enlarged-text accessibility sample."
+) {
+  const covers = page.locator(`${libraryRoot} [data-book-cover-origin]`);
+  const previousCount = await covers.count();
   await page.locator('input[type="file"][accept*=".txt"]').setInputFiles({
-    name: "accessible-library-sample.txt",
+    name,
     mimeType: "text/plain",
-    buffer: Buffer.from("Keyboard and enlarged-text accessibility sample."),
+    buffer: Buffer.from(text),
   });
-  await expect(
-    page.locator(`${libraryRoot} [data-book-cover-origin]`).first()
-  ).toBeVisible();
+  await expect(covers).toHaveCount(previousCount + 1);
 }
 
 async function useListMode(page: Page) {
   await page.getByRole("button", { name: "\u5217\u8868" }).click();
-  await expect(page.locator(`${libraryRoot} [data-library-book-open="true"]`)).toBeVisible();
+  await expect(
+    page.locator(`${libraryRoot} [data-library-book-open="true"]`).first()
+  ).toBeVisible();
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
@@ -47,6 +53,11 @@ test.beforeEach(async ({ page }) => {
 test("Library list exposes separate keyboard-native open and More actions", async ({
   page,
 }, testInfo) => {
+  await importBook(
+    page,
+    "accessible-library-secondary.txt",
+    "A second accessible book keeps the remaining shelf representative."
+  );
   await useListMode(page);
   const open = page.locator(`${libraryRoot} [data-library-book-open="true"]`).first();
   const more = page.locator(`${libraryRoot} [data-library-book-more="true"]`).first();
