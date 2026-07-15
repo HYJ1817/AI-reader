@@ -110,9 +110,24 @@ test("explicit justification and the menu wake target remain available", async (
   expect(
     await wake.evaluate((element) => {
       const style = getComputedStyle(element, "::before");
-      return { boxShadow: style.boxShadow, right: style.right };
+      const iconStyle = getComputedStyle(element.querySelector("svg")!);
+      return {
+        boxShadow: style.boxShadow,
+        top: style.top,
+        right: style.right,
+        bottom: style.bottom,
+        left: style.left,
+        iconOpacity: iconStyle.opacity,
+      };
     })
-  ).toEqual({ boxShadow: "none", right: "-10px" });
+  ).toEqual({
+    boxShadow: "none",
+    top: "9px",
+    right: "-6px",
+    bottom: "9px",
+    left: "32px",
+    iconOpacity: "0.38",
+  });
   await page.screenshot({
     path: testInfo.outputPath("menu-collapsed.png"),
     fullPage: false,
@@ -127,6 +142,43 @@ test("explicit justification and the menu wake target remain available", async (
   ).not.toBe("none");
   await page.screenshot({
     path: testInfo.outputPath("menu-expanded.png"),
+    fullPage: false,
+  });
+});
+
+test("collapsed menu affordance stays quiet in dark reader theme", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "ai-reader-preferences",
+      JSON.stringify({
+        theme: "dark",
+        fontSizePx: 18,
+        lineHeight: 1.75,
+        contentWidth: 720,
+        fontFamily: "default",
+        boldText: false,
+        customLayoutEnabled: false,
+        letterSpacingPercent: 0,
+        wordSpacingPercent: 0,
+        pageMarginPx: 0,
+        justifyText: false,
+      })
+    );
+  });
+  await importAndOpen(page, "menu-dark", samples[1].text);
+  const wake = page.locator('[data-reader-menu-toggle="true"]');
+  await expect(wake).toHaveAttribute("aria-expanded", "false");
+  await expect(wake).toHaveCSS("width", "48px");
+  await expect(wake).toHaveCSS("height", "48px");
+  expect(
+    await wake.evaluate(
+      (element) => getComputedStyle(element, "::before").boxShadow
+    )
+  ).toBe("none");
+  await page.screenshot({
+    path: testInfo.outputPath("menu-collapsed-dark.png"),
     fullPage: false,
   });
 });
