@@ -11,19 +11,28 @@ async function waitForLibrary(page: Page) {
   ).toHaveCount(1);
 }
 
-async function importBook(page: Page) {
+async function importBook(
+  page: Page,
+  name: string = "library-book-first-sample.txt",
+  text: string = sampleText
+) {
+  const covers = page.locator(`${libraryRoot} [data-book-cover-origin]`);
+  const previousCount = await covers.count();
+
   await page.locator('input[type="file"][accept*=".txt"]').setInputFiles({
-    name: "library-book-first-sample.txt",
+    name,
     mimeType: "text/plain",
-    buffer: Buffer.from(sampleText),
+    buffer: Buffer.from(text),
   });
-  await expect(
-    page.locator(`${libraryRoot} [data-book-cover-origin]`).first()
-  ).toBeVisible();
+  await expect(covers).toHaveCount(previousCount + 1);
+  await expect(covers.first()).toBeVisible();
 }
 
-async function seedActiveBook(page: Page) {
-  await page.evaluate(async () => {
+async function seedActiveBook(
+  page: Page,
+  fileName: string = "library-book-first-sample.txt"
+) {
+  await page.evaluate(async (targetFileName) => {
     const request = indexedDB.open("AiReader");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -38,7 +47,13 @@ async function seedActiveBook(page: Page) {
         const books = transaction.objectStore("books");
         const getRequest = books.getAll();
         getRequest.onsuccess = () => {
-          const book = getRequest.result[0];
+          const book = getRequest.result.find(
+            (candidate) => candidate.fileName === targetFileName
+          );
+          if (!book) {
+            transaction.abort();
+            return;
+          }
           const now = new Date().toISOString();
           books.put({ ...book, lastOpenedAt: now });
           transaction.objectStore("readingPositions").put({
@@ -57,7 +72,25 @@ async function seedActiveBook(page: Page) {
     } finally {
       database.close();
     }
-  });
+  }, fileName);
+}
+
+async function closeReaderWithControls(page: Page) {
+  await page.locator('[data-reader-menu-toggle="true"]').click();
+  const closeButton = page.locator('[data-reader-close="true"]');
+  await expect(closeButton).toBeVisible();
+  await closeButton.click();
+}
+
+async function showFeaturedLibrary(page: Page) {
+  await importBook(
+    page,
+    "quiet-companion.txt",
+    "A quiet companion remains available on the working shelf."
+  );
+  await seedActiveBook(page);
+  await page.reload();
+  await waitForLibrary(page);
 }
 
 async function capture(page: Page, testInfo: TestInfo, name: string) {
@@ -103,7 +136,124 @@ test("grid shelf leads with the unread book instead of file metadata", async ({
   await capture(page, testInfo, "library-grid-unread");
 });
 
-test("list shelf shows source, recent reading, and semantic progress", async ({
+test("an imported unread book does not create a featured region", async ({
+  page,
+}) => {
+  await expect(
+    page.locator(`${libraryRoot} [data-library-featured="true"]`)
+  ).toHaveCount(0);
+});
+
+test("one active book is featured once above the remaining shelf", async ({
+  page,
+}, testInfo) => {
+  await showFeaturedLibrary(page);
+
+  const featured = page.locator(
+    `${libraryRoot} [data-library-featured="true"]`
+  );
+  await expect(featured).toHaveCount(1);
+  await expect(featured).toBeVisible();
+  const continuation = featured.getByRole("button", {
+    name: /继续阅读/,
+  });
+  await expect(continuation).toHaveCount(1);
+  expect(await continuation.evaluate((element) => element.tagName)).toBe(
+    "BUTTON"
+  );
+  const featuredBookId = await featured
+    .locator("[data-book-id]")
+    .getAttribute("data-book-id");
+  expect(featuredBookId).toBeTruthy();
+
+  const shelf = page.locator(`${libraryRoot} [data-library-shelf="true"]`);
+  await expect(
+    shelf.locator(`[data-book-id="${featuredBookId}"]`)
+  ).toHaveCount(0);
+  const remainingBook = shelf.locator("[data-book-id]");
+  await expect(remainingBook).toHaveCount(1);
+  await expect(
+    remainingBook.locator("xpath=ancestor::button[1]")
+  ).toHaveAccessibleName(/quiet companion/);
+  await capture(page, testInfo, "library-featured-light");
+});
+
+test("search and editing restore the complete working shelf", async ({
+  page,
+}) => {
+  await showFeaturedLibrary(page);
+  const featured = page.locator(
+    `${libraryRoot} [data-library-featured="true"]`
+  );
+  const shelf = page.locator(`${libraryRoot} [data-library-shelf="true"]`);
+  const search = page.getByRole("searchbox", { name: "搜索" });
+
+  await expect(featured).toBeVisible();
+  await search.fill("library book first sample");
+  await expect(featured).toHaveCount(0);
+  const matchingBook = shelf.locator("[data-book-id]");
+  await expect(matchingBook).toHaveCount(1);
+  await expect(
+    matchingBook.locator("xpath=ancestor::button[1]")
+  ).toHaveAccessibleName(/library book first sample/);
+
+  await search.fill("");
+  await expect(featured).toBeVisible();
+  await expect(shelf.locator("[data-book-id]")).toHaveCount(1);
+
+  await page.getByRole("button", { name: "编辑" }).click();
+  await expect(featured).toHaveCount(0);
+  const selectionBooks = shelf.locator("[data-book-id]");
+  await expect(selectionBooks).toHaveCount(2);
+  await expect(
+    selectionBooks.locator("xpath=ancestor::button[1]").filter({
+      hasText: "library book first sample",
+    })
+  ).toHaveCount(1);
+  await expect(
+    selectionBooks.locator("xpath=ancestor::button[1]").filter({
+      hasText: "quiet companion",
+    })
+  ).toHaveCount(1);
+});
+
+test("featured continuation opens the reader and restores focus on close", async ({
+  page,
+}) => {
+  await showFeaturedLibrary(page);
+  const continuation = page
+    .locator(`${libraryRoot} [data-library-featured="true"]`)
+    .getByRole("button", { name: /继续阅读/ });
+
+  await continuation.click();
+  await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
+  await closeReaderWithControls(page);
+
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+  await expect(continuation).toBeFocused();
+});
+
+test("featured reading remains legible in the dark theme", async ({
+  page,
+}, testInfo) => {
+  await showFeaturedLibrary(page);
+  await page.evaluate(() => {
+    localStorage.setItem(
+      "ai-reader-preferences",
+      JSON.stringify({ theme: "dark" })
+    );
+  });
+  await page.reload();
+  await waitForLibrary(page);
+
+  await expect(page.locator('[data-reader-theme="dark"]')).toBeVisible();
+  await expect(
+    page.locator(`${libraryRoot} [data-library-featured="true"]`)
+  ).toBeVisible();
+  await capture(page, testInfo, "library-featured-dark");
+});
+
+test("list view keeps source, recent reading, and progress in the active feature", async ({
   page,
 }, testInfo) => {
   await seedActiveBook(page);
@@ -112,13 +262,14 @@ test("list shelf shows source, recent reading, and semantic progress", async ({
   await page.getByRole("button", { name: "\u5217\u8868" }).click();
 
   const book = page.locator(
-    `${libraryRoot} [data-library-book-state="active"]`
+    `${libraryRoot} [data-library-featured="true"]`
   );
   await expect(book).toBeVisible();
   await expect(book.getByText("本地图书", { exact: true })).toBeVisible();
   await expect(book.getByText("今天阅读", { exact: true })).toBeVisible();
-  await expect(book.getByText("已读 42%", { exact: true })).toBeVisible();
-  await expect(book.locator('[data-library-book-progress="true"]')).toBeVisible();
+  await expect(
+    book.locator("small").getByText("已读 42%", { exact: true })
+  ).toBeVisible();
   await expect(book.getByText(/\d+\s*(?:KB|MB)/)).toHaveCount(0);
   await capture(page, testInfo, "library-list-active");
 });
