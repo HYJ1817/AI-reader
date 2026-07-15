@@ -18,7 +18,10 @@ import {
   bookCoverLayoutId,
   getBookTransitionMode,
 } from "@/lib/sharedBookTransition";
-import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
+import {
+  getReaderTransitionTiming,
+  MOTION_SPRING,
+} from "@/lib/motionSystem";
 import BookCover from "./BookCover";
 import { useAppReducedMotion } from "./AppMotionRoot";
 import styles from "./page.module.css";
@@ -76,6 +79,7 @@ export default function SharedBookTransition({
   children,
 }: SharedBookTransitionProps) {
   const reduceMotion = useAppReducedMotion();
+  const timing = getReaderTransitionTiming(reduceMotion);
   const [sources, setSources] = useState(() => new Map<string, BookSource>());
   const lastOriginRef = useRef<string | null>(null);
   const readerEntryRef = useRef(readerEntry);
@@ -197,21 +201,36 @@ export default function SharedBookTransition({
               animate={{ opacity: 0, scale: 1 }}
               exit={
                 reduceMotion
-                  ? { opacity: 0 }
+                  ? {
+                      opacity: 0,
+                      transition: timing.coverExitOpacity,
+                    }
                   : mode === "shared"
-                    ? { opacity: 1, scale: 1 }
-                    : { opacity: 0, scale: 0.88 }
+                    ? {
+                        opacity: 1,
+                        scale: 1,
+                        transition: {
+                          layout: MOTION_SPRING.sharedBook,
+                          scale: MOTION_SPRING.sharedBook,
+                          opacity: timing.coverExitOpacity,
+                        },
+                      }
+                    : {
+                        opacity: 0,
+                        scale: 0.88,
+                        transition: {
+                          scale: MOTION_SPRING.sharedBook,
+                          opacity: timing.coverExitOpacity,
+                        },
+                      }
               }
               transition={
                 reduceMotion
-                  ? { duration: MOTION_DURATION.reduced }
+                  ? timing.coverEnterOpacity
                   : {
                       layout: MOTION_SPRING.sharedBook,
                       scale: MOTION_SPRING.sharedBook,
-                      opacity: {
-                        duration: MOTION_DURATION.state,
-                        delay: MOTION_DURATION.readerEnter * 0.42,
-                      },
+                      opacity: timing.coverEnterOpacity,
                     }
               }
               aria-hidden="true"
@@ -226,13 +245,8 @@ export default function SharedBookTransition({
               className={styles.readerPresentationContent}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{
-                duration: reduceMotion
-                  ? MOTION_DURATION.reduced
-                  : MOTION_DURATION.readerExit,
-                delay: reduceMotion ? 0 : MOTION_DURATION.readerEnter * 0.24,
-              }}
+              exit={{ opacity: 0, transition: timing.contentExit }}
+              transition={timing.contentEnter}
             >
               {readerContent}
             </m.div>

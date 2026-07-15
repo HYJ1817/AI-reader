@@ -50,4 +50,13 @@ describe("featured Library reading", () => {
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
     expect(css).toContain(".libraryFeaturedButton:not(:disabled):active");
   });
+
+  it("settles featured and list progress over the local-state duration", () => {
+    expect(rule(".libraryFeaturedProgress > span > span")).toContain(
+      "width var(--motion-standard) var(--ease-standard)"
+    );
+    expect(rule(".bookListProgressTrack span")).toContain(
+      "width var(--motion-standard) var(--ease-standard)"
+    );
+  });
 });

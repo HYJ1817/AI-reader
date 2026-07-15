@@ -6,6 +6,7 @@ import {
   REDUCED_MOTION_QUERY,
   createSystemMotionPreferenceStore,
   getMotionPolicy,
+  getReaderTransitionTiming,
 } from "./motionSystem";
 
 const appMotionRootSource = readFileSync(
@@ -47,6 +48,23 @@ describe("motion system", () => {
     expect(MOTION_DURATION.pushExit).toBeLessThan(MOTION_DURATION.pushEnter);
     expect(MOTION_DURATION.readerExit).toBeLessThan(MOTION_DURATION.readerEnter);
     expect(MOTION_DURATION.sheetExit).toBeLessThan(MOTION_DURATION.sheetEnter);
+  });
+
+  it("uses a fast reader exit without reusing entrance delay", () => {
+    expect(MOTION_DURATION.readerEnter).toBe(0.3);
+    expect(MOTION_DURATION.readerExit).toBe(0.22);
+    expect(getReaderTransitionTiming(false)).toEqual({
+      contentEnter: { duration: 0.2, delay: 0.072 },
+      contentExit: { duration: 0.22, delay: 0 },
+      coverEnterOpacity: { duration: 0.2, delay: 0.126 },
+      coverExitOpacity: { duration: 0.22, delay: 0 },
+    });
+    expect(getReaderTransitionTiming(true)).toEqual({
+      contentEnter: { duration: 0.12, delay: 0 },
+      contentExit: { duration: 0.12, delay: 0 },
+      coverEnterOpacity: { duration: 0.12, delay: 0 },
+      coverExitOpacity: { duration: 0.12, delay: 0 },
+    });
   });
 
   it("uses positive non-oscillating springs", () => {

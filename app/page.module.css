@@ -1820,6 +1820,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--tint);
+  transition: width var(--motion-standard) var(--ease-standard);
 }
 
 .libraryFeaturedProgress small {
@@ -2231,6 +2232,7 @@
   height: 100%;
   border-radius: inherit;
   background: var(--tint);
+  transition: width var(--motion-standard) var(--ease-standard);
 }
 
 .bookMoreButton {
