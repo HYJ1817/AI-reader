@@ -10,6 +10,7 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import {
@@ -38,6 +39,8 @@ export type MotionSheetProps = {
   className?: string;
   ariaLabel?: string;
   showGrabber?: boolean;
+  initialFocusRef?: RefObject<HTMLElement | null>;
+  onBeforeClose?: () => void;
 };
 
 type SheetPresentationMotion = {
@@ -57,6 +60,21 @@ type VisualViewportFrame = {
   width: number;
   height: number;
 };
+
+type BackgroundSiblingState = {
+  sibling: HTMLElement;
+  wasInert: boolean;
+};
+
+const FOCUSABLE_SELECTOR = [
+  "button:not([disabled])",
+  "a[href]",
+  "input:not([disabled])",
+  "textarea:not([disabled])",
+  "select:not([disabled])",
+  "[contenteditable='true']",
+  '[tabindex]:not([tabindex="-1"])',
+].join(",");
 
 const SheetPresentationContext =
   createContext<SheetPresentationMotion | null>(null);
@@ -105,6 +123,8 @@ export default function MotionSheet({
   className = "",
   ariaLabel,
   showGrabber = true,
+  initialFocusRef,
+  onBeforeClose,
 }: MotionSheetProps) {
   const reduceMotion = useAppReducedMotion();
   const [present, setPresent] = useState(true);
@@ -119,6 +139,8 @@ export default function MotionSheet({
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const animationGenerationRef = useRef(0);
   const closeCompletedRef = useRef(false);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const backgroundSiblingsRef = useRef<BackgroundSiblingState[]>([]);
 
   const progress = useTransform(y, (translationY) => {
     const distance = Math.max(1, sheetHeight);
@@ -192,6 +214,49 @@ export default function MotionSheet({
   }, []);
 
   useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const overlay = panel.closest<HTMLElement>('[data-sheet-route]');
+    const appShell = overlay?.closest<HTMLElement>('[data-app-shell="true"]');
+    backgroundSiblingsRef.current = appShell
+      ? Array.from(appShell.children)
+          .filter(
+            (child): child is HTMLElement =>
+              child instanceof HTMLElement && child !== overlay
+          )
+          .map((sibling) => ({ sibling, wasInert: sibling.inert }))
+      : [];
+
+    for (const { sibling } of backgroundSiblingsRef.current) {
+      sibling.inert = true;
+    }
+
+    const requestedTarget = initialFocusRef?.current;
+    const focusTarget =
+      requestedTarget && panel.contains(requestedTarget)
+        ? requestedTarget
+        : panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? panel;
+    focusTarget.focus({ preventScroll: true });
+
+    return () => {
+      for (const { sibling, wasInert } of backgroundSiblingsRef.current) {
+        sibling.inert = wasInert;
+      }
+      backgroundSiblingsRef.current = [];
+
+      if (previousFocusRef.current?.isConnected) {
+        previousFocusRef.current.focus({ preventScroll: true });
+      }
+    };
+  }, [initialFocusRef]);
+
+  useEffect(() => {
     const viewport = window.visualViewport;
     if (!viewport) return;
 
@@ -248,13 +313,44 @@ export default function MotionSheet({
     if (closeCompletedRef.current) return;
     closeCompletedRef.current = true;
     const callback = closeRequest?.afterClose ?? null;
+    onBeforeClose?.();
     onClose();
     callback?.();
-  }, [closeRequest, onClose]);
+  }, [closeRequest, onBeforeClose, onClose]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+      const panel = panelRef.current;
+      if (!panel) return;
+      const focusableElements = Array.from(
+        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      );
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        panel.focus({ preventScroll: true });
+        return;
+      }
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement;
+      if (!panel.contains(activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus({ preventScroll: true });
+      } else if (event.shiftKey && activeElement === first) {
+        event.preventDefault();
+        last.focus({ preventScroll: true });
+      } else if (!event.shiftKey && activeElement === last) {
+        event.preventDefault();
+        first.focus({ preventScroll: true });
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
@@ -319,6 +415,7 @@ export default function MotionSheet({
               role="dialog"
               aria-modal="true"
               aria-label={ariaLabel}
+              tabIndex={-1}
               drag="y"
               dragControls={dragControls}
               dragListener={false}

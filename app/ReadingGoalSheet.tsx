@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import {
   formatReadingGoalDuration,
   getReadingGoalArcPercent,
@@ -20,20 +20,19 @@ type Props = {
   onClose: () => void;
 };
 
-const FOCUSABLE_SELECTOR = [
-  "button:not([disabled])",
-  "[href]",
-  "input:not([disabled])",
-  '[tabindex]:not([tabindex="-1"])',
-].join(",");
-
 export default function ReadingGoalSheet(props: Props) {
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
   return (
     <BottomSheet
       onClose={props.onClose}
+      onBeforeClose={() =>
+        props.onGoalInputChange(props.targetMinutes)
+      }
       className={styles.goalMotionSheet}
       ariaLabel={UI_TEXT.READING_GOAL}
       showGrabber={false}
+      initialFocusRef={closeButtonRef}
     >
       {(closeSheet) => (
         <ReadingGoalContent
@@ -43,6 +42,7 @@ export default function ReadingGoalSheet(props: Props) {
           onGoalInputChange={props.onGoalInputChange}
           onSaveGoal={props.onSaveGoal}
           closeSheet={closeSheet}
+          closeButtonRef={closeButtonRef}
         />
       )}
     </BottomSheet>
@@ -56,11 +56,12 @@ function ReadingGoalContent({
   onGoalInputChange,
   onSaveGoal,
   closeSheet,
-}: Omit<Props, "onClose"> & { closeSheet: CloseSheet }) {
+  closeButtonRef,
+}: Omit<Props, "onClose"> & {
+  closeSheet: CloseSheet;
+  closeButtonRef: RefObject<HTMLButtonElement | null>;
+}) {
   const [editingTarget, setEditingTarget] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const previousFocusRef = useRef<HTMLElement | null>(null);
   const progressPercent = useMemo(
     () => getReadingGoalArcPercent(todayMinutes, targetMinutes),
     [targetMinutes, todayMinutes]
@@ -74,48 +75,6 @@ function ReadingGoalContent({
     [targetMinutes, todayMinutes]
   );
 
-  const closeGoal = useCallback(() => {
-    onGoalInputChange(targetMinutes);
-    closeSheet();
-  }, [closeSheet, onGoalInputChange, targetMinutes]);
-
-  useEffect(() => {
-    previousFocusRef.current =
-      document.activeElement instanceof HTMLElement
-        ? document.activeElement
-        : null;
-    closeButtonRef.current?.focus();
-
-    function handleDialogKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeGoal();
-        return;
-      }
-
-      if (event.key !== "Tab") return;
-      const focusableElements =
-        dialogRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR);
-      if (!focusableElements?.length) return;
-
-      const first = focusableElements[0];
-      const last = focusableElements[focusableElements.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-
-    document.addEventListener("keydown", handleDialogKeyDown);
-    return () => {
-      document.removeEventListener("keydown", handleDialogKeyDown);
-      previousFocusRef.current?.focus();
-    };
-  }, [closeGoal]);
-
   function openTargetEditor() {
     onGoalInputChange(targetMinutes);
     setEditingTarget(true);
@@ -128,14 +87,11 @@ function ReadingGoalContent({
 
   return (
     <div className={styles.goalOverlay}>
-      <div
-        ref={dialogRef}
-        className={styles.goalScreen}
-      >
+      <div className={styles.goalScreen}>
         <button
           ref={closeButtonRef}
           className={styles.goalCloseButton}
-          onClick={closeGoal}
+          onClick={() => closeSheet()}
           title={UI_TEXT.CLOSE}
           aria-label={UI_TEXT.CLOSE}
         >

@@ -51,6 +51,17 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain('viewport.addEventListener("scroll"');
     expect(motionSheetSource).toContain("offsetTop: viewport.offsetTop");
     expect(motionSheetSource).toContain("height: viewport.height");
+    expect(motionSheetSource).toContain("FOCUSABLE_SELECTOR");
+    expect(motionSheetSource).toContain("previousFocusRef");
+    expect(motionSheetSource).toContain("backgroundSiblingsRef");
+    expect(motionSheetSource).toContain('[data-app-shell="true"]');
+    expect(motionSheetSource).toContain("initialFocusRef?.current");
+    expect(motionSheetSource).toContain('event.key !== "Tab"');
+    expect(motionSheetSource).toContain("tabIndex={-1}");
+    expect(motionSheetSource).toContain("sibling.inert = true");
+    expect(motionSheetSource).toContain(
+      "previousFocusRef.current?.isConnected"
+    );
     expect(motionSheetSource).not.toContain("requestAnimationFrame");
     expect(motionSheetSource).not.toContain("setTimeout");
     expect(motionSheetSource).not.toContain("panel.style");

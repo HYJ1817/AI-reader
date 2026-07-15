@@ -35,20 +35,20 @@ describe("reading goal motion sheet", () => {
 
   it("discards drafts on close and saves only from confirmation", () => {
     expect(goalSource).toMatch(
-      /const closeGoal = useCallback\(\(\) => \{[\s\S]*onGoalInputChange\(targetMinutes\);[\s\S]*closeSheet\(\);/
+      /<BottomSheet[\s\S]*onBeforeClose=\{\(\) =>[\s\S]*props\.onGoalInputChange\(props\.targetMinutes\)/
     );
     expect(goalSource).toMatch(
       /function saveTarget\(\)[\s\S]*onSaveGoal\(\);[\s\S]*setEditingTarget\(false\);/
     );
-    expect(goalSource).toContain("if (event.key === \"Escape\")");
-    expect(goalSource).toContain("closeGoal();");
+    expect(goalSource).toContain("onClick={() => closeSheet()}");
+    expect(goalSource).not.toContain("handleDialogKeyDown");
   });
 
   it("traps focus and restores the opening control", () => {
-    expect(goalSource).toContain("previousFocusRef");
-    expect(goalSource).toContain("querySelectorAll<HTMLElement>");
-    expect(goalSource).toContain("event.shiftKey");
-    expect(goalSource).toContain("previousFocusRef.current?.focus()");
+    expect(goalSource).toContain("initialFocusRef={closeButtonRef}");
+    expect(goalSource).not.toContain("previousFocusRef");
+    expect(goalSource).not.toContain("querySelectorAll<HTMLElement>");
+    expect(goalSource).not.toContain("document.addEventListener");
   });
 });
 
