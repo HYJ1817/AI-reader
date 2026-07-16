@@ -20,10 +20,10 @@
 - The latest product behavior is `5712337`; later commits add browser coverage
   and stabilize its transition assertions. A newer HEAD should only add the
   closeout `HANDOFF.md` commit unless new work was explicitly requested.
-- Latest deployed Worker version: `ff701748-184d-4c32-8941-ce09745fe557`
-- Local `codex/custom-background-settings` is intentionally ahead of
-  `origin/codex/custom-background-settings`; the annotation/Android batch has
-  not been pushed or deployed.
+- Latest deployed Worker version: `603c9518-6729-4731-80be-f302f404f340`
+- The annotation/Android batch is pushed and deployed. Keep local
+  `codex/custom-background-settings` synchronized with its origin after the
+  deployment handoff commit.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -97,8 +97,14 @@ Verification evidence:
 
 Production status:
 
-- Not pushed or deployed. Production remains Worker version
-  `ff701748-184d-4c32-8941-ce09745fe557`.
+- Pushed and deployed as Worker version
+  `603c9518-6729-4731-80be-f302f404f340` to `881817.xyz/*`.
+- Production root and all 10 discovered JS/CSS assets returned 200. Manifest,
+  Asset Links, and APK endpoints returned 200 with the expected content types.
+- The deployed page/CSS assets contain bookmark, highlight, annotation-list,
+  and old-Android local-ID markers. Production iPhone 14 Playwright passed 3/3:
+  EPUB whole-book pages, annotation persistence/navigation/deletion, and TXT
+  import without `crypto.randomUUID`.
 - Playwright uses Chromium emulation. Physical Android WebView, iPhone
   Safari/PWA, and VoiceOver remain non-blocking real-device risks.
 
@@ -704,10 +710,10 @@ Verification:
 - Fresh full Vitest passes 146 files / 1393 tests; full ESLint and
   `next build --webpack` pass. Temporary local servers are stopped.
 
-This fix has not been pushed or deployed. Production still serves Worker
-version `ff701748-184d-4c32-8941-ce09745fe557`. The separate old-Android import
-failure remains unresolved: `lib/importBook.ts` and group creation still call
-`crypto.randomUUID()` without the fallback already used by AI settings.
+This fix is now pushed and deployed in Worker version
+`603c9518-6729-4731-80be-f302f404f340`. The old-Android import failure is also
+resolved: imports, group creation, annotations, and AI provider creation use a
+callable UUID check or the shared local-ID fallback.
 
 ## Motion Detail Polish (2026-07-15)
 
@@ -768,10 +774,9 @@ Fresh local verification:
   iPhone 15 Pro Max, including active list progress and light/dark featured
   states. Temporary local servers were verified stopped afterward.
 
-This motion-detail batch has not been deployed or pushed. Production still
-serves Worker version `ff701748-184d-4c32-8941-ce09745fe557`; deployment and
-production verification remain a separate authorized step. Physical iPhone
-Safari/PWA and real VoiceOver remain non-blocking device risks.
+This motion-detail batch is now included in deployed Worker version
+`603c9518-6729-4731-80be-f302f404f340`. Physical iPhone Safari/PWA and real
+VoiceOver remain non-blocking device risks.
 
 ## Current Feature Work
 
@@ -1757,8 +1762,8 @@ Use this opener in the new conversation:
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
 最新完成的是阅读器书签与三色高亮：设计在 docs/specs/2026-07-16-reader-bookmarks-highlights-design.md，执行计划在 docs/superpowers/plans/2026-07-16-reader-bookmarks-highlights.md。实现提交从 2546d04 到 5712337，浏览器收尾是 8430605 和 7142890。书签与黄色/绿色/蓝色高亮会按书籍持久化；EPUB 使用 CFI，TXT 使用版本化段落/字符偏移；目录抽屉三个标签均可计数、跳转和独立删除，关闭并重开书籍后仍保留。
 旧安卓导入问题已经修复：导入、三个分组创建路径、注解和 AI Provider 都不会假设 crypto.randomUUID 可用。全量 Vitest 153 文件/1415 项、全仓 ESLint、next build --webpack、完整 Playwright 78/78（iPhone 14 与 iPhone 15 Pro Max）和 git diff --check 均通过；E2E 明确覆盖无 randomUUID 的 TXT 导入以及书签/高亮持久化、跳转和删除。
-最新正式 Worker 版本是 ff701748-184d-4c32-8941-ce09745fe557；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-本次书签/高亮、旧安卓兼容、页数修复及上一批 UI 动效优化都尚未推送或部署，生产仍是上一行的 Worker 版本；真实安卓 WebView、iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
+最新正式 Worker 版本是 603c9518-6729-4731-80be-f302f404f340；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+本次书签/高亮、旧安卓兼容、页数修复及上一批 UI 动效优化均已推送和部署。生产根页面、10 个静态资源、Manifest、Asset Links、APK 均返回 200；生产 iPhone 14 聚焦 E2E 3/3 通过。真实安卓 WebView、iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
 独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
