@@ -7,23 +7,20 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest feature implementation commits: `2546d04` through `5712337`, adding
-  persistent bookmarks, three-color highlights, cross-format navigation, and
-  old-Android-safe local IDs.
+- Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
+  `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
+  coverage and stabilization: `bd871fd` and `3e0bff4`.
 - EPUB page-status design and implementation plan commit: `6fe098b`.
 - Motion-detail design commit: `204909a`; implementation plan commit:
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
-- Latest test-only closeout commit: `7142890` (`test: await reader menu
-  transition state`).
-- The latest product behavior is `5712337`; later commits add browser coverage
-  and stabilize its transition assertions. A newer HEAD should only add the
-  closeout `HANDOFF.md` commit unless new work was explicitly requested.
-- Latest deployed Worker version: `91d582c4-46b9-41d2-b1e9-76f0fcc729a4`
-- The annotation/Android batch is pushed and deployed. Keep local
-  `codex/custom-background-settings` synchronized with its origin after the
-  deployment handoff commit.
+- Latest product behavior commit: `53c7125` (`feat: add swipeable annotation
+  tabs`). Later commits add and stabilize browser coverage only.
+- Latest deployed Worker version: `ee8236bf-217a-421b-9385-186d32a5fbec`.
+- GitHub CLI authentication is invalid. The deployed local branch is ahead of
+  `origin/codex/custom-background-settings`; do not change credentials or
+  remotes automatically. Push only after the user re-authenticates.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -129,8 +126,71 @@ Production status:
   contains `ai-reader-v6` plus `skipWaiting`; `/BUILD_ID` returns 200. Production
   iPhone 14 annotation/import coverage passed 2/2.
 - GitHub HTTPS/CLI credentials expired after the earlier push. Deployment is
-  live, but local commits `d05271f` and `eb78730` remain ahead of origin until
-  the user re-authenticates GitHub.
+  live, but the local branch remains ahead of origin until the user
+  re-authenticates GitHub.
+
+## Reader Contents Tab Motion (2026-07-16)
+
+Approved design:
+`docs/superpowers/specs/2026-07-16-reader-annotation-tabs-motion-design.md`.
+Executed plan:
+`docs/superpowers/plans/2026-07-16-reader-annotation-tabs-motion.md`.
+
+Implementation commits: `720575a`, `9082766`, and `53c7125`.
+Browser coverage commits: `bd871fd` and `3e0bff4`.
+
+Implemented behavior:
+
+- Chapters, Bookmarks, and Highlights are three always-mounted pages inside a
+  native horizontal CSS scroll-snap viewport. Tapping a tab scrolls smoothly;
+  a real finger drag switches pages through the same native scroller.
+- The selected capsule uses Motion shared-layout transform animation. Scroll
+  position remains browser-owned; React only synchronizes the nearest tab in a
+  requestAnimationFrame and never stores raw per-frame swipe progress.
+- The contents sheet has a stable `min(92dvh, 760px)` height, so empty Bookmark
+  and Highlight pages do not collapse the drawer. Each page owns an independent
+  vertical scroller, and chapter incremental rendering observes that scroller.
+- The tab viewport declares horizontal gesture ownership so `MotionSheet`
+  cannot steal its swipe for sheet dismissal. The grabber/header remains the
+  sheet-dismiss target.
+- Reduced motion keeps instant tab changes and a static active capsule. No
+  permanent `will-change` or layout-property animation was added.
+
+Verification evidence:
+
+- Full Vitest passed 154 files / 1422 tests; full configured ESLint passed.
+- Normal and standalone `next build --webpack` passed, including TypeScript and
+  static generation; OpenNext `build --skipNextBuild` passed.
+- Full Playwright passed 80/80 across iPhone 14 and iPhone 15 Pro Max. The new
+  test verifies fixed height on empty tabs, tab taps, native CDP touch swipes,
+  rapid retargeting, and final snapped offset.
+- The touch case passed 10/10 repeated runs across both phone projects after
+  increasing only the injected test distance. The earlier full-suite failure
+  showed the native viewport stopped just short of the 50% snap threshold under
+  load; product code was not changed for that test-harness issue.
+- The implementation is designed for 90+ FPS on physical 120Hz ProMotion
+  hardware by keeping continuous movement in native scrolling/compositor
+  transforms. Chromium emulation cannot prove a 90Hz frame rate, so a physical
+  iPhone performance trace remains the final non-blocking acceptance check.
+
+Production status:
+
+- OpenNext deployed Worker version `ee8236bf-217a-421b-9385-186d32a5fbec` to
+  `881817.xyz/*`. The changed assets are
+  `/_next/static/chunks/app/page-e86ea9501258f746.js` and
+  `/_next/static/css/0f7a4a5d2fb7fc24.css`; deployed build ID is
+  `cNACvCPiaYOetlYIwCIA-`.
+- Production root and all 10 discovered JS/CSS assets returned 200. `/sw.js`,
+  `/BUILD_ID`, the manifest, Asset Links, and APK also returned 200. The page
+  bundle contains the swipe viewport, active indicator, and gesture-ownership
+  markers; CSS contains fixed height and horizontal scroll snap; `/sw.js`
+  remains on `ai-reader-v6` with `skipWaiting`.
+- Production iPhone 14 reader-annotation coverage passed 3/3, including native
+  horizontal swipe/fixed height, bookmark/highlight persistence and deletion,
+  and TXT import without `crypto.randomUUID`.
+- `gh auth status` still reports the HYJ1817 token invalid. Deployment is live,
+  but these local commits are not pushed; do not modify credentials or remotes
+  without the user's direction.
 
 ## Native Navigation and Motion System (2026-07-13)
 
@@ -1784,10 +1844,10 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新完成的是阅读器书签与三色高亮：设计在 docs/specs/2026-07-16-reader-bookmarks-highlights-design.md，执行计划在 docs/superpowers/plans/2026-07-16-reader-bookmarks-highlights.md。实现提交从 2546d04 到 5712337，浏览器收尾是 8430605 和 7142890。书签与黄色/绿色/蓝色高亮会按书籍持久化；EPUB 使用 CFI，TXT 使用版本化段落/字符偏移；目录抽屉三个标签均可计数、跳转和独立删除，关闭并重开书籍后仍保留。
-旧安卓导入问题已经修复：导入、三个分组创建路径、注解和 AI Provider 都不会假设 crypto.randomUUID 可用。全量 Vitest 153 文件/1415 项、全仓 ESLint、next build --webpack、完整 Playwright 78/78（iPhone 14 与 iPhone 15 Pro Max）和 git diff --check 均通过；E2E 明确覆盖无 randomUUID 的 TXT 导入以及书签/高亮持久化、跳转和删除。
-最新正式 Worker 版本是 91d582c4-46b9-41d2-b1e9-76f0fcc729a4；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-本次书签/高亮、旧安卓兼容、页数修复及上一批 UI 动效优化均已推送和部署。生产根页面、10 个静态资源、Manifest、Asset Links、APK 均返回 200；生产 iPhone 14 聚焦 E2E 3/3 通过。真实安卓 WebView、iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
+最新完成的是目录抽屉标签动效：设计在 docs/superpowers/specs/2026-07-16-reader-annotation-tabs-motion-design.md，执行计划在 docs/superpowers/plans/2026-07-16-reader-annotation-tabs-motion.md。实现提交是 720575a、9082766、53c7125，浏览器覆盖是 bd871fd、3e0bff4。章节、书签和高亮现在位于固定高度的原生横向 scroll-snap 容器，点击与真实手指滑动均可切换；空标签不缩小弹窗；每页独立纵向滚动；减弱动效时即时切换。
+全量 Vitest 154 文件/1422 项、全仓 ESLint、普通及 standalone next build、OpenNext build、完整 Playwright 80/80（iPhone 14 与 iPhone 15 Pro Max）均通过；新触摸用例重复运行 10/10。连续位移由浏览器原生滚动和合成层 transform 承担，面向 ProMotion 90Hz 以上；Chromium 模拟不能证明 90Hz，真实 iPhone 性能 trace 仍是非阻塞验收项。
+最新正式 Worker 版本是 ee8236bf-217a-421b-9385-186d32a5fbec；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+生产根页面、10 个静态资源、Service Worker、BUILD_ID、Manifest、Asset Links、APK 均返回 200；生产 iPhone 14 标注聚焦 E2E 3/3 通过。GitHub HYJ1817 token 无效，本地分支领先 origin，尚未推送；不要自动修改凭证或远端。真实安卓 WebView、iPhone Safari/PWA、90Hz trace 与 VoiceOver 仍是非阻塞设备风险。
 独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
