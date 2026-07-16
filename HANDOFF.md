@@ -7,21 +7,23 @@
 - Active branch: `codex/custom-background-settings`
 - Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
 - Base branch: `main`
-- Latest feature implementation commit: `c1be7b1` (`fix: resolve epub
-  whole-book page counts`).
+- Latest feature implementation commits: `2546d04` through `5712337`, adding
+  persistent bookmarks, three-color highlights, cross-format navigation, and
+  old-Android-safe local IDs.
 - EPUB page-status design and implementation plan commit: `6fe098b`.
 - Motion-detail design commit: `204909a`; implementation plan commit:
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
-- Latest test-only closeout commit: `31b082a` (`test: keep library
-  accessibility fixture representative`).
-- The latest product behavior is `c1be7b1`; a newer HEAD should only add the
+- Latest test-only closeout commit: `7142890` (`test: await reader menu
+  transition state`).
+- The latest product behavior is `5712337`; later commits add browser coverage
+  and stabilize its transition assertions. A newer HEAD should only add the
   closeout `HANDOFF.md` commit unless new work was explicitly requested.
 - Latest deployed Worker version: `ff701748-184d-4c32-8941-ce09745fe557`
 - Local `codex/custom-background-settings` is intentionally ahead of
-  `origin/codex/custom-background-settings`; this page-count batch has not been
-  pushed or deployed.
+  `origin/codex/custom-background-settings`; the annotation/Android batch has
+  not been pushed or deployed.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -52,6 +54,53 @@ Product direction:
 - Preserve IndexedDB books, groups, progress, settings, custom backgrounds, and backups.
 - Prefer restrained iOS-like product UI: simple lists, large tap targets, bottom sheets, no marketing-style screens.
 - Real iPhone screenshots from the user are the acceptance source for visual bugs.
+
+## Reader Bookmarks and Three-Color Highlights (2026-07-16)
+
+Approved design:
+`docs/specs/2026-07-16-reader-bookmarks-highlights-design.md`.
+Executed plan:
+`docs/superpowers/plans/2026-07-16-reader-bookmarks-highlights.md`.
+
+Implementation commits: `2546d04`, `166aaa2`, `f0ee618`, `52ec49f`,
+`16ec756`, `d1107e4`, `820ce99`, `e9bf0f4`, and `5712337`.
+Browser closeout commits: `8430605` and `7142890`.
+
+Implemented behavior:
+
+- Bookmarks and highlights are typed, book-scoped IndexedDB annotations and
+  remain compatible with legacy annotation/backup records.
+- The reading menu can add/remove the current bookmark and apply yellow, green,
+  or blue highlights to the active selection with 44px color targets.
+- The contents sheet has working Chapters, Bookmarks, and Highlights tabs with
+  counts, empty states, excerpts, page/progress metadata, independent jump, and
+  independent deletion.
+- EPUB stores CFI point/range locators and synchronizes persistent native
+  epub.js highlights. TXT stores versioned paragraph/offset locators, renders
+  precise `<mark>` runs, and navigates correctly in scroll and paged modes.
+- Annotation save/navigation errors use a polite live status region. A failed
+  highlight save keeps the selection available instead of silently clearing it.
+- Book import, all group creation paths, annotations, and AI provider creation
+  no longer assume `crypto.randomUUID()` exists. Older Android/WebView uses the
+  shared collision-resistant local ID fallback.
+
+Verification evidence:
+
+- Full Vitest: 153 files, 1415 tests passed.
+- Full configured ESLint passed.
+- `next build --webpack` passed, including TypeScript and static generation.
+- Full Playwright: 78/78 across iPhone 14 and iPhone 15 Pro Max.
+- New browser coverage verifies TXT bookmark/highlight creation, persistence
+  after closing/reopening, green rendering, list jump, independent deletion,
+  and TXT import with `crypto.randomUUID` unavailable.
+- `git diff --check` passed before the closeout documentation edit.
+
+Production status:
+
+- Not pushed or deployed. Production remains Worker version
+  `ff701748-184d-4c32-8941-ce09745fe557`.
+- Playwright uses Chromium emulation. Physical Android WebView, iPhone
+  Safari/PWA, and VoiceOver remain non-blocking real-device risks.
 
 ## Native Navigation and Motion System (2026-07-13)
 
@@ -1706,10 +1755,10 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新完成的是 EPUB 整本页数修复：设计与计划在 docs/superpowers/specs/2026-07-16-epub-page-status-design.md 和 docs/superpowers/plans/2026-07-16-epub-page-status-implementation.md（6fe098b），功能与回归测试提交是 c1be7b1。EPUB 先显示“正在计算页数…”，位置表完成后才发布页数；空 page-list 默认值、生成中的部分 locations 和 zero-based total 均已正确处理，失败显示“页数未知”，不会再伪装成 1/1。TXT 页数逻辑未改。
-真实十二章 EPUB 先在 iPhone 14/15 Pro Max 两个视口复现了截图中的错误 1/1，再于修复后两个项目合计通过 2/2；测试同时拒绝任何中间 1/1 状态。聚焦 page/menu 2 文件/21 项、阅读器回归 23 文件/261 项、全量 Vitest 146 文件/1393 项、全仓 ESLint、next build --webpack、git diff --check 均通过。单独的旧安卓导入问题仍未修：lib/importBook.ts 与分组创建直接调用 crypto.randomUUID()。
+最新完成的是阅读器书签与三色高亮：设计在 docs/specs/2026-07-16-reader-bookmarks-highlights-design.md，执行计划在 docs/superpowers/plans/2026-07-16-reader-bookmarks-highlights.md。实现提交从 2546d04 到 5712337，浏览器收尾是 8430605 和 7142890。书签与黄色/绿色/蓝色高亮会按书籍持久化；EPUB 使用 CFI，TXT 使用版本化段落/字符偏移；目录抽屉三个标签均可计数、跳转和独立删除，关闭并重开书籍后仍保留。
+旧安卓导入问题已经修复：导入、三个分组创建路径、注解和 AI Provider 都不会假设 crypto.randomUUID 可用。全量 Vitest 153 文件/1415 项、全仓 ESLint、next build --webpack、完整 Playwright 78/78（iPhone 14 与 iPhone 15 Pro Max）和 git diff --check 均通过；E2E 明确覆盖无 randomUUID 的 TXT 导入以及书签/高亮持久化、跳转和删除。
 最新正式 Worker 版本是 ff701748-184d-4c32-8941-ce09745fe557；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-本次页数修复及上一批 UI 动效优化都尚未推送或部署，生产仍是上一行的 Worker 版本；真实安卓 WebView、iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
+本次书签/高亮、旧安卓兼容、页数修复及上一批 UI 动效优化都尚未推送或部署，生产仍是上一行的 Worker 版本；真实安卓 WebView、iPhone Safari/PWA 与 VoiceOver 仍是非阻塞设备风险。
 独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
