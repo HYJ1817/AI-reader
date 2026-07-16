@@ -8,7 +8,12 @@ import type {
 } from "react";
 import EpubReader, { type EpubReaderHandle } from "@/app/EpubReader";
 import ReaderControls from "@/app/ReaderControls";
-import type { AnnotationRecord, BookRecord, ReadingPosition } from "@/lib/db";
+import type {
+  AnnotationRecord,
+  BookRecord,
+  HighlightColor,
+  ReadingPosition,
+} from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderMode } from "@/lib/readerMode";
@@ -49,6 +54,11 @@ type ReadingSessionProps = {
   onOpenContents: () => void;
   onOpenSettings: () => void;
   onAsk: () => void;
+  selection: ReaderTextSelection | null;
+  lastHighlightColor: HighlightColor;
+  currentPageBookmarked: boolean;
+  onToggleBookmark: () => void;
+  onHighlight: (color: HighlightColor) => void;
 };
 
 export default function ReadingSession({
@@ -82,6 +92,11 @@ export default function ReadingSession({
   onOpenContents,
   onOpenSettings,
   onAsk,
+  selection,
+  lastHighlightColor,
+  currentPageBookmarked,
+  onToggleBookmark,
+  onHighlight,
 }: ReadingSessionProps) {
   const isEpubBook = book?.format === "epub";
   const paragraphChunkStarts = paragraphChunks.map((_, chunkIndex) =>
@@ -213,6 +228,11 @@ export default function ReadingSession({
           onWakeMenu={onReaderTap}
           pageInfo={pageInfo}
           visible={chromeVisible}
+          selection={selection}
+          lastHighlightColor={lastHighlightColor}
+          currentPageBookmarked={currentPageBookmarked}
+          onToggleBookmark={onToggleBookmark}
+          onHighlight={onHighlight}
         />
       )}
     </div>

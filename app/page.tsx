@@ -835,6 +835,11 @@ export default function Home() {
     highlights: readerHighlights,
     setSelection: setAnnotationSelection,
     setCurrentSnapshot: setAnnotationSnapshot,
+    selection: readerSelection,
+    lastColor: lastHighlightColor,
+    currentBookmark,
+    toggleBookmark,
+    saveHighlight,
   } = annotations;
   const {
     selectedText,
@@ -1168,6 +1173,7 @@ export default function Home() {
         const progress = pendingEpubProgressRef.current;
         pendingEpubProgressRef.current = null;
         if (progress === null || !openBook) return;
+        setAnnotationSnapshot(epubReaderRef.current?.getCurrentSnapshot() ?? null);
 
         setReaderProgressPercent((current) =>
           shouldPublishProgressPercent(current, progress)
@@ -1181,7 +1187,17 @@ export default function Home() {
         );
       });
     },
-    [openBook]
+    [openBook, setAnnotationSnapshot]
+  );
+
+  const handleHighlight = useCallback(
+    (color: import("@/lib/db").HighlightColor) => {
+      void saveHighlight(color).then(() => {
+        epubReaderRef.current?.clearNativeSelection();
+        handleClearSelection();
+      });
+    },
+    [handleClearSelection, saveHighlight]
   );
 
   const readerCurrentPage = readerPageInfo.current;
@@ -1660,6 +1676,11 @@ export default function Home() {
       onOpenContents={() => navigation.presentSheet("toc")}
       onOpenSettings={() => navigation.presentSheet("reader-settings")}
       onAsk={() => navigation.presentSheet("ask-ai")}
+      selection={readerSelection}
+      lastHighlightColor={lastHighlightColor}
+      currentPageBookmarked={currentBookmark !== null}
+      onToggleBookmark={() => void toggleBookmark()}
+      onHighlight={handleHighlight}
     />
   );
 

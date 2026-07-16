@@ -9,6 +9,11 @@ import {
 } from "@/lib/readerPageInfo";
 import { UI_TEXT } from "@/lib/uiText";
 import { MOTION_DURATION } from "@/lib/motionSystem";
+import type { HighlightColor } from "@/lib/db";
+import {
+  HIGHLIGHT_COLORS,
+  type ReaderTextSelection,
+} from "@/lib/readerAnnotations";
 import styles from "./page.module.css";
 
 const chromeVariants = {
@@ -88,6 +93,11 @@ type Props = {
   onOpenSettings: () => void;
   onAsk: () => void;
   onWakeMenu: () => void;
+  selection: ReaderTextSelection | null;
+  lastHighlightColor: HighlightColor;
+  currentPageBookmarked: boolean;
+  onToggleBookmark: () => void;
+  onHighlight: (color: HighlightColor) => void;
   pageInfo: ReaderPageInfo;
   visible?: boolean;
 };
@@ -99,6 +109,11 @@ export default function ReaderControls({
   onOpenSettings,
   onAsk,
   onWakeMenu,
+  selection,
+  lastHighlightColor,
+  currentPageBookmarked,
+  onToggleBookmark,
+  onHighlight,
   pageInfo,
   visible = true,
 }: Props) {
@@ -107,6 +122,11 @@ export default function ReaderControls({
 
   const handleContents = () => {
     if (hasToc) onContents();
+  };
+  const colorLabels: Record<HighlightColor, string> = {
+    yellow: "黄色",
+    green: "绿色",
+    blue: "蓝色",
   };
 
   return (
@@ -203,6 +223,50 @@ export default function ReaderControls({
               </svg>
             </button>
           </m.div>
+
+          <m.div
+            className={styles.readerMenuRowMotion}
+            custom={reduceMotion}
+            variants={menuRowVariants}
+          >
+            <button className={styles.readerMenuRow} onClick={onToggleBookmark}>
+              <span>{currentPageBookmarked ? "移除本页书签" : "添加书签"}</span>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill={currentPageBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path d="M6 3h12v18l-6-4-6 4V3z" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </m.div>
+
+          {selection?.locator && (
+            <m.div
+              className={styles.readerMenuRowMotion}
+              custom={reduceMotion}
+              variants={menuRowVariants}
+            >
+              <div className={styles.readerHighlightPalette}>
+                <span className={styles.readerHighlightPaletteLabel}>高亮</span>
+                <div className={styles.readerHighlightColors}>
+                  {HIGHLIGHT_COLORS.map((color) => {
+                    const label = colorLabels[color];
+                    return (
+                      <button
+                        key={color}
+                        className={styles.readerHighlightColorButton}
+                        data-highlight-color={color}
+                        data-selected={lastHighlightColor === color}
+                        onClick={() => onHighlight(color)}
+                        aria-label={`使用${label}高亮`}
+                      >
+                        <span aria-hidden="true">
+                          {lastHighlightColor === color ? "✓" : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </m.div>
+          )}
 
           <m.div
             className={styles.readerMenuRowMotion}

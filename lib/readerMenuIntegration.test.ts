@@ -86,6 +86,16 @@ describe("reader page indicator", () => {
 });
 
 describe("reader action menu", () => {
+  it("offers bookmark toggling and three highlight colors", () => {
+    expect(controlsSource).toContain("onToggleBookmark");
+    expect(controlsSource).toContain("移除本页书签");
+    expect(controlsSource).toContain("添加书签");
+    expect(controlsSource).toContain("HIGHLIGHT_COLORS.map");
+    expect(controlsSource).toContain("onHighlight(color)");
+    expect(css).toContain(".readerHighlightPalette");
+    expect(css).toContain("min-width: 44px");
+  });
+
   it("uses staggered capsule buttons for contents, AI, and theme actions", () => {
     const menuStart = controlsSource.indexOf(
       "className={styles.readerActionMenu}"
