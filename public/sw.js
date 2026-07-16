@@ -1,4 +1,4 @@
-const CACHE_NAME = "ai-reader-v5";
+const CACHE_NAME = "ai-reader-v6";
 const MAX_RUNTIME_CACHE_ENTRIES = 80;
 const STATIC_ASSETS = [
   "/",

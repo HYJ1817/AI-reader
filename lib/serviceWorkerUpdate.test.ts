@@ -82,8 +82,20 @@ describe("production service worker updates", () => {
     expect(registrationSource).toContain("window.location.reload()");
   });
 
+  it("forces existing iOS PWA clients to install this update", () => {
+    expect(workerSource).toContain('const CACHE_NAME = "ai-reader-v6"');
+  });
+
+  it("checks the deployed build id when a suspended PWA resumes", () => {
+    expect(registrationSource).toContain('fetch("/BUILD_ID"');
+    expect(registrationSource).toContain('cache: "no-store"');
+    expect(registrationSource).toContain('"visibilitychange"');
+    expect(registrationSource).toContain('"focus"');
+    expect(registrationSource).toContain("sessionStorage");
+  });
+
   it("uses network-first app resources with offline cache fallback", () => {
-    expect(workerSource).toContain('const CACHE_NAME = "ai-reader-v5"');
+    expect(workerSource).toContain('const CACHE_NAME = "ai-reader-v6"');
     expect(workerSource).toContain("fetchAndCache(event.request)");
     expect(workerSource).not.toContain("cached || fetch(event.request)");
   });
