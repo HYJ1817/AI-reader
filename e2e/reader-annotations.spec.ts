@@ -85,6 +85,98 @@ async function openContents(page: Page) {
   await expect(page.locator('#toc-tab-bookmarks')).toBeVisible();
 }
 
+async function dragTouch(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+  steps: number = 14
+) {
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: from.x, y: from.y, radiusX: 2, radiusY: 2 }],
+    });
+    for (let index = 1; index <= steps; index += 1) {
+      const progress = index / steps;
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [
+          {
+            x: from.x + (to.x - from.x) * progress,
+            y: from.y + (to.y - from.y) * progress,
+            radiusX: 2,
+            radiusY: 2,
+          },
+        ],
+      });
+      await page.waitForTimeout(10);
+    }
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  } finally {
+    await session.detach();
+  }
+}
+
+async function snappedTabIndex(page: Page): Promise<number> {
+  return page.locator('[data-toc-swipe-viewport="true"]').evaluate((viewport) =>
+    Math.round(viewport.scrollLeft / Math.max(1, viewport.clientWidth))
+  );
+}
+
+test("contents tabs keep their height and follow native horizontal swipes", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await waitForLibrary(page);
+  await importTxtBook(page);
+  await openFirstBook(page);
+  await openContents(page);
+
+  const sheet = page.locator(
+    '[data-sheet-route="toc"] [data-motion-sheet="panel"]'
+  );
+  const viewport = page.locator('[data-toc-swipe-viewport="true"]');
+  const initialHeight = await sheet.evaluate(
+    (element) => element.getBoundingClientRect().height
+  );
+
+  await page.locator("#toc-tab-bookmarks").click();
+  await expect(page.locator("#toc-tab-bookmarks")).toHaveAttribute(
+    "aria-selected",
+    "true"
+  );
+  await expect.poll(() => snappedTabIndex(page)).toBe(1);
+  expect(
+    await sheet.evaluate((element) => element.getBoundingClientRect().height)
+  ).toBeCloseTo(initialHeight, 2);
+
+  const box = await viewport.boundingBox();
+  if (!box) throw new Error("Contents swipe viewport has no bounds");
+  await dragTouch(
+    page,
+    { x: box.x + box.width * 0.82, y: box.y + box.height * 0.45 },
+    { x: box.x + box.width * 0.16, y: box.y + box.height * 0.45 }
+  );
+  await expect(page.locator("#toc-tab-highlights")).toHaveAttribute(
+    "aria-selected",
+    "true"
+  );
+  await expect.poll(() => snappedTabIndex(page)).toBe(2);
+
+  await page.locator("#toc-tab-chapters").click();
+  await page.locator("#toc-tab-bookmarks").click();
+  await page.locator("#toc-tab-highlights").click();
+  await expect(page.locator("#toc-tab-highlights")).toHaveAttribute(
+    "aria-selected",
+    "true"
+  );
+  await expect.poll(() => snappedTabIndex(page)).toBe(2);
+});
+
 test("TXT bookmarks and three-color highlights persist, navigate, and delete", async ({
   page,
 }) => {
