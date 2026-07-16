@@ -13,6 +13,7 @@ import type { EpubTocItem } from "@/lib/epubNavigation";
 import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
+import type { ReaderTextSelection } from "@/lib/readerAnnotations";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -33,7 +34,7 @@ type ReadingSessionProps = {
   onPointerMove: PointerEventHandler<HTMLDivElement>;
   onPointerUp: PointerEventHandler<HTMLDivElement>;
   onPointerCancel: () => void;
-  onTextSelect: (text: string) => void;
+  onTextSelect: (selection: ReaderTextSelection | null) => void;
   onReaderTap: () => void;
   onReaderScrollStart: () => void;
   onSwipeTurn: (direction: "prev" | "next") => void;

@@ -154,8 +154,10 @@ describe("reader chrome event integration", () => {
     const sessionEnd = pageSource.indexOf("</main>", sessionStart);
     const sessionSource = pageSource.slice(sessionStart, sessionEnd);
 
-    expect(sessionSource).toContain("onTextSelect={(text) => {");
-    expect(sessionSource).toContain("resolveEpubSelectionUpdate(text)");
+    expect(sessionSource).toContain("onTextSelect={(selection) => {");
+    expect(sessionSource).toContain(
+      "resolveEpubSelectionUpdate(selection?.text ?? \"\")"
+    );
     expect(sessionSource).toContain("setSelectedText(selectionUpdate.selectedText)");
     expect(sessionSource).toContain(
       "if (selectionUpdate.shouldShowChrome)"
@@ -168,13 +170,13 @@ describe("reader chrome event integration", () => {
     );
     expect(epubSource).toContain("const selectionText = getSelectionText()");
     expect(epubSource).toContain(
-      "onTextSelectRef.current?.(selectionText)"
+      "onTextSelectRef.current?.(null)"
     );
   });
 
   it("clears stale selection before toggling chrome for a real EPUB tap", () => {
     expect(epubSource).toContain("selection?.removeAllRanges()");
-    expect(epubSource).toContain('onTextSelectRef.current?.("")');
+    expect(epubSource).toContain("onTextSelectRef.current?.(null)");
     expect(epubSource).toContain("shouldReportEpubSelectionChange");
   });
 

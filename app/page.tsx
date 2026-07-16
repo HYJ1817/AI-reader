@@ -1603,8 +1603,8 @@ export default function Home() {
           viewportWidth
         );
       }}
-      onTextSelect={(text) => {
-        const selectionUpdate = resolveEpubSelectionUpdate(text);
+      onTextSelect={(selection) => {
+        const selectionUpdate = resolveEpubSelectionUpdate(selection?.text ?? "");
         setSelectedText(selectionUpdate.selectedText);
         if (selectionUpdate.shouldShowChrome) {
           dispatchReaderChrome({ type: "selection" });
