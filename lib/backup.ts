@@ -235,12 +235,27 @@ function validatePosition(value: unknown): ReadingPosition {
 
 function validateAnnotation(value: unknown): AnnotationRecord {
   if (!isRecord(value)) throw new Error("Invalid backup: annotation");
+  const kind = value.kind === "bookmark" ? "bookmark" : "highlight";
+  const color =
+    value.color === "green" || value.color === "blue" || value.color === "yellow"
+      ? value.color
+      : "yellow";
   return {
     id: requireString(value, "id"),
     bookId: requireString(value, "bookId"),
+    kind,
     locator: typeof value.locator === "string" ? value.locator : undefined,
     text: requireString(value, "text"),
     note: typeof value.note === "string" ? value.note : undefined,
+    ...(kind === "highlight" ? { color } : {}),
+    progressPercent:
+      typeof value.progressPercent === "number" && Number.isFinite(value.progressPercent)
+        ? value.progressPercent
+        : undefined,
+    pageNumber:
+      typeof value.pageNumber === "number" && Number.isFinite(value.pageNumber)
+        ? Math.max(1, Math.floor(value.pageNumber))
+        : undefined,
     createdAt: requireString(value, "createdAt"),
   };
 }

@@ -35,14 +35,34 @@ export type ReadingPosition = {
   updatedAt: string;
 };
 
+export type AnnotationKind = "bookmark" | "highlight";
+export type HighlightColor = "yellow" | "green" | "blue";
+
 export type AnnotationRecord = {
   id: string;
   bookId: string;
+  kind: AnnotationKind;
   locator?: string;
   text: string;
   note?: string;
+  color?: HighlightColor;
+  progressPercent?: number;
+  pageNumber?: number;
   createdAt: string;
 };
+
+function normalizeAnnotation(record: AnnotationRecord): AnnotationRecord {
+  const kind = record.kind === "bookmark" ? "bookmark" : "highlight";
+  const color: HighlightColor =
+    record.color === "green" || record.color === "blue"
+      ? record.color
+      : "yellow";
+  return {
+    ...record,
+    kind,
+    ...(kind === "highlight" ? { color } : { color: undefined }),
+  };
+}
 
 export type DailyReadingStat = {
   date: string;
@@ -224,11 +244,16 @@ export async function addAnnotation(record: AnnotationRecord): Promise<void> {
   await getDb().annotations.put(record);
 }
 
+export async function deleteAnnotation(id: string): Promise<void> {
+  await getDb().annotations.delete(id);
+}
+
 export async function listAnnotations(bookId: string): Promise<AnnotationRecord[]> {
-  return getDb().annotations
+  const records = await getDb().annotations
     .where("bookId")
     .equals(bookId)
     .sortBy("createdAt");
+  return records.map(normalizeAnnotation);
 }
 
 export async function listReadingPositions(): Promise<ReadingPosition[]> {
@@ -236,7 +261,8 @@ export async function listReadingPositions(): Promise<ReadingPosition[]> {
 }
 
 export async function listAllAnnotations(): Promise<AnnotationRecord[]> {
-  return getDb().annotations.toArray();
+  const records = await getDb().annotations.toArray();
+  return records.map(normalizeAnnotation);
 }
 
 export async function listBookGroups(): Promise<BookGroup[]> {

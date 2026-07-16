@@ -147,7 +147,12 @@ describe("createBackupPayload", () => {
     await addAnnotation({
       id: "a1",
       bookId: "b1",
+      kind: "highlight",
+      locator: "epubcfi(/6/2)",
       text: "highlighted",
+      color: "blue",
+      progressPercent: 24,
+      pageNumber: 8,
       createdAt: "2024-06-01T00:00:00Z",
     });
 
@@ -155,10 +160,40 @@ describe("createBackupPayload", () => {
     expect(payload.annotations).toHaveLength(1);
     expect(payload.annotations[0].id).toBe("a1");
     expect(payload.annotations[0].text).toBe("highlighted");
+    expect(payload.annotations[0]).toEqual(
+      expect.objectContaining({
+        kind: "highlight",
+        color: "blue",
+        progressPercent: 24,
+        pageNumber: 8,
+      })
+    );
   });
 });
 
 describe("validateBackupPayload", () => {
+  it("normalizes legacy annotations as yellow highlights", () => {
+    const payload = validateBackupPayload({
+      version: 1,
+      exportedAt: "2024-01-01T00:00:00Z",
+      books: [],
+      readingPositions: [],
+      annotations: [
+        {
+          id: "legacy",
+          bookId: "book-1",
+          locator: "epubcfi(/6/2)",
+          text: "legacy",
+          createdAt: "2024-01-01T00:00:00Z",
+        },
+      ],
+      aiSettings: {},
+    });
+
+    expect(payload.annotations[0]).toEqual(
+      expect.objectContaining({ kind: "highlight", color: "yellow" })
+    );
+  });
   it("rejects null", () => {
     expect(() => validateBackupPayload(null)).toThrow("Invalid backup format");
   });
@@ -312,7 +347,9 @@ describe("restoreBackupPayload", () => {
     await addAnnotation({
       id: "a1",
       bookId: "b1",
+      kind: "highlight",
       text: "important note",
+      color: "yellow",
       createdAt: "2024-06-01T00:00:00Z",
     });
     const payload = await createBackupPayload();
@@ -351,7 +388,9 @@ describe("restoreBackupPayload", () => {
     await addAnnotation({
       id: "old-ann",
       bookId: "old",
+      kind: "highlight",
       text: "old annotation",
+      color: "yellow",
       createdAt: "2024-01-01T00:00:00Z",
     });
 
@@ -360,7 +399,9 @@ describe("restoreBackupPayload", () => {
     await addAnnotation({
       id: "new-ann",
       bookId: "new",
+      kind: "highlight",
       text: "new annotation",
+      color: "yellow",
       createdAt: "2024-06-01T00:00:00Z",
     });
 

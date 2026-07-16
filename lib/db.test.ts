@@ -8,6 +8,7 @@ import {
   saveReadingPosition,
   getReadingPosition,
   addAnnotation,
+  deleteAnnotation,
   listAnnotations,
   getDailyReadingStat,
   incrementDailyReadingSeconds,
@@ -53,7 +54,9 @@ function makeAnnotation(overrides: Partial<AnnotationRecord> = {}): AnnotationRe
   return {
     id: crypto.randomUUID(),
     bookId: "book-1",
+    kind: "highlight",
     text: "highlighted text",
+    color: "yellow",
     createdAt: new Date().toISOString(),
     ...overrides,
   };
@@ -207,6 +210,36 @@ describe("Annotations", () => {
 
   it("returns empty array for book with no annotations", async () => {
     expect(await listAnnotations("no-book")).toEqual([]);
+  });
+
+  it("deletes one annotation without touching siblings", async () => {
+    await addAnnotation(makeAnnotation({ id: "keep", kind: "bookmark" }));
+    await addAnnotation(makeAnnotation({ id: "remove", kind: "highlight" }));
+    await deleteAnnotation("remove");
+    expect((await listAnnotations("book-1")).map((item) => item.id)).toEqual([
+      "keep",
+    ]);
+  });
+
+  it("normalizes legacy annotations as yellow highlights", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    await inspectionDb.table("annotations").put({
+      id: "legacy",
+      bookId: "book-1",
+      locator: "epubcfi(/6/2)",
+      text: "legacy text",
+      createdAt: "2024-01-01T00:00:00Z",
+    });
+    inspectionDb.close();
+
+    expect(await listAnnotations("book-1")).toContainEqual(
+      expect.objectContaining({
+        id: "legacy",
+        kind: "highlight",
+        color: "yellow",
+      })
+    );
   });
 });
 
