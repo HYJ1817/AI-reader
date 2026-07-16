@@ -158,8 +158,8 @@ test("contents tabs keep their height and follow native horizontal swipes", asyn
   if (!box) throw new Error("Contents swipe viewport has no bounds");
   await dragTouch(
     page,
-    { x: box.x + box.width * 0.82, y: box.y + box.height * 0.45 },
-    { x: box.x + box.width * 0.16, y: box.y + box.height * 0.45 }
+    { x: box.x + box.width * 0.92, y: box.y + box.height * 0.45 },
+    { x: box.x + box.width * 0.06, y: box.y + box.height * 0.45 }
   );
   await expect(page.locator("#toc-tab-highlights")).toHaveAttribute(
     "aria-selected",
