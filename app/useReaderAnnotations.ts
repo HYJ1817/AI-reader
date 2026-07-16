@@ -35,8 +35,9 @@ export type UseReaderAnnotationsResult = {
   currentBookmark: AnnotationRecord | null;
   setCurrentSnapshot: (snapshot: ReaderLocationSnapshot | null) => void;
   toggleBookmark: () => Promise<void>;
-  saveHighlight: (color: HighlightColor) => Promise<void>;
+  saveHighlight: (color: HighlightColor) => Promise<boolean>;
   remove: (id: string) => Promise<void>;
+  reportError: (message: string) => void;
   error: string | null;
   status: string | null;
 };
@@ -115,7 +116,7 @@ export default function useReaderAnnotations(
 
   const saveHighlight = useCallback(
     async (color: HighlightColor) => {
-      if (!bookId || !selection?.locator || !selection.text) return;
+      if (!bookId || !selection?.locator || !selection.text) return false;
       setError(null);
       const existing = records.find(
         (record) =>
@@ -139,8 +140,10 @@ export default function useReaderAnnotations(
         window.localStorage.setItem(LAST_HIGHLIGHT_COLOR_KEY, color);
         setSelection(null);
         setStatus(existing ? "已更新高亮颜色" : "已添加高亮");
+        return true;
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "高亮保存失败");
+        return false;
       }
     },
     [bookId, records, selection]
@@ -157,6 +160,11 @@ export default function useReaderAnnotations(
     }
   }, []);
 
+  const reportError = useCallback((message: string) => {
+    setStatus(null);
+    setError(message);
+  }, []);
+
   return {
     records,
     bookmarks,
@@ -169,6 +177,7 @@ export default function useReaderAnnotations(
     toggleBookmark,
     saveHighlight,
     remove,
+    reportError,
     error,
     status,
   };

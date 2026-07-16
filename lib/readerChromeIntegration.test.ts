@@ -5,6 +5,10 @@ const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8"
 );
+const annotationsControllerSource = readFileSync(
+  new URL("../app/useReaderAnnotationsController.ts", import.meta.url),
+  "utf8"
+);
 const epubSource = readFileSync(
   new URL("../app/EpubReader.tsx", import.meta.url),
   "utf8"
@@ -184,8 +188,8 @@ describe("reader chrome event integration", () => {
     expect(readingSessionSource).toContain("buildTxtHighlightRuns");
     expect(readingSessionSource).toContain("data-paragraph-index");
     expect(readingSessionSource).toContain("<mark");
-    expect(pageSource).toContain("captureTxtSelection");
-    expect(pageSource).toContain("captureCurrentTxtLocation");
+    expect(annotationsControllerSource).toContain("captureTxtSelection");
+    expect(annotationsControllerSource).toContain("captureCurrentTxtLocation");
   });
 
   it("does not let a stale EPUB selection block the click fallback tap", () => {

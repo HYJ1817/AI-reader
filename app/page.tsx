@@ -20,7 +20,7 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  type AnnotationRecord, type BookRecord, type BookGroup, type DailyReadingStat,
+  type BookRecord, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
 import { extractEpubCoverImage } from "@/lib/epubCover";
@@ -136,12 +136,7 @@ import {
 import useCustomBackground from "@/app/useCustomBackground";
 import { requestPersistentStorage } from "@/lib/storagePersistence";
 import useAskAi from "@/app/useAskAi";
-import useReaderAnnotations from "@/app/useReaderAnnotations";
-import {
-  captureTxtSelection,
-  captureCurrentTxtLocation,
-  navigateToTxtLocator,
-} from "@/lib/txtAnnotations";
+import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
 
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
@@ -831,17 +826,6 @@ export default function Home() {
     [aiProviderSettings]
   );
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
-  const annotations = useReaderAnnotations(openBook?.id ?? null);
-  const {
-    highlights: readerHighlights,
-    setSelection: setAnnotationSelection,
-    setCurrentSnapshot: setAnnotationSnapshot,
-    selection: readerSelection,
-    lastColor: lastHighlightColor,
-    currentBookmark,
-    toggleBookmark,
-    saveHighlight,
-  } = annotations;
   const {
     selectedText,
     setSelectedText,
@@ -860,6 +844,20 @@ export default function Home() {
     textReaderRef: readerRef,
     epubReaderRef,
   });
+  const annotations = useReaderAnnotationsController({
+    openBook, readerMode,
+    reduceMotion: appPrefs.reduceMotion,
+    textReaderRef: readerRef, epubReaderRef,
+    setSelectedText,
+    clearSelection: handleClearSelection,
+    showSelectionChrome: () => dispatchReaderChrome({ type: "selection" }),
+  });
+  const {
+    highlights: readerHighlights, selection: readerSelection,
+    lastColor: lastHighlightColor, currentBookmark, toggleBookmark,
+    setSelection: setAnnotationSelection, setCurrentSnapshot: setAnnotationSnapshot,
+    selectAnnotation: handleAnnotationSelect, applyHighlight: handleHighlight,
+  } = annotations;
   const todayMinutesValue = formatReadingMinutes(todaySeconds);
   const todayGoalProgress = readingGoal.targetMinutes > 0
     ? Math.min(todayMinutesValue / readingGoal.targetMinutes, 1)
@@ -1055,14 +1053,7 @@ export default function Home() {
           ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
           : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight);
       setReaderPageInfo(pageInfo);
-      setAnnotationSnapshot(
-        captureCurrentTxtLocation(
-          el,
-          readerMode,
-          restoreProgress,
-          pageInfo.current
-        )
-      );
+      annotations.captureTxtSnapshot(restoreProgress, pageInfo.current);
 
       if (pos || restoreProgress > 0) {
         const progress = restoreProgress;
@@ -1074,7 +1065,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [openBook, paragraphs, readerMode, readerModeRestoreProgressRef, setAnnotationSnapshot]);
+  }, [annotations, openBook, paragraphs, readerMode, readerModeRestoreProgressRef]);
 
   useEffect(() => {
     return () => {
@@ -1129,14 +1120,7 @@ export default function Home() {
           ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
           : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight);
       setReaderPageInfo(pageInfo);
-      setAnnotationSnapshot(
-        captureCurrentTxtLocation(
-          el,
-          readerMode,
-          progressPercent,
-          pageInfo.current
-        )
-      );
+      annotations.captureTxtSnapshot(progressPercent, pageInfo.current);
       setReaderProgressPercent((current) =>
         shouldPublishProgressPercent(current, progressPercent)
           ? progressPercent
@@ -1162,7 +1146,7 @@ export default function Home() {
         });
       }, 180);
     });
-  }, [openBook, readerMode, setAnnotationSnapshot]);
+  }, [annotations, openBook, readerMode]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1191,32 +1175,12 @@ export default function Home() {
     [openBook, setAnnotationSnapshot]
   );
 
-  const handleHighlight = useCallback(
-    (color: import("@/lib/db").HighlightColor) => {
-      void saveHighlight(color).then(() => {
-        epubReaderRef.current?.clearNativeSelection();
-        handleClearSelection();
-      });
-    },
-    [handleClearSelection, saveHighlight]
-  );
 
   const readerCurrentPage = readerPageInfo.current;
-  const handleTextSelect = useCallback((): boolean => {
-    const selection = captureTxtSelection(
-      window.getSelection(),
-      readerRef.current,
-      readerProgressPercent,
-      readerCurrentPage
-    );
-    if (selection) {
-      setAnnotationSelection(selection);
-      setSelectedText(selection.text);
-      dispatchReaderChrome({ type: "selection" });
-      return true;
-    }
-    return false;
-  }, [readerCurrentPage, readerProgressPercent, setAnnotationSelection, setSelectedText]);
+  const handleTextSelect = useCallback(
+    () => annotations.captureTxtTextSelection(readerProgressPercent, readerCurrentPage),
+    [annotations, readerCurrentPage, readerProgressPercent]
+  );
 
   async function handleExportBackup() {
     setBackupStatus(null);
@@ -1366,30 +1330,6 @@ export default function Home() {
     await epubReaderRef.current?.goTo(href);
   }, []);
 
-  const handleAnnotationSelect = useCallback(
-    async (record: AnnotationRecord) => {
-      if (!openBook || !record.locator) return;
-      if (openBook.format === "epub") {
-        await epubReaderRef.current?.goToAnnotation(record.locator);
-        return;
-      }
-      const reader = readerRef.current;
-      if (!reader) return;
-      navigateToTxtLocator(
-        reader,
-        record.locator,
-        readerMode,
-        record.progressPercent ?? 0,
-        shouldReduceReaderMotion({
-          appPreference: appPrefs.reduceMotion,
-          systemPreference: window.matchMedia(
-            "(prefers-reduced-motion: reduce)"
-          ).matches,
-        })
-      );
-    },
-    [appPrefs.reduceMotion, openBook, readerMode]
-  );
 
   function handleOpenGoalSheet() {
     setGoalInputValue(readingGoal.targetMinutes);
@@ -1706,6 +1646,7 @@ export default function Home() {
       currentPageBookmarked={currentBookmark !== null}
       onToggleBookmark={() => void toggleBookmark()}
       onHighlight={handleHighlight}
+      annotationStatus={annotations.error ?? annotations.status}
     />
   );
 

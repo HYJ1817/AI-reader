@@ -58,6 +58,7 @@ type ReadingSessionProps = {
   currentPageBookmarked: boolean;
   onToggleBookmark: () => void;
   onHighlight: (color: HighlightColor) => void;
+  annotationStatus: string | null;
 };
 
 export default function ReadingSession({
@@ -95,6 +96,7 @@ export default function ReadingSession({
   currentPageBookmarked,
   onToggleBookmark,
   onHighlight,
+  annotationStatus,
 }: ReadingSessionProps) {
   const isEpubBook = book?.format === "epub";
   const paragraphChunkStarts = paragraphChunks.map((_, chunkIndex) =>
@@ -232,6 +234,9 @@ export default function ReadingSession({
           onHighlight={onHighlight}
         />
       )}
+      <div className={styles.readerAnnotationStatus} aria-live="polite" aria-atomic="true">
+        {annotationStatus}
+      </div>
     </div>
   );
 }
