@@ -2376,6 +2376,23 @@
   contain-intrinsic-size: auto 1100px;
 }
 
+.txtHighlight {
+  padding: 0 0.04em;
+  border-radius: 0.16em;
+  background: rgba(255, 216, 77, 0.42);
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.txtHighlight[data-highlight-color="green"] {
+  background: rgba(101, 214, 138, 0.38);
+}
+
+.txtHighlight[data-highlight-color="blue"] {
+  background: rgba(98, 168, 255, 0.38);
+}
+
 .epubReaderShell {
   width: 100%;
   padding: 0 20px 18px;

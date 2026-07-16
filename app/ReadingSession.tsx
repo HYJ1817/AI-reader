@@ -8,12 +8,13 @@ import type {
 } from "react";
 import EpubReader, { type EpubReaderHandle } from "@/app/EpubReader";
 import ReaderControls from "@/app/ReaderControls";
-import type { BookRecord, ReadingPosition } from "@/lib/db";
+import type { AnnotationRecord, BookRecord, ReadingPosition } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import type { ReaderTextSelection } from "@/lib/readerAnnotations";
+import { buildTxtHighlightRuns } from "@/lib/txtAnnotations";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -24,6 +25,7 @@ type ReadingSessionProps = {
   preferences: ReaderPreferences;
   pageInfo: ReaderPageInfo;
   paragraphChunks: string[][];
+  highlights: AnnotationRecord[];
   chromeVisible: boolean;
   tocItems: EpubTocItem[];
   textReaderRef: RefObject<HTMLDivElement | null>;
@@ -56,6 +58,7 @@ export default function ReadingSession({
   preferences,
   pageInfo,
   paragraphChunks,
+  highlights,
   chromeVisible,
   tocItems,
   textReaderRef,
@@ -81,6 +84,11 @@ export default function ReadingSession({
   onAsk,
 }: ReadingSessionProps) {
   const isEpubBook = book?.format === "epub";
+  const paragraphChunkStarts = paragraphChunks.map((_, chunkIndex) =>
+    paragraphChunks
+      .slice(0, chunkIndex)
+      .reduce((total, chunk) => total + chunk.length, 0)
+  );
 
   return (
     <div
@@ -102,6 +110,7 @@ export default function ReadingSession({
             mode={mode}
             getReadingPosition={getReadingPosition}
             saveReadingPosition={saveReadingPosition}
+            highlights={highlights}
             onTextSelect={onTextSelect}
             onReaderTap={onReaderTap}
             onReaderScrollStart={onReaderScrollStart}
@@ -165,8 +174,28 @@ export default function ReadingSession({
                   <p
                     key={`${chunkIndex}-${paragraphIndex}`}
                     className={styles.paragraph}
+                    data-paragraph-index={
+                      paragraphChunkStarts[chunkIndex] + paragraphIndex
+                    }
                   >
-                    {paragraph}
+                    {buildTxtHighlightRuns(
+                      paragraphChunkStarts[chunkIndex] + paragraphIndex,
+                      paragraph,
+                      highlights
+                    ).map((run, runIndex) =>
+                      run.annotationId ? (
+                        <mark
+                          key={`${run.annotationId}-${runIndex}`}
+                          className={styles.txtHighlight}
+                          data-highlight-color={run.color}
+                          data-annotation-id={run.annotationId}
+                        >
+                          {run.text}
+                        </mark>
+                      ) : (
+                        <span key={`text-${runIndex}`}>{run.text}</span>
+                      )
+                    )}
                   </p>
                 ))}
               </section>

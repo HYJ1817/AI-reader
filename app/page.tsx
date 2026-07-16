@@ -136,6 +136,11 @@ import {
 import useCustomBackground from "@/app/useCustomBackground";
 import { requestPersistentStorage } from "@/lib/storagePersistence";
 import useAskAi from "@/app/useAskAi";
+import useReaderAnnotations from "@/app/useReaderAnnotations";
+import {
+  captureTxtSelection,
+  captureCurrentTxtLocation,
+} from "@/lib/txtAnnotations";
 
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
@@ -825,6 +830,12 @@ export default function Home() {
     [aiProviderSettings]
   );
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
+  const annotations = useReaderAnnotations(openBook?.id ?? null);
+  const {
+    highlights: readerHighlights,
+    setSelection: setAnnotationSelection,
+    setCurrentSnapshot: setAnnotationSnapshot,
+  } = annotations;
   const {
     selectedText,
     setSelectedText,
@@ -1033,10 +1044,18 @@ export default function Home() {
           el.clientHeight
         );
       }
-      setReaderPageInfo(
+      const pageInfo =
         readerMode === "paged"
           ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
-          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight)
+          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight);
+      setReaderPageInfo(pageInfo);
+      setAnnotationSnapshot(
+        captureCurrentTxtLocation(
+          el,
+          readerMode,
+          restoreProgress,
+          pageInfo.current
+        )
       );
 
       if (pos || restoreProgress > 0) {
@@ -1049,7 +1068,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [openBook, paragraphs, readerMode, readerModeRestoreProgressRef]);
+  }, [openBook, paragraphs, readerMode, readerModeRestoreProgressRef, setAnnotationSnapshot]);
 
   useEffect(() => {
     return () => {
@@ -1099,10 +1118,18 @@ export default function Home() {
               el.scrollHeight,
               el.clientHeight
             );
-      setReaderPageInfo(
+      const pageInfo =
         readerMode === "paged"
           ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
-          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight)
+          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight);
+      setReaderPageInfo(pageInfo);
+      setAnnotationSnapshot(
+        captureCurrentTxtLocation(
+          el,
+          readerMode,
+          progressPercent,
+          pageInfo.current
+        )
       );
       setReaderProgressPercent((current) =>
         shouldPublishProgressPercent(current, progressPercent)
@@ -1129,7 +1156,7 @@ export default function Home() {
         });
       }, 180);
     });
-  }, [openBook, readerMode]);
+  }, [openBook, readerMode, setAnnotationSnapshot]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1157,17 +1184,22 @@ export default function Home() {
     [openBook]
   );
 
+  const readerCurrentPage = readerPageInfo.current;
   const handleTextSelect = useCallback((): boolean => {
-    const selection = window.getSelection();
-    if (!selection) return false;
-    const text = selection.toString().trim();
-    if (text.length > 0) {
-      setSelectedText(text);
+    const selection = captureTxtSelection(
+      window.getSelection(),
+      readerRef.current,
+      readerProgressPercent,
+      readerCurrentPage
+    );
+    if (selection) {
+      setAnnotationSelection(selection);
+      setSelectedText(selection.text);
       dispatchReaderChrome({ type: "selection" });
       return true;
     }
     return false;
-  }, [setSelectedText]);
+  }, [readerCurrentPage, readerProgressPercent, setAnnotationSelection, setSelectedText]);
 
   async function handleExportBackup() {
     setBackupStatus(null);
@@ -1584,6 +1616,7 @@ export default function Home() {
       preferences={readerPrefs}
       pageInfo={readerPageInfo}
       paragraphChunks={paragraphChunks}
+      highlights={readerHighlights}
       chromeVisible={readerChromeVisible}
       tocItems={tocItems}
       textReaderRef={readerRef}
@@ -1605,6 +1638,7 @@ export default function Home() {
       }}
       onTextSelect={(selection) => {
         const selectionUpdate = resolveEpubSelectionUpdate(selection?.text ?? "");
+        setAnnotationSelection(selection);
         setSelectedText(selectionUpdate.selectedText);
         if (selectionUpdate.shouldShowChrome) {
           dispatchReaderChrome({ type: "selection" });

@@ -180,6 +180,14 @@ describe("reader chrome event integration", () => {
     expect(epubSource).toContain("shouldReportEpubSelectionChange");
   });
 
+  it("renders and captures precise TXT annotation ranges", () => {
+    expect(readingSessionSource).toContain("buildTxtHighlightRuns");
+    expect(readingSessionSource).toContain("data-paragraph-index");
+    expect(readingSessionSource).toContain("<mark");
+    expect(pageSource).toContain("captureTxtSelection");
+    expect(pageSource).toContain("captureCurrentTxtLocation");
+  });
+
   it("does not let a stale EPUB selection block the click fallback tap", () => {
     const fallbackStart = epubSource.indexOf("const fireReaderTap =");
     const fallbackEnd = epubSource.indexOf("const settleSwipe", fallbackStart);
