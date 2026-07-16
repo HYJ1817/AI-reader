@@ -53,6 +53,33 @@ async function importAndOpen(page: Page, name: string, text: string) {
   });
 }
 
+async function setReaderMenuExpanded(page: Page, expanded: boolean) {
+  const wake = page.locator('[data-reader-menu-toggle="true"]');
+  if ((await wake.getAttribute("aria-expanded")) !== String(expanded)) {
+    await wake.click();
+  }
+  await expect(wake).toHaveAttribute("aria-expanded", String(expanded));
+  if (expanded) {
+    await expect
+      .poll(() =>
+        wake.evaluate(
+          (element) => getComputedStyle(element, "::before").boxShadow
+        )
+      )
+      .not.toBe("none");
+  } else {
+    await expect
+      .poll(() =>
+        wake.evaluate((element) => ({
+          boxShadow: getComputedStyle(element, "::before").boxShadow,
+          iconOpacity: getComputedStyle(element.querySelector("svg")!).opacity,
+        }))
+      )
+      .toEqual({ boxShadow: "none", iconOpacity: "0.38" });
+  }
+  return wake;
+}
+
 for (const sample of samples) {
   test(`${sample.id} TXT keeps natural default alignment`, async ({
     page,
@@ -99,8 +126,7 @@ test("explicit justification and the menu wake target remain available", async (
     "justify"
   );
 
-  const wake = page.locator('[data-reader-menu-toggle="true"]');
-  await expect(wake).toHaveAttribute("aria-expanded", "false");
+  const wake = await setReaderMenuExpanded(page, false);
   expect(
     await wake.evaluate((element) => {
       const rect = element.getBoundingClientRect();
@@ -133,8 +159,7 @@ test("explicit justification and the menu wake target remain available", async (
     fullPage: false,
   });
 
-  await wake.click();
-  await expect(wake).toHaveAttribute("aria-expanded", "true");
+  await setReaderMenuExpanded(page, true);
   expect(
     await wake.evaluate(
       (element) => getComputedStyle(element, "::before").boxShadow
@@ -168,8 +193,7 @@ test("collapsed menu affordance stays quiet in dark reader theme", async ({
     );
   });
   await importAndOpen(page, "menu-dark", samples[1].text);
-  const wake = page.locator('[data-reader-menu-toggle="true"]');
-  await expect(wake).toHaveAttribute("aria-expanded", "false");
+  const wake = await setReaderMenuExpanded(page, false);
   await expect(wake).toHaveCSS("width", "48px");
   await expect(wake).toHaveCSS("height", "48px");
   expect(
@@ -223,9 +247,7 @@ test("paged TXT keeps natural alignment and horizontal page flow", async ({
   page,
 }, testInfo) => {
   await importAndOpen(page, "paged-default", longEnglishText);
-  const wake = page.locator('[data-reader-menu-toggle="true"]');
-  await wake.click();
-  await expect(wake).toHaveAttribute("aria-expanded", "true");
+  const wake = await setReaderMenuExpanded(page, true);
   await page.getByRole("button", { name: /主题与设置/ }).click();
 
   const settingsSheet = page.locator('[data-sheet-route="reader-settings"]');
