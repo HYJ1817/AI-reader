@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import JSZip from "jszip";
 
 const libraryRoot = '[data-navigation-root="library"][aria-hidden="false"]';
 const selectedText = "第一段文字支持高亮";
@@ -17,6 +18,54 @@ async function importTxtBook(page: Page) {
     buffer: Buffer.from(
       `${selectedText}，并且在重启后仍然保留。\n\n第二段文字用于验证定位和跳转。`
     ),
+  });
+  await expect(page.locator(`${libraryRoot} [data-book-id]`)).toHaveCount(1);
+}
+
+async function importNavigationEpub(page: Page, chapterCount: number = 120) {
+  const zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+  zip.file(
+    "META-INF/container.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+      <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+        <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+      </container>`
+  );
+  const manifest: string[] = [];
+  const spine: string[] = [];
+  const navigation: string[] = [];
+  for (let chapter = 1; chapter <= chapterCount; chapter += 1) {
+    const fileName = `chapter-${chapter}.xhtml`;
+    manifest.push(
+      `<item id="chapter-${chapter}" href="${fileName}" media-type="application/xhtml+xml"/>`
+    );
+    spine.push(`<itemref idref="chapter-${chapter}"/>`);
+    navigation.push(`<li><a href="${fileName}">第 ${chapter} 章</a></li>`);
+    zip.file(
+      `OEBPS/${fileName}`,
+      `<html xmlns="http://www.w3.org/1999/xhtml"><head><title>第 ${chapter} 章</title></head><body><p>性能诊断正文 ${chapter}</p></body></html>`
+    );
+  }
+  zip.file(
+    "OEBPS/content.opf",
+    `<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+      <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="book-id">toc-performance</dc:identifier><dc:title>目录性能诊断</dc:title><dc:language>zh-CN</dc:language></metadata>
+      <manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>${manifest.join("")}</manifest>
+      <spine>${spine.join("")}</spine>
+    </package>`
+  );
+  zip.file(
+    "OEBPS/nav.xhtml",
+    `<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>目录</title></head><body><nav epub:type="toc"><ol>${navigation.join("")}</ol></nav></body></html>`
+  );
+  await page.locator('input[type="file"][accept*=".epub"]').setInputFiles({
+    name: "toc-performance.epub",
+    mimeType: "application/epub+zip",
+    buffer: await zip.generateAsync({
+      type: "nodebuffer",
+      compression: "DEFLATE",
+    }),
   });
   await expect(page.locator(`${libraryRoot} [data-book-id]`)).toHaveCount(1);
 }
@@ -126,6 +175,105 @@ async function snappedTabIndex(page: Page): Promise<number> {
     Math.round(viewport.scrollLeft / Math.max(1, viewport.clientWidth))
   );
 }
+
+async function measureFrameCadence(
+  page: Page,
+  action: () => Promise<void>,
+  duration: number = 900
+) {
+  const metricsPromise = page.evaluate(async (sampleDuration) => {
+    const intervals: number[] = [];
+    const longTasks: number[] = [];
+    let observer: PerformanceObserver | undefined;
+    let previous = performance.now();
+
+    if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
+      observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) longTasks.push(entry.duration);
+      });
+      observer.observe({ entryTypes: ["longtask"] });
+    }
+
+    const startedAt = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = (now: number) => {
+        intervals.push(now - previous);
+        previous = now;
+        if (now - startedAt >= sampleDuration) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+    observer?.disconnect();
+    const sorted = [...intervals].sort((a, b) => a - b);
+    return {
+      frames: intervals.length,
+      maxInterval: Math.max(...intervals),
+      p95Interval: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+      over33ms: intervals.filter((interval) => interval > 33.4).length,
+      maxLongTask: longTasks.length ? Math.max(...longTasks) : 0,
+    };
+  }, duration);
+
+  await page.waitForTimeout(50);
+  await action();
+  return metricsPromise;
+}
+
+test("contents tab clicks keep 60fps under CPU pressure and native swipes keep pace", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await waitForLibrary(page);
+  await importNavigationEpub(page);
+  await page.locator(`${libraryRoot} [data-book-id]`).first().click();
+  await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
+  await openContents(page);
+  await expect(page.locator("#toc-panel-chapters li")).toHaveCount(60);
+  await expect(
+    page.locator('[data-sheet-route="toc"] [data-motion-sheet="panel"]')
+  ).toContainText(/第 \d+ 页（共 \d+ 页）/, { timeout: 30_000 });
+  await page.waitForTimeout(500);
+
+  const session = await page.context().newCDPSession(page);
+  await session.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  const idleMetrics = await measureFrameCadence(page, async () => {});
+  const clickMetrics = await measureFrameCadence(page, async () => {
+    await page.locator("#toc-tab-bookmarks").click();
+    await expect.poll(() => snappedTabIndex(page)).toBe(1);
+  });
+  const warmedClickMetrics = await measureFrameCadence(page, async () => {
+    await page.locator("#toc-tab-chapters").click();
+    await expect.poll(() => snappedTabIndex(page)).toBe(0);
+  });
+  await session.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+
+  const viewport = page.locator('[data-toc-swipe-viewport="true"]');
+  const box = await viewport.boundingBox();
+  if (!box) throw new Error("Contents swipe viewport has no bounds");
+  const swipeMetrics = await measureFrameCadence(page, async () => {
+    await dragTouch(
+      page,
+      { x: box.x + box.width * 0.92, y: box.y + box.height * 0.45 },
+      { x: box.x + box.width * 0.06, y: box.y + box.height * 0.45 }
+    );
+    await expect.poll(() => snappedTabIndex(page)).toBe(1);
+  });
+  await session.detach();
+
+  expect(idleMetrics.p95Interval).toBeLessThanOrEqual(20);
+  expect(clickMetrics.p95Interval).toBeLessThanOrEqual(20);
+  expect(clickMetrics.maxInterval).toBeLessThanOrEqual(34);
+  expect(clickMetrics.over33ms).toBeLessThanOrEqual(1);
+  expect(clickMetrics.maxLongTask).toBeLessThan(50);
+  expect(swipeMetrics.p95Interval).toBeLessThanOrEqual(20);
+  expect(swipeMetrics.maxInterval).toBeLessThanOrEqual(50);
+  expect(swipeMetrics.over33ms).toBeLessThanOrEqual(1);
+  expect(warmedClickMetrics.p95Interval).toBeLessThanOrEqual(20);
+});
 
 test("contents tabs keep their height and follow native horizontal swipes", async ({
   page,

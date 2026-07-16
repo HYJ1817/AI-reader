@@ -5017,10 +5017,23 @@
 .tocTabIndicator {
   position: absolute;
   z-index: 0;
-  inset: 0;
-  border-radius: inherit;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 10px) / 3);
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.23);
   pointer-events: none;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--motion-standard) var(--ease-standard);
+}
+
+.tocTabs[data-active-tab="bookmarks"] .tocTabIndicator {
+  transform: translate3d(calc(100% + 2px), 0, 0);
+}
+
+.tocTabs[data-active-tab="highlights"] .tocTabIndicator {
+  transform: translate3d(calc(200% + 4px), 0, 0);
 }
 
 .tocTabLabel {
@@ -6796,6 +6809,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tocTabIndicator,
   .providerChoiceIcon,
   .providerModelCheck,
   .providerActiveBadge,

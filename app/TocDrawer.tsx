@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { m } from "motion/react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import type { AnnotationRecord } from "@/lib/db";
 import {
   flattenEpubNavigation,
   type EpubTocItem,
+  type FlatEpubTocItem,
 } from "@/lib/epubNavigation";
 import {
   getInitialVisibleItemCount,
@@ -21,9 +29,8 @@ import {
   getReaderTocTabScrollLeft,
   type ReaderTocTab,
 } from "@/lib/readerTocTabs";
-import { MOTION_SPRING } from "@/lib/motionSystem";
 import { useAppReducedMotion } from "./AppMotionRoot";
-import BottomSheet from "./BottomSheet";
+import BottomSheet, { type CloseSheet } from "./BottomSheet";
 import styles from "./page.module.css";
 
 type Props = {
@@ -67,6 +74,53 @@ function TrashIcon() {
   );
 }
 
+const ChapterContents = memo(function ChapterContents({
+  itemsExist,
+  visibleItems,
+  visibleCount,
+  totalCount,
+  loadSentinelRef,
+  close,
+  onSelect,
+}: {
+  itemsExist: boolean;
+  visibleItems: FlatEpubTocItem[];
+  visibleCount: number;
+  totalCount: number;
+  loadSentinelRef: RefObject<HTMLDivElement | null>;
+  close: CloseSheet;
+  onSelect: (href: string) => void;
+}) {
+  if (!itemsExist) {
+    return <p className={styles.tocEmptyText}>这本书没有目录信息</p>;
+  }
+
+  return (
+    <div className={styles.tocGroupList}>
+      <ul className={styles.tocList}>
+        {visibleItems.map((item) => (
+          <li key={item.id} className={styles.tocRow}>
+            <button
+              className={styles.tocRowButton}
+              style={{ paddingLeft: 12 + item.depth * 20 }}
+              onClick={() => close(() => onSelect(item.href))}
+            >
+              <span className={styles.tocRowLabel}>{item.label}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {visibleCount < totalCount && (
+        <div
+          ref={loadSentinelRef}
+          className={styles.tocLoadSentinel}
+          aria-hidden="true"
+        />
+      )}
+    </div>
+  );
+});
+
 export default function TocDrawer({
   items,
   bookmarks,
@@ -81,7 +135,7 @@ export default function TocDrawer({
   onClose,
 }: Props) {
   const reduceMotion = useAppReducedMotion();
-  const flatItems = flattenEpubNavigation(items);
+  const flatItems = useMemo(() => flattenEpubNavigation(items), [items]);
   const [activeTab, setActiveTab] =
     useState<"chapters" | "bookmarks" | "highlights">("chapters");
   const [visibleCount, setVisibleCount] = useState(() =>
@@ -93,7 +147,10 @@ export default function TocDrawer({
   const scrollFrameRef = useRef<number | null>(null);
   const activeTabRef = useRef<ReaderTocTab>("chapters");
   const programmaticTabRef = useRef<ReaderTocTab | null>(null);
-  const visibleItems = flatItems.slice(0, visibleCount);
+  const visibleItems = useMemo(
+    () => flatItems.slice(0, visibleCount),
+    [flatItems, visibleCount]
+  );
 
   const updateActiveTab = useCallback((tab: ReaderTocTab) => {
     activeTabRef.current = tab;
@@ -103,6 +160,7 @@ export default function TocDrawer({
   const selectTab = useCallback(
     (tab: ReaderTocTab) => {
       const viewport = viewportRef.current;
+      const previousTab = activeTabRef.current;
       programmaticTabRef.current = tab;
       updateActiveTab(tab);
       if (!viewport) return;
@@ -111,8 +169,27 @@ export default function TocDrawer({
           READER_TOC_TABS.indexOf(tab),
           viewport.clientWidth
         ),
-        behavior: reduceMotion ? "auto" : "smooth",
+        behavior: "auto",
       });
+      if (reduceMotion || previousTab === tab) return;
+      const direction =
+        READER_TOC_TABS.indexOf(tab) > READER_TOC_TABS.indexOf(previousTab)
+          ? 1
+          : -1;
+      const panel = viewport.querySelector<HTMLElement>(
+        `#toc-panel-${tab} [data-toc-panel-scroller="true"]`
+      );
+      panel?.getAnimations().forEach((animation) => animation.cancel());
+      panel?.animate(
+        [
+          { opacity: 0.7, transform: `translate3d(${direction * 24}px, 0, 0)` },
+          { opacity: 1, transform: "translate3d(0, 0, 0)" },
+        ],
+        {
+          duration: 240,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        }
+      );
     },
     [reduceMotion, updateActiveTab]
   );
@@ -254,31 +331,16 @@ export default function TocDrawer({
     close: (afterClose?: () => void) => void
   ) => {
     if (tab === "chapters") {
-      return items.length === 0 ? (
-        <p className={styles.tocEmptyText}>这本书没有目录信息</p>
-      ) : (
-        <div className={styles.tocGroupList}>
-          <ul className={styles.tocList}>
-            {visibleItems.map((item) => (
-              <li key={item.id} className={styles.tocRow}>
-                <button
-                  className={styles.tocRowButton}
-                  style={{ paddingLeft: 12 + item.depth * 20 }}
-                  onClick={() => close(() => onSelect(item.href))}
-                >
-                  <span className={styles.tocRowLabel}>{item.label}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {visibleCount < flatItems.length && (
-            <div
-              ref={loadSentinelRef}
-              className={styles.tocLoadSentinel}
-              aria-hidden="true"
-            />
-          )}
-        </div>
+      return (
+        <ChapterContents
+          itemsExist={items.length > 0}
+          visibleItems={visibleItems}
+          visibleCount={visibleCount}
+          totalCount={flatItems.length}
+          loadSentinelRef={loadSentinelRef}
+          close={close}
+          onSelect={onSelect}
+        />
       );
     }
 
@@ -322,7 +384,13 @@ export default function TocDrawer({
               </svg>
             </button>
           </div>
-          <div className={styles.tocTabs} role="tablist" aria-label="目录视图">
+          <div
+            className={styles.tocTabs}
+            role="tablist"
+            aria-label="目录视图"
+            data-active-tab={activeTab}
+          >
+            <span className={styles.tocTabIndicator} aria-hidden="true" />
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -334,20 +402,6 @@ export default function TocDrawer({
                 className={activeTab === tab.id ? styles.tocTabActive : undefined}
                 onClick={() => selectTab(tab.id)}
               >
-                {activeTab === tab.id &&
-                  (reduceMotion ? (
-                    <span
-                      className={styles.tocTabIndicator}
-                      aria-hidden="true"
-                    />
-                  ) : (
-                    <m.span
-                      layoutId="toc-active-tab-indicator"
-                      className={styles.tocTabIndicator}
-                      transition={MOTION_SPRING.navigation}
-                      aria-hidden="true"
-                    />
-                  ))}
                 <span className={styles.tocTabLabel}>
                   {tab.label}
                   {tab.count !== undefined && tab.count > 0
@@ -380,6 +434,7 @@ export default function TocDrawer({
                 <div
                   ref={tab.id === "chapters" ? chapterScrollRootRef : undefined}
                   className={styles.tocPanelScroller}
+                  data-toc-panel-scroller="true"
                 >
                   {renderPanel(tab.id, close)}
                 </div>

@@ -30,7 +30,9 @@ it("keeps all annotation pages mounted in a fixed-height swipe viewport", () => 
   expect(tocSource).toContain("READER_TOC_TABS");
   expect(tocSource).toContain('data-sheet-horizontal-gesture="true"');
   expect(tocSource).toContain('data-toc-swipe-viewport="true"');
-  expect(tocSource).toContain('layoutId="toc-active-tab-indicator"');
+  expect(tocSource).toContain('data-active-tab={activeTab}');
+  expect(tocSource).toContain('className={styles.tocTabIndicator}');
+  expect(tocSource).not.toContain('layoutId="toc-active-tab-indicator"');
   expect(tocSource).toContain("getNearestReaderTocTabIndex");
   expect(tocSource).toContain("aria-hidden={activeTab !== tab.id}");
   expect(css).toMatch(
@@ -38,4 +40,6 @@ it("keeps all annotation pages mounted in a fixed-height swipe viewport", () => 
   );
   expect(css).toContain("scroll-snap-type: x mandatory");
   expect(css).toContain("scroll-snap-align: start");
+  expect(css).toContain('.tocTabs[data-active-tab="bookmarks"]');
+  expect(css).toContain('.tocTabs[data-active-tab="highlights"]');
 });
