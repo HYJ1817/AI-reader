@@ -9,7 +9,7 @@ import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
 import TocDrawer from "@/app/TocDrawer";
 import { useNavigation } from "@/app/NavigationProvider";
-import type { BookGroup, BookRecord } from "@/lib/db";
+import type { AnnotationRecord, BookGroup, BookRecord } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import {
   formatLibraryProgressLabel,
@@ -39,6 +39,9 @@ export type AppOverlaysProps = {
     todayMinutes: number;
     targetMinutes: number;
     goalInputValue: number;
+    bookmarks: AnnotationRecord[];
+    highlights: AnnotationRecord[];
+    currentPageBookmarked: boolean;
   };
   library: {
     books: BookRecord[];
@@ -57,6 +60,9 @@ export type AppOverlaysProps = {
     changeReaderPreferences: (preferences: ReaderPreferences) => void;
     changeReaderMode: (mode: ReaderMode) => void;
     selectTocItem: (href: string) => void;
+    toggleBookmark: () => void;
+    selectAnnotation: (annotation: AnnotationRecord) => void;
+    deleteAnnotation: (id: string) => void;
     setQuestion: (question: string) => void;
     ask: () => void;
     clearSelection: () => void;
@@ -144,9 +150,15 @@ export default function AppOverlays({
         return (
           <TocDrawer
             items={reader.tocItems}
+            bookmarks={reader.bookmarks}
+            highlights={reader.highlights}
+            currentPageBookmarked={reader.currentPageBookmarked}
             bookTitle={reader.bookTitle}
             pageInfo={reader.pageInfo}
             onSelect={actions.selectTocItem}
+            onToggleBookmark={actions.toggleBookmark}
+            onSelectAnnotation={actions.selectAnnotation}
+            onDeleteAnnotation={actions.deleteAnnotation}
             onClose={navigation.dismissSheet}
           />
         );

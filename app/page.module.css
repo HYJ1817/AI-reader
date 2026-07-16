@@ -4997,6 +4997,111 @@
   color: #ffffff;
 }
 
+.tocTabPanel {
+  min-height: 180px;
+  animation: toc-panel-enter 170ms var(--ease-standard);
+}
+
+@keyframes toc-panel-enter {
+  from { opacity: 0; transform: translate3d(0, 4px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.annotationCurrentButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(100% - 44px);
+  min-height: 44px;
+  margin: 0 22px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 15px;
+  font-weight: 750;
+}
+
+.annotationList {
+  margin: 0 22px;
+  padding: 0;
+  list-style: none;
+}
+
+.annotationRow {
+  display: flex;
+  align-items: stretch;
+  min-height: 72px;
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+}
+
+.annotationJumpButton {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px 12px 16px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: left;
+}
+
+.annotationJumpButton:disabled {
+  opacity: 0.55;
+}
+
+.annotationExcerptLine {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.annotationColorMarker {
+  flex: 0 0 auto;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #ffd84d;
+}
+
+.annotationColorMarker[data-highlight-color="green"] { background: #65d68a; }
+.annotationColorMarker[data-highlight-color="blue"] { background: #62a8ff; }
+
+.annotationExcerpt {
+  min-width: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 680;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.annotationMeta {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.annotationDeleteButton {
+  flex: 0 0 auto;
+  display: grid;
+  width: 48px;
+  min-height: 48px;
+  place-items: center;
+  align-self: center;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.annotationDeleteButton:active,
+.annotationCurrentButton:active {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .tocSheet .sheetBody {
   padding-bottom: calc(var(--safe-bottom) + 12px);
 }
@@ -5034,6 +5139,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .tocTabPanel {
+    animation: none;
+  }
+
   .tocSheet .tocRowButton,
   .tocSheet .tocRowButton:active {
     transition: none;

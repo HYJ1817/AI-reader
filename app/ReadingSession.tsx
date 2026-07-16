@@ -32,7 +32,6 @@ type ReadingSessionProps = {
   paragraphChunks: string[][];
   highlights: AnnotationRecord[];
   chromeVisible: boolean;
-  tocItems: EpubTocItem[];
   textReaderRef: RefObject<HTMLDivElement | null>;
   epubReaderRef: RefObject<EpubReaderHandle | null>;
   getReadingPosition: (bookId: string) => Promise<ReadingPosition | undefined>;
@@ -70,7 +69,6 @@ export default function ReadingSession({
   paragraphChunks,
   highlights,
   chromeVisible,
-  tocItems,
   textReaderRef,
   epubReaderRef,
   getReadingPosition,
@@ -222,7 +220,6 @@ export default function ReadingSession({
         <ReaderControls
           onBack={onBack}
           onContents={onOpenContents}
-          hasToc={tocItems.length > 0 && book.format === "epub"}
           onOpenSettings={onOpenSettings}
           onAsk={onAsk}
           onWakeMenu={onReaderTap}

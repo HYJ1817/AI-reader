@@ -20,7 +20,7 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  type BookRecord, type BookGroup, type DailyReadingStat,
+  type AnnotationRecord, type BookRecord, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
 import { extractEpubCoverImage } from "@/lib/epubCover";
@@ -140,6 +140,7 @@ import useReaderAnnotations from "@/app/useReaderAnnotations";
 import {
   captureTxtSelection,
   captureCurrentTxtLocation,
+  navigateToTxtLocator,
 } from "@/lib/txtAnnotations";
 
 type ReaderTurnDirection = "prev" | "next";
@@ -1365,6 +1366,31 @@ export default function Home() {
     await epubReaderRef.current?.goTo(href);
   }, []);
 
+  const handleAnnotationSelect = useCallback(
+    async (record: AnnotationRecord) => {
+      if (!openBook || !record.locator) return;
+      if (openBook.format === "epub") {
+        await epubReaderRef.current?.goToAnnotation(record.locator);
+        return;
+      }
+      const reader = readerRef.current;
+      if (!reader) return;
+      navigateToTxtLocator(
+        reader,
+        record.locator,
+        readerMode,
+        record.progressPercent ?? 0,
+        shouldReduceReaderMotion({
+          appPreference: appPrefs.reduceMotion,
+          systemPreference: window.matchMedia(
+            "(prefers-reduced-motion: reduce)"
+          ).matches,
+        })
+      );
+    },
+    [appPrefs.reduceMotion, openBook, readerMode]
+  );
+
   function handleOpenGoalSheet() {
     setGoalInputValue(readingGoal.targetMinutes);
     navigation.presentSheet("reading-goal");
@@ -1634,7 +1660,6 @@ export default function Home() {
       paragraphChunks={paragraphChunks}
       highlights={readerHighlights}
       chromeVisible={readerChromeVisible}
-      tocItems={tocItems}
       textReaderRef={readerRef}
       epubReaderRef={epubReaderRef}
       getReadingPosition={getReadingPosition}
@@ -1912,6 +1937,9 @@ export default function Home() {
           todayMinutes: formatReadingMinutes(todaySeconds),
           targetMinutes: readingGoal.targetMinutes,
           goalInputValue,
+          bookmarks: annotations.bookmarks,
+          highlights: annotations.highlights,
+          currentPageBookmarked: annotations.currentBookmark !== null,
         }}
         library={{
           books,
@@ -1930,6 +1958,9 @@ export default function Home() {
           changeReaderPreferences: handleReaderPrefsChange,
           changeReaderMode: handleReaderModeChange,
           selectTocItem: handleTocSelect,
+          toggleBookmark: () => void toggleBookmark(),
+          selectAnnotation: (annotation) => void handleAnnotationSelect(annotation),
+          deleteAnnotation: (id) => void annotations.remove(id),
           setQuestion,
           ask: () => void handleAsk(),
           clearSelection: handleClearSelection,

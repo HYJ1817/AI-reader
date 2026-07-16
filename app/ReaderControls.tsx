@@ -89,7 +89,6 @@ const pagePillVariants = {
 type Props = {
   onBack: () => void;
   onContents: () => void;
-  hasToc: boolean;
   onOpenSettings: () => void;
   onAsk: () => void;
   onWakeMenu: () => void;
@@ -105,7 +104,6 @@ type Props = {
 export default function ReaderControls({
   onBack,
   onContents,
-  hasToc,
   onOpenSettings,
   onAsk,
   onWakeMenu,
@@ -120,9 +118,6 @@ export default function ReaderControls({
   const reduceMotion = useAppReducedMotion();
   const [controlsInert, setControlsInert] = useState(!visible);
 
-  const handleContents = () => {
-    if (hasToc) onContents();
-  };
   const colorLabels: Record<HighlightColor, string> = {
     yellow: "黄色",
     green: "绿色",
@@ -211,8 +206,7 @@ export default function ReaderControls({
           >
             <button
               className={styles.readerMenuRow}
-              onClick={handleContents}
-              disabled={!hasToc}
+                onClick={onContents}
             >
               <span>{UI_TEXT.CONTENTS}</span>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
