@@ -15,9 +15,10 @@
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
-- Latest product behavior commit: `53c7125` (`feat: add swipeable annotation
-  tabs`). Later commits add and stabilize browser coverage only.
-- Latest deployed Worker version: `ee8236bf-217a-421b-9385-186d32a5fbec`.
+- Latest product behavior commit: `8911f9a` (`perf: stabilize contents tab
+  transitions`). It supersedes the first swipeable-tab implementation for
+  click-transition performance while preserving native finger swipes.
+- Latest deployed Worker version: `1e9e5ad9-76fe-40e6-9210-a731a88503ee`.
 - GitHub CLI authentication is invalid. The deployed local branch is ahead of
   `origin/codex/custom-background-settings`; do not change credentials or
   remotes automatically. Push only after the user re-authenticates.
@@ -51,6 +52,50 @@ Product direction:
 - Preserve IndexedDB books, groups, progress, settings, custom backgrounds, and backups.
 - Prefer restrained iOS-like product UI: simple lists, large tap targets, bottom sheets, no marketing-style screens.
 - Real iPhone screenshots from the user are the acceptance source for visual bugs.
+
+## Contents Tab Performance Stabilization (2026-07-16)
+
+Implementation commit: `8911f9a`.
+
+Root cause and implementation:
+
+- The first Chapters -> Bookmarks click rebuilt the flattened navigation and
+  the first 60 chapter rows while native `scrollTo({ behavior: "smooth" })`
+  and Motion shared-layout projection were also starting. With a generated
+  120-chapter EPUB and 4x CPU throttling, the bad path reproduced at a 33.3ms
+  P95 frame interval, with 50-67ms frame gaps and 61-67ms long tasks.
+- The flattened/visible navigation arrays are memoized, and the chapter list is
+  now a memoized stable subtree instead of rerendering on every active-tab
+  change.
+- Label clicks immediately snap the already-mounted native scroll viewport and
+  animate only the destination panel's opacity/`translate3d` through WAAPI.
+  Finger gestures remain native horizontal scroll-snap, and reduced motion
+  still skips the panel animation.
+- The selected-tab pill is one persistent CSS transform layer keyed by
+  `data-active-tab`; it no longer mounts a new Motion layout-projection node on
+  every tab change.
+
+Verification evidence:
+
+- TDD red/green was observed: the original implementation failed with a 33.3ms
+  P95 click interval; the fixed implementation passed the frame budget.
+- Full Vitest: 154 files, 1422 tests passed. Full configured ESLint passed.
+- The focused performance case passed 4/4 across iPhone 14 and iPhone 15 Pro
+  Max. It waits for EPUB whole-book pagination, throttles tab clicks to 4x CPU,
+  enforces P95 <= 20ms / no 50ms long task, and measures native swipe cadence
+  separately so synthetic touch timers do not create false 30Hz input.
+- The other 80 Playwright cases passed in the full two-device matrix; the two
+  initial performance failures exposed the test's pagination/input-timing
+  races, which were corrected before the 4/4 focused rerun.
+- Standalone `next build --webpack`, OpenNext `build --skipNextBuild`, and
+  Cloudflare deployment passed. Worker version
+  `1e9e5ad9-76fe-40e6-9210-a731a88503ee` serves `881817.xyz/*`.
+- Production root, Service Worker, BUILD_ID, Manifest, Asset Links, APK, all
+  discovered page assets, and the new CSS/JS returned 200. The deployed bundle
+  contains the persistent tab selectors and compositor slide markers.
+- Production `reader-annotations.spec.ts` passed 8/8 across both configured
+  iPhone profiles, including the 4x CPU click budget, native swipes, annotation
+  persistence, and the `crypto.randomUUID` fallback.
 
 ## Reader Bookmarks and Three-Color Highlights (2026-07-16)
 
@@ -1844,10 +1889,10 @@ Use this opener in the new conversation:
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
 当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新完成的是目录抽屉标签动效：设计在 docs/superpowers/specs/2026-07-16-reader-annotation-tabs-motion-design.md，执行计划在 docs/superpowers/plans/2026-07-16-reader-annotation-tabs-motion.md。实现提交是 720575a、9082766、53c7125，浏览器覆盖是 bd871fd、3e0bff4。章节、书签和高亮现在位于固定高度的原生横向 scroll-snap 容器，点击与真实手指滑动均可切换；空标签不缩小弹窗；每页独立纵向滚动；减弱动效时即时切换。
-全量 Vitest 154 文件/1422 项、全仓 ESLint、普通及 standalone next build、OpenNext build、完整 Playwright 80/80（iPhone 14 与 iPhone 15 Pro Max）均通过；新触摸用例重复运行 10/10。连续位移由浏览器原生滚动和合成层 transform 承担，面向 ProMotion 90Hz 以上；Chromium 模拟不能证明 90Hz，真实 iPhone 性能 trace 仍是非阻塞验收项。
-最新正式 Worker 版本是 ee8236bf-217a-421b-9385-186d32a5fbec；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-生产根页面、10 个静态资源、Service Worker、BUILD_ID、Manifest、Asset Links、APK 均返回 200；生产 iPhone 14 标注聚焦 E2E 3/3 通过。GitHub HYJ1817 token 无效，本地分支领先 origin，尚未推送；不要自动修改凭证或远端。真实安卓 WebView、iPhone Safari/PWA、90Hz trace 与 VoiceOver 仍是非阻塞设备风险。
+最新完成的是目录抽屉标签性能稳定化，提交 8911f9a。首轮切换的根因是目录数组/60 行章节树重建、原生 smooth scroll 和 Motion layout projection 同时启动；现在目录结果与章节子树稳定缓存，点击使用即时定位加 WAAPI 合成层轻滑入，标签高亮使用单个常驻 CSS transform 层，手指滑动仍保留原生 scroll-snap，减弱动效仍即时切换。
+全量 Vitest 154 文件/1422 项、全仓 ESLint、standalone next build、OpenNext build 均通过。完整双设备 Playwright 的其余 80 项通过；修正性能测试的 EPUB 分页等待与合成触摸节奏后，4x CPU 点击预算及原生滑动用例复跑 4/4，生产 reader-annotations 双设备回归 8/8。Chromium 只能验证 60Hz 帧预算，真实 iPhone ProMotion trace 仍是非阻塞验收项。
+最新正式 Worker 版本是 1e9e5ad9-76fe-40e6-9210-a731a88503ee；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
+生产根页面、全部发现的静态资源、Service Worker、BUILD_ID、Manifest、Asset Links、APK 均返回 200；生产双设备 reader-annotations E2E 8/8 通过。GitHub HYJ1817 token 无效，本地分支领先 origin，尚未推送；不要自动修改凭证或远端。真实安卓 WebView、iPhone Safari/PWA、90Hz trace 与 VoiceOver 仍是非阻塞设备风险。
 独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
