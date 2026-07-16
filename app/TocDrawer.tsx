@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { m } from "motion/react";
 import type { AnnotationRecord } from "@/lib/db";
 import {
   flattenEpubNavigation,
@@ -14,10 +15,16 @@ import {
   formatReaderPageSummary,
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
+import {
+  READER_TOC_TABS,
+  getNearestReaderTocTabIndex,
+  getReaderTocTabScrollLeft,
+  type ReaderTocTab,
+} from "@/lib/readerTocTabs";
+import { MOTION_SPRING } from "@/lib/motionSystem";
+import { useAppReducedMotion } from "./AppMotionRoot";
 import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
-
-type TocTab = "chapters" | "bookmarks" | "highlights";
 
 type Props = {
   items: EpubTocItem[];
@@ -73,15 +80,87 @@ export default function TocDrawer({
   onDeleteAnnotation,
   onClose,
 }: Props) {
+  const reduceMotion = useAppReducedMotion();
   const flatItems = flattenEpubNavigation(items);
   const [activeTab, setActiveTab] =
     useState<"chapters" | "bookmarks" | "highlights">("chapters");
   const [visibleCount, setVisibleCount] = useState(() =>
     getInitialVisibleItemCount(flatItems.length, TOC_RENDER_BATCH)
   );
-  const scrollRootRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const chapterScrollRootRef = useRef<HTMLDivElement>(null);
   const loadSentinelRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
+  const activeTabRef = useRef<ReaderTocTab>("chapters");
+  const programmaticTabRef = useRef<ReaderTocTab | null>(null);
   const visibleItems = flatItems.slice(0, visibleCount);
+
+  const updateActiveTab = useCallback((tab: ReaderTocTab) => {
+    activeTabRef.current = tab;
+    setActiveTab(tab);
+  }, []);
+
+  const selectTab = useCallback(
+    (tab: ReaderTocTab) => {
+      const viewport = viewportRef.current;
+      programmaticTabRef.current = tab;
+      updateActiveTab(tab);
+      if (!viewport) return;
+      viewport.scrollTo({
+        left: getReaderTocTabScrollLeft(
+          READER_TOC_TABS.indexOf(tab),
+          viewport.clientWidth
+        ),
+        behavior: reduceMotion ? "auto" : "smooth",
+      });
+    },
+    [reduceMotion, updateActiveTab]
+  );
+
+  const handleViewportScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      const viewport = viewportRef.current;
+      if (!viewport) return;
+      const index = getNearestReaderTocTabIndex(
+        viewport.scrollLeft,
+        viewport.clientWidth
+      );
+      const nearestTab = READER_TOC_TABS[index];
+      const targetTab = programmaticTabRef.current;
+      if (targetTab && nearestTab !== targetTab) return;
+      programmaticTabRef.current = null;
+      if (nearestTab !== activeTabRef.current) updateActiveTab(nearestTab);
+    });
+  }, [updateActiveTab]);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const resnap = () => {
+      viewport.scrollTo({
+        left: getReaderTocTabScrollLeft(
+          READER_TOC_TABS.indexOf(activeTabRef.current),
+          viewport.clientWidth
+        ),
+        behavior: "auto",
+      });
+    };
+    const observer = new ResizeObserver(resnap);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     if (activeTab !== "chapters" || visibleCount >= flatItems.length) return;
@@ -103,17 +182,21 @@ export default function TocDrawer({
           getNextVisibleItemCount(current, flatItems.length, TOC_RENDER_BATCH)
         );
       },
-      { root: scrollRootRef.current, rootMargin: "320px 0px" }
+      { root: chapterScrollRootRef.current, rootMargin: "320px 0px" }
     );
     observer.observe(target);
     return () => observer.disconnect();
   }, [activeTab, flatItems.length, visibleCount]);
 
-  const tabs: Array<{ id: TocTab; label: string; count?: number }> = [
-    { id: "chapters", label: "章节" },
-    { id: "bookmarks", label: "书签", count: bookmarks.length },
-    { id: "highlights", label: "高亮标记", count: highlights.length },
-  ];
+  const tabMeta: Record<
+    ReaderTocTab,
+    { label: string; count?: number }
+  > = {
+    chapters: { label: "章节" },
+    bookmarks: { label: "书签", count: bookmarks.length },
+    highlights: { label: "高亮标记", count: highlights.length },
+  };
+  const tabs = READER_TOC_TABS.map((id) => ({ id, ...tabMeta[id] }));
 
   const renderAnnotations = (
     records: AnnotationRecord[],
@@ -166,6 +249,64 @@ export default function TocDrawer({
       </ul>
     );
 
+  const renderPanel = (
+    tab: ReaderTocTab,
+    close: (afterClose?: () => void) => void
+  ) => {
+    if (tab === "chapters") {
+      return items.length === 0 ? (
+        <p className={styles.tocEmptyText}>这本书没有目录信息</p>
+      ) : (
+        <div className={styles.tocGroupList}>
+          <ul className={styles.tocList}>
+            {visibleItems.map((item) => (
+              <li key={item.id} className={styles.tocRow}>
+                <button
+                  className={styles.tocRowButton}
+                  style={{ paddingLeft: 12 + item.depth * 20 }}
+                  onClick={() => close(() => onSelect(item.href))}
+                >
+                  <span className={styles.tocRowLabel}>{item.label}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {visibleCount < flatItems.length && (
+            <div
+              ref={loadSentinelRef}
+              className={styles.tocLoadSentinel}
+              aria-hidden="true"
+            />
+          )}
+        </div>
+      );
+    }
+
+    if (tab === "bookmarks") {
+      return (
+        <>
+          <button
+            className={styles.annotationCurrentButton}
+            onClick={onToggleBookmark}
+          >
+            {currentPageBookmarked ? "移除当前页书签" : "添加当前页书签"}
+          </button>
+          {renderAnnotations(
+            bookmarks,
+            "还没有书签，在阅读菜单中添加当前位置",
+            close
+          )}
+        </>
+      );
+    }
+
+    return renderAnnotations(
+      highlights,
+      "还没有高亮，长按正文选择文字",
+      close
+    );
+  };
+
   return (
     <BottomSheet onClose={onClose} className={styles.tocSheet} ariaLabel="目录与标记">
       {(close) => (
@@ -191,54 +332,59 @@ export default function TocDrawer({
                 aria-selected={activeTab === tab.id}
                 aria-controls={`toc-panel-${tab.id}`}
                 className={activeTab === tab.id ? styles.tocTabActive : undefined}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => selectTab(tab.id)}
               >
-                {tab.label}
-                {tab.count !== undefined && tab.count > 0 ? ` ${tab.count}` : ""}
+                {activeTab === tab.id &&
+                  (reduceMotion ? (
+                    <span
+                      className={styles.tocTabIndicator}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <m.span
+                      layoutId="toc-active-tab-indicator"
+                      className={styles.tocTabIndicator}
+                      transition={MOTION_SPRING.navigation}
+                      aria-hidden="true"
+                    />
+                  ))}
+                <span className={styles.tocTabLabel}>
+                  {tab.label}
+                  {tab.count !== undefined && tab.count > 0
+                    ? ` ${tab.count}`
+                    : ""}
+                </span>
               </button>
             ))}
           </div>
-          <div ref={scrollRootRef} className={styles.sheetBody}>
-            <div
-              id={`toc-panel-${activeTab}`}
-              role="tabpanel"
-              aria-labelledby={`toc-tab-${activeTab}`}
-              className={styles.tocTabPanel}
-            >
-              {activeTab === "chapters" &&
-                (items.length === 0 ? (
-                  <p className={styles.tocEmptyText}>这本书没有目录信息</p>
-                ) : (
-                  <div className={styles.tocGroupList}>
-                    <ul className={styles.tocList}>
-                      {visibleItems.map((item) => (
-                        <li key={item.id} className={styles.tocRow}>
-                          <button
-                            className={styles.tocRowButton}
-                            style={{ paddingLeft: 12 + item.depth * 20 }}
-                            onClick={() => close(() => onSelect(item.href))}
-                          >
-                            <span className={styles.tocRowLabel}>{item.label}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                    {visibleCount < flatItems.length && (
-                      <div ref={loadSentinelRef} className={styles.tocLoadSentinel} aria-hidden="true" />
-                    )}
-                  </div>
-                ))}
-              {activeTab === "bookmarks" && (
-                <>
-                  <button className={styles.annotationCurrentButton} onClick={onToggleBookmark}>
-                    {currentPageBookmarked ? "移除当前页书签" : "添加当前页书签"}
-                  </button>
-                  {renderAnnotations(bookmarks, "还没有书签，在阅读菜单中添加当前位置", close)}
-                </>
-              )}
-              {activeTab === "highlights" &&
-                renderAnnotations(highlights, "还没有高亮，长按正文选择文字", close)}
-            </div>
+          <div
+            ref={viewportRef}
+            className={styles.tocSwipeViewport}
+            data-sheet-horizontal-gesture="true"
+            data-toc-swipe-viewport="true"
+            onPointerDown={() => {
+              programmaticTabRef.current = null;
+            }}
+            onScroll={handleViewportScroll}
+          >
+            {tabs.map((tab) => (
+              <section
+                key={tab.id}
+                id={`toc-panel-${tab.id}`}
+                role="tabpanel"
+                aria-labelledby={`toc-tab-${tab.id}`}
+                aria-hidden={activeTab !== tab.id}
+                {...(activeTab !== tab.id ? { inert: true } : {})}
+                className={styles.tocSwipePanel}
+              >
+                <div
+                  ref={tab.id === "chapters" ? chapterScrollRootRef : undefined}
+                  className={styles.tocPanelScroller}
+                >
+                  {renderPanel(tab.id, close)}
+                </div>
+              </section>
+            ))}
           </div>
         </>
       )}

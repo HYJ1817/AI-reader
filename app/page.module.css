@@ -4923,7 +4923,9 @@
 }
 
 .tocSheet {
+  height: min(92dvh, 760px);
   max-height: min(92dvh, 760px);
+  overflow: hidden;
   background: color-mix(in srgb, #1f1f1f 88%, var(--sheet-fill));
   color: rgba(255, 255, 255, 0.9);
   border-radius: 24px 24px 0 0;
@@ -4987,8 +4989,10 @@
 }
 
 .tocTabs {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  flex-shrink: 0;
   gap: 2px;
   margin: 0 22px 22px;
   padding: 3px;
@@ -4997,6 +5001,8 @@
 }
 
 .tocTabs button {
+  position: relative;
+  isolation: isolate;
   min-height: 44px;
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.78);
@@ -5005,18 +5011,54 @@
 }
 
 .tocTabs .tocTabActive {
-  background: rgba(255, 255, 255, 0.23);
   color: #ffffff;
 }
 
-.tocTabPanel {
-  min-height: 180px;
-  animation: toc-panel-enter 170ms var(--ease-standard);
+.tocTabIndicator {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background: rgba(255, 255, 255, 0.23);
+  pointer-events: none;
 }
 
-@keyframes toc-panel-enter {
-  from { opacity: 0; transform: translate3d(0, 4px, 0); }
-  to { opacity: 1; transform: translate3d(0, 0, 0); }
+.tocTabLabel {
+  position: relative;
+  z-index: 1;
+}
+
+.tocSwipeViewport {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.tocSwipeViewport::-webkit-scrollbar {
+  display: none;
+}
+
+.tocSwipePanel {
+  min-width: 100%;
+  min-height: 0;
+  flex: 0 0 100%;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.tocPanelScroller {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(var(--safe-bottom) + 12px);
+  -webkit-overflow-scrolling: touch;
 }
 
 .annotationCurrentButton {
@@ -5114,10 +5156,6 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-.tocSheet .sheetBody {
-  padding-bottom: calc(var(--safe-bottom) + 12px);
-}
-
 .tocSheet .tocGroupList {
   margin: 0 22px;
   border: 0;
@@ -5151,10 +5189,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tocTabPanel {
-    animation: none;
-  }
-
   .tocSheet .tocRowButton,
   .tocSheet .tocRowButton:active {
     transition: none;
