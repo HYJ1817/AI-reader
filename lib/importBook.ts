@@ -1,5 +1,6 @@
 import type { BookRecord } from "./db";
 import { extractEpubCoverImage } from "./epubCover";
+import { createLocalId } from "./localId";
 
 export const SUPPORTED_BOOK_EXTENSIONS = ["epub", "txt"] as const;
 
@@ -36,7 +37,7 @@ export async function createBookRecordFromFile(
     format === "epub" ? await extractEpubCoverImage(fileBlob) : undefined;
 
   return {
-    id: crypto.randomUUID(),
+    id: createLocalId(),
     title: titleFromFileName(file.name),
     format,
     fileName: file.name,

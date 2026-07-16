@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import JSZip from "jszip";
 import {
   SUPPORTED_BOOK_EXTENSIONS,
@@ -62,6 +62,8 @@ describe("titleFromFileName", () => {
 });
 
 describe("createBookRecordFromFile", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   function makeFile(name: string, content = "test content"): File {
     return new File([content], name, { type: "application/octet-stream" });
   }
@@ -152,5 +154,13 @@ describe("createBookRecordFromFile", () => {
     const r2 = await createBookRecordFromFile(makeFile("b.txt"));
 
     expect(r1.id).not.toBe(r2.id);
+  });
+
+  it("imports on older Android browsers without crypto.randomUUID", async () => {
+    vi.stubGlobal("crypto", {});
+
+    const record = await createBookRecordFromFile(makeFile("android.txt"));
+
+    expect(record.id).toMatch(/^local-/);
   });
 });

@@ -135,9 +135,9 @@ import {
 } from "@/lib/readerControlDiscovery";
 import useCustomBackground from "@/app/useCustomBackground";
 import { requestPersistentStorage } from "@/lib/storagePersistence";
+import { createLocalId } from "@/lib/localId";
 import useAskAi from "@/app/useAskAi";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
-
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -619,7 +619,7 @@ export default function Home() {
     const trimmed = newGroupName.trim();
     if (!trimmed || !groupSheetBook) return;
     const group: BookGroup = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       name: trimmed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -703,7 +703,7 @@ export default function Home() {
     const trimmed = newGroupName.trim();
     if (!trimmed || selectedBookIds.length === 0) return;
     const group: BookGroup = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       name: trimmed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -718,7 +718,7 @@ export default function Home() {
     const trimmed = newGroupName.trim();
     if (!trimmed) return;
     const group: BookGroup = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       name: trimmed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
