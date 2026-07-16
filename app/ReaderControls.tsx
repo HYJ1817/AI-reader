@@ -206,6 +206,7 @@ export default function ReaderControls({
           >
             <button
               className={styles.readerMenuRow}
+              data-reader-contents="true"
                 onClick={onContents}
             >
               <span>{UI_TEXT.CONTENTS}</span>
@@ -223,7 +224,11 @@ export default function ReaderControls({
             custom={reduceMotion}
             variants={menuRowVariants}
           >
-            <button className={styles.readerMenuRow} onClick={onToggleBookmark}>
+            <button
+              className={styles.readerMenuRow}
+              data-reader-bookmark-toggle="true"
+              onClick={onToggleBookmark}
+            >
               <span>{currentPageBookmarked ? "移除本页书签" : "添加书签"}</span>
               <svg width="24" height="24" viewBox="0 0 24 24" fill={currentPageBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" aria-hidden="true">
                 <path d="M6 3h12v18l-6-4-6 4V3z" strokeLinejoin="round" />

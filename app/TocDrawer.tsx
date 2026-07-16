@@ -125,9 +125,15 @@ export default function TocDrawer({
     ) : (
       <ul className={styles.annotationList}>
         {records.map((record) => (
-          <li key={record.id} className={styles.annotationRow}>
+          <li
+            key={record.id}
+            className={styles.annotationRow}
+            data-annotation-id={record.id}
+            data-annotation-kind={record.kind}
+          >
             <button
               className={styles.annotationJumpButton}
+              data-annotation-jump="true"
               disabled={!record.locator}
               onClick={() => close(() => onSelectAnnotation(record))}
             >
@@ -149,6 +155,7 @@ export default function TocDrawer({
             </button>
             <button
               className={styles.annotationDeleteButton}
+              data-annotation-delete="true"
               onClick={() => onDeleteAnnotation(record.id)}
               aria-label={`删除${record.kind === "bookmark" ? "书签" : "高亮"}`}
             >
