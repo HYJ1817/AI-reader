@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   canStartEdgeBack,
@@ -6,7 +7,18 @@ import {
   shouldCompleteSheetDismiss,
 } from "./navigationGestures";
 
+const motionSheetSource = readFileSync(
+  new URL("../app/MotionSheet.tsx", import.meta.url),
+  "utf8"
+);
+
 describe("sheet gestures", () => {
+  it("leaves declared horizontal gesture regions to nested scrollers", () => {
+    expect(motionSheetSource).toContain(
+      "[data-sheet-horizontal-gesture='true']"
+    );
+  });
+
   it("claims headers and top-of-scroll downward body drags", () => {
     expect(
       canSheetClaimGesture({ fromHeader: true, scrollTop: 80, deltaY: 12 })

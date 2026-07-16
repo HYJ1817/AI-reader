@@ -111,7 +111,7 @@ function isInteractiveControl(target: EventTarget | null): boolean {
     target instanceof Element &&
     Boolean(
       target.closest(
-        "button, a, input, textarea, select, option, [contenteditable='true'], [role='slider']"
+        "button, a, input, textarea, select, option, [contenteditable='true'], [role='slider'], [data-sheet-horizontal-gesture='true']"
       )
     )
   );
