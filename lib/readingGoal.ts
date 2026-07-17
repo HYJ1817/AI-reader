@@ -30,7 +30,7 @@ function clampTargetMinutes(value: unknown): number {
     return DEFAULT_READING_TARGET_MINUTES;
   }
   const int = Math.floor(value);
-  if (int < 1) return 1;
+  if (int < 0) return 0;
   if (int > 1440) return 1440;
   return int;
 }

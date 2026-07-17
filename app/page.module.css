@@ -4291,49 +4291,20 @@
 .goalWheel {
   position: relative;
   width: 100%;
-  height: 170px;
+  height: 220px;
   margin-top: 10px;
   overflow: hidden;
-  border: 0.5px solid var(--hairline);
-  border-radius: 16px;
-  background: var(--surface-primary);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-  cursor: ns-resize;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: grab;
   touch-action: none;
   user-select: none;
 }
 
-.goalWheel::before,
-.goalWheel::after {
-  content: "";
-  position: absolute;
-  z-index: 2;
-  left: 0;
-  right: 0;
-  height: 44px;
-  pointer-events: none;
-}
-
-.goalWheel::before {
-  top: 0;
-  background: linear-gradient(var(--surface-primary), transparent);
-}
-
-.goalWheel::after {
-  bottom: 0;
-  background: linear-gradient(transparent, var(--surface-primary));
-}
-
-.goalWheelBand {
-  position: absolute;
-  top: 50%;
-  left: 12px;
-  right: 12px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--control-fill);
-  transform: translateY(-50%);
-  pointer-events: none;
+.goalWheelDragging {
+  cursor: grabbing;
 }
 
 .goalWheelRows {
@@ -4350,46 +4321,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 34px;
-  color: var(--text-tertiary);
-  font-size: 18px;
-  font-weight: 450;
-  line-height: 1;
-  transform: translateY(
-    calc(
-      -50% + var(--goal-wheel-offset) + var(--goal-wheel-drag-offset, 0px)
-    )
-  );
-  transition:
-    color var(--motion-fast) var(--ease-standard),
-    font-size var(--motion-fast) var(--ease-standard),
-    opacity var(--motion-fast) var(--ease-standard),
-    transform 120ms var(--ease-standard);
-}
-
-.goalWheelDragging .goalWheelRow {
-  transition:
-    color var(--motion-fast) var(--ease-standard),
-    font-size var(--motion-fast) var(--ease-standard),
-    opacity var(--motion-fast) var(--ease-standard);
-}
-
-.goalWheelRowSelected {
-  color: var(--text-primary);
-  font-size: 25px;
-  font-weight: 550;
-  opacity: 1;
-}
-
-.goalWheelRowNeighbor {
+  height: 2.38rem;
   color: var(--text-secondary);
-  font-size: 20px;
-  opacity: 0.72;
-}
-
-.goalWheelRowEdge {
-  font-size: 18px;
-  opacity: 0.28;
+  font-size: 1.7rem;
+  font-weight: 400;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  transform: translateY(-50%);
+  transform-origin: center;
 }
 
 @media (max-height: 760px) {
@@ -4432,6 +4371,10 @@
     padding-top: 16px;
   }
 
+  .goalWheel {
+    height: 190px;
+  }
+
   .goalBottomAction {
     min-height: 48px;
   }
@@ -4440,8 +4383,7 @@
 @media (prefers-reduced-motion: reduce) {
   .goalArcProgress,
   .goalCloseButton,
-  .goalBottomAction,
-  .goalWheelRow {
+  .goalBottomAction {
     transition: none;
   }
 }
