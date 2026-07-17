@@ -15,11 +15,14 @@
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
-- Latest product behavior commit: `8911f9a` (`perf: stabilize contents tab
-  transitions`). It supersedes the first swipeable-tab implementation for
+- Latest local product behavior commit:
+  `5af6f8045f205395478358ab0fddd83524427d4b` (`feat: port reading goal
+  option wheel`). It is committed locally but has not been pushed or deployed.
+- Latest deployed product behavior commit: `8911f9a` (`perf: stabilize contents
+  tab transitions`). It supersedes the first swipeable-tab implementation for
   click-transition performance while preserving native finger swipes.
 - Latest deployed Worker version: `1e9e5ad9-76fe-40e6-9210-a731a88503ee`.
-- GitHub CLI authentication is invalid. The deployed local branch is ahead of
+- GitHub CLI authentication is invalid. The local branch is ahead of
   `origin/codex/custom-background-settings`; do not change credentials or
   remotes automatically. Push only after the user re-authenticates.
 
@@ -52,6 +55,73 @@ Product direction:
 - Preserve IndexedDB books, groups, progress, settings, custom backgrounds, and backups.
 - Prefer restrained iOS-like product UI: simple lists, large tap targets, bottom sheets, no marketing-style screens.
 - Real iPhone screenshots from the user are the acceptance source for visual bugs.
+
+## Reading Goal React Bits Option Wheel (2026-07-17)
+
+Feature implementation commit: `5af6f8045f205395478358ab0fddd83524427d4b`
+(`feat: port reading goal option wheel`). Approved reference:
+<https://reactbits.dev/components/option-wheel?curve=0&tilt=0&smoothing=250&fontSize=1.7>.
+
+Implemented behavior:
+
+- The Reading Goal minute picker is a direct TypeScript port of the React Bits
+  Option Wheel target-position model. It keeps 250ms animation-frame smoothing,
+  step-based blur/fade/emphasis, nonessential rate-limited tick audio, and
+  immediate reduced-motion selection without adding a picker dependency.
+- Every whole minute from `0` through `1440` is supported in one-minute steps.
+  The wheel is non-looping and clamps at both bounds; Arrow keys, Page Up/Down,
+  Home, and End retain their accessible spinbutton behavior.
+- The visual DOM is always one exact 15-row virtual window, while calculations
+  continue over the complete 1,441-value domain. A native non-passive wheel
+  listener normalizes pixel, line, and page `deltaMode` values. Rapid keyboard
+  input queues from the current target, and real pointer dragging uses capture
+  with cancellation/lost-capture recovery.
+- The controlled draft/save flow remains intact. Local parent echoes are
+  guarded without interrupting an active interaction, then the latest
+  controlled value is reconciled once after settling. Pressing Done persists
+  the draft (including `0`); closing without saving restores the saved target.
+- Unmount disables callback emission synchronously, cancels animation and
+  wheel-settle work, releases pointer state, and pauses/releases audio. Missing
+  Audio support and rejected playback never block selection.
+- The wheel is frameless and uses product theme tokens with the React Bits
+  `1.7rem` typography and `1.4` spacing. It has no selection band, card border,
+  shadow, hard-coded demo color, or permanent animation layer. The compact
+  short-screen geometry is explicitly validated at `190px` with 15 rows.
+
+Attribution and asset:
+
+- The complete React Bits MIT + Commons Clause notice is retained in
+  `THIRD_PARTY_NOTICES.md`, with source attribution beside the derived
+  component.
+- The official selection sound is
+  `public/assets/sounds/click-soft.mp3`: 669 bytes, SHA-256
+  `f48d32b27fc23a4702db92d1bc2a0b6e0150bc4e6c0688a170a7cd0bb9192541`.
+
+Fresh verification after the final TypeScript cleanup:
+
+- `npm test`: 155 Vitest files / 1446 tests passed.
+- `npm run lint`: full configured ESLint passed with exit code 0.
+- `npm run build`: Next.js 16.2.6 webpack production build passed, including
+  TypeScript, 6/6 static pages, and build-trace collection.
+- `npx playwright test e2e/reading-goal-wheel.spec.ts e2e/reading-dashboard.spec.ts e2e/native-navigation.spec.ts --project=iphone-14`:
+  24/24 passed (6 goal-wheel, 5 dashboard, 13 native-navigation).
+- `npx playwright test e2e/reading-goal-wheel.spec.ts e2e/reading-dashboard.spec.ts e2e/native-navigation.spec.ts --project=iphone-15-pro-max`:
+  24/24 passed with the same suite breakdown.
+- `git diff --check` and the staged feature diff check passed; only the normal
+  Windows LF-to-CRLF informational warnings were emitted.
+
+The saved-goal reload case observes the pre-existing, recovered development
+hydration warning when a non-default localStorage goal differs from server
+markup. Only that persistence E2E case narrowly allowlists the exact warning
+prefix; every other page and console error remains forbidden. This is an
+appropriate future hydration follow-up, not an Option Wheel interaction
+failure.
+
+Current state is committed locally but intentionally not deployed or pushed.
+Production remains <https://881817.xyz> on Worker version
+`1e9e5ad9-76fe-40e6-9210-a731a88503ee`. Recommended next step: review and
+deploy only when explicitly requested and GitHub authentication works; do not
+change credentials or remotes automatically.
 
 ## Contents Tab Performance Stabilization (2026-07-16)
 
