@@ -16,8 +16,9 @@
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest local product behavior commit:
-  `5af6f8045f205395478358ab0fddd83524427d4b` (`feat: port reading goal
-  option wheel`). It is committed locally but has not been pushed or deployed.
+  `39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading
+  goal wheel values`). It is committed locally but has not been pushed or
+  deployed.
 - Latest deployed product behavior commit: `8911f9a` (`perf: stabilize contents
   tab transitions`). It supersedes the first swipeable-tab implementation for
   click-transition performance while preserving native finger swipes.
@@ -116,6 +117,30 @@ markup. Only that persistence E2E case narrowly allowlists the exact warning
 prefix; every other page and console error remains forbidden. This is an
 appropriate future hydration follow-up, not an Option Wheel interaction
 failure.
+
+Controlled invalid-value follow-up commit:
+`39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading goal
+wheel values`). Mounted `NaN`, `Infinity`, and `-Infinity` controlled values now
+flow through the existing `clampReadingGoalMinutes` domain helper and resolve
+to `0`, matching the approved failure contract instead of preserving a stale
+selection.
+
+Fresh follow-up verification:
+
+- `npm test`: 155 Vitest files / 1446 tests passed.
+- `npm run lint`: full configured ESLint passed with exit code 0.
+- `npm run build`: Next.js 16.2.6 webpack production build passed, including
+  TypeScript, 6/6 static pages, and build-trace collection.
+- The required goal-wheel, dashboard, and native-navigation Playwright command
+  passed 24/24 on iPhone 14 and 24/24 on iPhone 15 Pro Max.
+- `git diff --check` and the staged fix diff check passed with only normal
+  Windows LF-to-CRLF informational warnings.
+
+This follow-up is committed locally and was not pushed or deployed. Zero
+remains valid in the picker and persistence, while existing progress, reading
+statistics, and dashboard semantics intentionally remain unchanged under the
+approved scope. If revisited, explicitly choose disabled-goal versus
+trivially-complete semantics rather than silently coercing zero to one minute.
 
 Current state is committed locally but intentionally not deployed or pushed.
 Production remains <https://881817.xyz> on Worker version
