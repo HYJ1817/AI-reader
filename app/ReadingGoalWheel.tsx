@@ -420,7 +420,6 @@ export default function ReadingGoalWheel({
       localEchoValuesRef.current.clear();
     }
 
-    if (!Number.isFinite(value)) return;
     const nextValue = clampReadingGoalMinutes(value);
     if (nextValue === selectedRef.current) return;
     if (

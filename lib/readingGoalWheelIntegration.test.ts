@@ -22,8 +22,11 @@ describe("ReadingGoalWheel integration", () => {
     expect(source).toContain("onChangeRef.current(nextValue)");
   });
 
-  it("ignores nonfinite controlled values", () => {
-    expect(source).toContain("if (!Number.isFinite(value)) return;");
+  it("clamps nonfinite controlled values before synchronizing", () => {
+    expect(source).not.toContain("if (!Number.isFinite(value)) return;");
+    expect(source).toContain(
+      "const nextValue = clampReadingGoalMinutes(value);"
+    );
   });
 
   it("supports smoothed keyboard, wheel, and pointer input", () => {
