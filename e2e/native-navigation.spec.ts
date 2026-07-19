@@ -32,6 +32,7 @@ const sampleText = readFileSync(
 );
 const libraryRootSelector =
   '[data-navigation-root="library"][aria-hidden="false"]';
+const primaryNavigationName = /\u4e3b\u8981\u5bfc\u822a/;
 
 async function importBook(
   page: Page,
@@ -386,7 +387,14 @@ test("root scroll position survives tab changes", async ({ page }) => {
 test("root chrome stays compact, semantic, and safely tappable", async ({
   page,
 }, testInfo) => {
-  const navigation = page.getByRole("navigation", { name: "主要导航" });
+  const app = page.locator('[data-app-shell="true"]');
+  await app.evaluate((element) => {
+    element.setAttribute("data-reader-theme", "light");
+  });
+
+  const navigation = page.getByRole("navigation", {
+    name: primaryNavigationName,
+  });
   const tabs = navigation.locator("[data-navigation-tab]");
   const title = page.locator(`${libraryRootSelector} h1`).first();
 
@@ -398,37 +406,69 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   await expect(
     navigation.locator('[data-navigation-tab="library"]')
   ).toHaveAttribute("aria-current", "page");
-  await expect(
-    navigation.locator('[data-navigation-tab="library"]')
-  ).toHaveCSS("color", "rgb(0, 122, 255)");
+  const libraryTab = navigation.locator('[data-navigation-tab="library"]');
+  await expect(libraryTab).toHaveCSS("color", "rgb(5, 5, 5)");
+  await expect(libraryTab.locator("span")).toHaveCSS(
+    "color",
+    "rgb(5, 5, 5)"
+  );
+  await expect(libraryTab.locator("svg")).toHaveCSS(
+    "color",
+    "rgb(255, 255, 255)"
+  );
 
   const geometry = await navigation.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    const tabRects = Array.from(
+    const style = getComputedStyle(element);
+    const standardBackdrop = style.getPropertyValue("backdrop-filter");
+    const prefixedBackdrop = style.getPropertyValue(
+      "-webkit-backdrop-filter"
+    );
+    const backdropFilter =
+      standardBackdrop !== "none" ? standardBackdrop : prefixedBackdrop;
+    const tabs = Array.from(
       element.querySelectorAll<HTMLElement>("[data-navigation-tab]")
     ).map((tab) => {
       const tabRect = tab.getBoundingClientRect();
       return { width: tabRect.width, height: tabRect.height };
     });
-    const indicator = element.querySelector<HTMLElement>("[aria-hidden='true']");
-    const line = indicator ? getComputedStyle(indicator, "::after") : null;
+    const indicator = element.querySelector<HTMLElement>(
+      '[data-root-tab-indicator="true"]'
+    );
+    if (!indicator) throw new Error("Root tab indicator is missing");
+    const backing = getComputedStyle(indicator, "::after");
     return {
+      width: rect.width,
       height: rect.height,
+      centerError: Math.abs(rect.left + rect.width / 2 - innerWidth / 2),
       bottomGap: window.innerHeight - rect.bottom,
-      tabRects,
-      lineWidth: line?.width,
-      lineHeight: line?.height,
+      borderRadius: style.borderRadius,
+      backdropFilter,
+      tabs,
+      backingWidth: Number.parseFloat(backing.width),
+      backingHeight: Number.parseFloat(backing.height),
+      backingRadius: backing.borderRadius,
+      backingColor: backing.backgroundColor,
     };
   });
 
-  expect(geometry.height).toBe(60);
+  expect(geometry.width).toBeLessThanOrEqual(302.5);
+  expect(geometry.height).toBe(76);
+  expect(geometry.centerError).toBeLessThanOrEqual(0.5);
   expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
-  for (const rect of geometry.tabRects) {
+  expect(geometry.borderRadius).toBe("33px");
+  expect(geometry.backdropFilter).toContain("blur(14px)");
+  expect(geometry.backingWidth).toBe(31);
+  expect(geometry.backingHeight).toBe(31);
+  expect(geometry.backingRadius).toBe("10px");
+  expect(geometry.backingColor).toBe("rgb(125, 85, 231)");
+  for (const rect of geometry.tabs) {
     expect(rect.width).toBeGreaterThanOrEqual(44);
     expect(rect.height).toBeGreaterThanOrEqual(44);
   }
-  expect(geometry.lineWidth).toBe("24px");
-  expect(geometry.lineHeight).toBe("2px");
+  await expect(navigation.locator('[data-root-tab-gear="true"]')).toHaveCount(
+    1
+  );
 
   await hideNextDevIndicator(page);
   await capture(page, testInfo, "chrome-library");
@@ -439,9 +479,16 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   await expect(
     navigation.locator('[data-navigation-tab="reading"]')
   ).toHaveAttribute("aria-current", "page");
-  await expect(
-    navigation.locator('[data-navigation-tab="reading"]')
-  ).toHaveCSS("color", "rgb(0, 122, 255)");
+  const readingTab = navigation.locator('[data-navigation-tab="reading"]');
+  await expect(readingTab).toHaveCSS("color", "rgb(5, 5, 5)");
+  await expect(readingTab.locator("span")).toHaveCSS(
+    "color",
+    "rgb(5, 5, 5)"
+  );
+  await expect(readingTab.locator("svg")).toHaveCSS(
+    "color",
+    "rgb(255, 255, 255)"
+  );
   await page.waitForTimeout(420);
   await hideNextDevIndicator(page);
   await capture(page, testInfo, "chrome-reading");
@@ -453,12 +500,150 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   await expect(
     navigation.locator('[data-navigation-tab="settings"]')
   ).toHaveAttribute("aria-current", "page");
-  await expect(
-    navigation.locator('[data-navigation-tab="settings"]')
-  ).toHaveCSS("color", "rgb(0, 122, 255)");
+  const settingsTab = navigation.locator('[data-navigation-tab="settings"]');
+  await expect(settingsTab).toHaveCSS("color", "rgb(5, 5, 5)");
+  await expect(settingsTab.locator("span")).toHaveCSS(
+    "color",
+    "rgb(5, 5, 5)"
+  );
+  await expect(settingsTab.locator("svg")).toHaveCSS(
+    "color",
+    "rgb(255, 255, 255)"
+  );
   await page.waitForTimeout(420);
   await hideNextDevIndicator(page);
   await capture(page, testInfo, "chrome-settings");
+});
+
+test("root navigation follows light, sepia, and dark frosted materials", async ({
+  page,
+}, testInfo) => {
+  const app = page.locator('[data-app-shell="true"]');
+  const navigation = page.getByRole("navigation", {
+    name: primaryNavigationName,
+  });
+  const backgrounds: string[] = [];
+
+  await expect(navigation).toBeVisible();
+  await hideNextDevIndicator(page);
+
+  for (const theme of ["light", "sepia", "dark"] as const) {
+    await app.evaluate((element, nextTheme) => {
+      element.setAttribute("data-reader-theme", nextTheme);
+    }, theme);
+    const material = await navigation.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const standardBackdrop = style.getPropertyValue("backdrop-filter");
+      const prefixedBackdrop = style.getPropertyValue(
+        "-webkit-backdrop-filter"
+      );
+      const backdropFilter =
+        standardBackdrop !== "none" ? standardBackdrop : prefixedBackdrop;
+      if (!backdropFilter.includes("blur(14px)")) {
+        throw new Error(`Unexpected root navigation backdrop: ${backdropFilter}`);
+      }
+      return {
+        backgroundColor: style.backgroundColor,
+        color: style.color,
+      };
+    });
+    backgrounds.push(material.backgroundColor);
+    const expectedChannels = {
+      light: "255, 255, 255",
+      sepia: "244, 236, 216",
+      dark: "44, 44, 46",
+    }[theme];
+    expect(material.backgroundColor).toContain(expectedChannels);
+    await capture(page, testInfo, `chrome-theme-${theme}`);
+  }
+
+  expect(new Set(backgrounds).size).toBe(3);
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await app.evaluate((element) => {
+    element.removeAttribute("data-reader-theme");
+  });
+  const systemDarkMaterial = await navigation.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      backgroundColor: style.backgroundColor,
+      color: style.color,
+    };
+  });
+  expect(systemDarkMaterial.backgroundColor).toContain("44, 44, 46");
+  expect(systemDarkMaterial.color).toContain("174, 174, 178");
+  await capture(page, testInfo, "chrome-theme-system-dark");
+});
+
+test("root tab indicator retargets quickly and respects reduced motion", async ({
+  page,
+}) => {
+  const navigation = page.getByRole("navigation", {
+    name: primaryNavigationName,
+  });
+  const indicator = navigation.locator('[data-root-tab-indicator="true"]');
+
+  await expect(navigation).toBeVisible();
+  await expect(indicator).toHaveCount(1);
+  await navigation.locator('[data-navigation-tab="reading"]').click();
+  await page.waitForTimeout(100);
+  const midX = await indicator.evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    return transform === "none"
+      ? 0
+      : new DOMMatrixReadOnly(transform).m41;
+  });
+  await navigation.locator('[data-navigation-tab="settings"]').click();
+  await expect
+    .poll(() =>
+      indicator.evaluate((element) => {
+        const transform = getComputedStyle(element).transform;
+        return transform === "none"
+          ? 0
+          : new DOMMatrixReadOnly(transform).m41;
+      })
+    )
+    .toBeGreaterThan(midX);
+  await expect(
+    navigation.locator('[data-navigation-tab="settings"]')
+  ).toHaveAttribute("aria-current", "page");
+  await expect(indicator).toHaveCount(1);
+
+  await page.evaluate(() => {
+    const storageKey = "ai-reader-app-preferences";
+    const stored = localStorage.getItem(storageKey);
+    const preferences = stored ? JSON.parse(stored) : {};
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ ...preferences, reduceMotion: true })
+    );
+  });
+  await page.reload();
+
+  const reducedNavigation = page.getByRole("navigation", {
+    name: primaryNavigationName,
+  });
+  const reducedIndicator = reducedNavigation.locator(
+    '[data-root-tab-indicator="true"]'
+  );
+  await expect(reducedNavigation).toBeVisible();
+  await expect(reducedIndicator).toHaveCount(1);
+  await reducedNavigation.locator('[data-navigation-tab="reading"]').click();
+  await expect(
+    reducedNavigation.locator('[data-navigation-tab="reading"]')
+  ).toHaveAttribute("aria-current", "page");
+  const reducedGeometry = await reducedIndicator.evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    const x =
+      transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+    return {
+      x,
+      slotWidth: element.getBoundingClientRect().width,
+    };
+  });
+  expect(
+    Math.abs(reducedGeometry.x - reducedGeometry.slotWidth)
+  ).toBeLessThanOrEqual(1);
 });
 
 test("visible back button and edge swipe pop the same route", async ({
@@ -696,6 +881,87 @@ test("captures root, push, reader, and sheet transition evidence", async ({
   await capture(page, testInfo, "sheet-mid");
   await page.waitForTimeout(420);
   await capture(page, testInfo, "sheet-complete");
+});
+
+test("root tab retargeting stays within frame and long-task budgets", async ({
+  page,
+}, testInfo) => {
+  await page.waitForTimeout(600);
+
+  const metricsPromise = page.evaluate(async () => {
+    const intervals: number[] = [];
+    const longTasks: number[] = [];
+    let layoutShift = 0;
+    let previous = performance.now();
+    let observer: PerformanceObserver | undefined;
+    const supportedEntryTypes = ["longtask", "layout-shift"].filter(
+      (entryType) =>
+        PerformanceObserver.supportedEntryTypes.includes(entryType)
+    );
+
+    if (supportedEntryTypes.length > 0) {
+      observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          if (entry.entryType === "longtask") {
+            longTasks.push(entry.duration);
+          } else if (entry.entryType === "layout-shift") {
+            layoutShift += (entry as PerformanceEntry & { value: number }).value;
+          }
+        }
+      });
+      observer.observe({ entryTypes: supportedEntryTypes });
+    }
+
+    const startedAt = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = (now: number) => {
+        intervals.push(now - previous);
+        previous = now;
+        if (now - startedAt >= 700) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+
+    observer?.disconnect();
+    const sampledIntervals = intervals.slice(2);
+    const sorted = [...sampledIntervals].sort((a, b) => a - b);
+    return {
+      frames: sampledIntervals.length,
+      p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
+      layoutShift,
+    };
+  });
+
+  await page.waitForTimeout(40);
+  await page.locator('[data-navigation-tab="reading"]').click();
+  await page.waitForTimeout(100);
+  await page.locator('[data-navigation-tab="settings"]').click();
+  const metrics = await metricsPromise;
+  testInfo.annotations.push({
+    type: "root-tab-performance",
+    description: JSON.stringify(metrics),
+  });
+  console.info(
+    `[root-tab-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`
+  );
+  await testInfo.attach("root-tab-performance.json", {
+    body: JSON.stringify(
+      { project: testInfo.project.name, ...metrics },
+      null,
+      2
+    ),
+    contentType: "application/json",
+  });
+
+  expect(metrics.frames).toBeGreaterThanOrEqual(32);
+  expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.maxLongTask).toBe(0);
+  expect(metrics.layoutShift).toBe(0);
 });
 
 test("push transition meets mobile frame cadence and long-task budgets", async ({

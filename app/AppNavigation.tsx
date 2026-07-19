@@ -44,7 +44,11 @@ export default function AppNavigation({
   return (
     <>
       {showBottomTabs && (
-        <nav className={styles.tabBar} aria-label="主要导航">
+        <nav
+          className={styles.tabBar}
+          style={{ backdropFilter: "blur(14px) saturate(112%)" }}
+          aria-label="主要导航"
+        >
           <m.span
             className={styles.tabIndicator}
             data-root-tab-indicator="true"
