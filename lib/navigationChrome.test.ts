@@ -123,6 +123,7 @@ describe("compact root chrome", () => {
     }
     expect(rootRule).toContain("--root-tab-accent: #7d55e7");
     expect(rootRule).toContain("--root-tab-active-icon: #ffffff");
+    expect(sepiaRule).toContain("--root-tab-content: #776953");
   });
 
   it("uses the dark navigation material for the system dark scheme", () => {

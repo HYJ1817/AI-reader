@@ -34,6 +34,28 @@ const libraryRootSelector =
   '[data-navigation-root="library"][aria-hidden="false"]';
 const primaryNavigationName = /\u4e3b\u8981\u5bfc\u822a/;
 
+function wcagContrastRatio(foreground: string, background: string) {
+  const relativeLuminance = (rgb: string) => {
+    const channels = rgb.match(/[\d.]+/g)?.slice(0, 3).map(Number);
+    if (!channels || channels.length !== 3) {
+      throw new Error(`Expected an RGB color, received: ${rgb}`);
+    }
+    const [red, green, blue] = channels.map((channel) => {
+      const value = channel / 255;
+      return value <= 0.04045
+        ? value / 12.92
+        : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+  };
+
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 async function importBook(
   page: Page,
   fileName: string = "native-navigation-sample.txt"
@@ -548,7 +570,7 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
       }
       return {
         backgroundColor: style.backgroundColor,
-        color: style.color,
+        content: style.color,
       };
     });
     backgrounds.push(material.backgroundColor);
@@ -558,6 +580,19 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
       dark: "44, 44, 46",
     }[theme];
     expect(material.backgroundColor).toContain(expectedChannels);
+    if (theme === "sepia") {
+      const sepiaBase = "rgb(244, 236, 216)";
+      const contrast = wcagContrastRatio(material.content, sepiaBase);
+      expect(material.content).toBe("rgb(119, 105, 83)");
+      expect(contrast).toBeGreaterThanOrEqual(4.5);
+      testInfo.annotations.push({
+        type: "sepia-root-tab-contrast",
+        description: String(contrast),
+      });
+      console.info(
+        `[sepia-root-tab-contrast] ${testInfo.project.name} ${contrast}`
+      );
+    }
     await capture(page, testInfo, `chrome-theme-${theme}`);
   }
 
