@@ -1027,6 +1027,17 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
     .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
     .first();
   await expect(more).toBeVisible();
+
+  const bookId = await firstLibraryCover(page).getAttribute("data-book-id");
+  expect(bookId).toBeTruthy();
+  await injectSheet(page, "book-actions", bookId ?? undefined);
+  const warmupHost = page.locator('[data-sheet-route="book-actions"]');
+  await waitForVerticalSettle(
+    page,
+    '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
+  );
+  await page.keyboard.press("Escape");
+  await expect(warmupHost).toHaveCount(0);
   await page.waitForTimeout(600);
 
   const metricsPromise = page.evaluate(async () => {
@@ -1151,6 +1162,10 @@ test("book action sheet preserves light, sepia, dark, and system-dark materials"
   const sheet = page.locator('[data-sheet-route="book-actions"]');
   const panel = sheet.locator('[data-motion-sheet="panel"]');
   await expect(panel).toBeVisible();
+  await waitForVerticalSettle(
+    page,
+    '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
+  );
 
   for (const theme of ["light", "sepia", "dark"] as const) {
     await app.evaluate((element, nextTheme) => {
