@@ -4,6 +4,7 @@ import {
   MOTION_DURATION,
   MOTION_SPRING,
   REDUCED_MOTION_QUERY,
+  ROOT_TAB_TRANSITION,
   createSystemMotionPreferenceStore,
   getMotionPolicy,
   getReaderTransitionTiming,
@@ -48,6 +49,7 @@ describe("motion system", () => {
     expect(MOTION_DURATION).toMatchObject({
       press: 0.12,
       state: 0.2,
+      rootTab: 0.42,
       pushEnter: 0.34,
       pushExit: 0.24,
       readerEnter: 0.3,
@@ -58,6 +60,14 @@ describe("motion system", () => {
       chromeExit: 0.16,
       gestureSettle: 0.22,
       reduced: 0.12,
+    });
+  });
+
+  it("uses a slow zero-bounce transform tween for the root tab indicator", () => {
+    expect(ROOT_TAB_TRANSITION).toEqual({
+      type: "tween",
+      duration: 0.42,
+      ease: [0.22, 1, 0.36, 1],
     });
   });
 

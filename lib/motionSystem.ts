@@ -4,6 +4,7 @@ export const MOTION_DURATION = {
   press: 0.12,
   state: 0.2,
   tab: 0.26,
+  rootTab: 0.42,
   pushEnter: 0.34,
   pushExit: 0.24,
   readerEnter: 0.3,
@@ -49,6 +50,12 @@ export function getReaderTransitionTiming(
     coverExitOpacity: { duration: MOTION_DURATION.readerExit, delay: 0 },
   };
 }
+
+export const ROOT_TAB_TRANSITION = {
+  type: "tween" as const,
+  duration: MOTION_DURATION.rootTab,
+  ease: [0.22, 1, 0.36, 1] as const,
+} as const;
 
 export const MOTION_SPRING = {
   navigation: { type: "spring" as const, stiffness: 380, damping: 38, mass: 0.9, bounce: 0 },
