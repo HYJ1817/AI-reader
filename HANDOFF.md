@@ -17,15 +17,13 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest local product behavior commit:
   `39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading
-  goal wheel values`). It is committed locally but has not been pushed or
-  deployed.
-- Latest deployed product behavior commit: `8911f9a` (`perf: stabilize contents
-  tab transitions`). It supersedes the first swipeable-tab implementation for
-  click-transition performance while preserving native finger swipes.
-- Latest deployed Worker version: `1e9e5ad9-76fe-40e6-9210-a731a88503ee`.
-- GitHub CLI authentication is invalid. The local branch is ahead of
-  `origin/codex/custom-background-settings`; do not change credentials or
-  remotes automatically. Push only after the user re-authenticates.
+  goal wheel values`). It is pushed and deployed from commit `8f932c0`.
+- Latest deployed product behavior commit:
+  `39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading
+  goal wheel values`).
+- Latest deployed Worker version: `7b2249fe-dc34-47fb-b77a-909262c2c11d`.
+- GitHub CLI authentication is valid for `HYJ1817`; the feature branch is
+  pushed and synchronized with `origin/codex/custom-background-settings`.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -136,17 +134,27 @@ Fresh follow-up verification:
 - `git diff --check` and the staged fix diff check passed with only normal
   Windows LF-to-CRLF informational warnings.
 
-This follow-up is committed locally and was not pushed or deployed. Zero
-remains valid in the picker and persistence, while existing progress, reading
-statistics, and dashboard semantics intentionally remain unchanged under the
-approved scope. If revisited, explicitly choose disabled-goal versus
-trivially-complete semantics rather than silently coercing zero to one minute.
+This follow-up is pushed and deployed. Zero remains valid in the picker and
+persistence, while existing progress, reading statistics, and dashboard
+semantics intentionally remain unchanged under the approved scope. If
+revisited, explicitly choose disabled-goal versus trivially-complete semantics
+rather than silently coercing zero to one minute.
 
-Current state is committed locally but intentionally not deployed or pushed.
-Production remains <https://881817.xyz> on Worker version
-`1e9e5ad9-76fe-40e6-9210-a731a88503ee`. Recommended next step: review and
-deploy only when explicitly requested and GitHub authentication works; do not
-change credentials or remotes automatically.
+Production deployment completed on 2026-07-19 at <https://881817.xyz>:
+
+- Worker version: `7b2249fe-dc34-47fb-b77a-909262c2c11d`.
+- BUILD_ID: `PLn3HdWH21TyynLqOq-7i`, matching the local standalone build.
+- Production root, Service Worker, manifest, Asset Links, APK, the 669-byte
+  wheel sound, and all 10 discovered page JS/CSS assets returned 200. The
+  production sound SHA-256 matches the official asset hash above.
+- Production iPhone 14 wheel E2E passed all functional assertions: 0-minute
+  save/reload persistence, 1440-minute keyboard bounds, virtualization,
+  pointer/wheel input, sound failure tolerance, and reduced-motion cleanup.
+  Playwright reported 5/6 tests because the persistence reload emits the
+  already documented hydration mismatch as minified React production error
+  `#418`; the test allowlist currently recognizes only the development warning
+  text. This is a test-environment wording gap and the pre-existing hydration
+  follow-up, not a wheel interaction or deployment failure.
 
 ## Contents Tab Performance Stabilization (2026-07-16)
 
