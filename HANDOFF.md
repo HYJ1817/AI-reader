@@ -4,8 +4,9 @@
 
 - Repository: `C:\aaa\ai-reader-pwa`
 - GitHub remote: `https://github.com/HYJ1817/AI-reader.git`
-- Active branch: `codex/custom-background-settings`
-- Pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
+- Active branch: `main`
+- Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
+  (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
@@ -15,16 +16,19 @@
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
-- Latest local and remote product behavior batch: the reference bottom
-  navigation runtime, browser coverage, and Sepia contrast hardening through
-  `e09c32eb78747257d543b8b675b75fe8f6124a32` (`fix: improve sepia navigation
-  contrast`). The branch and PR include this batch.
+- Latest post-merge test hardening commit:
+  `1694f0825ef92b4053deb173af8c208a7c7f70c6`
+  (`test: normalize css fixture line endings`). The latest product runtime is
+  the reference bottom navigation and Sepia contrast batch through
+  `e09c32eb78747257d543b8b675b75fe8f6124a32`, integrated by merge commit
+  `aa3798e185c5ef5249a342b72c7b334b25c021b8`.
 - Latest deployed product behavior commit:
   `e09c32eb78747257d543b8b675b75fe8f6124a32` (`fix: improve sepia navigation
   contrast`). The reference bottom navigation is live in production.
 - Latest deployed Worker version: `91a6b9ef-fb23-44d7-82f1-ee2e4616aa24`.
-- GitHub CLI authentication is valid for `HYJ1817`; the feature branch is
-  pushed and synchronized with `origin/codex/custom-background-settings`.
+- GitHub CLI authentication is valid for `HYJ1817`; `main` is synchronized
+  with `origin/main`. The merged feature branches and the stale
+  `surface-visual-system` worktree have been removed locally and remotely.
 
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
@@ -34,6 +38,32 @@ git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## GitHub Consolidation (2026-07-19)
+
+- PR #1 was expanded with product, verification, production, merge-strategy,
+  and known-risk sections; labeled `enhancement` and `documentation`; marked
+  ready for review; and merged into `main` with regular merge commit
+  `aa3798e`. Squash/rebase was intentionally avoided because HANDOFF and
+  deployment records reference the original commit SHAs.
+- The normal Windows checkout exposed three brittle CSS tests that assumed LF
+  line endings. `1694f08` normalizes the CSS fixture text in the two affected
+  test files; the red run failed 3/1449 and the green full run passed
+  1449/1449.
+- The fully merged `codex/custom-background-settings` and
+  `codex/surface-visual-system` branches were deleted locally and remotely.
+  The clean `.worktrees/surface-visual-system` linked worktree was removed
+  only after both ancestor checks passed. `main` is now the only local and
+  remote branch.
+- Repository description, production homepage, and the `nextjs`, `react`,
+  `typescript`, `pwa`, `epub`, `ebook-reader`, `offline-first`, and
+  `cloudflare-workers` topics are configured.
+- GitHub Release: `v0.1.0` at
+  `https://github.com/HYJ1817/AI-reader/releases/tag/v0.1.0`.
+- Non-blocking device validation is tracked in Issue #2:
+  `https://github.com/HYJ1817/AI-reader/issues/2`.
+- The evidence-gated EPUB dark-mode investigation is tracked in Issue #3:
+  `https://github.com/HYJ1817/AI-reader/issues/3`.
 
 ## Product and Stack
 
@@ -2097,12 +2127,11 @@ Use this opener in the new conversation:
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa，先完整阅读 HANDOFF.md。
-当前工作在分支 codex/custom-background-settings，PR 是 https://github.com/HYJ1817/AI-reader/pull/1。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-最新完成的是目录抽屉标签性能稳定化，提交 8911f9a。首轮切换的根因是目录数组/60 行章节树重建、原生 smooth scroll 和 Motion layout projection 同时启动；现在目录结果与章节子树稳定缓存，点击使用即时定位加 WAAPI 合成层轻滑入，标签高亮使用单个常驻 CSS transform 层，手指滑动仍保留原生 scroll-snap，减弱动效仍即时切换。
-全量 Vitest 154 文件/1422 项、全仓 ESLint、standalone next build、OpenNext build 均通过。完整双设备 Playwright 的其余 80 项通过；修正性能测试的 EPUB 分页等待与合成触摸节奏后，4x CPU 点击预算及原生滑动用例复跑 4/4，生产 reader-annotations 双设备回归 8/8。Chromium 只能验证 60Hz 帧预算，真实 iPhone ProMotion trace 仍是非阻塞验收项。
-最新正式 Worker 版本是 1e9e5ad9-76fe-40e6-9210-a731a88503ee；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，主预览地址只用 https://881817.xyz。APK 仍为 https://881817.xyz/downloads/ai-reader-twa.apk，TWA 目标仍为 https://881817.xyz。
-生产根页面、全部发现的静态资源、Service Worker、BUILD_ID、Manifest、Asset Links、APK 均返回 200；生产双设备 reader-annotations E2E 8/8 通过。GitHub HYJ1817 token 无效，本地分支领先 origin，尚未推送；不要自动修改凭证或远端。真实安卓 WebView、iPhone Safari/PWA、90Hz trace 与 VoiceOver 仍是非阻塞设备风险。
-独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。Cloudflare 首次静态资源上传需要一次自动重试，随后 3 个变更资源全部上传、部署完成且生产验证通过；这是部署可靠性备注，不是产品故障。
+当前工作在 main；PR #1 已通过普通 merge commit aa3798e 合并，原始提交 SHA 全部保留。旧功能分支、surface-visual-system 分支及其干净 worktree 均已安全删除，本地和远端只保留 main。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
+最新产品批次是参考图风格的 302×76 主题磨砂底部导航、31px 紫色选中背板、实心齿轮、420ms transform tween，以及 0–1440 分钟 React Bits 选项轮。全量 Vitest 为 155 文件/1449 项；Windows 合并后发现的 CRLF 测试脆弱性已由 1694f08 修复。
+最新正式 Worker 版本是 91a6b9ef-fb23-44d7-82f1-ee2e4616aa24，BUILD_ID 是 e3X3RCfTQNIiq18IZqmJi；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，生产地址是 https://881817.xyz。生产根页面、10 个发现的 JS/CSS、Service Worker、Manifest、Asset Links 和 APK 均返回 200；生产 native-navigation 在 iPhone 14 和 iPhone 15 Pro Max 最终都通过 16/16。
+GitHub 已整理：v0.1.0 Release 已创建；Issue #2 跟踪实体 iPhone Safari/PWA 高刷新与 VoiceOver，Issue #3 跟踪必须依赖受影响 EPUB 或 Safari Web Inspector 证据的深色白框问题。Chromium 只证明稳定 60Hz smoke budget，不能宣称实体 120fps。
+独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才对这两个目标执行 Remove-Item -LiteralPath ... -Recurse -Force。没有使用 git clean 或 git reset。本次参考底部导航部署上传 4 个变更资源且无需重试；历史批次的上传重试仅是可靠性记录，不是产品故障。
 Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
 UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
 ```
