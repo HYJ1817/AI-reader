@@ -3,11 +3,16 @@
 ## Current Checkout
 
 - Repository: `C:\aaa\ai-reader-pwa`
+- Active worktree:
+  `C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance`
 - GitHub remote: `https://github.com/HYJ1817/AI-reader.git`
-- Active branch: `main`
+- Active branch: `codex/shared-sheet-performance`
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
+- Local branch state: 10 commits ahead of `main` (nine shared-sheet
+  implementation/test commits plus this handoff); no shared-sheet commit has
+  been pushed or deployed.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -29,11 +34,133 @@
 Do not run `git reset`, `git clean`, or overwrite local/user changes. Start the next session with:
 
 ```powershell
-cd C:\aaa\ai-reader-pwa
+cd C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance
 git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## Shared Sheet Performance Verification (2026-07-20)
+
+Approved design and implementation plan:
+
+- `adbf38d` (`docs: design shared sheet performance optimization`).
+- `fa1fc21` (`docs: plan shared sheet performance optimization`).
+
+Implementation and test commits:
+
+- `bc4ac0e` defines the shared-sheet compositor contract.
+- `8f889ae` rejects the inherited sheet-backdrop opacity token.
+- `08e1218` implements the explicit backdrop and transform-only panel layers.
+- `d2a3859` cleans the shared overlay contract.
+- `cb943c4` aligns the plan's overlay snippet with the implementation.
+- `804cdd9` adds the real More-button and theme browser coverage.
+- `63637ed` stabilizes the shared-sheet browser coverage.
+- `bd46b3c` makes Playwright's default server build and run production mode.
+- `5516422` removes the performance-test warm-up and forbids server reuse.
+
+Root cause and final architecture:
+
+- The previous shared overlay published `--sheet-backdrop-opacity` from a
+  per-frame Motion value. Because the custom property inherited through the
+  mounted sheet subtree, each update could invalidate style broadly. The same
+  overlay parent also animated opacity, grouping the moving panel and backdrop
+  into one animated transparency layer.
+- `MotionSheet` now keeps a static fixed overlay for viewport geometry,
+  outside-tap capture, and z-order. A pointer-inert backdrop sibling binds the
+  existing progress MotionValue directly to native `opacity`; the panel keeps
+  only its existing `y` transform. `will-change` is limited to opacity on the
+  mounted backdrop and transform on the mounted panel. Focus, inert ownership,
+  Escape, drag, interruption, reduced motion, viewport handling, sheet timing,
+  content, and theme materials remain on their existing shared paths.
+- Source and runtime probes found no `--sheet-backdrop-opacity` on the overlay,
+  backdrop, or panel. The overlay had no inline opacity, computed to opacity
+  `1`, and had zero opacity animations; the backdrop/panel computed
+  `will-change` values were `opacity`/`transform`.
+
+Fresh local production-build diagnostics:
+
+- Port `3010` was confirmed free and `PLAYWRIGHT_BASE_URL` unset before the
+  diagnostic. The temporary production server listener was verified as this
+  worktree's `next start` process, then stopped; the port was confirmed free
+  afterward. Temporary gitignored probes were created and deleted only with
+  `apply_patch` and left no temporary-probe residue.
+- The three matched unthrottled runs each used a fresh isolated Chromium
+  context against the same local production build, with no warm sheet mount.
+  Click-to-mount was `34.1ms`, `25.5ms`, and `23.0ms`; frame counts were
+  `47`, `48`, and `48`; P95 intervals were `16.7ms`, `16.8ms`, and `16.7ms`;
+  maximum intervals were `33.3ms`, `16.8ms`, and `16.8ms`. All three recorded
+  `0ms` maximum long task and `0` layout shift.
+- The three fresh-context 4x CPU runs recorded click-to-mount of `119.3ms`,
+  `140.1ms`, and `126.2ms`; frame counts of `42`, `40`, and `41`; P95 intervals
+  of `16.7ms`, `16.8ms`, and `16.7ms`; maximum intervals of `116.7ms`,
+  `150.1ms`, and `133.4ms`; maximum long tasks of `130ms`, `151ms`, and
+  `139ms`; and `0` layout shift in every run. These throttled cold-context
+  samples are reported as diagnostics, not a passing high-refresh claim.
+- The recorded pre-change baseline was first/warmed click-to-mount of
+  `24.7ms`/`8.0ms`/`4.2ms`, with one 4x sample containing a `49.9ms` frame and
+  `58ms` long task. Because the fresh after-runs deliberately removed the sheet
+  warm-up, click-to-mount and 4x values are not presented as an improvement.
+- The recorded pre-change roughly 700ms trace contained `56`
+  `UpdateLayoutTree`, `75` Paint, and `559` RasterTask events. Repeated after
+  traces recorded `50-52` `UpdateLayoutTree`, `3` Layout, `17` Paint, `8`
+  RasterTask, and `0` trace long tasks. Thread splitting confirmed every
+  `UpdateLayoutTree`, Layout, and Paint event was on `CrRendererMain`; raster
+  work was on renderer thread-pool workers.
+- Paint improved from `75` to `17` and RasterTask from `559` to `8`, passing
+  the required ceilings of `56` and `419`. `UpdateLayoutTree` improved only to
+  `50-52`, not the required ceiling of `42`. This is an explicit failed
+  performance gate; the result is not reinterpreted as passing. No production
+  or E2E logic was changed during final diagnostics.
+- The first temporary probe attempt timed out waiting for Playwright
+  `networkidle` before collecting metrics. The probe alone was corrected to
+  use DOM/app readiness, then the complete diagnostic ran. The timeline was
+  repeated to rule out window and cross-thread aggregation errors; the style
+  count miss reproduced. No product test required a retry and no threshold was
+  relaxed.
+
+Fresh quality gates:
+
+- Focused Vitest passed `3/3` files and `41/41` tests:
+  `overlayMotionIntegration`, `motionCss`, and `motionRoleParity`.
+- Full Vitest passed `101/101` files and `907/907` tests.
+- Full configured ESLint exited `0` with no findings.
+- `next build --webpack` exited `0`: Next.js `16.2.6` compiled, TypeScript
+  completed, and `6/6` static pages generated. Next emitted only its existing
+  multiple-lockfile workspace-root warning.
+- With port `3010` free, `PLAYWRIGHT_BASE_URL` unset, and
+  `reuseExistingServer: false`, the default production-managed
+  `e2e/native-navigation.spec.ts` run passed `19/19` on iPhone 14 and `19/19`
+  on iPhone 15 Pro Max. No E2E retry was needed.
+- The iPhone 14 More-button smoke recorded `32.3ms` click-to-mount, `48`
+  frames, `16.7ms` P95, `16.8ms` maximum frame, `0ms` maximum long task, and
+  `0` layout shift. The iPhone 15 Pro Max smoke recorded `23.5ms`, `48`
+  frames, `16.8ms` P95, `16.8ms` maximum frame, `0ms` maximum long task, and
+  `0` layout shift.
+- The current iPhone 15 Pro Max Light, Sepia, Dark, and system-dark screenshots
+  were inspected at original resolution. Sheet geometry, fill, shadow, border,
+  grabber, content, backdrop dimming, and safe-area placement were consistent,
+  with no flash or naked content. Retained gitignored files:
+  - `test-results/native-navigation/native-navigation-book-act-6ec1b-k-and-system-dark-materials-iphone-15-pro-max/book-sheet-theme-light.png`
+  - `test-results/native-navigation/native-navigation-book-act-6ec1b-k-and-system-dark-materials-iphone-15-pro-max/book-sheet-theme-sepia.png`
+  - `test-results/native-navigation/native-navigation-book-act-6ec1b-k-and-system-dark-materials-iphone-15-pro-max/book-sheet-theme-dark.png`
+  - `test-results/native-navigation/native-navigation-book-act-6ec1b-k-and-system-dark-materials-iphone-15-pro-max/book-sheet-theme-system-dark.png`
+- Impeccable detector command
+  `node C:\aaa\.agents\skills\impeccable\scripts\detect.mjs --json app\MotionSheet.tsx app\page.module.css`
+  returned JSON `[]`. The pre-handoff `git diff --check` passed, and generated
+  build/test artifacts remained ignored.
+
+Status and acceptance boundary:
+
+- This work remains local-only on `codex/shared-sheet-performance`. No push,
+  pull request, merge, Cloudflare upload, or production deployment was run.
+- Automated Chromium demonstrates the two-layer source/runtime contract and a
+  stable 60Hz smoke result. It does not prove 120fps. Physical 120Hz iPhone
+  Safari/PWA verification remains a non-blocking device acceptance item.
+- The quality/functionality gates pass, but the approved UpdateLayoutTree
+  ceiling of `42` remains open. Do not describe the shared-sheet batch as
+  fully performance-verified until that count is resolved or the approved gate
+  is explicitly revised with matched evidence.
 
 ## GitHub Consolidation (2026-07-19)
 
