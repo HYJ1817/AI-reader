@@ -436,7 +436,7 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   );
   await expect(libraryTab.locator("svg")).toHaveCSS(
     "color",
-    "rgb(255, 255, 255)"
+    "rgb(0, 0, 0)"
   );
 
   const geometry = await navigation.evaluate((element) => {
@@ -473,6 +473,11 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
       backingHeight: Number.parseFloat(backing.height),
       backingRadius: backing.borderRadius,
       backingColor: backing.backgroundColor,
+      backingBoxShadow: backing.boxShadow,
+      backingFilter: backing.filter,
+      backingBackdropFilter:
+        backing.getPropertyValue("backdrop-filter") ||
+        backing.getPropertyValue("-webkit-backdrop-filter"),
     };
   });
 
@@ -482,10 +487,15 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
   expect(geometry.borderRadius).toBe("33px");
   expect(geometry.backdropFilter).toContain("blur(14px)");
-  expect(geometry.backingWidth).toBe(31);
-  expect(geometry.backingHeight).toBe(31);
-  expect(geometry.backingRadius).toBe("10px");
-  expect(geometry.backingColor).toBe("rgb(125, 85, 231)");
+  expect(
+    Math.abs(geometry.backingWidth - (geometry.tabs[0].width - 8))
+  ).toBeLessThanOrEqual(0.5);
+  expect(geometry.backingHeight).toBe(60);
+  expect(geometry.backingRadius).toBe("30px");
+  expect(geometry.backingColor).toBe("rgba(118, 118, 128, 0.12)");
+  expect(geometry.backingBoxShadow).toBe("none");
+  expect(geometry.backingFilter).toBe("none");
+  expect(geometry.backingBackdropFilter).toBe("none");
   for (const rect of geometry.tabs) {
     expect(rect.width).toBeGreaterThanOrEqual(44);
     expect(rect.height).toBeGreaterThanOrEqual(44);
@@ -511,7 +521,7 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   );
   await expect(readingTab.locator("svg")).toHaveCSS(
     "color",
-    "rgb(255, 255, 255)"
+    "rgb(0, 0, 0)"
   );
   await page.waitForTimeout(420);
   await hideNextDevIndicator(page);
@@ -532,7 +542,7 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   );
   await expect(settingsTab.locator("svg")).toHaveCSS(
     "color",
-    "rgb(255, 255, 255)"
+    "rgb(0, 0, 0)"
   );
   await page.waitForTimeout(420);
   await hideNextDevIndicator(page);
@@ -568,9 +578,24 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
       if (!backdropFilter.includes("blur(14px)")) {
         throw new Error(`Unexpected root navigation backdrop: ${backdropFilter}`);
       }
+      const indicator = element.querySelector<HTMLElement>(
+        '[data-root-tab-indicator="true"]'
+      );
+      const activeTab = element.querySelector<HTMLElement>(
+        '[aria-current="page"]'
+      );
+      const activeIcon = activeTab?.querySelector<SVGElement>("svg");
+      const activeLabel = activeTab?.querySelector<HTMLElement>("span");
+      if (!indicator || !activeIcon || !activeLabel) {
+        throw new Error("Root navigation selection material is missing");
+      }
       return {
         backgroundColor: style.backgroundColor,
         content: style.color,
+        activeFill: getComputedStyle(indicator, "::after").backgroundColor,
+        activeIcon: getComputedStyle(activeIcon).color,
+        activeTab: getComputedStyle(activeTab).color,
+        activeLabel: getComputedStyle(activeLabel).color,
       };
     });
     backgrounds.push(material.backgroundColor);
@@ -580,6 +605,23 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
       dark: "44, 44, 46",
     }[theme];
     expect(material.backgroundColor).toContain(expectedChannels);
+    const expectedSelection = {
+      light: {
+        fill: "rgba(118, 118, 128, 0.12)",
+        icon: "rgb(0, 0, 0)",
+      },
+      sepia: {
+        fill: "rgba(130, 105, 66, 0.14)",
+        icon: "rgb(0, 0, 0)",
+      },
+      dark: {
+        fill: "rgba(255, 255, 255, 0.12)",
+        icon: "rgb(255, 255, 255)",
+      },
+    }[theme];
+    expect(material.activeFill).toBe(expectedSelection.fill);
+    expect(material.activeIcon).toBe(expectedSelection.icon);
+    expect(material.activeLabel).toBe(material.activeTab);
     if (theme === "sepia") {
       const sepiaBase = "rgb(244, 236, 216)";
       const contrast = wcagContrastRatio(material.content, sepiaBase);
@@ -604,13 +646,33 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
   });
   const systemDarkMaterial = await navigation.evaluate((element) => {
     const style = getComputedStyle(element);
+    const indicator = element.querySelector<HTMLElement>(
+      '[data-root-tab-indicator="true"]'
+    );
+    const activeTab = element.querySelector<HTMLElement>(
+      '[aria-current="page"]'
+    );
+    const activeIcon = activeTab?.querySelector<SVGElement>("svg");
+    const activeLabel = activeTab?.querySelector<HTMLElement>("span");
+    if (!indicator || !activeIcon || !activeLabel) {
+      throw new Error(
+        "System-dark root navigation selection material is missing"
+      );
+    }
     return {
       backgroundColor: style.backgroundColor,
       color: style.color,
+      activeFill: getComputedStyle(indicator, "::after").backgroundColor,
+      activeIcon: getComputedStyle(activeIcon).color,
+      activeTab: getComputedStyle(activeTab).color,
+      activeLabel: getComputedStyle(activeLabel).color,
     };
   });
   expect(systemDarkMaterial.backgroundColor).toContain("44, 44, 46");
   expect(systemDarkMaterial.color).toContain("174, 174, 178");
+  expect(systemDarkMaterial.activeFill).toBe("rgba(255, 255, 255, 0.12)");
+  expect(systemDarkMaterial.activeIcon).toBe("rgb(255, 255, 255)");
+  expect(systemDarkMaterial.activeLabel).toBe(systemDarkMaterial.activeTab);
   await capture(page, testInfo, "chrome-theme-system-dark");
 });
 
