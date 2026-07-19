@@ -425,7 +425,9 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
       "-webkit-backdrop-filter"
     );
     const backdropFilter =
-      standardBackdrop !== "none" ? standardBackdrop : prefixedBackdrop;
+      standardBackdrop && standardBackdrop !== "none"
+        ? standardBackdrop
+        : prefixedBackdrop;
     const tabs = Array.from(
       element.querySelectorAll<HTMLElement>("[data-navigation-tab]")
     ).map((tab) => {
@@ -538,7 +540,9 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
         "-webkit-backdrop-filter"
       );
       const backdropFilter =
-        standardBackdrop !== "none" ? standardBackdrop : prefixedBackdrop;
+        standardBackdrop && standardBackdrop !== "none"
+          ? standardBackdrop
+          : prefixedBackdrop;
       if (!backdropFilter.includes("blur(14px)")) {
         throw new Error(`Unexpected root navigation backdrop: ${backdropFilter}`);
       }
@@ -587,12 +591,18 @@ test("root tab indicator retargets quickly and respects reduced motion", async (
   await expect(indicator).toHaveCount(1);
   await navigation.locator('[data-navigation-tab="reading"]').click();
   await page.waitForTimeout(100);
-  const midX = await indicator.evaluate((element) => {
+  const midGeometry = await indicator.evaluate((element) => {
     const transform = getComputedStyle(element).transform;
-    return transform === "none"
-      ? 0
-      : new DOMMatrixReadOnly(transform).m41;
+    return {
+      x:
+        transform === "none"
+          ? 0
+          : new DOMMatrixReadOnly(transform).m41,
+      slotWidth: element.getBoundingClientRect().width,
+    };
   });
+  expect(midGeometry.x).toBeGreaterThan(0);
+  expect(midGeometry.x).toBeLessThan(midGeometry.slotWidth);
   await navigation.locator('[data-navigation-tab="settings"]').click();
   await expect
     .poll(() =>
@@ -603,7 +613,19 @@ test("root tab indicator retargets quickly and respects reduced motion", async (
           : new DOMMatrixReadOnly(transform).m41;
       })
     )
-    .toBeGreaterThan(midX);
+    .toBeGreaterThan(midGeometry.slotWidth);
+  await expect
+    .poll(() =>
+      indicator.evaluate((element, targetX) => {
+        const transform = getComputedStyle(element).transform;
+        const x =
+          transform === "none"
+            ? 0
+            : new DOMMatrixReadOnly(transform).m41;
+        return Math.abs(x - targetX);
+      }, 2 * midGeometry.slotWidth)
+    )
+    .toBeLessThanOrEqual(1);
   await expect(
     navigation.locator('[data-navigation-tab="settings"]')
   ).toHaveAttribute("aria-current", "page");
@@ -627,11 +649,12 @@ test("root tab indicator retargets quickly and respects reduced motion", async (
     '[data-root-tab-indicator="true"]'
   );
   await expect(reducedNavigation).toBeVisible();
+  await expect(page.locator('[data-app-shell="true"]')).toHaveAttribute(
+    "data-reduce-motion",
+    "true"
+  );
   await expect(reducedIndicator).toHaveCount(1);
   await reducedNavigation.locator('[data-navigation-tab="reading"]').click();
-  await expect(
-    reducedNavigation.locator('[data-navigation-tab="reading"]')
-  ).toHaveAttribute("aria-current", "page");
   const reducedGeometry = await reducedIndicator.evaluate((element) => {
     const transform = getComputedStyle(element).transform;
     const x =
@@ -639,11 +662,18 @@ test("root tab indicator retargets quickly and respects reduced motion", async (
     return {
       x,
       slotWidth: element.getBoundingClientRect().width,
+      runningAnimations: element
+        .getAnimations()
+        .filter((animation) => animation.playState === "running").length,
     };
   });
   expect(
     Math.abs(reducedGeometry.x - reducedGeometry.slotWidth)
   ).toBeLessThanOrEqual(1);
+  expect(reducedGeometry.runningAnimations).toBe(0);
+  await expect(
+    reducedNavigation.locator('[data-navigation-tab="reading"]')
+  ).toHaveAttribute("aria-current", "page");
 });
 
 test("visible back button and edge swipe pop the same route", async ({
@@ -893,23 +923,34 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
     const longTasks: number[] = [];
     let layoutShift = 0;
     let previous = performance.now();
-    let observer: PerformanceObserver | undefined;
-    const supportedEntryTypes = ["longtask", "layout-shift"].filter(
-      (entryType) =>
-        PerformanceObserver.supportedEntryTypes.includes(entryType)
-    );
-
-    if (supportedEntryTypes.length > 0) {
-      observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          if (entry.entryType === "longtask") {
-            longTasks.push(entry.duration);
-          } else if (entry.entryType === "layout-shift") {
-            layoutShift += (entry as PerformanceEntry & { value: number }).value;
-          }
+    const observers: PerformanceObserver[] = [];
+    const longTaskSupported =
+      PerformanceObserver.supportedEntryTypes.includes("longtask");
+    const layoutShiftSupported =
+      PerformanceObserver.supportedEntryTypes.includes("layout-shift");
+    const handleEntries = (entries: PerformanceEntryList) => {
+      for (const entry of entries) {
+        if (entry.entryType === "longtask") {
+          longTasks.push(entry.duration);
+        } else if (entry.entryType === "layout-shift") {
+          layoutShift += (entry as PerformanceEntry & { value: number }).value;
         }
+      }
+    };
+
+    if (longTaskSupported) {
+      const observer = new PerformanceObserver((list) => {
+        handleEntries(list.getEntries());
       });
-      observer.observe({ entryTypes: supportedEntryTypes });
+      observer.observe({ entryTypes: ["longtask"] });
+      observers.push(observer);
+    }
+    if (layoutShiftSupported) {
+      const observer = new PerformanceObserver((list) => {
+        handleEntries(list.getEntries());
+      });
+      observer.observe({ entryTypes: ["layout-shift"] });
+      observers.push(observer);
     }
 
     const startedAt = performance.now();
@@ -926,7 +967,10 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
       requestAnimationFrame(sample);
     });
 
-    observer?.disconnect();
+    for (const observer of observers) {
+      handleEntries(observer.takeRecords());
+      observer.disconnect();
+    }
     const sampledIntervals = intervals.slice(2);
     const sorted = [...sampledIntervals].sort((a, b) => a - b);
     return {
@@ -934,6 +978,8 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
       p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
       maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
       layoutShift,
+      longTaskSupported,
+      layoutShiftSupported,
     };
   });
 
@@ -960,6 +1006,8 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
 
   expect(metrics.frames).toBeGreaterThanOrEqual(32);
   expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.longTaskSupported).toBe(true);
+  expect(metrics.layoutShiftSupported).toBe(true);
   expect(metrics.maxLongTask).toBe(0);
   expect(metrics.layoutShift).toBe(0);
 });

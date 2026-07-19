@@ -44,6 +44,7 @@ export default function AppNavigation({
   return (
     <>
       {showBottomTabs && (
+        // Keep standard inline: CSS optimization may retain only prefixed; the module keeps Safari fallback.
         <nav
           className={styles.tabBar}
           style={{ backdropFilter: "blur(14px) saturate(112%)" }}
