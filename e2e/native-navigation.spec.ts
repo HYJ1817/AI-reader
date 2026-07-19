@@ -82,6 +82,15 @@ function firstLibraryCover(page: Page) {
     .first();
 }
 
+async function useLibraryListMode(page: Page) {
+  await page.getByRole("button", { name: "\u5217\u8868" }).click();
+  await expect(
+    page.locator(
+      `${libraryRootSelector} [data-library-book-open="true"]`
+    ).first()
+  ).toBeVisible();
+}
+
 async function openReader(page: Page) {
   await firstLibraryCover(page).click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
@@ -1008,6 +1017,189 @@ test("captures root, push, reader, and sheet transition evidence", async ({
   await capture(page, testInfo, "sheet-mid");
   await page.waitForTimeout(420);
   await capture(page, testInfo, "sheet-complete");
+});
+
+test("book action sheet entrance stays within mobile frame budgets", async ({
+  page,
+}, testInfo) => {
+  await useLibraryListMode(page);
+  const more = page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first();
+  await expect(more).toBeVisible();
+  await page.waitForTimeout(600);
+
+  const metricsPromise = page.evaluate(async () => {
+    const intervals: number[] = [];
+    const longTasks: number[] = [];
+    let layoutShift = 0;
+    let clickAt: number | null = null;
+    let mountedAt: number | null = null;
+    let previous = performance.now();
+    const observers: PerformanceObserver[] = [];
+    const mutation = new MutationObserver(() => {
+      if (
+        mountedAt === null &&
+        document.querySelector(
+          '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
+        )
+      ) {
+        mountedAt = performance.now();
+      }
+    });
+    mutation.observe(document.body, { childList: true, subtree: true });
+
+    const clickListener = (event: MouseEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest('[data-library-book-more="true"]')
+      ) {
+        clickAt = performance.now();
+      }
+    };
+    document.addEventListener("click", clickListener, true);
+
+    const handleEntries = (entries: PerformanceEntry[]) => {
+      for (const entry of entries) {
+        if (entry.entryType === "longtask") longTasks.push(entry.duration);
+        if (entry.entryType === "layout-shift") {
+          layoutShift += (entry as PerformanceEntry & { value: number }).value;
+        }
+      }
+    };
+    for (const type of ["longtask", "layout-shift"] as const) {
+      if (!PerformanceObserver.supportedEntryTypes.includes(type)) continue;
+      const observer = new PerformanceObserver((list) =>
+        handleEntries(list.getEntries())
+      );
+      observer.observe({ entryTypes: [type] });
+      observers.push(observer);
+    }
+
+    const startedAt = performance.now();
+    await new Promise<void>((resolve) => {
+      const sample = (now: number) => {
+        intervals.push(now - previous);
+        previous = now;
+        if (now - startedAt >= 800) {
+          resolve();
+          return;
+        }
+        requestAnimationFrame(sample);
+      };
+      requestAnimationFrame(sample);
+    });
+
+    mutation.disconnect();
+    document.removeEventListener("click", clickListener, true);
+    for (const observer of observers) {
+      handleEntries(observer.takeRecords());
+      observer.disconnect();
+    }
+    const sampledIntervals = intervals.slice(2);
+    const sorted = [...sampledIntervals].sort((a, b) => a - b);
+    return {
+      clickToMount:
+        clickAt === null || mountedAt === null ? null : mountedAt - clickAt,
+      frames: sampledIntervals.length,
+      p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+      maxFrame: Math.max(...sampledIntervals),
+      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
+      layoutShift,
+    };
+  });
+
+  await page.waitForTimeout(40);
+  await more.click();
+  const panel = page.locator(
+    '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
+  );
+  const backdrop = page.locator(
+    '[data-sheet-route="book-actions"] [data-motion-sheet="backdrop"]'
+  );
+  await expect(panel).toBeVisible();
+  await expect(backdrop).toHaveCSS("will-change", "opacity");
+  await expect(panel).toHaveCSS("will-change", "transform");
+  const metrics = await metricsPromise;
+
+  console.info(
+    `[book-sheet-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`
+  );
+  await testInfo.attach("book-sheet-performance.json", {
+    body: JSON.stringify({ project: testInfo.project.name, ...metrics }, null, 2),
+    contentType: "application/json",
+  });
+
+  expect(metrics.clickToMount).not.toBeNull();
+  expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(34);
+  expect(metrics.frames).toBeGreaterThanOrEqual(40);
+  expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.maxFrame).toBeLessThanOrEqual(34);
+  expect(metrics.maxLongTask).toBe(0);
+  expect(metrics.layoutShift).toBe(0);
+});
+
+test("book action sheet preserves light, sepia, dark, and system-dark materials", async ({
+  page,
+}, testInfo) => {
+  await useLibraryListMode(page);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+  const app = page.locator('[data-app-shell="true"]');
+  const sheet = page.locator('[data-sheet-route="book-actions"]');
+  const panel = sheet.locator('[data-motion-sheet="panel"]');
+  await expect(panel).toBeVisible();
+
+  for (const theme of ["light", "sepia", "dark"] as const) {
+    await app.evaluate((element, nextTheme) => {
+      element.setAttribute("data-reader-theme", nextTheme);
+    }, theme);
+    await expect(panel).toHaveCSS(
+      "background-color",
+      {
+        light: "rgba(255, 255, 255, 0.96)",
+        sepia: "rgba(244, 236, 216, 0.96)",
+        dark: "rgba(28, 28, 30, 0.98)",
+      }[theme]
+    );
+    await capture(page, testInfo, `book-sheet-theme-${theme}`);
+  }
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await app.evaluate((element) => {
+    element.removeAttribute("data-reader-theme");
+  });
+  await expect(panel).toHaveCSS("background-color", "rgba(28, 28, 30, 0.98)");
+  await capture(page, testInfo, "book-sheet-theme-system-dark");
+});
+
+test("shared sheet preserves outside-tap and drag dismissal", async ({ page }) => {
+  await injectSheet(page, "collection-create");
+  let host = page.locator('[data-sheet-route="collection-create"]');
+  await expect(host.locator('[data-motion-sheet="panel"]')).toBeVisible();
+  await page.mouse.click(8, 8);
+  await expect(host).toHaveCount(0);
+
+  await injectSheet(page, "collection-create");
+  host = page.locator('[data-sheet-route="collection-create"]');
+  const panel = host.locator('[data-motion-sheet="panel"]');
+  const handle = host.locator('[data-sheet-drag-handle="true"]');
+  await waitForVerticalSettle(
+    page,
+    '[data-sheet-route="collection-create"] [data-motion-sheet="panel"]'
+  );
+  const handleBox = await handle.boundingBox();
+  const viewport = page.viewportSize();
+  if (!handleBox || !viewport) {
+    throw new Error("Shared sheet drag geometry is unavailable");
+  }
+  const x = handleBox.x + handleBox.width / 2;
+  const y = handleBox.y + handleBox.height / 2;
+  await dragTouch(page, { x, y }, { x, y: viewport.height - 4 }, 16);
+  await expect(host).toHaveCount(0);
+  await expect(panel).toHaveCount(0);
 });
 
 test("root tab retargeting stays within frame and long-task budgets", async ({
