@@ -154,7 +154,6 @@ export default function MotionSheet({
     [borderRadius, brightness, progress, scale]
   );
   const overlayStyle = {
-    "--sheet-backdrop-opacity": progress,
     ...(visualViewportFrame
       ? {
           left: visualViewportFrame.offsetLeft,
@@ -396,18 +395,18 @@ export default function MotionSheet({
             key="motion-sheet"
             className={`${styles.sheetOverlay} ${styles.motionSheetOverlay}`}
             style={overlayStyle}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: reduceMotion ? 0 : MOTION_DURATION.sheetExit,
-            }}
             data-motion-sheet="overlay"
             data-sheet-closing={closeRequest ? "true" : undefined}
             onClick={(event) => {
               if (event.target === event.currentTarget) close();
             }}
           >
+            <m.div
+              className={styles.motionSheetBackdrop}
+              style={{ opacity: progress }}
+              data-motion-sheet="backdrop"
+              aria-hidden="true"
+            />
             <m.div
               ref={panelRef}
               className={panelClassName}

@@ -3711,13 +3711,12 @@
   display: contents;
 }
 
-.sheetOverlay::before {
-  content: "";
+.motionSheetBackdrop {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
-  opacity: var(--sheet-backdrop-opacity, 1);
   pointer-events: none;
+  will-change: opacity;
 }
 
 .bottomSheet {
@@ -3739,12 +3738,9 @@
   padding-bottom: calc(var(--safe-bottom) + 8px);
 }
 
-.motionSheetOverlay::before {
-  transition: none;
-}
-
 .motionSheetPanel {
   touch-action: pan-y;
+  will-change: transform;
 }
 
 .sheetDragHandle {
