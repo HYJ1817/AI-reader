@@ -67,6 +67,20 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).not.toContain("panel.style");
   });
 
+  it("isolates sheet backdrop opacity from the transform-only panel", () => {
+    expect(motionSheetSource).toContain(
+      "className={styles.motionSheetBackdrop}"
+    );
+    expect(motionSheetSource).toContain("style={{ opacity: progress }}");
+    expect(motionSheetSource).toContain('data-motion-sheet="backdrop"');
+    expect(motionSheetSource).not.toContain('"--sheet-backdrop-opacity"');
+    expect(motionSheetSource).not.toContain("initial={{ opacity: 0 }}");
+    expect(motionSheetSource).not.toContain("animate={{ opacity: 1 }}");
+    expect(motionSheetSource).not.toContain("exit={{ opacity: 0 }}");
+    expect(motionSheetSource).toContain("const interruptClose");
+    expect(motionSheetSource).toContain("activeAnimationRef.current?.stop()");
+  });
+
   it("removes standalone keyframes from library and AI nested views", () => {
     for (const source of [librarySource, aiSettingsSource]) {
       expect(source).not.toContain("subviewEnterForward");
