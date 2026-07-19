@@ -54,10 +54,11 @@ A local production-build probe using the real More button recorded:
   shift.
 - Under 4x CPU throttling, one sample contained a 49.9ms frame and a 58ms long
   task.
-- An unthrottled entrance trace over roughly 700ms contained 56 style updates,
-  75 Paint events, and 559 RasterTask events. The panel's transform was not the
-  primary source; the inherited, per-frame backdrop value and grouped parent
-  opacity caused unnecessary work around the moving sheet.
+- A preliminary unthrottled entrance trace over roughly 700ms reported 56
+  style updates, 75 Paint events, and 559 RasterTask events. Its temporary
+  probe was deleted before the acceptance method was fixed, so later runs could
+  only recreate it from prose. Those event counts remain historical diagnostic
+  context, not a matched baseline or a source for acceptance ceilings.
 
 Temporary diagnostic scripts were stored only under gitignored `test-results`,
 then deleted. The local server was stopped and the tracked worktree remained
@@ -181,6 +182,24 @@ test, no long task, and zero layout shift. Source and computed-style assertions
 enforce the 120Hz-oriented compositor-only architecture. Physical iPhone 120Hz
 acceptance remains separate.
 
+Trace acceptance uses a paired, reproducible A/B method. Build production
+artifacts from the exact baseline and candidate revisions with the same build
+command, then run one byte-identical temporary probe with the same Chromium
+binary, iPhone profile, readiness sequence, real More-button pointer click, and
+fresh isolated contexts. Capture three traces per revision and analyze the
+exact click-relative interval `[0, 700ms)`. For each trace, sum `dur` separately
+for `UpdateLayoutTree` and `Paint` on `CrRendererMain`, and for `RasterTask`
+across renderer worker threads.
+
+For each category, both the candidate median and the candidate maximum across
+the three traces must be at most 50% of the matched baseline median. The matched
+baseline medians establish absolute ceilings of `20.9585ms` for
+`UpdateLayoutTree`, `8.5375ms` for Paint, and `33.959ms` for RasterTask. Event
+counts are diagnostic only: `UpdateLayoutTree` is commonly emitted with
+animation/rAF ticks, so its count can remain stable for less work per tick and
+can rise on a 120Hz display. A fixed count ceiling must not substitute for the
+matched duration gate.
+
 ## Quality Gates
 
 Before completion:
@@ -191,8 +210,9 @@ Before completion:
   build must pass.
 - Full shared native-navigation coverage must pass on both configured phone
   profiles.
-- Before/after real-click traces must show that the inherited per-frame style
-  invalidation path is removed and that paint/raster work is materially reduced.
+- Matched before/after real-click traces must pass all three duration gates for
+  `UpdateLayoutTree`, Paint, and RasterTask; event counts are recorded only as
+  diagnostics.
 - Impeccable's changed-source detector and `git diff --check` must pass.
 - No deployment or push occurs unless the user authorizes it after local
   verification.

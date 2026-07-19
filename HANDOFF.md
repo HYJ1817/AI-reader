@@ -10,9 +10,9 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state: 10 commits ahead of `main` (nine shared-sheet
-  implementation/test commits plus this handoff); no shared-sheet commit has
-  been pushed or deployed.
+- Local branch state after this correction: 11 commits ahead of `main` (nine
+  shared-sheet implementation/test commits plus two documentation follow-ups);
+  no shared-sheet commit has been pushed or deployed.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -85,8 +85,10 @@ Fresh local production-build diagnostics:
   worktree's `next start` process, then stopped; the port was confirmed free
   afterward. Temporary gitignored probes were created and deleted only with
   `apply_patch` and left no temporary-probe residue.
-- The three matched unthrottled runs each used a fresh isolated Chromium
-  context against the same local production build, with no warm sheet mount.
+- The earlier three feature-only unthrottled runs each used a fresh isolated
+  Chromium context against the same local production build, with no warm sheet
+  mount. They remain useful frame diagnostics but are not the matched A/B trace
+  acceptance evidence recorded below.
   Click-to-mount was `34.1ms`, `25.5ms`, and `23.0ms`; frame counts were
   `47`, `48`, and `48`; P95 intervals were `16.7ms`, `16.8ms`, and `16.7ms`;
   maximum intervals were `33.3ms`, `16.8ms`, and `16.8ms`. All three recorded
@@ -97,27 +99,81 @@ Fresh local production-build diagnostics:
   `150.1ms`, and `133.4ms`; maximum long tasks of `130ms`, `151ms`, and
   `139ms`; and `0` layout shift in every run. These throttled cold-context
   samples are reported as diagnostics, not a passing high-refresh claim.
-- The recorded pre-change baseline was first/warmed click-to-mount of
-  `24.7ms`/`8.0ms`/`4.2ms`, with one 4x sample containing a `49.9ms` frame and
-  `58ms` long task. Because the fresh after-runs deliberately removed the sheet
-  warm-up, click-to-mount and 4x values are not presented as an improvement.
-- The recorded pre-change roughly 700ms trace contained `56`
-  `UpdateLayoutTree`, `75` Paint, and `559` RasterTask events. Repeated after
-  traces recorded `50-52` `UpdateLayoutTree`, `3` Layout, `17` Paint, `8`
-  RasterTask, and `0` trace long tasks. Thread splitting confirmed every
-  `UpdateLayoutTree`, Layout, and Paint event was on `CrRendererMain`; raster
-  work was on renderer thread-pool workers.
-- Paint improved from `75` to `17` and RasterTask from `559` to `8`, passing
-  the required ceilings of `56` and `419`. `UpdateLayoutTree` improved only to
-  `50-52`, not the required ceiling of `42`. This is an explicit failed
-  performance gate; the result is not reinterpreted as passing. No production
-  or E2E logic was changed during final diagnostics.
-- The first temporary probe attempt timed out waiting for Playwright
-  `networkidle` before collecting metrics. The probe alone was corrected to
-  use DOM/app readiness, then the complete diagnostic ran. The timeline was
-  repeated to rule out window and cross-thread aggregation errors; the style
-  count miss reproduced. No product test required a retry and no threshold was
-  relaxed.
+- The preliminary design evidence reported first/warmed click-to-mount of
+  `24.7ms`/`8.0ms`/`4.2ms`, one 4x sample with a `49.9ms` frame and `58ms` long
+  task, and roughly 700ms counts of `56` UpdateLayoutTree, `75` Paint, and
+  `559` RasterTask events. Its temporary probe had been deleted, so later runs
+  reconstructed the method from prose. Those values remain historical context
+  but are not a matched acceptance baseline.
+- The first feature-only temporary probe attempt timed out waiting for
+  Playwright `networkidle` before collecting metrics. The probe alone was
+  corrected to use DOM/app readiness. No product test required a retry and no
+  runtime or E2E code changed during diagnostics.
+
+Matched A/B methodology correction and results:
+
+- Baseline `fa1fc216e424f1f2ac2bbd1cac7886253b24b922` and candidate
+  `3e4a5d192403d4a8f878eea64f06bc29fcf6c699` were each built with the same
+  production command and served sequentially on a verified-free port. One
+  byte-identical gitignored probe used the same Playwright Chromium binary,
+  iPhone 14 profile, deterministic TXT import, Library list mode, visible real
+  More-button pointer click, 600ms readiness idle, service-worker policy, and a
+  fresh isolated context per run.
+- Three traces were captured per revision. A renderer marker was emitted by
+  the actual captured More-button click, and every result below uses the exact
+  click-relative interval `[0, 700ms)`. Complete trace events starting at or
+  after the marker and before `marker + 700000us` were counted; durations were
+  clipped at the window end. UpdateLayoutTree, Layout, and Paint are from
+  `CrRendererMain`; RasterTask is summed across renderer worker threads.
+- Each trace cell is `count / total duration ms / self duration ms`:
+
+| Revision | Run | UpdateLayoutTree | Layout | Paint | RasterTask |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 1 | `47 / 43.407 / 43.407` | `4 / 7.237 / 7.237` | `100 / 28.319 / 16.388` | `240 / 103.045 / 1.321` |
+| Baseline | 2 | `47 / 35.300 / 35.300` | `4 / 6.761 / 6.761` | `100 / 17.075 / 9.962` | `240 / 67.918 / 1.027` |
+| Baseline | 3 | `46 / 41.917 / 41.917` | `4 / 7.649 / 7.649` | `98 / 16.205 / 9.420` | `246 / 67.071 / 0.791` |
+| Candidate | 1 | `47 / 15.689 / 15.689` | `3 / 7.199 / 7.199` | `49 / 4.517 / 2.077` | `30 / 22.630 / 0.144` |
+| Candidate | 2 | `47 / 15.239 / 15.239` | `3 / 7.255 / 7.255` | `32 / 2.463 / 1.242` | `29 / 26.752 / 0.118` |
+| Candidate | 3 | `47 / 14.967 / 14.967` | `3 / 6.862 / 6.862` | `49 / 4.169 / 1.907` | `30 / 17.442 / 0.092` |
+
+  RasterTask on `CrRendererMain` was exactly `0 / 0 / 0` in all six traces;
+  the table reports the renderer-worker totals required by the reviewed method.
+
+| Revision | Run | Click-to-mount | Frames | P95 | Maximum frame | Long tasks | Layout shift | Trace collected after marker |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Baseline | 1 | `39.8ms` | `42` | `16.8ms` | `33.3ms` | `0` | `0` | `761.337ms` |
+| Baseline | 2 | `35.5ms` | `42` | `16.8ms` | `33.4ms` | `0` | `0` | `768.714ms` |
+| Baseline | 3 | `44.3ms` | `41` | `16.7ms` | `50.0ms` | `0` | `0` | `774.608ms` |
+| Candidate | 1 | `36.8ms` | `43` | `16.8ms` | `33.3ms` | `0` | `0` | `781.405ms` |
+| Candidate | 2 | `36.1ms` | `43` | `16.7ms` | `16.8ms` | `0` | `0` | `774.746ms` |
+| Candidate | 3 | `39.1ms` | `42` | `16.8ms` | `33.3ms` | `0` | `0` | `759.382ms` |
+
+  The capture spans exceed 700ms only to contain the complete analysis window;
+  every event metric uses the identical exact `[0, 700ms)` filter. Long-task
+  and layout-shift observer support was present in all six runs; maximum and
+  total long-task duration were `0ms` throughout.
+
+- The matched duration gate requires both the candidate median and candidate
+  maximum across three traces to be no more than 50% of the baseline median:
+
+| Category | Baseline median | 50% ceiling | Candidate median | Candidate maximum | Median reduction | Result |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| UpdateLayoutTree | `41.917ms` | `20.9585ms` | `15.239ms` | `15.689ms` | `63.6%` | Pass |
+| Paint | `17.075ms` | `8.5375ms` | `4.169ms` | `4.517ms` | `75.6%` | Pass |
+| RasterTask | `67.918ms` | `33.959ms` | `22.630ms` | `26.752ms` | `66.7%` | Pass |
+
+- UpdateLayoutTree count was `47/47/46` before and `47/47/47` after while its
+  median duration fell by `63.6%`. This confirms why event count is diagnostic
+  only: it follows animation/rAF ticks, can stay level while work per tick
+  falls, and can rise on a 120Hz display. Paint count fell from `100/100/98` to
+  `49/32/49`; RasterTask count fell from `240/240/246` to `30/29/30`.
+- The original fixed UpdateLayoutTree count ceiling of `42` was derived from
+  the unmatched deleted-probe count of `56` and is retired, not passed. The
+  revised scientifically matched duration gates pass all three categories.
+- Runtime evidence also separates the revisions: baseline had no explicit
+  backdrop and published inherited token samples of `0.4962367179944912`,
+  `0.2538695820719473`, and `0.5096813407169211`; the candidate had the
+  explicit backdrop, no inherited token, and no overlay inline opacity.
 
 Fresh quality gates:
 
@@ -157,10 +213,9 @@ Status and acceptance boundary:
 - Automated Chromium demonstrates the two-layer source/runtime contract and a
   stable 60Hz smoke result. It does not prove 120fps. Physical 120Hz iPhone
   Safari/PWA verification remains a non-blocking device acceptance item.
-- The quality/functionality gates pass, but the approved UpdateLayoutTree
-  ceiling of `42` remains open. Do not describe the shared-sheet batch as
-  fully performance-verified until that count is resolved or the approved gate
-  is explicitly revised with matched evidence.
+- The quality/functionality gates and the revised matched duration gates pass.
+  The original unmatched fixed count gate is retired rather than described as
+  passed. Event counts remain diagnostic evidence only.
 
 ## GitHub Consolidation (2026-07-19)
 

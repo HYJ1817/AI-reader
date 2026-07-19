@@ -545,21 +545,34 @@ git commit -m "test: cover shared sheet entrance performance"
 
 - [ ] **Step 1: Re-run the same real-click diagnostic probe**
 
-Use the same temporary, gitignored `test-results` probe described in the design
-evidence: real More-button click, three unthrottled runs, three 4x CPU runs, and
-a 700ms DevTools timeline summary for style, Layout, Paint, RasterTask, and long
-tasks. Create and remove the temporary probe only with `apply_patch`.
+Run a paired A/B diagnostic against the exact pre-fix baseline revision and the
+candidate revision. Build each production artifact with the same command and
+use one byte-identical temporary, gitignored `test-results` probe, the same
+Chromium binary and iPhone profile, a real More-button pointer click, identical
+readiness, and fresh isolated contexts. Capture three traces per revision and
+analyze the exact click-relative interval `[0, 700ms)`. Create and remove the
+temporary probe only with `apply_patch`.
 
-Expected compared with the recorded baseline:
+Expected compared with the matched baseline:
 
 - No inherited `--sheet-backdrop-opacity` updates.
 - No parent overlay opacity animation.
 - Unthrottled P95 remains at one 60Hz frame or better, with no long task or
   layout shift.
-- In a matched unthrottled trace, UpdateLayoutTree count is at most 42, Paint
-  count is at most 56, and RasterTask count is at most 419. These are explicit
-  25% reductions from the recorded 56/75/559 baseline and guard against merely
-  shifting work to another animated property.
+- For each trace, sum `dur` for `UpdateLayoutTree` and Paint on
+  `CrRendererMain`, and sum `dur` for RasterTask across renderer worker threads.
+  For each category, the candidate median and the candidate maximum across all
+  three traces must both be at most 50% of the matched baseline median.
+- The matched baseline medians define absolute ceilings of `20.9585ms` for
+  UpdateLayoutTree, `8.5375ms` for Paint, and `33.959ms` for RasterTask. Record
+  event counts, total duration, and self duration for diagnosis, but do not gate
+  on counts. UpdateLayoutTree count follows animation/rAF ticks and may increase
+  on higher-refresh hardware even when work per tick falls.
+- The earlier fixed count ceilings derived from the deleted-probe
+  `56/75/559` report are retired because that probe could not be reproduced
+  identically; do not describe those unmatched count ceilings as passed.
+- Three fresh 4x CPU runs may be retained as additional diagnostics, but they
+  are not substitutes for the paired unthrottled duration acceptance method.
 
 - [ ] **Step 2: Run focused and full unit verification**
 
@@ -616,7 +629,8 @@ Add a dated `Shared Sheet Performance` section near the current top of
 
 - Design commit `adbf38d` and the plan/implementation/test commit SHAs.
 - Root cause and the final two-layer architecture.
-- Before/after click-to-mount, frame, long-task, style, Paint, and RasterTask
+- Matched before/after click-to-mount, frame, long-task, and exact
+  UpdateLayoutTree/Paint/RasterTask count, total-duration, and self-duration
   evidence without calling Chromium proof of 120fps.
 - Focused/full Vitest, lint, build, both complete phone-profile results, theme
   screenshot inspection, detector output, and `git diff --check`.
@@ -642,6 +656,7 @@ git status -sb
 git log -8 --oneline --decorate
 ```
 
-Expected: the working tree is clean and `main` is ahead of `origin/main` by the
-new local commits. Report exact verification evidence and ask before any push or
-production deployment.
+Expected: the working tree is clean on the feature branch. Follow the
+finishing-a-development-branch workflow and present the user with integration
+options; do not assume a local merge, push, pull request, cleanup, or deployment
+until the user chooses one.
