@@ -279,6 +279,7 @@ git commit -m "perf: isolate shared sheet compositor layers"
 **Files:**
 
 - Modify: `e2e/native-navigation.spec.ts`
+- Modify: `playwright.config.ts`
 - Test: `e2e/native-navigation.spec.ts`
 
 - [ ] **Step 1: Add a reusable Library list-mode helper**
@@ -502,16 +503,20 @@ test("book action sheet preserves light, sepia, dark, and system-dark materials"
 
 - [ ] **Step 5: Run the new tests on both phone profiles**
 
-Run:
+Run with no externally managed server listening on `localhost:3010`:
 
 ```powershell
-npx.cmd playwright test e2e\native-navigation.spec.ts --project=iphone-14 --grep "book action sheet|shared sheet preserves"
-npx.cmd playwright test e2e\native-navigation.spec.ts --project=iphone-15-pro-max --grep "book action sheet|shared sheet preserves"
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14 --grep "book action sheet|shared sheet preserves"
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max --grep "book action sheet|shared sheet preserves"
 ```
 
-Expected: both performance tests pass their cadence, maximum-frame, long-task,
-and layout-shift gates; both theme tests pass and write four screenshots per
-profile under gitignored `test-results/native-navigation`.
+The default Playwright-managed web server builds the production bundle and runs
+it with `next start`; performance gates must not run against `next dev`.
+`PLAYWRIGHT_BASE_URL` continues to bypass the managed server when an explicitly
+managed production server is required. Expected: both performance tests pass
+their cadence, maximum-frame, long-task, and layout-shift gates; both theme
+tests pass and write four screenshots per profile under gitignored
+`test-results/native-navigation`.
 
 - [ ] **Step 6: Inspect visual evidence at original resolution**
 
@@ -523,7 +528,7 @@ names and inspection result in the final handoff; do not commit screenshots.
 - [ ] **Step 7: Commit the browser regression coverage**
 
 ```powershell
-git add -- e2e\native-navigation.spec.ts
+git add -- e2e/native-navigation.spec.ts playwright.config.ts
 git commit -m "test: cover shared sheet entrance performance"
 ```
 
@@ -535,6 +540,7 @@ git commit -m "test: cover shared sheet entrance performance"
 - Verify: `app/MotionSheet.tsx`
 - Verify: `app/page.module.css`
 - Verify: `e2e/native-navigation.spec.ts`
+- Verify: `playwright.config.ts`
 
 - [ ] **Step 1: Re-run the same real-click diagnostic probe**
 
@@ -576,14 +582,18 @@ and static generation all exit 0.
 
 - [ ] **Step 4: Run the full shared navigation matrix**
 
+With no externally managed server listening on `localhost:3010`, run:
+
 ```powershell
-npx.cmd playwright test e2e\native-navigation.spec.ts --project=iphone-14
-npx.cmd playwright test e2e\native-navigation.spec.ts --project=iphone-15-pro-max
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max
 ```
 
-Expected: every test passes on both phone profiles, including all sheet routes,
-Escape, drag, interrupted settle, focus/inert behavior, reduced motion, real
-book-action entrance, root navigation, push, and reader interactions.
+These exact default commands exercise Playwright's production build/start
+server, not the development runtime. Expected: every test passes on both phone
+profiles, including all sheet routes, Escape, drag, interrupted settle,
+focus/inert behavior, reduced motion, real book-action entrance, root
+navigation, push, and reader interactions.
 
 - [ ] **Step 5: Run Impeccable and repository checks**
 
