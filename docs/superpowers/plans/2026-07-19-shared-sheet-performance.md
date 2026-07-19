@@ -512,11 +512,12 @@ npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-ma
 
 The default Playwright-managed web server builds the production bundle and runs
 it with `next start`; performance gates must not run against `next dev`.
-`PLAYWRIGHT_BASE_URL` continues to bypass the managed server when an explicitly
-managed production server is required. Expected: both performance tests pass
-their cadence, maximum-frame, long-task, and layout-shift gates; both theme
-tests pass and write four screenshots per profile under gitignored
-`test-results/native-navigation`.
+The managed server never reuses a process already listening on port 3010, so
+the port must be free before the command starts. `PLAYWRIGHT_BASE_URL` continues
+to bypass the managed server when an explicitly managed production server is
+required. Expected: both performance tests pass their cadence, maximum-frame,
+long-task, and layout-shift gates; both theme tests pass and write four
+screenshots per profile under gitignored `test-results/native-navigation`.
 
 - [ ] **Step 6: Inspect visual evidence at original resolution**
 
@@ -590,10 +591,11 @@ npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-ma
 ```
 
 These exact default commands exercise Playwright's production build/start
-server, not the development runtime. Expected: every test passes on both phone
-profiles, including all sheet routes, Escape, drag, interrupted settle,
-focus/inert behavior, reduced motion, real book-action entrance, root
-navigation, push, and reader interactions.
+server, never reuse an existing listener on port 3010, and do not exercise the
+development runtime. Expected: every test passes on both phone profiles,
+including all sheet routes, Escape, drag, interrupted settle, focus/inert
+behavior, reduced motion, real book-action entrance, root navigation, push,
+and reader interactions.
 
 - [ ] **Step 5: Run Impeccable and repository checks**
 

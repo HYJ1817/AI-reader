@@ -27,7 +27,7 @@ export default defineConfig({
         command:
           "npm run build && npm run start -- --hostname localhost --port 3010",
         url: localBaseUrl,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 120_000,
       },
   projects: [

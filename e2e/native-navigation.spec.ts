@@ -1027,17 +1027,6 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
     .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
     .first();
   await expect(more).toBeVisible();
-
-  const bookId = await firstLibraryCover(page).getAttribute("data-book-id");
-  expect(bookId).toBeTruthy();
-  await injectSheet(page, "book-actions", bookId ?? undefined);
-  const warmupHost = page.locator('[data-sheet-route="book-actions"]');
-  await waitForVerticalSettle(
-    page,
-    '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
-  );
-  await page.keyboard.press("Escape");
-  await expect(warmupHost).toHaveCount(0);
   await page.waitForTimeout(600);
 
   const metricsPromise = page.evaluate(async () => {
@@ -1058,8 +1047,6 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
         mountedAt = performance.now();
       }
     });
-    mutation.observe(document.body, { childList: true, subtree: true });
-
     const clickListener = (event: MouseEvent) => {
       if (
         event.target instanceof Element &&
@@ -1068,8 +1055,6 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
         clickAt = performance.now();
       }
     };
-    document.addEventListener("click", clickListener, true);
-
     const handleEntries = (entries: PerformanceEntry[]) => {
       for (const entry of entries) {
         if (entry.entryType === "longtask") longTasks.push(entry.duration);
@@ -1078,46 +1063,58 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
         }
       }
     };
-    for (const type of ["longtask", "layout-shift"] as const) {
-      if (!PerformanceObserver.supportedEntryTypes.includes(type)) continue;
-      const observer = new PerformanceObserver((list) =>
-        handleEntries(list.getEntries())
-      );
-      observer.observe({ entryTypes: [type] });
-      observers.push(observer);
-    }
-
-    const startedAt = performance.now();
-    await new Promise<void>((resolve) => {
-      const sample = (now: number) => {
-        intervals.push(now - previous);
-        previous = now;
-        if (now - startedAt >= 800) {
-          resolve();
-          return;
+    try {
+      for (const type of ["longtask", "layout-shift"] as const) {
+        if (!PerformanceObserver.supportedEntryTypes.includes(type)) {
+          throw new Error(
+            `Required PerformanceObserver entry type is unavailable: ${type}`
+          );
         }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    });
+      }
 
-    mutation.disconnect();
-    document.removeEventListener("click", clickListener, true);
-    for (const observer of observers) {
-      handleEntries(observer.takeRecords());
-      observer.disconnect();
+      mutation.observe(document.body, { childList: true, subtree: true });
+      document.addEventListener("click", clickListener, true);
+      for (const type of ["longtask", "layout-shift"] as const) {
+        const observer = new PerformanceObserver((list) =>
+          handleEntries(list.getEntries())
+        );
+        observer.observe({ entryTypes: [type] });
+        observers.push(observer);
+      }
+
+      const startedAt = performance.now();
+      await new Promise<void>((resolve) => {
+        const sample = (now: number) => {
+          intervals.push(now - previous);
+          previous = now;
+          if (now - startedAt >= 800) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      });
+
+      for (const observer of observers) {
+        handleEntries(observer.takeRecords());
+      }
+      const sampledIntervals = intervals.slice(2);
+      const sorted = [...sampledIntervals].sort((a, b) => a - b);
+      return {
+        clickToMount:
+          clickAt === null || mountedAt === null ? null : mountedAt - clickAt,
+        frames: sampledIntervals.length,
+        p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+        maxFrame: Math.max(...sampledIntervals),
+        maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
+        layoutShift,
+      };
+    } finally {
+      mutation.disconnect();
+      document.removeEventListener("click", clickListener, true);
+      for (const observer of observers) observer.disconnect();
     }
-    const sampledIntervals = intervals.slice(2);
-    const sorted = [...sampledIntervals].sort((a, b) => a - b);
-    return {
-      clickToMount:
-        clickAt === null || mountedAt === null ? null : mountedAt - clickAt,
-      frames: sampledIntervals.length,
-      p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-      maxFrame: Math.max(...sampledIntervals),
-      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-      layoutShift,
-    };
   });
 
   await page.waitForTimeout(40);
