@@ -15,12 +15,16 @@
   `fda4867`; focused implementation continues through `b3c2638`.
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
-- Latest local product behavior commit:
-  `39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading
-  goal wheel values`). It is pushed and deployed from commit `8f932c0`.
+- Latest local and remote product behavior batch: the reference bottom
+  navigation runtime and testing work through
+  `20ecf287c275237da076d564e2c19e8cf413dd66` (`test: harden root navigation
+  checks`). The branch and PR include this batch; later `docs:` commits,
+  starting with `423593b`, document it and are not runtime behavior.
 - Latest deployed product behavior commit:
   `39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading
-  goal wheel values`).
+  goal wheel values`). Production remains on this reading-goal wheel/clamp
+  batch; the reference bottom navigation is pushed to the branch and PR but
+  **Not deployed**.
 - Latest deployed Worker version: `7b2249fe-dc34-47fb-b77a-909262c2c11d`.
 - GitHub CLI authentication is valid for `HYJ1817`; the feature branch is
   pushed and synchronized with `origin/codex/custom-background-settings`.
@@ -98,6 +102,9 @@ Implemented behavior:
   `-webkit-backdrop-filter` declaration.
 
 Fresh local verification on 2026-07-19:
+
+All timings and performance metrics below are single-run local samples, not
+benchmarks.
 
 - `npm.cmd test`: exit code 0; 155/155 Vitest files and 1449/1449 tests
   passed.
