@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
-);
+).replace(/\r\n/g, "\n");
 const source = readFileSync(
   new URL("../app/ReadingGoalSheet.tsx", import.meta.url),
   "utf8"
