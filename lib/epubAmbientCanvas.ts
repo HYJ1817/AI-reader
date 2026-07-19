@@ -8,6 +8,7 @@ type EpubAmbientElement = {
   children?: ArrayLike<EpubAmbientElement>;
   ownerDocument?: EpubAmbientDocument;
   document?: EpubAmbientDocument;
+  setAttribute?: (name: string, value: string) => void;
 };
 
 type EpubAmbientDocument = {
@@ -20,29 +21,29 @@ type EpubAmbientContents = EpubAmbientDocument & {
   content?: EpubAmbientElement;
 };
 
-const TOP_LEVEL_CANVAS_TAGS = new Set([
-  "DIV",
-  "MAIN",
-  "SECTION",
-  "ARTICLE",
-]);
+type EpubAmbientView = {
+  element?: EpubAmbientElement;
+  iframe?: EpubAmbientElement;
+  container?: EpubAmbientElement;
+};
 
-function setBackground(
-  element: EpubAmbientElement | undefined,
-  background: string
-) {
-  element?.style?.setProperty("background", background, "important");
+const MEDIA_TAGS = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE"]);
+
+function setTransparentBackgroundColor(element: EpubAmbientElement | undefined) {
+  element?.style?.setProperty("background-color", "transparent", "important");
 }
 
-function clearPublisherCanvasChain(element: EpubAmbientElement): void {
-  setBackground(element, "transparent");
+function setTransparentRootCanvas(element: EpubAmbientElement | undefined) {
+  element?.style?.setProperty("background", "transparent", "important");
+  setTransparentBackgroundColor(element);
+}
 
-  const children = Array.from(element.children ?? []);
-  if (children.length !== 1) return;
-
-  const child = children[0];
-  if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-    clearPublisherCanvasChain(child);
+function clearNestedCanvases(element: EpubAmbientElement) {
+  for (const child of Array.from(element.children ?? [])) {
+    if (!MEDIA_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
+      setTransparentRootCanvas(child);
+    }
+    clearNestedCanvases(child);
   }
 }
 
@@ -60,12 +61,16 @@ export function applyEpubAmbientCanvas(
   const body = document?.body;
   if (!document || !body) return;
 
-  setBackground(document.documentElement, "transparent");
-  setBackground(body, "transparent");
+  setTransparentRootCanvas(document.documentElement);
+  setTransparentRootCanvas(body);
+  clearNestedCanvases(body);
+}
 
-  for (const child of Array.from(body.children ?? [])) {
-    if (TOP_LEVEL_CANVAS_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-      clearPublisherCanvasChain(child);
-    }
+export function applyEpubViewTransparency(view: unknown): void {
+  if (!view || typeof view !== "object") return;
+  const candidate = view as EpubAmbientView;
+  for (const element of [candidate.container, candidate.element, candidate.iframe]) {
+    setTransparentRootCanvas(element);
   }
+  candidate.iframe?.setAttribute?.("allowtransparency", "true");
 }

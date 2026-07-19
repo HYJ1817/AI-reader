@@ -1,9 +1,15 @@
-import { describe, it, expect } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import {
   DEFAULT_AI_SETTINGS,
+  clearAiSettingsFromStorage,
   sanitizeAiSettings,
   hasUsableAiSettings,
+  saveAiSettingsToStorage,
 } from "./aiSettings";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("DEFAULT_AI_SETTINGS", () => {
   it("has a default baseUrl of https://api.openai.com/v1", () => {
@@ -126,5 +132,22 @@ describe("hasUsableAiSettings", () => {
         model: "   ",
       })
     ).toBe(false);
+  });
+});
+
+describe("legacy AI settings storage", () => {
+  it("does not throw when storage writes are blocked", () => {
+    vi.stubGlobal("window", {});
+    vi.stubGlobal("localStorage", {
+      setItem: () => {
+        throw new Error("quota exceeded");
+      },
+      removeItem: () => {
+        throw new Error("blocked");
+      },
+    });
+
+    expect(() => saveAiSettingsToStorage(DEFAULT_AI_SETTINGS)).not.toThrow();
+    expect(() => clearAiSettingsFromStorage()).not.toThrow();
   });
 });

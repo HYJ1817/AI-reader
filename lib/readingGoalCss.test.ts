@@ -5,11 +5,15 @@ const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const source = readFileSync(
+  new URL("../app/ReadingGoalSheet.tsx", import.meta.url),
+  "utf8"
+);
 
 describe("reading goal fullscreen CSS", () => {
-  it("uses the modal layer and viewport-safe full screen layout", () => {
+  it("uses the shared sheet layer and viewport-safe full screen layout", () => {
     expect(css).toMatch(
-      /\.goalOverlay\s*\{[\s\S]*?position:\s*fixed;[\s\S]*?inset:\s*0;[\s\S]*?z-index:\s*100;/
+      /\.bottomSheet\.goalMotionSheet\s*\{[\s\S]*?height:\s*100dvh;[\s\S]*?max-height:\s*100dvh;/
     );
     expect(css).toMatch(
       /\.goalScreen\s*\{[\s\S]*?var\(--safe-top\)[\s\S]*?var\(--safe-bottom\)/
@@ -19,24 +23,40 @@ describe("reading goal fullscreen CSS", () => {
     );
   });
 
-  it("defines stable arc and wheel geometry", () => {
+  it("uses the frameless React Bits wheel geometry", () => {
     expect(css).toMatch(
       /\.goalArcWrap\s*\{[\s\S]*?width:\s*min\(100%,\s*320px\);[\s\S]*?height:\s*205px;/
     );
-    expect(css).toContain(".goalWheelBand");
     expect(css).toContain(".goalWheelRows");
-    expect(css).toContain(".goalWheelRowSelected");
-    expect(css).toContain(".goalWheelRowNeighbor");
-    expect(css).toContain(".goalWheelRowEdge");
-    expect(css).toMatch(/\.goalWheel\s*\{[\s\S]*?touch-action:\s*none;/);
+    expect(css).toContain(".goalWheelRow");
+    expect(css).not.toContain(".goalWheelBand");
+    expect(css).not.toContain(".goalWheelRowSelected");
+    expect(css).not.toContain(".goalWheelRowNeighbor");
+    expect(css).not.toContain(".goalWheelRowEdge");
+    expect(css).toMatch(
+      /\.goalWheel\s*\{[\s\S]*?height:\s*220px;[\s\S]*?border:\s*0;[\s\S]*?background:\s*transparent;[\s\S]*?box-shadow:\s*none;[\s\S]*?touch-action:\s*none;/
+    );
+    expect(css).toMatch(
+      /\.goalWheelRow\s*\{[\s\S]*?height:\s*2\.38rem;[\s\S]*?font-size:\s*1\.7rem;/
+    );
+  });
+
+  it("keeps theme tokens and avoids a permanent animation layer", () => {
+    const start = css.indexOf(".goalWheelRow {");
+    const end = css.indexOf("}", start);
+    const rule = css.slice(start, end);
+
+    expect(rule).toContain("color: var(--text-secondary);");
+    expect(rule).not.toContain("will-change");
+    expect(rule).not.toMatch(/(?:#fff(?:fff)?|#000(?:000)?)/i);
   });
 
   it("adapts short screens and reduced motion", () => {
     expect(css).toContain("@media (max-height: 760px)");
     expect(css).toContain("@media (prefers-reduced-motion: reduce)");
-    expect(css).toMatch(
-      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.goalOverlay[\s\S]*?animation:\s*none;/
-    );
+    expect(source).toContain("<BottomSheet");
+    expect(css).not.toContain("goalOverlayIn");
+    expect(css).not.toContain("goalEditorIn");
   });
 
   it("keeps all five wheel rows visible on short screens", () => {
@@ -44,7 +64,9 @@ describe("reading goal fullscreen CSS", () => {
       css.match(
         /@media \(max-height: 760px\)\s*\{([\s\S]*?)\n\}\n\n@media \(prefers-reduced-motion/
       )?.[1] ?? "";
-    expect(shortScreenRules).not.toContain("height: 150px");
+    expect(shortScreenRules).toMatch(
+      /\.goalWheel\s*\{\s*height:\s*190px;\s*\}/
+    );
   });
 
   it("removes obsolete bottom-sheet goal styles", () => {
@@ -54,11 +76,10 @@ describe("reading goal fullscreen CSS", () => {
   });
 
   it("uses theme tokens for the fullscreen surface", () => {
-    expect(css).toMatch(
-      /\.goalOverlay\s*\{[\s\S]*?background:\s*var\(--app-bg\);/
-    );
-    expect(css).not.toMatch(
-      /\.goalOverlay\s*\{[\s\S]*?background:\s*(?:#fff|#ffffff|white);/
-    );
+    const start = css.indexOf(".bottomSheet.goalMotionSheet {");
+    const end = css.indexOf("}", start);
+    const rule = css.slice(start, end);
+    expect(rule).toContain("background: var(--app-bg);");
+    expect(rule).not.toMatch(/background:\s*(?:#fff|#ffffff|white);/);
   });
 });

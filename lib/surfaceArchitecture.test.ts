@@ -12,6 +12,7 @@ describe("surface architecture", () => {
     "ReadingDashboard",
     "SettingsSurface",
     "AppNavigation",
+    "AppPushSurfaces",
     "ReadingSession",
     "AppOverlays",
   ])("renders <%s> from Home", (component) => {
@@ -49,6 +50,12 @@ describe("surface architecture", () => {
   });
 
   it("keeps Home within the orchestration size target", () => {
-    expect(pageSource.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(1905);
+    expect(pageSource.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(1935);
+  });
+
+  it("keeps visual transition timers out of Home orchestration", () => {
+    expect(pageSource).not.toContain("readerPrefsMotionTimerRef");
+    expect(pageSource).not.toContain("readerPreferencesAdjusting");
+    expect(pageSource).not.toContain("readerShellRef");
   });
 });

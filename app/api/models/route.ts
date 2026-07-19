@@ -6,12 +6,23 @@ import {
   sanitizeAiProvider,
   type AiProviderConfig,
 } from "@/lib/aiProviders";
+import {
+  AiRequestError,
+  fetchAiUpstream,
+  readLimitedJson,
+} from "@/lib/aiRequestSecurity";
 
 export async function POST(request: Request) {
   let body: unknown;
   try {
-    body = await request.json();
-  } catch {
+    body = await readLimitedJson(request, 64_000);
+  } catch (error) {
+    const status = error instanceof AiRequestError ? error.status : 400;
+    const message = error instanceof Error ? error.message : "Invalid JSON body";
+    return Response.json({ error: message }, { status });
+  }
+
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
@@ -40,9 +51,14 @@ export async function POST(request: Request) {
 
   let upstream: Response;
   try {
-    upstream = await fetch(modelRequest.url, modelRequest.init);
-  } catch {
-    return Response.json({ error: "Model refresh failed" }, { status: 502 });
+    upstream = await fetchAiUpstream(modelRequest.url, modelRequest.init, {
+      allowLocalDevelopment: process.env.NODE_ENV !== "production",
+    });
+  } catch (error) {
+    const status = error instanceof AiRequestError ? error.status : 502;
+    const message =
+      error instanceof AiRequestError ? error.message : "Model refresh failed";
+    return Response.json({ error: message }, { status });
   }
 
   if (!upstream.ok) {

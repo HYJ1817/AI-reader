@@ -47,6 +47,14 @@ export interface AiProviderSettings {
   providers: AiProviderConfig[];
 }
 
+export interface AiProviderPresetOption {
+  kind: Exclude<AiProviderKind, "custom">;
+  label: string;
+  iconLabel: string;
+  protocol: AiProviderProtocol;
+  defaultBaseUrl: string;
+}
+
 export const AI_API_FORMATS: AiApiFormatOption[] = [
   {
     protocol: "openai-compatible",
@@ -71,6 +79,44 @@ export const AI_API_FORMATS: AiApiFormatOption[] = [
   },
 ];
 
+export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
+  {
+    kind: "openai",
+    label: "OpenAI / Compatible API",
+    iconLabel: "AI",
+    protocol: "openai-compatible",
+    defaultBaseUrl: "https://api.openai.com",
+  },
+  {
+    kind: "anthropic",
+    label: "Anthropic / Compatible API",
+    iconLabel: "A",
+    protocol: "anthropic-compatible",
+    defaultBaseUrl: "https://api.anthropic.com",
+  },
+  {
+    kind: "gemini",
+    label: "Google Gemini",
+    iconLabel: "G",
+    protocol: "gemini",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com",
+  },
+  {
+    kind: "openrouter",
+    label: "OpenRouter",
+    iconLabel: "OR",
+    protocol: "openai-compatible",
+    defaultBaseUrl: "https://openrouter.ai/api",
+  },
+  {
+    kind: "xai",
+    label: "xAI",
+    iconLabel: "x",
+    protocol: "openai-compatible",
+    defaultBaseUrl: "https://api.x.ai",
+  },
+];
+
 export const DEFAULT_AI_PROVIDER_SETTINGS: AiProviderSettings = {
   activeProviderId: null,
   providers: [],
@@ -84,7 +130,7 @@ function nowIso(): string {
 }
 
 function fallbackId(prefix: string = "provider"): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -125,16 +171,15 @@ export function createAiProviderFromPreset(
   kind: AiProviderKind,
   overrides: Partial<AiProviderConfig> = {}
 ): AiProviderConfig {
+  const preset = AI_PROVIDER_PRESETS.find((item) => item.kind === kind);
+  const protocol = overrides.protocol ?? preset?.protocol;
   const provider = createEmptyAiProvider({
+    protocol,
+    baseUrl: overrides.baseUrl ?? preset?.defaultBaseUrl,
+    label: overrides.label ?? preset?.label,
     ...overrides,
     kind,
   });
-  if (overrides.label) return provider;
-  if (kind === "openai") return { ...provider, label: "OpenAI / Compatible API" };
-  if (kind === "anthropic") return { ...provider, label: "Anthropic / Compatible API" };
-  if (kind === "gemini") return { ...provider, label: "Google Gemini" };
-  if (kind === "openrouter") return { ...provider, label: "OpenRouter" };
-  if (kind === "xai") return { ...provider, label: "xAI" };
   return provider;
 }
 
@@ -192,7 +237,7 @@ export function sanitizeAiProvider(value: unknown): AiProviderConfig | null {
   const format = getAiApiFormat(protocol);
   if (!id || !label) return null;
 
-  return {
+  return materializeAiProviderBaseUrl({
     id,
     kind: obj.kind ?? "custom",
     protocol,
@@ -215,7 +260,7 @@ export function sanitizeAiProvider(value: unknown): AiProviderConfig | null {
       typeof obj.updatedAt === "string" && obj.updatedAt.trim()
         ? obj.updatedAt
         : nowIso(),
-  };
+  });
 }
 
 export function sanitizeAiProviderSettings(value: unknown): AiProviderSettings {
@@ -263,6 +308,60 @@ export function resolveAiProviderBaseUrl(provider: AiProviderConfig): string {
     return trimmed;
   }
   return `${trimmed}${defaultPath}`;
+}
+
+export function materializeAiProviderBaseUrl(
+  provider: AiProviderConfig
+): AiProviderConfig {
+  const baseUrl = provider.baseUrl.trim().replace(/\/+$/, "");
+  if (!provider.appendDefaultPath) {
+    return { ...provider, baseUrl };
+  }
+  try {
+    return { ...provider, baseUrl: resolveAiProviderBaseUrl(provider) };
+  } catch {
+    return { ...provider, baseUrl };
+  }
+}
+
+type AiProviderFormatBaseUrlInput = {
+  currentBaseUrl: string;
+  protocol: AiProviderProtocol;
+  appendDefaultPath: boolean;
+};
+
+function normalizeBaseUrlForComparison(value: string): string {
+  return value.trim().replace(/\/+$/, "");
+}
+
+function knownDefaultBaseUrls(): Set<string> {
+  const urls = new Set<string>();
+  for (const format of AI_API_FORMATS) {
+    const base = normalizeBaseUrlForComparison(format.defaultBaseUrl);
+    urls.add(base);
+    urls.add(`${base}${format.defaultPath}`);
+  }
+  return urls;
+}
+
+export function resolveAiProviderFormatBaseUrl({
+  currentBaseUrl,
+  protocol,
+  appendDefaultPath,
+}: AiProviderFormatBaseUrlInput): string {
+  const current = normalizeBaseUrlForComparison(currentBaseUrl);
+  const format = getAiApiFormat(protocol);
+  const shouldUseFormatDefault =
+    current.length === 0 || knownDefaultBaseUrls().has(current);
+  const baseUrl = shouldUseFormatDefault ? format.defaultBaseUrl : current;
+  return materializeAiProviderBaseUrl(
+    createEmptyAiProvider({
+      protocol,
+      baseUrl,
+      appendDefaultPath,
+      defaultPath: format.defaultPath,
+    })
+  ).baseUrl;
 }
 
 export function hasUsableAiProvider(provider: AiProviderConfig | null | undefined): boolean {
@@ -337,10 +436,21 @@ export function loadAiProviderSettings(): AiProviderSettings {
 
 export function saveAiProviderSettingsToStorage(settings: AiProviderSettings): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAiProviderSettings(settings)));
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(sanitizeAiProviderSettings(settings))
+    );
+  } catch {
+    // Keep provider editing usable when persistent storage is unavailable.
+  }
 }
 
 export function clearAiProviderSettingsFromStorage(): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Ignore unavailable storage; in-memory settings are still cleared by callers.
+  }
 }

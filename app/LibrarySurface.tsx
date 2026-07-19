@@ -1,16 +1,17 @@
 "use client";
 
-import { useState, type RefObject } from "react";
-import BookCover from "@/app/BookCover";
+import { useState, type CSSProperties, type RefObject } from "react";
+import { AnimatePresence, LayoutGroup, m } from "motion/react";
+import { useAppReducedMotion } from "@/app/AppMotionRoot";
+import MotionBookCover from "@/app/MotionBookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
-import type { CollectionListItem } from "@/lib/collectionList";
 import type { BookGroup, BookRecord } from "@/lib/db";
 import {
-  formatLibraryProgressLabel,
   getBookProgressPercent,
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
-import { formatBookSize } from "@/lib/libraryPresentation";
+import { buildLibraryBookPresentation } from "@/lib/libraryPresentation";
+import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -21,14 +22,14 @@ export type LibrarySurfaceProps = {
     books: BookRecord[];
     visibleBooks: BookRecord[];
     filteredBookCount: number;
+    featuredBook: BookRecord | null;
+    featuredLayout: boolean;
     groups: BookGroup[];
-    collectionItems: CollectionListItem[];
     progressMap: ReadingProgressMap;
     loading: boolean;
     importError: string | null;
   };
   view: {
-    screen: "library" | "collections";
     searchQuery: string;
     mode: LibraryViewMode;
     activeCollectionName: string;
@@ -37,31 +38,20 @@ export type LibrarySurfaceProps = {
   };
   editing: {
     library: boolean;
-    collections: boolean;
     selectedBookIds: string[];
     selectedCountLabel: string;
     allVisibleSelected: boolean;
-    editingGroupId: string | null;
-    editingGroupName: string;
   };
   sentinelRef: RefObject<HTMLDivElement | null>;
   actions: {
     importBooks: () => void;
     openCollections: () => void;
-    closeCollections: () => void;
-    toggleCollectionsEditing: () => void;
-    selectCollection: (filter: string | null) => void;
     setSearchQuery: (query: string) => void;
     setViewMode: (mode: LibraryViewMode) => void;
     toggleLibraryEditing: () => void;
     selectAllVisible: () => void;
-    pressBook: (book: BookRecord) => void;
+    pressBook: (book: BookRecord, originId: string) => void;
     openBookActions: (book: BookRecord) => void;
-    startRenamingGroup: (id: string, name: string) => void;
-    setEditingGroupName: (name: string) => void;
-    renameGroup: (id: string) => void;
-    deleteGroup: (id: string) => void;
-    openCreateCollection: () => void;
   };
 };
 
@@ -78,37 +68,92 @@ export default function LibrarySurface({
     books,
     visibleBooks,
     filteredBookCount,
+    featuredBook,
+    featuredLayout,
     groups,
-    collectionItems,
     progressMap,
     loading,
     importError,
   } = data;
-  const [screenMotion, setScreenMotion] = useState<
-    "forward" | "backward" | null
-  >(null);
-  const screenMotionClass =
-    screenMotion === "forward"
-      ? styles.subviewEnterForward
-      : screenMotion === "backward"
-        ? styles.subviewEnterBackward
-        : "";
+  const reduceMotion = useAppReducedMotion();
+  const bookIds = books.map((book) => book.id);
+  const visibleBookIds = visibleBooks.map((book) => book.id);
+  const currentSignature = JSON.stringify({
+    bookIds,
+    visibleBookIds,
+    count: view.visibleBookCount,
+    searchQuery: view.searchQuery,
+    groupFilter: view.groupFilter,
+  });
+  const [libraryMotionSnapshot, setLibraryMotionSnapshot] = useState<{
+    signature: string;
+    bookIds: Set<string>;
+    ids: Set<string>;
+    count: number;
+    searchQuery: string;
+    groupFilter: string | null;
+    entranceOrder: Map<string, number>;
+  }>(() => ({
+    signature: currentSignature,
+    bookIds: new Set(bookIds),
+    ids: new Set(visibleBookIds),
+    count: view.visibleBookCount,
+    searchQuery: view.searchQuery,
+    groupFilter: view.groupFilter,
+    entranceOrder: new Map(),
+  }));
 
-  const openCollections = () => {
-    setScreenMotion("forward");
-    actions.openCollections();
-  };
-  const closeCollections = () => {
-    setScreenMotion("backward");
-    actions.closeCollections();
-  };
-  const selectCollection = (filter: string | null) => {
-    setScreenMotion("backward");
-    actions.selectCollection(filter);
-  };
+  if (libraryMotionSnapshot.signature !== currentSignature) {
+    const previousBookSnapshot = libraryMotionSnapshot;
+    const newlyAddedBookIds = new Set(
+      bookIds.filter((bookId) => !previousBookSnapshot.bookIds.has(bookId))
+    );
+
+    if (
+      previousBookSnapshot.searchQuery === view.searchQuery &&
+      previousBookSnapshot.groupFilter === view.groupFilter &&
+      view.visibleBookCount > previousBookSnapshot.count
+    ) {
+      for (const bookId of visibleBookIds) {
+        if (!previousBookSnapshot.ids.has(bookId)) {
+          newlyAddedBookIds.add(bookId);
+        }
+      }
+    }
+
+    setLibraryMotionSnapshot({
+      signature: currentSignature,
+      bookIds: new Set(bookIds),
+      ids: new Set(visibleBookIds),
+      count: view.visibleBookCount,
+      searchQuery: view.searchQuery,
+      groupFilter: view.groupFilter,
+      entranceOrder: new Map(
+        visibleBooks
+          .filter((book) => newlyAddedBookIds.has(book.id))
+          .slice(0, 6)
+          .map((book, index) => [book.id, index])
+      ),
+    });
+  }
+
+  const entranceOrder = libraryMotionSnapshot.entranceOrder;
+  const featuredOriginId = featuredBook
+    ? `library-${view.mode}-${featuredBook.id}`
+    : "";
+  const featuredProgress = featuredBook
+    ? getBookProgressPercent(progressMap, featuredBook.id)
+    : 0;
+  const featuredPresentation = featuredBook
+    ? buildLibraryBookPresentation(featuredBook, featuredProgress)
+    : null;
 
   return (
-    <div className={className} aria-hidden={ariaHidden}>
+    <div
+      className={className}
+      aria-hidden={ariaHidden}
+      data-library-loading={loading ? "true" : "false"}
+    >
       <div className={styles.pageHeader}>
         <h1 className={styles.libraryTitle}>{UI_TEXT.LIBRARY}</h1>
         <div className={styles.pageHeaderActions}>
@@ -136,134 +181,7 @@ export default function LibrarySurface({
         </div>
       </div>
 
-      {view.screen === "collections" ? (
-        <div
-          className={`${styles.collectionsScreen} ${screenMotionClass}`}
-        >
-          <div className={styles.collectionsTopBar}>
-            <button className={styles.collectionBackButton} onClick={closeCollections}>
-              <span aria-hidden="true">‹</span>
-              {UI_TEXT.LIBRARY}
-            </button>
-            <button className={styles.libraryTextButton} onClick={actions.toggleCollectionsEditing}>
-              {editing.collections ? UI_TEXT.DONE : UI_TEXT.EDIT}
-            </button>
-          </div>
-          <h2 className={styles.collectionsTitle}>{UI_TEXT.COLLECTIONS}</h2>
-          <div className={styles.collectionList}>
-            {collectionItems.map((item) => {
-              const isActive = view.groupFilter === item.filter;
-              const customGroupId =
-                typeof item.filter === "string" && item.filter !== "__ungrouped"
-                  ? item.filter
-                  : null;
-              const isEditingGroup =
-                customGroupId !== null &&
-                editing.editingGroupId === customGroupId;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`${styles.collectionRow} ${
-                    isActive ? styles.collectionRowActive : ""
-                  }`}
-                >
-                  <button
-                    className={styles.collectionRowMain}
-                    onClick={() => {
-                      if (!editing.collections) selectCollection(item.filter);
-                    }}
-                  >
-                    <span className={styles.collectionRowIcon}>
-                      {item.filter === null ? (
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                          <path d="M4 5.5c2.2-.3 4 .3 6 1.6 2-1.3 3.8-1.9 6-1.6v10.7c-2.2-.3-4 .3-6 1.6-2-1.3-3.8-1.9-6-1.6V5.5Z" />
-                          <path d="M10 7.1v10.7" />
-                        </svg>
-                      ) : item.filter === "__ungrouped" ? (
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                          <path d="M5 2.5h7.5L15 5v12.5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z" />
-                          <path d="M12.5 2.5V5h2.5" />
-                        </svg>
-                      ) : (
-                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
-                          <path d="M2.5 4.5h5l2 2h8a1 1 0 0 1 1 1v8.5a1 1 0 0 1-1 1h-14a1 1 0 0 1-1-1v-10.5a1 1 0 0 1 1-1Z" />
-                        </svg>
-                      )}
-                    </span>
-                    <span className={styles.collectionRowBody}>
-                      {isEditingGroup ? (
-                        <input
-                          className={styles.collectionRenameInput}
-                          value={editing.editingGroupName}
-                          onChange={(event) => actions.setEditingGroupName(event.target.value)}
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" && customGroupId) {
-                              actions.renameGroup(customGroupId);
-                            }
-                          }}
-                          autoFocus
-                        />
-                      ) : (
-                        <span className={styles.collectionRowName}>{item.name}</span>
-                      )}
-                      <span className={styles.collectionRowMeta}>
-                        {item.count} {UI_TEXT.BOOK_COUNT}
-                      </span>
-                    </span>
-                    {!editing.collections && (
-                      <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-                    )}
-                  </button>
-                  {editing.collections && customGroupId && (
-                    <span className={styles.collectionEditActions}>
-                      {isEditingGroup ? (
-                        <button className={styles.groupEditSave} onClick={() => actions.renameGroup(customGroupId)}>
-                          {UI_TEXT.SAVE}
-                        </button>
-                      ) : (
-                        <button className={styles.groupAction} onClick={() => actions.startRenamingGroup(customGroupId, item.name)}>
-                          {UI_TEXT.RENAME}
-                        </button>
-                      )}
-                      <button className={styles.groupActionDelete} onClick={() => actions.deleteGroup(customGroupId)}>
-                        {UI_TEXT.DELETE_GROUP}
-                      </button>
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-            <button className={styles.collectionRow} onClick={actions.openCreateCollection}>
-              <span className={styles.collectionRowIcon}>
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                  <path d="M10 4v12M4 10h12" strokeLinecap="round" />
-                </svg>
-              </span>
-              <span className={styles.collectionRowBody}>
-                <span className={styles.collectionRowName}>新建藏书...</span>
-              </span>
-              <span className={styles.collectionRowChevron}>{"\u203a"}</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className={screenMotionClass}>
-          <button className={styles.collectionEntryRow} onClick={openCollections}>
-            <span className={styles.collectionEntryIcon}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-                <path d="M4 6.5h6.5c1.1 0 2 .9 2 2v9.5H6a2 2 0 0 1-2-2V6.5Z" />
-                <path d="M12.5 8.5c0-1.1.9-2 2-2H21V16a2 2 0 0 1-2 2h-6.5V8.5Z" />
-              </svg>
-            </span>
-            <span className={styles.collectionEntryText}>
-              <strong>{UI_TEXT.COLLECTIONS}</strong>
-              <small>{books.length} {UI_TEXT.BOOK_COUNT}</small>
-            </span>
-            <span className={styles.continueChevron}>{"\u203a"}</span>
-          </button>
-
+      <div>
           {books.length > 0 && (
             <div className={styles.librarySearchRow}>
               <label className={styles.librarySearchBox}>
@@ -279,15 +197,31 @@ export default function LibrarySurface({
                   aria-label={UI_TEXT.SEARCH}
                 />
               </label>
-              <div className={styles.libraryViewToggle} aria-label={UI_TEXT.GRID_VIEW}>
+              <div
+                className={styles.libraryViewToggle}
+                role="group"
+                aria-label={UI_TEXT.GRID_VIEW}
+              >
                 {(["grid", "list"] as const).map((mode) => (
                   <button
                     key={mode}
+                    type="button"
                     className={view.mode === mode ? styles.libraryViewActive : ""}
                     onClick={() => actions.setViewMode(mode)}
+                    aria-pressed={view.mode === mode}
                     aria-label={mode === "grid" ? UI_TEXT.GRID_VIEW : UI_TEXT.LIST_VIEW}
                     title={mode === "grid" ? UI_TEXT.GRID_VIEW : UI_TEXT.LIST_VIEW}
                   >
+                    {view.mode === mode && (
+                      <m.span
+                        className={styles.libraryViewIndicator}
+                        layoutId={
+                          reduceMotion ? undefined : "library-view-indicator"
+                        }
+                        transition={MOTION_SPRING.navigation}
+                        aria-hidden="true"
+                      />
+                    )}
                     {mode === "grid" ? (
                       <svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
                         <rect x="3" y="3" width="5" height="5" rx="1" />
@@ -320,47 +254,160 @@ export default function LibrarySurface({
               </button>
             </div>
           ) : (
-            <div className={styles.bookList}>
+            <>
+            <AnimatePresence initial={false} mode="popLayout">
+              {featuredBook && featuredPresentation && (
+                <m.section
+                  key={featuredBook.id}
+                  className={styles.libraryFeatured}
+                  data-library-featured="true"
+                  initial={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: 8 }
+                  }
+                  animate={
+                    reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
+                  }
+                  exit={
+                    reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4 }
+                  }
+                  transition={
+                    reduceMotion
+                      ? { duration: MOTION_DURATION.reduced }
+                      : { duration: MOTION_DURATION.state }
+                  }
+                >
+                  <button
+                    type="button"
+                    className={styles.libraryFeaturedButton}
+                    aria-label={`${UI_TEXT.CONTINUE_READING}：${featuredBook.title}`}
+                    onClick={() =>
+                      actions.pressBook(featuredBook, featuredOriginId)
+                    }
+                  >
+                    <MotionBookCover
+                      book={featuredBook}
+                      originId={featuredOriginId}
+                    />
+                    <span className={styles.libraryFeaturedCopy}>
+                      <span className={styles.libraryFeaturedContext}>
+                        {featuredPresentation.lastReadLabel}
+                      </span>
+                      <span className={styles.libraryFeaturedTitle}>
+                        {featuredBook.title}
+                      </span>
+                      <span className={styles.libraryFeaturedSource}>
+                        {featuredPresentation.sourceLabel}
+                      </span>
+                      {featuredPresentation.showProgress && (
+                        <span className={styles.libraryFeaturedProgress}>
+                          <span aria-hidden="true">
+                            <span
+                              style={{
+                                "--library-progress-scale":
+                                  featuredPresentation.progressPercent / 100,
+                              } as CSSProperties}
+                            />
+                          </span>
+                          <small>{featuredPresentation.progressLabel}</small>
+                        </span>
+                      )}
+                      <span className={styles.libraryFeaturedContinue}>
+                        {UI_TEXT.CONTINUE_READING}
+                        <span aria-hidden="true">{"\u203a"}</span>
+                      </span>
+                    </span>
+                  </button>
+                </m.section>
+              )}
+            </AnimatePresence>
+            <div className={styles.bookList} data-library-shelf="true">
               {importError && <p className={styles.importError}>{importError}</p>}
               <div className={styles.sectionHeader}>
-                <h2>{UI_TEXT.RECENT_BOOKS}</h2>
+                <h2>
+                  {featuredLayout ? UI_TEXT.OTHER_BOOKS : UI_TEXT.RECENT_BOOKS}
+                </h2>
                 {editing.library ? (
                   <button className={styles.libraryTextButton} onClick={actions.selectAllVisible}>
                     {editing.allVisibleSelected ? UI_TEXT.CLEAR_SELECTION : UI_TEXT.SELECT_ALL}
                   </button>
                 ) : (
-                  <span>{view.activeCollectionName} · {filteredBookCount}</span>
+                  <button
+                    className={styles.libraryShelfAction}
+                    data-library-collections="true"
+                    aria-label={`${UI_TEXT.COLLECTIONS}：${view.activeCollectionName}，${filteredBookCount} ${UI_TEXT.BOOK_COUNT}`}
+                    onClick={actions.openCollections}
+                  >
+                    <span>{view.activeCollectionName}</span>
+                    <small>{filteredBookCount}</small>
+                    <span aria-hidden="true">{"\u203a"}</span>
+                  </button>
                 )}
               </div>
               {editing.library && (
                 <p className={styles.selectionSummary}>{editing.selectedCountLabel}</p>
               )}
-              {filteredBookCount === 0 ? (
+              {filteredBookCount === 0 && !featuredLayout ? (
                 <div className={styles.emptyStateCompact}>
                   <h2 className={styles.emptyTitle}>{UI_TEXT.NO_MATCHING_BOOKS}</h2>
                   <p className={styles.emptyText}>{view.searchQuery || UI_TEXT.UNGROUPED}</p>
                 </div>
-              ) : view.mode === "grid" ? (
-                <div className={styles.bookGrid}>
+              ) : filteredBookCount > 0 ? (
+                <LayoutGroup id="library-books">
+                {view.mode === "grid" ? (
+                <m.div
+                  className={styles.bookGrid}
+                  layout={reduceMotion ? false : "position"}
+                >
+                  <AnimatePresence initial={false} mode="popLayout">
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
+                    const presentation = buildLibraryBookPresentation(book, progress);
+                    const originId = `library-grid-${book.id}`;
+                    const entranceIndex = entranceOrder.get(book.id);
                     return (
-                      <div
+                      <m.div
                         key={book.id}
+                        layout={reduceMotion ? false : "position"}
+                        initial={
+                          reduceMotion || entranceIndex === undefined
+                            ? false
+                            : { opacity: 0, y: 8, scale: 0.985 }
+                        }
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={
+                          reduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, scale: 0.96 }
+                        }
+                        transition={
+                          reduceMotion
+                            ? { duration: MOTION_DURATION.reduced }
+                            : {
+                                layout: MOTION_SPRING.navigation,
+                                duration: MOTION_DURATION.state,
+                                delay:
+                                  entranceIndex === undefined
+                                    ? 0
+                                    : entranceIndex * 0.03,
+                              }
+                        }
                         className={`${styles.bookGridCell} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
+                        data-library-book-state={presentation.state}
                       >
                         <button
                           className={styles.bookGridItem}
-                          onClick={() => actions.pressBook(book)}
+                          onClick={() => actions.pressBook(book, originId)}
                           aria-pressed={editing.library ? isSelected : undefined}
                         >
-                          <BookCover title={book.title} format={book.format} coverImageBlob={book.coverImageBlob} />
+                          <MotionBookCover book={book} originId={originId} />
                           <span className={styles.bookGridTitle}>{book.title}</span>
-                          <span className={styles.bookGridProgress} aria-hidden="true">
-                            <span style={{ width: `${progress}%` }} />
+                          <span className={styles.bookGridMeta}>
+                            {presentation.progressLabel}
+                            {presentation.state !== "unread" && (
+                              <> · {presentation.lastReadLabel}</>
+                            )}
                           </span>
-                          <span className={styles.bookGridMeta}>{formatLibraryProgressLabel(progress)}</span>
                         </button>
                         {editing.library ? (
                           <span className={styles.selectionBadge} aria-hidden="true">
@@ -373,68 +420,131 @@ export default function LibrarySurface({
                             onClick={() => actions.openBookActions(book)}
                           />
                         )}
-                      </div>
+                      </m.div>
                     );
                   })}
-                </div>
+                  </AnimatePresence>
+                </m.div>
               ) : (
                 <ul className={styles.bookItems}>
+                  <AnimatePresence initial={false} mode="popLayout">
                   {visibleBooks.map((book) => {
                     const isSelected = editing.selectedBookIds.includes(book.id);
                     const progress = getBookProgressPercent(progressMap, book.id);
+                    const presentation = buildLibraryBookPresentation(book, progress);
+                    const originId = `library-list-${book.id}`;
+                    const entranceIndex = entranceOrder.get(book.id);
                     return (
-                      <li
+                      <m.li
                         key={book.id}
+                        layout={reduceMotion ? false : "position"}
+                        initial={
+                          reduceMotion || entranceIndex === undefined
+                            ? false
+                            : { opacity: 0, y: 8, scale: 0.985 }
+                        }
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={
+                          reduceMotion
+                            ? { opacity: 0 }
+                            : { opacity: 0, scale: 0.96 }
+                        }
+                        transition={
+                          reduceMotion
+                            ? { duration: MOTION_DURATION.reduced }
+                            : {
+                                layout: MOTION_SPRING.navigation,
+                                duration: MOTION_DURATION.state,
+                                delay:
+                                  entranceIndex === undefined
+                                    ? 0
+                                    : entranceIndex * 0.03,
+                              }
+                        }
                         className={`${styles.bookItem} ${editing.library ? styles.bookSelectable : ""} ${isSelected ? styles.bookSelected : ""}`}
-                        onClick={() => actions.pressBook(book)}
+                        data-library-book-state={presentation.state}
                       >
-                        {editing.library && (
-                          <span className={styles.selectionBadgeInline} aria-hidden="true">
-                            {isSelected && <Checkmark />}
-                          </span>
-                        )}
-                        <BookCover title={book.title} format={book.format} coverImageBlob={book.coverImageBlob} />
-                        <div className={styles.bookInfo}>
-                          <span className={styles.bookTitle}>{book.title}</span>
-                          <span className={styles.bookMeta}>
-                            {book.format.toUpperCase()}{" \u00b7 "}{formatBookSize(book.size)}
-                          </span>
-                          <span className={styles.bookListProgressRow}>
-                            <span className={styles.bookListProgressTrack} aria-hidden="true">
-                              <span style={{ width: `${progress}%` }} />
-                            </span>
-                            <span>{formatLibraryProgressLabel(progress)}</span>
-                          </span>
-                          {book.groupIds && book.groupIds.length > 0 && (
-                            <span className={styles.bookGroupLabels}>
-                              {book.groupIds
-                                .map((groupId) => groups.find((group) => group.id === groupId)?.name)
-                                .filter(Boolean)
-                                .join(", ")}
+                        <button
+                          type="button"
+                          className={styles.bookItemMain}
+                          data-library-book-open="true"
+                          aria-pressed={editing.library ? isSelected : undefined}
+                          onClick={() => actions.pressBook(book, originId)}
+                        >
+                          {editing.library && (
+                            <span className={styles.selectionBadgeInline} aria-hidden="true">
+                              {isSelected && <Checkmark />}
                             </span>
                           )}
-                        </div>
+                          <MotionBookCover book={book} originId={originId} />
+                          <span className={styles.bookInfo}>
+                            <span
+                              className={styles.bookTitle}
+                              data-library-book-title="true"
+                            >
+                              {book.title}
+                            </span>
+                            <span className={styles.bookMeta}>
+                              <span>{presentation.sourceLabel}</span>
+                              <span aria-hidden="true">·</span>
+                              <span>{presentation.lastReadLabel}</span>
+                            </span>
+                            {presentation.showProgress ? (
+                              <span
+                                className={styles.bookListProgressRow}
+                                data-library-book-progress="true"
+                              >
+                                <span
+                                  className={styles.bookListProgressTrack}
+                                  aria-hidden="true"
+                                >
+                                  <span
+                                    style={{
+                                      "--library-progress-scale":
+                                        presentation.progressPercent / 100,
+                                    } as CSSProperties}
+                                  />
+                                </span>
+                                <span>{presentation.progressLabel}</span>
+                              </span>
+                            ) : (
+                              <span className={styles.bookListProgressRow}>
+                                {presentation.progressLabel}
+                              </span>
+                            )}
+                            {book.groupIds && book.groupIds.length > 0 && (
+                              <span className={styles.bookGroupLabels}>
+                                {book.groupIds
+                                  .map((groupId) => groups.find((group) => group.id === groupId)?.name)
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </span>
+                            )}
+                          </span>
+                        </button>
                         {!editing.library && (
                           <MoreButton
                             className={styles.bookMoreButton}
-                            onClick={(event) => {
-                              event.stopPropagation();
+                            onClick={() => {
                               actions.openBookActions(book);
                             }}
                           />
                         )}
-                      </li>
+                      </m.li>
                     );
                   })}
+                  </AnimatePresence>
                 </ul>
               )}
+                </LayoutGroup>
+              ) : null}
               {view.visibleBookCount < filteredBookCount && (
                 <div ref={sentinelRef} className={styles.libraryLoadSentinel} aria-hidden="true" />
               )}
             </div>
+            </>
           )}
         </div>
-      )}
     </div>
   );
 }
@@ -459,6 +569,7 @@ function MoreButton({
   return (
     <button
       className={className}
+      data-library-book-more="true"
       title={UI_TEXT.MORE}
       aria-label={UI_TEXT.MORE_OPTIONS}
       onClick={onClick}

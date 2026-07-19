@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { applyEpubAmbientCanvas } from "./epubAmbientCanvas";
+import {
+  applyEpubAmbientCanvas,
+  applyEpubViewTransparency,
+} from "./epubAmbientCanvas";
 
 type FakeElement = {
   tagName: string;
@@ -8,6 +11,7 @@ type FakeElement = {
   };
   children: FakeElement[];
   ownerDocument?: FakeDocument;
+  setAttribute: ReturnType<typeof vi.fn>;
 };
 
 type FakeDocument = {
@@ -25,6 +29,7 @@ function createElement(
       setProperty: vi.fn(),
     },
     children,
+    setAttribute: vi.fn(),
   };
 }
 
@@ -36,10 +41,16 @@ function createDocument(children: FakeElement[]): FakeDocument {
 }
 
 describe("applyEpubAmbientCanvas", () => {
-  it("clears only the document canvas and direct publisher canvas children", () => {
+  it("clears nested publisher canvases while preserving media elements", () => {
     const nestedCallout = createElement("DIV");
+    const nestedSection = createElement("SECTION", [nestedCallout]);
     const nestedCode = createElement("CODE");
-    const topLevelDiv = createElement("DIV", [nestedCallout, nestedCode]);
+    const nestedImage = createElement("IMG");
+    const topLevelDiv = createElement("DIV", [
+      nestedSection,
+      nestedCode,
+      nestedImage,
+    ]);
     const topLevelMain = createElement("MAIN");
     const topLevelParagraph = createElement("P");
     const topLevelCode = createElement("CODE");
@@ -52,49 +63,31 @@ describe("applyEpubAmbientCanvas", () => {
 
     applyEpubAmbientCanvas({ document });
 
-    for (const element of [document.documentElement, document.body]) {
-      expect(element.style.setProperty).toHaveBeenCalledOnce();
-      expect(element.style.setProperty).toHaveBeenCalledWith(
-        "background",
-        "transparent",
-        "important"
-      );
-    }
-    for (const element of [topLevelDiv, topLevelMain]) {
-      expect(element.style.setProperty).toHaveBeenCalledOnce();
-      expect(element.style.setProperty).toHaveBeenCalledWith(
-        "background",
-        "transparent",
-        "important"
-      );
-    }
     for (const element of [
+      document.documentElement,
+      document.body,
+      topLevelDiv,
+      topLevelMain,
       topLevelParagraph,
       topLevelCode,
+      nestedSection,
       nestedCallout,
       nestedCode,
     ]) {
-      expect(element.style.setProperty).not.toHaveBeenCalled();
-    }
-  });
-
-  it("clears a nested single-wrapper publisher canvas chain", () => {
-    const paragraph = createElement("P");
-    const article = createElement("ARTICLE", [paragraph]);
-    const section = createElement("SECTION", [article]);
-    const wrapper = createElement("DIV", [section]);
-    const document = createDocument([wrapper]);
-
-    applyEpubAmbientCanvas({ document });
-
-    for (const element of [wrapper, section, article]) {
       expect(element.style.setProperty).toHaveBeenCalledWith(
         "background",
         "transparent",
         "important"
       );
+      expect(element.style.setProperty).toHaveBeenCalledWith(
+        "background-color",
+        "transparent",
+        "important"
+      );
     }
-    expect(paragraph.style.setProperty).not.toHaveBeenCalled();
+    for (const element of [nestedImage]) {
+      expect(element.style.setProperty).not.toHaveBeenCalled();
+    }
   });
 
   it("uses the content owner document when contents.document is unavailable", () => {
@@ -105,12 +98,12 @@ describe("applyEpubAmbientCanvas", () => {
     applyEpubAmbientCanvas({ content });
 
     expect(document.documentElement.style.setProperty).toHaveBeenCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
     expect(document.body.children[0]?.style.setProperty).toHaveBeenCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
@@ -135,14 +128,39 @@ describe("applyEpubAmbientCanvas", () => {
     applyEpubAmbientCanvas({ document });
 
     expect(document.documentElement.style.setProperty).toHaveBeenLastCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
     );
     expect(document.body.style.setProperty).toHaveBeenLastCalledWith(
-      "background",
+      "background-color",
       "transparent",
       "important"
+    );
+  });
+
+  it("forces the epub.js view and iframe layers transparent", () => {
+    const container = createElement("DIV");
+    const element = createElement("DIV");
+    const iframe = createElement("IFRAME");
+
+    applyEpubViewTransparency({ container, element, iframe });
+
+    for (const layer of [container, element, iframe]) {
+      expect(layer.style.setProperty).toHaveBeenCalledWith(
+        "background",
+        "transparent",
+        "important"
+      );
+      expect(layer.style.setProperty).toHaveBeenCalledWith(
+        "background-color",
+        "transparent",
+        "important"
+      );
+    }
+    expect(iframe.setAttribute).toHaveBeenCalledWith(
+      "allowtransparency",
+      "true"
     );
   });
 });

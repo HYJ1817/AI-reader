@@ -1,0 +1,181 @@
+Native Navigation Sample
+
+Chapter One
+
+The first page begins with a quiet room, a long table, and a book left open near the window. The reader returns to the same line after every interruption.
+
+Navigation should preserve place. A temporary screen may cover the library, but it must never destroy the source view or move its scroll position.
+
+The book opens from its cover. The cover expands toward the reading surface while the surrounding interface yields without flashing or changing theme.
+
+Closing the reader reverses that relationship. Focus returns to the source cover so keyboard and assistive technology users do not lose their place.
+
+Chapter Two
+
+A pushed screen enters from the right. The existing root shifts only enough to preserve spatial context, then waits behind the active surface.
+
+The visible back button and the left-edge gesture share one navigation action. Browser Back follows the same state history.
+
+A short edge drag returns to its starting position. A committed edge drag removes exactly one pushed route and exposes the preserved root.
+
+Vertical scrolling near the left edge remains vertical. Horizontal reading gestures belong to the reader and never leak into application navigation.
+
+Chapter Three
+
+Sheets rise from the bottom with a dimmed background. Their content remains interruptible while opening and closing, including rapid repeated input.
+
+The table of contents, reader settings, custom reader settings, Ask AI, reading goal, book actions, delete confirmation, and group tools use one sheet layer.
+
+The Ask AI conversation scrolls independently. Its composer stays at the bottom when the viewport becomes shorter and when the input receives focus.
+
+Closing a sheet returns focus to the command that opened it. Escape and browser Back dismiss the same topmost sheet state.
+
+Chapter Four
+
+The library keeps every book available offline. Imported bytes remain in IndexedDB and are reopened from durable data instead of an expired object URL.
+
+Reading progress belongs to the full book. The visible page label updates with movement and never confuses a chapter page with total-book progress.
+
+The reading surface hides native scrollbars while retaining touch scrolling. Content remains readable in light, dark, and custom background modes.
+
+Ambient color comes from the active cover. It crossfades as state changes and does not obscure foreground text.
+
+Chapter Five
+
+Motion is functional feedback. Press states begin immediately, transitions preserve hierarchy, and completion settles without an extra bounce.
+
+Reduced motion keeps every operation available. It removes travel and scale while retaining short opacity changes that communicate state.
+
+Numbers interpolate only when values change. New library items enter in a small stagger, while existing items never replay their entrance during filtering.
+
+Streaming text appears continuously. Completed messages enter once and remain stable during later conversation updates.
+
+Chapter Six
+
+Performance is part of interaction quality. A normal transition should produce enough animation frames to look continuous on a mobile display.
+
+One delayed frame may occur under load, but long main-thread blocks must not become the normal shape of a navigation transition.
+
+Stable dimensions prevent controls from shifting when labels, counters, and progress values update. Touch targets remain reachable at every supported width.
+
+The final page closes the sample with the same rule as the first: preserve context, preserve control, and make every transition explain where the interface went.
+
+Appendix passage 01 keeps enough real text in the fixture for scrolling, paging, selection, and transition checks.
+
+Appendix passage 02 confirms that a retained root can leave and return without losing its current scroll offset.
+
+Appendix passage 03 gives the text reader another stable block whose position can be measured across layout changes.
+
+Appendix passage 04 keeps the page tall while using ordinary prose instead of generated placeholder tokens.
+
+Appendix passage 05 verifies that fixed controls remain independent from the document flow below them.
+
+Appendix passage 06 ensures a horizontal gesture has enough content on either side to exercise page movement.
+
+Appendix passage 07 provides a predictable sentence for text selection and Ask AI context tests.
+
+Appendix passage 08 keeps the reading surface active after several viewport heights of vertical movement.
+
+Appendix passage 09 confirms that opening a sheet never changes the paragraph order behind it.
+
+Appendix passage 10 makes browser Back return to a reader whose underlying content is still mounted.
+
+Appendix passage 11 checks that repeated route transitions do not duplicate or remove book text.
+
+Appendix passage 12 gives reduced-motion mode the same amount of content as the standard motion path.
+
+Appendix passage 13 keeps frame-cadence probes representative of a populated reading application.
+
+Appendix passage 14 verifies that scrollbars may be hidden without removing scrollable overflow.
+
+Appendix passage 15 preserves a stable content height for both supported mobile viewport profiles.
+
+Appendix passage 16 confirms that a shorter visual viewport can still expose the focused composer.
+
+Appendix passage 17 keeps the reader available while the keyboard and sheet layers change size.
+
+Appendix passage 18 verifies that safe-area padding does not consume the final visible line.
+
+Appendix passage 19 ensures the source book remains identifiable after reading progress changes.
+
+Appendix passage 20 provides enough distance for a restored locator to land away from the first screen.
+
+Appendix passage 21 checks that long documents do not replay navigation entrance animations while scrolling.
+
+Appendix passage 22 keeps the motion layer separate from content virtualization and paragraph chunking.
+
+Appendix passage 23 confirms that an interrupted sheet can settle without moving the reader body.
+
+Appendix passage 24 gives the page counter enough material to report more than one visible page.
+
+Appendix passage 25 exercises the same document in scrolling and paged reader modes.
+
+Appendix passage 26 ensures the menu stays reachable after the document has moved far from the start.
+
+Appendix passage 27 confirms that the close control returns focus without scrolling the source root.
+
+Appendix passage 28 provides more stable data for total-book progress calculations.
+
+Appendix passage 29 keeps the imported file large enough to resemble a short real-world chapter.
+
+Appendix passage 30 verifies that ambient presentation does not depend on a tiny sample document.
+
+Appendix passage 31 preserves clear word boundaries for selection and question context extraction.
+
+Appendix passage 32 keeps line wrapping active on both narrow and wide phone profiles.
+
+Appendix passage 33 confirms that long lines wrap inside the reader instead of widening the viewport.
+
+Appendix passage 34 exercises bottom controls while content continues behind their reserved space.
+
+Appendix passage 35 keeps sheet dimming visually testable over populated content.
+
+Appendix passage 36 confirms that opening the table of contents does not reset text progress.
+
+Appendix passage 37 provides a stable location before a browser history traversal.
+
+Appendix passage 38 ensures history restoration never depends on a document reload.
+
+Appendix passage 39 keeps IndexedDB persistence checks independent from network availability.
+
+Appendix passage 40 verifies that a reopened local book still contains its complete original bytes.
+
+Appendix passage 41 supplies additional paragraphs for scroll retention after root tab changes.
+
+Appendix passage 42 confirms that the active root remains mounted while another root becomes visible.
+
+Appendix passage 43 keeps content available under the push layer parallax effect.
+
+Appendix passage 44 verifies that brightness changes never alter text layout.
+
+Appendix passage 45 preserves enough content for a canceled edge gesture to return cleanly.
+
+Appendix passage 46 confirms that a completed edge gesture removes exactly one pushed route.
+
+Appendix passage 47 keeps the reader gesture owner active across multiple screens of content.
+
+Appendix passage 48 ensures a reader swipe never reaches the application edge-back owner.
+
+Appendix passage 49 provides text beneath every screenshot captured for visual transition evidence.
+
+Appendix passage 50 keeps screenshot comparisons meaningful after animations fully settle.
+
+Appendix passage 51 verifies that no blank frame appears while a populated reader is presented.
+
+Appendix passage 52 confirms that source cover projection does not clone the document text.
+
+Appendix passage 53 gives the final reader page enough content to test full-book page totals.
+
+Appendix passage 54 keeps navigation performance probes active for their complete sampling window.
+
+Appendix passage 55 verifies that no long task is required to render ordinary paragraph content.
+
+Appendix passage 56 confirms that text remains readable while the shared cover fades away.
+
+Appendix passage 57 preserves a realistic document tail for end-of-book progress behavior.
+
+Appendix passage 58 ensures the final page can be reached without exposing a native scrollbar.
+
+Appendix passage 59 confirms that returning from the final page still restores the source cover.
+
+Appendix passage 60 closes the appendix after more than eighty non-empty paragraphs have been provided.

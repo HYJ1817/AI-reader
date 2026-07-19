@@ -50,6 +50,14 @@ export function getReaderSwipeSettleOffset(
   return action === "prev" ? width : -width;
 }
 
+export function getReaderSwipeSettleDuration(
+  action: ReaderSwipeAction,
+  reducedMotion: boolean
+): number {
+  if (reducedMotion) return 0;
+  return action === "none" ? 180 : 160;
+}
+
 export function hasActiveReaderSwipeOffset(offset: number): boolean {
   return Number.isFinite(offset) && Math.abs(offset) >= 0.5;
 }

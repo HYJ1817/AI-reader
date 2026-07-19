@@ -53,6 +53,24 @@ export function createAmbientLayer(
   };
 }
 
+export function createCustomAmbientLayer(
+  imageBlob: Blob | null,
+  imageUrl: string | null
+): AmbientLayer {
+  if (!imageBlob || !imageUrl) {
+    return createAmbientLayer(null, null);
+  }
+
+  return {
+    key: ["ambient", "custom", imageUrl].join(":"),
+    kind: "image",
+    imageUrl,
+    paper: null,
+    spine: null,
+    blob: imageBlob,
+  };
+}
+
 export function createInitialAmbientTransitionState(): AmbientTransitionState {
   return {
     current: createAmbientLayer(null, null),

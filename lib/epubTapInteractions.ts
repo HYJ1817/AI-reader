@@ -34,7 +34,6 @@ export function classifyEpubTouchEnd({
   startSelectionText,
   endSelectionText,
   isInteractiveTarget,
-  scrollIntentFired,
   isTapGesture,
 }: {
   startSelectionText: string;
@@ -43,7 +42,7 @@ export function classifyEpubTouchEnd({
   scrollIntentFired: boolean;
   isTapGesture: boolean;
 }): EpubTouchEndClassification {
-  if (isInteractiveTarget || scrollIntentFired || !isTapGesture) {
+  if (isInteractiveTarget || !isTapGesture) {
     return "ignore";
   }
 

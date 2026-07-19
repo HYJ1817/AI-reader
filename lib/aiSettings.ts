@@ -63,10 +63,18 @@ export function loadAiSettings(): AiClientSettings {
 
 export function saveAiSettingsToStorage(settings: AiClientSettings): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAiSettings(settings)));
+  } catch {
+    // Legacy backup restore should still succeed when storage is unavailable.
+  }
 }
 
 export function clearAiSettingsFromStorage(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Keep the current session usable when persistent storage is unavailable.
+  }
 }

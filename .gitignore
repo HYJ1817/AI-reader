@@ -12,9 +12,12 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
 
 # next.js
 /.next/
+/.open-next/
 /out/
 
 # production
@@ -38,6 +41,7 @@ next-*.err.log
 
 # vercel
 .vercel
+.wrangler/
 
 # typescript
 *.tsbuildinfo
@@ -51,3 +55,14 @@ preview-*.png
 .superpowers/
 .worktrees/
 .tmp/
+public/downloads/*.apk
+public/downloads/*.aab
+
+# Android / Bubblewrap local build artifacts
+android-twa/.gradle/
+android-twa/build/
+android-twa/app/build/
+android-twa/*.apk
+android-twa/*.aab
+android-twa/*.idsig
+android-twa/local.properties

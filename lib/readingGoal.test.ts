@@ -97,10 +97,10 @@ describe("saveReadingGoalToStorage", () => {
     expect(goal.targetMinutes).toBe(60);
   });
 
-  it("clamps targetMinutes to minimum 1", () => {
+  it("persists 0 as a valid goal", () => {
     saveReadingGoalToStorage({ targetMinutes: 0 });
     const goal = loadReadingGoal();
-    expect(goal.targetMinutes).toBe(1);
+    expect(goal.targetMinutes).toBe(0);
   });
 
   it("clamps targetMinutes to maximum 1440", () => {
@@ -121,10 +121,18 @@ describe("saveReadingGoalToStorage", () => {
     expect(goal.targetMinutes).toBe(120);
   });
 
-  it("falls back to 1 for negative", () => {
+  it("clamps negative values to 0", () => {
     saveReadingGoalToStorage({ targetMinutes: -5 });
     const goal = loadReadingGoal();
-    expect(goal.targetMinutes).toBe(1);
+    expect(goal.targetMinutes).toBe(0);
+  });
+
+  it("does not throw when writing storage fails", () => {
+    vi.spyOn(localStorage, "setItem").mockImplementationOnce(() => {
+      throw new Error("quota exceeded");
+    });
+
+    expect(() => saveReadingGoalToStorage({ targetMinutes: 60 })).not.toThrow();
   });
 });
 

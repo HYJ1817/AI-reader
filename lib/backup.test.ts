@@ -10,6 +10,10 @@ import {
   getBook,
   saveBookGroup,
   listBookGroups,
+  incrementDailyReadingSeconds,
+  getDailyReadingStat,
+  saveCustomBackgroundImage,
+  getCustomBackgroundImage,
   type BookRecord,
 } from "./db";
 import {
@@ -17,6 +21,7 @@ import {
   restoreBackupPayload,
   validateBackupPayload,
 } from "./backup";
+import { createAiProviderFromPreset } from "./aiProviders";
 
 function makeBook(overrides: Partial<BookRecord> = {}): BookRecord {
   return {
@@ -36,9 +41,41 @@ beforeEach(async () => {
 });
 
 describe("createBackupPayload", () => {
-  it("includes version 1", async () => {
+  it("includes version 2", async () => {
     const payload = await createBackupPayload();
-    expect(payload.version).toBe(1);
+    expect(payload.version).toBe(2);
+  });
+
+  it("includes reading stats and the custom background", async () => {
+    await incrementDailyReadingSeconds("2026-07-11", 90);
+    await saveCustomBackgroundImage(new Blob(["background"], { type: "image/png" }));
+
+    const payload = await createBackupPayload();
+
+    expect(payload.version).toBe(2);
+    expect(payload.dailyReadingStats).toEqual([
+      expect.objectContaining({ date: "2026-07-11", secondsRead: 90 }),
+    ]);
+    expect(payload.customBackground?.imageContent).toContain("base64,");
+  });
+
+  it("exports current provider settings without API keys", async () => {
+    const provider = createAiProviderFromPreset("openai", {
+      id: "provider-1",
+      apiKey: "secret-key",
+      model: "gpt-4o-mini",
+    });
+
+    const payload = await createBackupPayload({
+      aiProviderSettings: {
+        activeProviderId: provider.id,
+        providers: [provider],
+      },
+    });
+
+    expect(payload.aiProviderSettings.providers[0].model).toBe("gpt-4o-mini");
+    expect(payload.aiProviderSettings.providers[0].apiKey).toBe("");
+    expect(JSON.stringify(payload)).not.toContain("secret-key");
   });
 
   it("includes exported ISO timestamp", async () => {
@@ -99,7 +136,7 @@ describe("createBackupPayload", () => {
     });
 
     const payload = await createBackupPayload();
-    expect(payload.version).toBe(1);
+    expect(payload.version).toBe(2);
     expect(payload.readingPositions[0].readingMode).toBe("paged");
     expect(JSON.stringify(payload)).not.toContain("secret-key");
   });
@@ -110,7 +147,12 @@ describe("createBackupPayload", () => {
     await addAnnotation({
       id: "a1",
       bookId: "b1",
+      kind: "highlight",
+      locator: "epubcfi(/6/2)",
       text: "highlighted",
+      color: "blue",
+      progressPercent: 24,
+      pageNumber: 8,
       createdAt: "2024-06-01T00:00:00Z",
     });
 
@@ -118,10 +160,40 @@ describe("createBackupPayload", () => {
     expect(payload.annotations).toHaveLength(1);
     expect(payload.annotations[0].id).toBe("a1");
     expect(payload.annotations[0].text).toBe("highlighted");
+    expect(payload.annotations[0]).toEqual(
+      expect.objectContaining({
+        kind: "highlight",
+        color: "blue",
+        progressPercent: 24,
+        pageNumber: 8,
+      })
+    );
   });
 });
 
 describe("validateBackupPayload", () => {
+  it("normalizes legacy annotations as yellow highlights", () => {
+    const payload = validateBackupPayload({
+      version: 1,
+      exportedAt: "2024-01-01T00:00:00Z",
+      books: [],
+      readingPositions: [],
+      annotations: [
+        {
+          id: "legacy",
+          bookId: "book-1",
+          locator: "epubcfi(/6/2)",
+          text: "legacy",
+          createdAt: "2024-01-01T00:00:00Z",
+        },
+      ],
+      aiSettings: {},
+    });
+
+    expect(payload.annotations[0]).toEqual(
+      expect.objectContaining({ kind: "highlight", color: "yellow" })
+    );
+  });
   it("rejects null", () => {
     expect(() => validateBackupPayload(null)).toThrow("Invalid backup format");
   });
@@ -138,7 +210,7 @@ describe("validateBackupPayload", () => {
 
   it("rejects wrong version", () => {
     expect(() =>
-      validateBackupPayload({ version: 2, exportedAt: "2024-01-01T00:00:00Z", books: [], readingPositions: [], annotations: [], aiSettings: {} })
+      validateBackupPayload({ version: 3, exportedAt: "2024-01-01T00:00:00Z", books: [], readingPositions: [], annotations: [], aiSettings: {} })
     ).toThrow("version");
   });
 
@@ -181,6 +253,42 @@ describe("validateBackupPayload", () => {
 });
 
 describe("restoreBackupPayload", () => {
+  it("keeps existing data when nested backup content is invalid", async () => {
+    await saveBook(makeBook({ id: "existing", title: "Keep me" }));
+
+    await expect(
+      restoreBackupPayload({
+        version: 2,
+        exportedAt: new Date().toISOString(),
+        books: [{ id: "broken", fileContent: "not-base64" }],
+        readingPositions: [],
+        annotations: [],
+        bookGroups: [],
+        dailyReadingStats: [],
+        aiProviderSettings: { activeProviderId: null, providers: [] },
+      })
+    ).rejects.toThrow();
+
+    expect((await listBooks()).map((book) => book.id)).toContain("existing");
+  });
+
+  it("preserves stats and background when restoring a version 1 backup", async () => {
+    await incrementDailyReadingSeconds("2026-07-11", 120);
+    await saveCustomBackgroundImage(new Blob(["keep-background"], { type: "image/png" }));
+
+    await restoreBackupPayload({
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      books: [],
+      readingPositions: [],
+      annotations: [],
+      aiSettings: {},
+      bookGroups: [],
+    });
+
+    expect((await getDailyReadingStat("2026-07-11"))?.secondsRead).toBe(120);
+    expect(await getCustomBackgroundImage()).not.toBeNull();
+  });
   it("restores books from backup", async () => {
     const book = makeBook({ id: "b1", title: "Restored Book", format: "txt" });
     await saveBook(book);
@@ -239,7 +347,9 @@ describe("restoreBackupPayload", () => {
     await addAnnotation({
       id: "a1",
       bookId: "b1",
+      kind: "highlight",
       text: "important note",
+      color: "yellow",
       createdAt: "2024-06-01T00:00:00Z",
     });
     const payload = await createBackupPayload();
@@ -278,7 +388,9 @@ describe("restoreBackupPayload", () => {
     await addAnnotation({
       id: "old-ann",
       bookId: "old",
+      kind: "highlight",
       text: "old annotation",
+      color: "yellow",
       createdAt: "2024-01-01T00:00:00Z",
     });
 
@@ -287,7 +399,9 @@ describe("restoreBackupPayload", () => {
     await addAnnotation({
       id: "new-ann",
       bookId: "new",
+      kind: "highlight",
       text: "new annotation",
+      color: "yellow",
       createdAt: "2024-06-01T00:00:00Z",
     });
 

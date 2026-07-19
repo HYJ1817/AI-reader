@@ -14,12 +14,14 @@ const pageSource = readFileSync(
   "utf8"
 );
 
-describe("reading goal fullscreen overlay", () => {
-  it("uses a dedicated modal dialog and the minute wheel", () => {
-    expect(goalSource).not.toContain('import BottomSheet from "./BottomSheet"');
-    expect(goalSource).not.toContain("<BottomSheet");
-    expect(goalSource).toContain('role="dialog"');
-    expect(goalSource).toContain('aria-modal="true"');
+describe("reading goal motion sheet", () => {
+  it("uses the shared MotionSheet contract and the minute wheel", () => {
+    expect(goalSource).toContain('import BottomSheet, { type CloseSheet } from "./BottomSheet"');
+    expect(goalSource).toContain("<BottomSheet");
+    expect(goalSource).toContain("styles.goalMotionSheet");
+    expect(goalSource).toContain("showGrabber={false}");
+    expect(goalSource).not.toContain('role="dialog"');
+    expect(goalSource).not.toContain('aria-modal="true"');
     expect(goalSource).toContain("<ReadingGoalWheel");
     expect(goalSource).toContain('d="M22 180 A138 138 0 0 1 298 180"');
   });
@@ -33,27 +35,27 @@ describe("reading goal fullscreen overlay", () => {
 
   it("discards drafts on close and saves only from confirmation", () => {
     expect(goalSource).toMatch(
-      /const closeGoal = useCallback\(\(\) => \{[\s\S]*onGoalInputChange\(targetMinutes\);[\s\S]*onClose\(\);/
+      /<BottomSheet[\s\S]*onBeforeClose=\{\(\) =>[\s\S]*props\.onGoalInputChange\(props\.targetMinutes\)/
     );
     expect(goalSource).toMatch(
       /function saveTarget\(\)[\s\S]*onSaveGoal\(\);[\s\S]*setEditingTarget\(false\);/
     );
-    expect(goalSource).toContain("if (event.key === \"Escape\")");
-    expect(goalSource).toContain("closeGoal();");
+    expect(goalSource).toContain("onClick={() => closeSheet()}");
+    expect(goalSource).not.toContain("handleDialogKeyDown");
   });
 
   it("traps focus and restores the opening control", () => {
-    expect(goalSource).toContain("previousFocusRef");
-    expect(goalSource).toContain("querySelectorAll<HTMLElement>");
-    expect(goalSource).toContain("event.shiftKey");
-    expect(goalSource).toContain("previousFocusRef.current?.focus()");
+    expect(goalSource).toContain("initialFocusRef={closeButtonRef}");
+    expect(goalSource).not.toContain("previousFocusRef");
+    expect(goalSource).not.toContain("querySelectorAll<HTMLElement>");
+    expect(goalSource).not.toContain("document.addEventListener");
   });
 });
 
 describe("reading goal orchestration", () => {
   const goalMount =
     overlaysSource.match(
-      /\{reader\.goalOpen && \([\s\S]*?<ReadingGoalSheet[\s\S]*?\/>[\s\S]*?\)\}/
+      /case "reading-goal":[\s\S]*?<ReadingGoalSheet[\s\S]*?\/>/
     )?.[0] ?? "";
 
   it("keeps the goal overlay mounted through AppOverlays", () => {
@@ -64,7 +66,7 @@ describe("reading goal orchestration", () => {
       "onGoalInputChange={actions.setGoalInputValue}"
     );
     expect(goalMount).toContain("onSaveGoal={actions.saveGoal}");
-    expect(goalMount).toContain("onClose={actions.closeGoal}");
+    expect(goalMount).toContain("onClose={navigation.dismissSheet}");
   });
 
   it("does not pass obsolete goal-only props", () => {
@@ -74,7 +76,7 @@ describe("reading goal orchestration", () => {
 
   it("keeps persistence in page orchestration", () => {
     expect(pageSource).toMatch(
-      /function handleOpenGoalSheet\(\)[\s\S]*setGoalInputValue\(readingGoal\.targetMinutes\);[\s\S]*setGoalSheetOpen\(true\);/
+      /function handleOpenGoalSheet\(\)[\s\S]*setGoalInputValue\(readingGoal\.targetMinutes\);[\s\S]*navigation\.presentSheet\("reading-goal"\);/
     );
     expect(pageSource).toMatch(
       /function handleSaveGoal\(\)[\s\S]*saveReadingGoalToStorage\(sanitized\);[\s\S]*setReadingGoal\(saved\);/

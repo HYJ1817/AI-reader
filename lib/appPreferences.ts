@@ -1,4 +1,5 @@
 export type LibraryViewMode = "grid" | "list";
+export type BackgroundMode = "auto" | "custom";
 
 export type AppPreferences = {
   libraryView: LibraryViewMode;
@@ -7,6 +8,8 @@ export type AppPreferences = {
   keepScreenAwake: boolean;
   edgeTapToTurn: boolean;
   swipeToTurn: boolean;
+  backgroundMode: BackgroundMode;
+  customBackgroundOpacity: number;
 };
 
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
@@ -16,6 +19,8 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   keepScreenAwake: false,
   edgeTapToTurn: true,
   swipeToTurn: true,
+  backgroundMode: "auto",
+  customBackgroundOpacity: 1,
 };
 
 const STORAGE_KEY = "ai-reader-app-preferences";
@@ -52,16 +57,26 @@ export function sanitizeAppPreferences(value: unknown): AppPreferences {
       typeof value.swipeToTurn === "boolean"
         ? value.swipeToTurn
         : DEFAULT_APP_PREFERENCES.swipeToTurn,
+    backgroundMode:
+      value.backgroundMode === "auto" || value.backgroundMode === "custom"
+        ? value.backgroundMode
+        : DEFAULT_APP_PREFERENCES.backgroundMode,
+    customBackgroundOpacity:
+      typeof value.customBackgroundOpacity === "number" &&
+      Number.isFinite(value.customBackgroundOpacity) &&
+      value.customBackgroundOpacity >= 0 &&
+      value.customBackgroundOpacity <= 1
+        ? value.customBackgroundOpacity
+        : DEFAULT_APP_PREFERENCES.customBackgroundOpacity,
   };
 }
 
 export function loadAppPreferences(): AppPreferences {
   if (typeof localStorage === "undefined") return DEFAULT_APP_PREFERENCES;
 
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) return DEFAULT_APP_PREFERENCES;
-
   try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_APP_PREFERENCES;
     return sanitizeAppPreferences(JSON.parse(raw));
   } catch {
     return DEFAULT_APP_PREFERENCES;
@@ -70,5 +85,12 @@ export function loadAppPreferences(): AppPreferences {
 
 export function saveAppPreferencesToStorage(preferences: AppPreferences): void {
   if (typeof localStorage === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAppPreferences(preferences)));
+  try {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(sanitizeAppPreferences(preferences))
+    );
+  } catch {
+    // Storage can be unavailable in private browsing or when its quota is full.
+  }
 }

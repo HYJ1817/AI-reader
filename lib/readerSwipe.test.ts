@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   getReaderSwipeAction,
+  getReaderSwipeSettleDuration,
   getReaderSwipeSettleOffset,
   getReaderSwipeVisualOffset,
   hasActiveReaderSwipeOffset,
@@ -56,6 +57,15 @@ describe("getReaderSwipeSettleOffset", () => {
   it("returns rest for invalid viewport widths", () => {
     expect(getReaderSwipeSettleOffset("next", -84, Number.NaN)).toBe(0);
     expect(getReaderSwipeSettleOffset("prev", 84, 0)).toBe(0);
+  });
+});
+
+describe("getReaderSwipeSettleDuration", () => {
+  it("uses one duration policy for accepted and rejected swipes", () => {
+    expect(getReaderSwipeSettleDuration("next", false)).toBe(160);
+    expect(getReaderSwipeSettleDuration("prev", false)).toBe(160);
+    expect(getReaderSwipeSettleDuration("none", false)).toBe(180);
+    expect(getReaderSwipeSettleDuration("next", true)).toBe(0);
   });
 });
 

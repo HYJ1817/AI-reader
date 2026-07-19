@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   selectFeaturedLibraryBook,
   selectRecentShelfBooks,
+  selectRecentlyOpenedLibraryBook,
   type LibraryShelfBook,
 } from "./libraryShelves";
 
@@ -26,6 +27,31 @@ describe("library shelf selection", () => {
     const newer = makeBook({ id: "newer", createdAt: "2024-01-04T00:00:00.000Z" });
 
     expect(selectFeaturedLibraryBook([older, newer])?.id).toBe("newer");
+  });
+
+  it("selects only the most recently opened book for Library continuation, even when a newer-created unread book exists", () => {
+    const olderOpened = makeBook({
+      id: "older-opened",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      lastOpenedAt: "2024-01-02T00:00:00.000Z",
+    });
+    const recentlyOpened = makeBook({
+      id: "recently-opened",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      lastOpenedAt: "2024-01-03T00:00:00.000Z",
+    });
+    const unread = makeBook({ id: "unread", createdAt: "2024-01-04T00:00:00.000Z" });
+
+    expect(selectRecentlyOpenedLibraryBook([olderOpened, unread, recentlyOpened])?.id).toBe(
+      "recently-opened"
+    );
+  });
+
+  it("returns null when books are unread or lastOpenedAt is invalid", () => {
+    const unread = makeBook({ id: "unread" });
+    const invalid = makeBook({ id: "invalid", lastOpenedAt: "not-a-date" });
+
+    expect(selectRecentlyOpenedLibraryBook([unread, invalid])).toBeNull();
   });
 
   it("returns recent shelf books without the excluded featured book", () => {

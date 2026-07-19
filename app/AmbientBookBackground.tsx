@@ -7,11 +7,12 @@ import {
   useState,
   type CSSProperties,
 } from "react";
+import { AnimatePresence, m } from "motion/react";
 import {
-  AMBIENT_CROSSFADE_MS,
   completeAmbientTransition,
   createAmbientBlobUrlRegistry,
   createAmbientLayer,
+  createCustomAmbientLayer,
   createInitialAmbientTransitionState,
   startAmbientTransition,
   type AmbientBlobUrlRegistry,
@@ -19,30 +20,52 @@ import {
   type AmbientTransitionState,
 } from "@/lib/ambientBookBackground";
 import type { BookRecord } from "@/lib/db";
+import { MOTION_DURATION } from "@/lib/motionSystem";
 import styles from "./page.module.css";
 
 type AmbientBookBackgroundProps = {
   book: BookRecord | null;
+  customBackgroundBlob?: Blob | null;
+  customBackgroundOpacity?: number;
   reduceMotion: boolean;
 };
 
-function layerStyle(layer: AmbientLayer): CSSProperties {
+function isCustomLayer(layer: AmbientLayer): boolean {
+  return layer.key.startsWith("ambient:custom:");
+}
+
+function clampCustomBackgroundEffect(value: number): number {
+  if (!Number.isFinite(value)) return 1;
+  return Math.min(1, Math.max(0, value));
+}
+
+function layerStyle(layer: AmbientLayer, customBackgroundOpacity: number): CSSProperties {
+  const customEffect = clampCustomBackgroundEffect(customBackgroundOpacity);
   return {
     ...(layer.imageUrl
       ? { backgroundImage: `url(${layer.imageUrl})` }
       : {}),
     "--ambient-cover-paper": layer.paper ?? undefined,
     "--ambient-cover-spine": layer.spine ?? undefined,
+    "--ambient-custom-blur": isCustomLayer(layer)
+      ? `${Math.round(customEffect * 42)}px`
+      : undefined,
+    "--ambient-custom-inset": isCustomLayer(layer)
+      ? `${Math.round(customEffect * -42)}px`
+      : undefined,
   } as CSSProperties;
 }
 
 export default function AmbientBookBackground({
   book,
+  customBackgroundBlob = null,
+  customBackgroundOpacity = 1,
   reduceMotion,
 }: AmbientBookBackgroundProps) {
   const [layers, setLayers] = useState(createInitialAmbientTransitionState);
   const layersRef = useRef(layers);
   const registryRef = useRef<AmbientBlobUrlRegistry | null>(null);
+  const customEffect = clampCustomBackgroundEffect(customBackgroundOpacity);
 
   const commitLayers = useCallback((nextState: AmbientTransitionState) => {
     if (layersRef.current === nextState) return;
@@ -61,41 +84,33 @@ export default function AmbientBookBackground({
     const frame = window.requestAnimationFrame(() => {
       const coverBlob = book?.coverImageBlob ?? null;
       let imageUrl: string | null = null;
+      let nextLayer: AmbientLayer;
 
-      if (coverBlob) {
+      if (customBackgroundBlob) {
+        imageUrl = getRegistry().acquire(customBackgroundBlob);
+        nextLayer = createCustomAmbientLayer(customBackgroundBlob, imageUrl);
+      } else if (coverBlob) {
         imageUrl = getRegistry().acquire(coverBlob);
+        nextLayer = createAmbientLayer(book, imageUrl);
+      } else {
+        nextLayer = createAmbientLayer(book, imageUrl);
       }
 
-      const nextLayer = createAmbientLayer(book, imageUrl);
       commitLayers(
         startAmbientTransition(layersRef.current, nextLayer, reduceMotion)
       );
     });
 
     return () => window.cancelAnimationFrame(frame);
-  }, [book, commitLayers, getRegistry, reduceMotion]);
+  }, [book, commitLayers, customBackgroundBlob, getRegistry, reduceMotion]);
 
-  useEffect(() => {
+  const finishTransition = useCallback(() => {
+    const generation = layersRef.current.generation;
+    commitLayers(
+      completeAmbientTransition(layersRef.current, generation)
+    );
     registryRef.current?.releaseUnretained(layersRef.current);
-  }, [layers]);
-
-  useEffect(() => {
-    if (!layers.previous || reduceMotion) return;
-
-    const generation = layers.generation;
-    const timeout = window.setTimeout(() => {
-      commitLayers(
-        completeAmbientTransition(layersRef.current, generation)
-      );
-    }, AMBIENT_CROSSFADE_MS);
-
-    return () => window.clearTimeout(timeout);
-  }, [
-    commitLayers,
-    layers.generation,
-    layers.previous,
-    reduceMotion,
-  ]);
+  }, [commitLayers]);
 
   useEffect(
     () => () => {
@@ -111,23 +126,40 @@ export default function AmbientBookBackground({
       className={styles.ambientBookBackground}
       aria-hidden="true"
       data-reduce-motion={reduceMotion ? "true" : "false"}
+      data-custom-active={isCustomLayer(layers.current)}
+      style={
+        {
+          "--ambient-custom-effect": customEffect,
+        } as CSSProperties
+      }
     >
-      {layers.previous ? (
-        <span
-          key={layers.previous.key}
-          className={styles.ambientBookLayer}
-          data-kind={layers.previous.kind}
-          data-layer="previous"
-          style={layerStyle(layers.previous)}
-        />
-      ) : null}
-      <span
-        key={layers.current.key}
-        className={styles.ambientBookLayer}
-        data-kind={layers.current.kind}
-        data-layer="current"
-        style={layerStyle(layers.current)}
-      />
+      <AnimatePresence
+        initial={false}
+        mode="sync"
+        onExitComplete={finishTransition}
+      >
+        <m.span
+          key={layers.current.key}
+          className={styles.ambientBookMotionLayer}
+          initial={{ opacity: 0, scale: reduceMotion ? 1 : 1.012 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.995 }}
+          transition={{
+            duration: reduceMotion
+              ? MOTION_DURATION.reduced
+              : MOTION_DURATION.pushEnter,
+            ease: [0.32, 0.72, 0, 1],
+          }}
+        >
+          <span
+            className={styles.ambientBookLayer}
+            data-kind={layers.current.kind}
+            data-layer="current"
+            data-custom={isCustomLayer(layers.current)}
+            style={layerStyle(layers.current, customBackgroundOpacity)}
+          />
+        </m.span>
+      </AnimatePresence>
     </div>
   );
 }

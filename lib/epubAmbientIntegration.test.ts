@@ -5,10 +5,20 @@ const epubSource = readFileSync(
   new URL("../app/EpubReader.tsx", import.meta.url),
   "utf8"
 );
+const readingSessionSource = readFileSync(
+  new URL("../app/ReadingSession.tsx", import.meta.url),
+  "utf8"
+);
 const moduleCss = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+
+function cssRule(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  const end = css.indexOf("}", start);
+  return start < 0 || end < 0 ? "" : css.slice(start, end);
+}
 
 describe("EPUB ambient background integration", () => {
   it("applies reader preferences after rendition events and before first display", () => {
@@ -51,6 +61,28 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
+  it("hides the scroll track on epub.js's outer continuous-scroll container", () => {
+    expect(moduleCss).toMatch(
+      /\.epubReaderViewport :global\(\.epub-container\)\s*\{[^}]*scrollbar-width:\s*none !important;[^}]*-ms-overflow-style:\s*none !important;/s
+    );
+    expect(moduleCss).toMatch(
+      /\.epubReaderViewport :global\(\.epub-container::\-webkit-scrollbar\)\s*\{[^}]*display:\s*none !important;[^}]*width:\s*0 !important;[^}]*height:\s*0 !important;/s
+    );
+    expect(moduleCss).toMatch(
+      /\.epubReaderViewport :global\(\.epub-container::\-webkit-scrollbar-track\),\s*\.epubReaderViewport :global\(\.epub-container::\-webkit-scrollbar-thumb\)\s*\{[^}]*background:\s*transparent !important;/s
+    );
+  });
+
+  it("lets EPUB inherit the active reader theme without covering the ambient background", () => {
+    expect(readingSessionSource).not.toContain("styles.readerEpubLightCanvas");
+    expect(readingSessionSource).toContain('book?.format === "epub"');
+    expect(moduleCss).not.toContain(".readerEpubLightCanvas");
+    expect(cssRule(moduleCss, ".readerShell")).toContain("background: transparent;");
+    expect(cssRule(moduleCss, ".readerStage")).toContain(
+      "background: transparent;"
+    );
+  });
+
   it("applies the inline ambient canvas override before attaching tap handlers", () => {
     const handlerStart = epubSource.indexOf(
       "const handleRenderedContents = useCallback"
@@ -65,13 +97,37 @@ describe("EPUB ambient background integration", () => {
     );
     const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
 
-    expect(epubSource).toContain(
-      'import { applyEpubAmbientCanvas } from "@/lib/epubAmbientCanvas";'
-    );
+    expect(epubSource).toContain("applyEpubAmbientCanvas,");
+    expect(epubSource).toContain("applyEpubViewTransparency,");
+    expect(epubSource).toContain('from "@/lib/epubAmbientCanvas";');
     expect(handlerStart).toBeGreaterThanOrEqual(0);
     expect(ambientIndex).toBeGreaterThanOrEqual(0);
     expect(tapIndex).toBeGreaterThanOrEqual(0);
     expect(ambientIndex).toBeLessThan(tapIndex);
+  });
+
+  it("forces the epub.js view and iframe transparent before handling contents", () => {
+    const renderedHandler = epubSource.slice(
+      epubSource.indexOf('rendition.on("rendered"'),
+      epubSource.indexOf("if (preferencesRef.current)")
+    );
+
+    expect(renderedHandler).toContain("applyEpubViewTransparency(view)");
+    expect(renderedHandler.indexOf("applyEpubViewTransparency(view)")).toBeLessThan(
+      renderedHandler.indexOf("handleRenderedContents(contents)")
+    );
+  });
+
+  it("removes publisher backgrounds while preserving media elements", () => {
+    expect(epubSource).toContain("applyEpubAmbientCanvas(contents)");
+    expect(
+      readFileSync(
+        new URL("./epubReaderPreferences.ts", import.meta.url),
+        "utf8"
+      )
+    ).toContain(
+      "body *:not(img):not(svg):not(video):not(canvas):not(picture)"
+    );
   });
 
   it("reapplies the transparent iframe canvas when reader preferences change", () => {
@@ -79,7 +135,7 @@ describe("EPUB ambient background integration", () => {
       "if (!renditionRef.current || !preferences) return"
     );
     const preferencesEffectEnd = epubSource.indexOf(
-      "}, [preferences, applyPreferences, systemThemeRevision])",
+      "}, [",
       preferencesEffectStart
     );
     const preferencesEffect = epubSource.slice(
@@ -120,5 +176,26 @@ describe("EPUB ambient background integration", () => {
       "handleRenderedContents(renderedContents)"
     );
     expect(getContentsIndex).toBeGreaterThan(displayIndex);
+  });
+
+  it("falls back to the default EPUB location when a saved locator cannot be displayed", () => {
+    const initializationStart = epubSource.indexOf(
+      "const savedPosition = await getReadingPosition(bookId)"
+    );
+    const initializationEnd = epubSource.indexOf(
+      "const renderedContents",
+      initializationStart
+    );
+    const initializationSource = epubSource.slice(
+      initializationStart,
+      initializationEnd
+    );
+
+    expect(initializationStart).toBeGreaterThanOrEqual(0);
+    expect(initializationSource).toContain("try {");
+    expect(initializationSource).toContain("await rendition.display(resumeLocator)");
+    expect(initializationSource).toContain("catch");
+    expect(initializationSource).toContain("latestLocatorRef.current = null");
+    expect(initializationSource).toContain("await rendition.display()");
   });
 });

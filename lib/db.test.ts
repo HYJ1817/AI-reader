@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import Dexie from "dexie";
 import {
   saveBook,
   listBooks,
@@ -7,6 +8,7 @@ import {
   saveReadingPosition,
   getReadingPosition,
   addAnnotation,
+  deleteAnnotation,
   listAnnotations,
   getDailyReadingStat,
   incrementDailyReadingSeconds,
@@ -16,6 +18,9 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
+  saveCustomBackgroundImage,
+  getCustomBackgroundImage,
+  deleteCustomBackgroundImage,
   type BookRecord,
   type ReadingPosition,
   type AnnotationRecord,
@@ -49,7 +54,9 @@ function makeAnnotation(overrides: Partial<AnnotationRecord> = {}): AnnotationRe
   return {
     id: crypto.randomUUID(),
     bookId: "book-1",
+    kind: "highlight",
     text: "highlighted text",
+    color: "yellow",
     createdAt: new Date().toISOString(),
     ...overrides,
   };
@@ -67,6 +74,56 @@ describe("Book storage", () => {
     const got = await getBook("b1");
     expect(got).toBeDefined();
     expect(got!.title).toBe("My Book");
+  });
+
+  it("stores book bytes as ArrayBuffer outside the metadata record", async () => {
+    await saveBook(
+      makeBook({
+        id: "binary-book",
+        fileBlob: new Blob(["persistent bytes"], { type: "text/plain" }),
+      })
+    );
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      const metadata = await inspectionDb.table("books").get("binary-book");
+      const file = await inspectionDb.table("bookFiles").get("binary-book");
+      expect(metadata.fileBlob).toBeUndefined();
+      expect(file.fileData).toBeInstanceOf(ArrayBuffer);
+      expect(new TextDecoder().decode(file.fileData)).toBe("persistent bytes");
+    } finally {
+      inspectionDb.close();
+    }
+  });
+
+  it("migrates legacy Blob records when they are first read", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("books").put(
+        makeBook({
+          id: "legacy-book",
+          fileBlob: new Blob(["legacy bytes"], { type: "text/plain" }),
+        })
+      );
+      await inspectionDb.table("bookFiles").delete("legacy-book");
+    } finally {
+      inspectionDb.close();
+    }
+
+    const migrated = await getBook("legacy-book");
+    expect(await migrated?.fileBlob.text()).toBe("legacy bytes");
+
+    const verifyDb = new Dexie("AiReader");
+    await verifyDb.open();
+    try {
+      const metadata = await verifyDb.table("books").get("legacy-book");
+      const file = await verifyDb.table("bookFiles").get("legacy-book");
+      expect(metadata.fileBlob).toBeUndefined();
+      expect(file.fileData).toBeInstanceOf(ArrayBuffer);
+    } finally {
+      verifyDb.close();
+    }
   });
 
   it("returns undefined for missing book", async () => {
@@ -153,6 +210,36 @@ describe("Annotations", () => {
 
   it("returns empty array for book with no annotations", async () => {
     expect(await listAnnotations("no-book")).toEqual([]);
+  });
+
+  it("deletes one annotation without touching siblings", async () => {
+    await addAnnotation(makeAnnotation({ id: "keep", kind: "bookmark" }));
+    await addAnnotation(makeAnnotation({ id: "remove", kind: "highlight" }));
+    await deleteAnnotation("remove");
+    expect((await listAnnotations("book-1")).map((item) => item.id)).toEqual([
+      "keep",
+    ]);
+  });
+
+  it("normalizes legacy annotations as yellow highlights", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    await inspectionDb.table("annotations").put({
+      id: "legacy",
+      bookId: "book-1",
+      locator: "epubcfi(/6/2)",
+      text: "legacy text",
+      createdAt: "2024-01-01T00:00:00Z",
+    });
+    inspectionDb.close();
+
+    expect(await listAnnotations("book-1")).toContainEqual(
+      expect.objectContaining({
+        id: "legacy",
+        kind: "highlight",
+        color: "yellow",
+      })
+    );
   });
 });
 
@@ -341,5 +428,45 @@ describe("Book groups", () => {
 
     const groups = await listBookGroups();
     expect(groups).toEqual([]);
+  });
+});
+
+describe("Custom background image", () => {
+  it("saves and retrieves the selected background blob", async () => {
+    const blob = new Blob(["custom-background"], { type: "image/png" });
+
+    await saveCustomBackgroundImage(blob);
+    const stored = await getCustomBackgroundImage();
+
+    expect(stored).toBeDefined();
+    expect(stored!.type).toBe("image/png");
+    expect(await stored!.text()).toBe("custom-background");
+  });
+
+  it("replaces the previous selected background blob", async () => {
+    await saveCustomBackgroundImage(new Blob(["old"], { type: "image/png" }));
+    await saveCustomBackgroundImage(new Blob(["new"], { type: "image/jpeg" }));
+
+    const stored = await getCustomBackgroundImage();
+
+    expect(stored!.type).toBe("image/jpeg");
+    expect(await stored!.text()).toBe("new");
+  });
+
+  it("deletes the selected background blob", async () => {
+    await saveCustomBackgroundImage(new Blob(["custom"], { type: "image/png" }));
+
+    await deleteCustomBackgroundImage();
+
+    expect(await getCustomBackgroundImage()).toBeNull();
+  });
+
+  it("clears the selected background with reader data", async () => {
+    await saveCustomBackgroundImage(new Blob(["custom"], { type: "image/png" }));
+    const { clearAllReaderData: clearAll } = await import("./db");
+
+    await clearAll();
+
+    expect(await getCustomBackgroundImage()).toBeNull();
   });
 });

@@ -5,6 +5,28 @@ import {
 } from "./readerChromeState";
 
 describe("reader chrome interaction state", () => {
+  it("keeps first-use controls visible until the first explicit tap", () => {
+    const pending = reduceReaderChromeState(
+      createReaderChromeState(false),
+      { type: "require-discovery" }
+    );
+
+    expect(pending).toMatchObject({
+      visible: true,
+      discoveryPending: true,
+    });
+    expect(
+      reduceReaderChromeState(pending, { type: "scroll", at: 500 })
+    ).toBe(pending);
+    expect(reduceReaderChromeState(pending, { type: "hide" })).toBe(pending);
+    expect(
+      reduceReaderChromeState(pending, { type: "tap", at: 600 })
+    ).toMatchObject({
+      visible: false,
+      discoveryPending: false,
+    });
+  });
+
   it("toggles immediately on consecutive taps", () => {
     const initial = createReaderChromeState(false);
     const shown = reduceReaderChromeState(initial, { type: "tap", at: 100 });

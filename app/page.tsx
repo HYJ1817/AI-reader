@@ -20,22 +20,24 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  type BookRecord,
-  type BookGroup,
-  type DailyReadingStat,
+  type BookRecord, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
 import { extractEpubCoverImage } from "@/lib/epubCover";
 import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
   chunkParagraphs,
-  parseTxtParagraphs,
+  getHorizontalPageInfo,
   progressFromHorizontalScroll,
   progressFromScroll,
   scrollLeftFromProgress,
   scrollTopFromProgress,
 } from "@/lib/txtReader";
 import AppNavigation from "@/app/AppNavigation";
+import AppMotionRoot from "@/app/AppMotionRoot";
+import AppPushSurfaces from "@/app/AppPushSurfaces";
+import { NavigationProvider } from "@/app/NavigationProvider";
+import NavigationStack, { NavigationRoot } from "@/app/NavigationStack";
 import AppOverlays from "@/app/AppOverlays";
 import AmbientBookBackground from "@/app/AmbientBookBackground";
 import type { EpubReaderHandle } from "@/app/EpubReader";
@@ -50,11 +52,11 @@ import {
 } from "@/lib/aiProviders";
 import { createBackupPayload, restoreBackupPayload } from "@/lib/backup";
 import { createBookFileExport } from "@/lib/bookFileExport";
+import { triggerBlobDownload } from "@/lib/browserDownload";
 import { hasIndexedDbSupport } from "@/lib/browserStorage";
 import {
   DEFAULT_READER_PREFERENCES,
   loadReaderPreferences,
-  readerPreferenceChangeNeedsMotion,
   saveReaderPreferencesToStorage,
   type ReaderPreferences,
 } from "@/lib/readerPreferences";
@@ -62,31 +64,32 @@ import {
   DEFAULT_APP_PREFERENCES,
   loadAppPreferences,
   saveAppPreferencesToStorage,
-  type AppPreferences,
-  type LibraryViewMode,
+  type AppPreferences, type LibraryViewMode,
 } from "@/lib/appPreferences";
 import {
   normalizeProgressPercent,
   shouldPublishProgressPercent,
 } from "@/lib/readerProgress";
+import {
+  getScrollPageInfo,
+  type ReaderPageInfo,
+} from "@/lib/readerPageInfo";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import { resolveEpubSelectionUpdate } from "@/lib/epubTapInteractions";
 import ReadingDashboard from "@/app/ReadingDashboard";
 import ReadingSession from "@/app/ReadingSession";
+import SharedBookTransition from "@/app/SharedBookTransition";
 import SettingsSurface from "@/app/SettingsSurface";
-import useReaderPresentation from "@/app/useReaderPresentation";
+import useAppNavigation from "@/app/useAppNavigation";
+import useReaderBookState from "@/app/useReaderBookState";
 import { UI_TEXT } from "@/lib/uiText";
 import {
   DEFAULT_READER_MODE,
-  sanitizeReaderMode,
   type ReaderMode,
 } from "@/lib/readerMode";
 import { filterBooksByQuery } from "@/lib/libraryFilters";
-import {
-  getDailyReadingStat,
-  incrementDailyReadingSeconds,
-  listDailyReadingStats,
-} from "@/lib/db";
+import { buildLibraryHomePresentation } from "@/lib/libraryHomePresentation";
+import { getDailyReadingStat, incrementDailyReadingSeconds, listDailyReadingStats } from "@/lib/db";
 import {
   loadReadingGoal,
   saveReadingGoalToStorage,
@@ -105,6 +108,7 @@ import {
 } from "@/lib/librarySelection";
 import {
   getReaderSwipeAction,
+  getReaderSwipeSettleDuration,
   getReaderSwipeSettleOffset,
   getReaderSwipeVisualOffset,
   hasActiveReaderSwipeOffset,
@@ -117,19 +121,23 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
-import { getNavigationSurfaceState, type NavigationTab } from "@/lib/navigationMotion";
+import type { NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import {
   getInitialVisibleItemCount,
   getNextVisibleItemCount,
 } from "@/lib/incrementalList";
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
+import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
 import {
-  createReaderChromeState,
-  reduceReaderChromeState,
-} from "@/lib/readerChromeState";
-
-type Tab = NavigationTab;
+  markReaderControlsDiscovered,
+  shouldDiscoverReaderControls,
+} from "@/lib/readerControlDiscovery";
+import useCustomBackground from "@/app/useCustomBackground";
+import { requestPersistentStorage } from "@/lib/storagePersistence";
+import { createLocalId } from "@/lib/localId";
+import useAskAi from "@/app/useAskAi";
+import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -158,7 +166,8 @@ function withTimeout<T>(
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<Tab>("library");
+  const navigation = useAppNavigation();
+  const activeTab = navigation.state.activeTab;
   const [books, setBooks] = useState<BookRecord[]>([]);
   const [libraryRenderWindow, setLibraryRenderWindow] = useState({
     key: "",
@@ -169,25 +178,15 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [openBook, setOpenBook] = useState<BookRecord | null>(null);
-  const { dismissReader, presentReader, readerPresented } =
-    useReaderPresentation(setActiveTab);
-  const [paragraphs, setParagraphs] = useState<string[]>([]);
-  const [readerLoading, setReaderLoading] = useState(false);
+  const readerEntry = navigation.state.reader;
+  const readerPresented = readerEntry !== null;
+  const pendingReaderTargetRef = useRef<NavigationTab | null>(null);
+  const pendingPushAfterReaderRef = useRef<"ai-providers" | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
-
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
     DEFAULT_AI_PROVIDER_SETTINGS
   );
-  const [aiSettingsSheetOpen, setAiSettingsSheetOpen] = useState(false);
-
-  const [selectedText, setSelectedText] = useState<string | null>(null);
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<string | null>(null);
-  const [askLoading, setAskLoading] = useState(false);
-  const [askError, setAskError] = useState<string | null>(null);
 
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
@@ -195,12 +194,13 @@ export default function Home() {
 
   const [readerPrefs, setReaderPrefs] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const [appPrefs, setAppPrefs] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES);
-  const [readerSettingsOpen, setReaderSettingsOpen] = useState(false);
   const [tocItems, setTocItems] = useState<EpubTocItem[]>([]);
-  const [tocDrawerOpen, setTocDrawerOpen] = useState(false);
   const [readerProgressPercent, setReaderProgressPercent] = useState(0);
+  const [readerPageInfo, setReaderPageInfo] = useState<ReaderPageInfo>({
+    current: 1,
+    total: 1,
+  });
   const [readerMode, setReaderMode] = useState<ReaderMode>(DEFAULT_READER_MODE);
-  const readerModeRestoreProgressRef = useRef<number | null>(null);
   const epubReaderRef = useRef<EpubReaderHandle>(null);
   const [readerChromeState, dispatchReaderChrome] = useReducer(
     reduceReaderChromeState,
@@ -208,6 +208,29 @@ export default function Home() {
     createReaderChromeState
   );
   const readerChromeVisible = readerChromeState.visible;
+  useEffect(() => {
+    if (shouldDiscoverReaderControls()) {
+      dispatchReaderChrome({ type: "require-discovery" });
+    }
+  }, []);
+  const {
+    openBook,
+    paragraphs,
+    readerLoading,
+    readerModeRestoreProgressRef,
+    prepareReaderBook,
+    clearReaderBook,
+  } = useReaderBookState({
+    readerEntry,
+    books,
+    libraryLoading: loading,
+    removeInvalid: navigation.removeInvalid,
+    setReaderMode,
+    setTocItems,
+    setReaderProgressPercent,
+    setReaderPageInfo,
+    dispatchReaderChrome,
+  });
   const readerPointerDownRef = useRef<{
     x: number;
     y: number;
@@ -228,17 +251,13 @@ export default function Home() {
   const pendingEpubProgressRef = useRef<number | null>(null);
   const readerPrefsFrameRef = useRef<number | null>(null);
   const readerPrefsSaveTimerRef = useRef<number | null>(null);
-  const readerPrefsMotionTimerRef = useRef<number | null>(null);
   const readerPrefsRestoreFrameRef = useRef<number | null>(null);
   const pendingReaderPrefsRef = useRef<ReaderPreferences | null>(null);
   const readerPrefsGenerationRef = useRef(0);
-  const readerShellRef = useRef<HTMLDivElement>(null);
-  const [askSheetOpen, setAskSheetOpen] = useState(false);
 
   const [readingGoal, setReadingGoal] = useState(() => loadReadingGoal());
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [readingStats, setReadingStats] = useState<DailyReadingStat[]>([]);
-  const [goalSheetOpen, setGoalSheetOpen] = useState(false);
   const [goalInputValue, setGoalInputValue] = useState(readingGoal.targetMinutes);
   const tickRef = useRef<{
     date: string;
@@ -253,38 +272,19 @@ export default function Home() {
   });
 
   const [groups, setGroups] = useState<BookGroup[]>([]);
-  const [libraryScreen, setLibraryScreen] = useState<"library" | "collections">("library");
   const [groupFilter, setGroupFilter] = useState<string | null>(null);
   const [librarySearchQuery, setLibrarySearchQuery] = useState("");
   const [libraryView, setLibraryView] = useState<LibraryViewMode>(
     DEFAULT_APP_PREFERENCES.libraryView
   );
-  const [groupSheetOpen, setGroupSheetOpen] = useState(false);
-  const [groupSheetBook, setGroupSheetBook] = useState<BookRecord | null>(null);
-  const [bookActionSheetBook, setBookActionSheetBook] = useState<BookRecord | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [libraryEditing, setLibraryEditing] = useState(false);
   const [selectedBookIds, setSelectedBookIds] = useState<string[]>([]);
-  const [batchGroupSheetOpen, setBatchGroupSheetOpen] = useState(false);
-  const [batchDeleteConfirmOpen, setBatchDeleteConfirmOpen] = useState(false);
   const [collectionsEditing, setCollectionsEditing] = useState(false);
-  const [collectionCreateSheetOpen, setCollectionCreateSheetOpen] = useState(false);
   const [newGroupName, setNewGroupName] = useState("");
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
   const [editingGroupName, setEditingGroupName] = useState("");
   const autoOpenAttemptedRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
-
-  function getNavigationSurfaceClass(tab: Tab): string {
-    const state = getNavigationSurfaceState(tab, activeTab);
-    const stateClass =
-      state === "active"
-        ? styles.appSurfaceActive
-        : state === "before"
-          ? styles.appSurfaceBefore
-          : styles.appSurfaceAfter;
-    return `${styles.appSurface} ${stateClass}`;
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -297,9 +297,10 @@ export default function Home() {
       }
 
       try {
+        void requestPersistentStorage();
         const [storedBooks, storedPositions] = await withTimeout(
           Promise.all([listBooks(), listReadingPositions()]),
-          2000,
+          15000,
           "Local library storage timed out."
         );
         if (!cancelled) {
@@ -397,7 +398,7 @@ export default function Home() {
         }
         const isVisible = document.visibilityState === "visible";
         const shouldCount =
-          activeTab === "reading" &&
+          readerPresented &&
           openBook !== null &&
           isVisible;
         if (shouldCount && tickRef.current.lastVis) {
@@ -432,7 +433,51 @@ export default function Home() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [activeTab, openBook]);
+  }, [openBook, readerPresented]);
+
+  useEffect(() => {
+    const pendingPush = pendingPushAfterReaderRef.current;
+    if (pendingPush) {
+      if (navigation.state.sheets.length > 0) return;
+      if (readerPresented) {
+        navigation.dismissReader();
+        return;
+      }
+      pendingPushAfterReaderRef.current = null;
+      pendingReaderTargetRef.current = null;
+      navigation.selectTab("settings");
+      navigation.push(pendingPush);
+      return;
+    }
+
+    if (readerPresented) return;
+    const targetTab = pendingReaderTargetRef.current;
+    pendingReaderTargetRef.current = null;
+    if (targetTab) navigation.selectTab(targetTab);
+  }, [navigation, readerPresented]);
+
+  function openAiSettingsFromAsk() {
+    if (!readerPresented && navigation.state.sheets.length === 0) {
+      navigation.selectTab("settings");
+      navigation.push("ai-providers");
+      return;
+    }
+    pendingPushAfterReaderRef.current = "ai-providers";
+    if (navigation.state.sheets.length > 0) {
+      navigation.dismissSheet();
+    } else {
+      navigation.dismissReader();
+    }
+  }
+
+  function dismissReader(targetTab?: NavigationTab) {
+    if (!readerPresented) {
+      if (targetTab) navigation.selectTab(targetTab);
+      return;
+    }
+    pendingReaderTargetRef.current = targetTab ?? null;
+    navigation.dismissReader();
+  }
 
   function switchToSettings() {
     dismissReader("settings");
@@ -444,20 +489,6 @@ export default function Home() {
   }
 
   function handleReaderPrefsChange(prefs: ReaderPreferences) {
-    if (
-      !appPrefs.reduceMotion &&
-      readerPreferenceChangeNeedsMotion(readerPrefs, prefs)
-    ) {
-      const readerShell = readerShellRef.current;
-      readerShell?.classList.add(styles.readerPreferencesAdjusting);
-      if (readerPrefsMotionTimerRef.current !== null) {
-        window.clearTimeout(readerPrefsMotionTimerRef.current);
-      }
-      readerPrefsMotionTimerRef.current = window.setTimeout(() => {
-        readerPrefsMotionTimerRef.current = null;
-        readerShell?.classList.remove(styles.readerPreferencesAdjusting);
-      }, 160);
-    }
     pendingReaderPrefsRef.current = prefs;
 
     if (readerPrefsSaveTimerRef.current !== null) {
@@ -530,29 +561,34 @@ export default function Home() {
     }
   }
 
+  const background = useCustomBackground(handleAppPreferencesChange);
+
   function handleLibraryViewChange(view: LibraryViewMode) {
     setLibraryView(view);
     handleAppPreferencesChange({ libraryView: view });
   }
 
+  const activeSheet = navigation.state.sheets.at(-1);
+  const groupSheetBook =
+    activeSheet?.route === "book-groups" && activeSheet.entityId
+      ? books.find((book) => book.id === activeSheet.entityId) ?? null
+      : null;
+
   function enterLibraryEditing() {
     setLibraryEditing(true);
-    setBookActionSheetBook(null);
   }
 
   function exitLibraryEditing() {
     setLibraryEditing(false);
     setSelectedBookIds([]);
-    setBatchGroupSheetOpen(false);
-    setBatchDeleteConfirmOpen(false);
   }
 
-  function handleBookPress(book: BookRecord) {
+  function handleBookPress(book: BookRecord, originId: string) {
     if (libraryEditing) {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
     }
-    void openBookForReading(book);
+    void openBookForReading(book, originId);
   }
 
   function handleSelectAllVisible() {
@@ -568,7 +604,7 @@ export default function Home() {
   function openBatchGroupSheet() {
     if (selectedBookIds.length === 0) return;
     setNewGroupName("");
-    setBatchGroupSheetOpen(true);
+    navigation.presentSheet("batch-groups");
   }
 
   function openBookActionSheet(book: BookRecord) {
@@ -576,28 +612,14 @@ export default function Home() {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
     }
-    setBookActionSheetBook(book);
-    setDeleteConfirmOpen(false);
-  }
-
-  function closeBookActionSheet() {
-    setBookActionSheetBook(null);
-    setDeleteConfirmOpen(false);
-  }
-
-  function openGroupSheet(book: BookRecord) {
-    setGroupSheetBook(book);
-    setNewGroupName("");
-    setEditingGroupId(null);
-    setEditingGroupName("");
-    setGroupSheetOpen(true);
+    navigation.presentSheet("book-actions", { entityId: book.id });
   }
 
   async function handleCreateGroup() {
     const trimmed = newGroupName.trim();
     if (!trimmed || !groupSheetBook) return;
     const group: BookGroup = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       name: trimmed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -607,8 +629,6 @@ export default function Home() {
     setGroups(updatedGroups);
     const currentIds = groupSheetBook.groupIds ?? [];
     await updateBookGroupMembership(groupSheetBook.id, [...currentIds, group.id]);
-    const updatedBook = (await listBooks()).find((b) => b.id === groupSheetBook.id);
-    if (updatedBook) setGroupSheetBook(updatedBook);
     setBooks(await listBooks());
     setNewGroupName("");
   }
@@ -620,8 +640,6 @@ export default function Home() {
       ? currentIds.filter((id) => id !== groupId)
       : [...currentIds, groupId];
     await updateBookGroupMembership(groupSheetBook.id, newIds);
-    const updatedBook = (await listBooks()).find((b) => b.id === groupSheetBook.id);
-    if (updatedBook) setGroupSheetBook(updatedBook);
     setBooks(await listBooks());
   }
 
@@ -629,10 +647,6 @@ export default function Home() {
     await deleteBookGroup(groupId);
     const updatedGroups = await listBookGroups();
     setGroups(updatedGroups);
-    if (groupSheetBook) {
-      const updatedBook = (await listBooks()).find((b) => b.id === groupSheetBook.id);
-      if (updatedBook) setGroupSheetBook(updatedBook);
-    }
     setBooks(await listBooks());
     if (groupFilter === groupId) setGroupFilter(null);
   }
@@ -650,13 +664,7 @@ export default function Home() {
   async function handleExportBook(book: BookRecord) {
     try {
       const exported = await createBookFileExport(book);
-      const url = URL.createObjectURL(exported.blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = exported.fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-      closeBookActionSheet();
+      triggerBlobDownload(exported.blob, exported.fileName);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
     }
@@ -673,13 +681,10 @@ export default function Home() {
     });
     if (openBook?.id === book.id) {
       dismissReader();
-      setOpenBook(null);
-      setParagraphs([]);
-      setReaderProgressPercent(0);
-      setSelectedText(null);
-      setActiveTab("library");
+      clearReaderBook();
+      resetAskAi();
+      navigation.selectTab("library");
     }
-    closeBookActionSheet();
   }
 
   async function handleAddSelectedBooksToGroup(groupId: string) {
@@ -691,7 +696,6 @@ export default function Home() {
       await updateBookGroupMembership(book.id, nextGroupIds);
     }
     setBooks(await listBooks());
-    setBatchGroupSheetOpen(false);
     exitLibraryEditing();
   }
 
@@ -699,7 +703,7 @@ export default function Home() {
     const trimmed = newGroupName.trim();
     if (!trimmed || selectedBookIds.length === 0) return;
     const group: BookGroup = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       name: trimmed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -714,7 +718,7 @@ export default function Home() {
     const trimmed = newGroupName.trim();
     if (!trimmed) return;
     const group: BookGroup = {
-      id: crypto.randomUUID(),
+      id: createLocalId(),
       name: trimmed,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -722,7 +726,6 @@ export default function Home() {
     await saveBookGroup(group);
     setGroups(await listBookGroups());
     setNewGroupName("");
-    setCollectionCreateSheetOpen(false);
   }
 
   async function handleDeleteSelectedBooks() {
@@ -740,11 +743,9 @@ export default function Home() {
     });
     if (openBook && idsToDelete.includes(openBook.id)) {
       dismissReader();
-      setOpenBook(null);
-      setParagraphs([]);
-      setReaderProgressPercent(0);
-      setSelectedText(null);
-      setActiveTab("library");
+      clearReaderBook();
+      resetAskAi();
+      navigation.selectTab("library");
     }
     exitLibraryEditing();
   }
@@ -759,6 +760,7 @@ export default function Home() {
       return;
     }
     try {
+      void requestPersistentStorage();
       const record = await createBookRecordFromFile(file);
       await saveBook(record);
       autoOpenAttemptedRef.current = true;
@@ -781,43 +783,86 @@ export default function Home() {
     groupFilteredBooks,
     librarySearchQuery
   );
-  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}`;
+  const libraryHomePresentation = buildLibraryHomePresentation({
+    books,
+    filteredBooks,
+    searchQuery: librarySearchQuery,
+    groupFilter,
+    editing: libraryEditing,
+  });
+  const libraryShelfBooks = libraryHomePresentation.shelfBooks;
+  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
   const visibleBookCount = Math.min(
-    filteredBooks.length,
+    libraryShelfBooks.length,
     libraryRenderWindow.key === libraryRenderKey
       ? libraryRenderWindow.count
       : getInitialVisibleItemCount(
-          filteredBooks.length,
+          libraryShelfBooks.length,
           LIBRARY_RENDER_BATCH
         )
   );
-  const visibleBooks = filteredBooks.slice(0, visibleBookCount);
+  const visibleBooks = libraryShelfBooks.slice(0, visibleBookCount);
   const collectionListItems = buildCollectionListItems(
     books, groups, UI_TEXT.ALL_BOOKS, UI_TEXT.UNGROUPED,
   );
   const activeCollectionName =
     collectionListItems.find((item) => item.filter === groupFilter)?.name ?? UI_TEXT.ALL_BOOKS;
-  const selectedVisibleCount = filteredBooks.filter((book) => selectedBookIds.includes(book.id)).length;
-  const allVisibleSelected = filteredBooks.length > 0 && selectedVisibleCount === filteredBooks.length;
+  const selectedVisibleCount = libraryShelfBooks.filter((book) =>
+    selectedBookIds.includes(book.id)
+  ).length;
+  const allVisibleSelected =
+    libraryShelfBooks.length > 0 &&
+    selectedVisibleCount === libraryShelfBooks.length;
   const selectedCountLabel = UI_TEXT.SELECTED_COUNT.replace("{count}", String(selectedBookIds.length));
   const latestBook = selectFeaturedLibraryBook(books);
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
-  const actionSheetBookProgress = bookActionSheetBook
-    ? getBookProgressPercent(readingProgressMap, bookActionSheetBook.id)
-    : 0;
-  const showBottomTabs = shouldShowBottomTabs(activeTab, Boolean(openBook));
+  const showBottomTabs =
+    navigation.state.pushes.length === 0 &&
+    shouldShowBottomTabs(activeTab, readerPresented);
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
   );
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
+  const {
+    selectedText,
+    setSelectedText,
+    question,
+    setQuestion,
+    messages: askMessages,
+    loading: askLoading,
+    error: askError,
+    reset: resetAskAi,
+    clearSelection: handleClearSelection,
+    ask: handleAsk,
+  } = useAskAi({
+    openBook,
+    activeAiProvider,
+    aiProviderUsable,
+    textReaderRef: readerRef,
+    epubReaderRef,
+  });
+  const annotations = useReaderAnnotationsController({
+    openBook, readerMode,
+    reduceMotion: appPrefs.reduceMotion,
+    textReaderRef: readerRef, epubReaderRef,
+    setSelectedText,
+    clearSelection: handleClearSelection,
+    showSelectionChrome: () => dispatchReaderChrome({ type: "selection" }),
+  });
+  const {
+    highlights: readerHighlights, selection: readerSelection,
+    lastColor: lastHighlightColor, currentBookmark, toggleBookmark,
+    setSelection: setAnnotationSelection, setCurrentSnapshot: setAnnotationSnapshot,
+    selectAnnotation: handleAnnotationSelect, applyHighlight: handleHighlight,
+  } = annotations;
   const todayMinutesValue = formatReadingMinutes(todaySeconds);
   const todayGoalProgress = readingGoal.targetMinutes > 0
     ? Math.min(todayMinutesValue / readingGoal.targetMinutes, 1)
     : 0;
-  const goalRingBackground = `conic-gradient(var(--tint) ${Math.round(todayGoalProgress * 360)}deg, rgba(120, 130, 160, 0.18) 0deg)`;
+  const goalPercent = Math.round(todayGoalProgress * 1000) / 10;
   const readerThemeLabel =
     readerPrefs.theme === "system"
       ? "\u8ddf\u968f\u7cfb\u7edf"
@@ -846,8 +891,7 @@ export default function Home() {
   useEffect(() => {
     if (
       activeTab !== "library" ||
-      libraryScreen !== "library" ||
-      visibleBookCount >= filteredBooks.length
+      visibleBookCount >= libraryShelfBooks.length
     ) {
       return;
     }
@@ -862,7 +906,7 @@ export default function Home() {
       const frame = window.requestAnimationFrame(() => {
         setLibraryRenderWindow({
           key: libraryRenderKey,
-          count: filteredBooks.length,
+          count: libraryShelfBooks.length,
         });
       });
       return () => window.cancelAnimationFrame(frame);
@@ -874,7 +918,7 @@ export default function Home() {
           key: libraryRenderKey,
           count: getNextVisibleItemCount(
             visibleBookCount,
-            filteredBooks.length,
+            libraryShelfBooks.length,
             LIBRARY_RENDER_BATCH
           ),
         });
@@ -885,9 +929,8 @@ export default function Home() {
     return () => observer.disconnect();
   }, [
     activeTab,
-    filteredBooks.length,
     libraryRenderKey,
-    libraryScreen,
+    libraryShelfBooks.length,
     visibleBookCount,
   ]);
 
@@ -898,7 +941,10 @@ export default function Home() {
     return () => window.clearTimeout(timeout);
   }, [books]);
 
-  const openBookForReading = useCallback(async (book: BookRecord) => {
+  const openBookForReading = useCallback(async (
+    book: BookRecord,
+    originId?: string
+  ) => {
     const now = new Date().toISOString();
     await saveBook({ ...book, lastOpenedAt: now });
     const [nextBooks, savedPosition] = await Promise.all([
@@ -907,32 +953,12 @@ export default function Home() {
     ]);
     setBooks(nextBooks);
 
-    setOpenBook(book);
-    setReaderMode(sanitizeReaderMode(savedPosition?.readingMode));
-    readerModeRestoreProgressRef.current =
-      savedPosition?.progressPercent ?? null;
-    presentReader();
     scrollRestoredRef.current = false;
-    setSelectedText(null);
-    setTocItems([]);
-    setTocDrawerOpen(false);
-    setReaderProgressPercent(0);
-    dispatchReaderChrome({ type: "hide" });
-
-    if (book.format === "txt") {
-      setReaderLoading(true);
-      try {
-        const text = await book.fileBlob.text();
-        setParagraphs(parseTxtParagraphs(text));
-      } catch {
-        setParagraphs([UI_TEXT.ERROR_READ_FILE]);
-      } finally {
-        setReaderLoading(false);
-      }
-    } else {
-      setParagraphs([]);
-    }
-  }, [presentReader]);
+    resetAskAi();
+    const contentReady = prepareReaderBook(book, savedPosition);
+    navigation.presentReader(book.id, { originId });
+    await contentReady;
+  }, [navigation, prepareReaderBook, resetAskAi]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -959,7 +985,7 @@ export default function Home() {
     async function syncWakeLock() {
       const shouldLock =
         appPrefs.keepScreenAwake &&
-        activeTab === "reading" &&
+        readerPresented &&
         openBook !== null &&
         document.visibilityState === "visible";
 
@@ -992,7 +1018,7 @@ export default function Home() {
       document.removeEventListener("visibilitychange", syncWakeLock);
       void releaseCurrentLock();
     };
-  }, [activeTab, appPrefs.keepScreenAwake, openBook]);
+  }, [appPrefs.keepScreenAwake, openBook, readerPresented]);
 
   useEffect(() => {
     if (!openBook || openBook.format !== "txt" || paragraphs.length === 0) return;
@@ -1022,6 +1048,12 @@ export default function Home() {
           el.clientHeight
         );
       }
+      const pageInfo =
+        readerMode === "paged"
+          ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
+          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight);
+      setReaderPageInfo(pageInfo);
+      annotations.captureTxtSnapshot(restoreProgress, pageInfo.current);
 
       if (pos || restoreProgress > 0) {
         const progress = restoreProgress;
@@ -1033,7 +1065,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [openBook, paragraphs, readerMode]);
+  }, [annotations, openBook, paragraphs, readerMode, readerModeRestoreProgressRef]);
 
   useEffect(() => {
     return () => {
@@ -1054,9 +1086,6 @@ export default function Home() {
       }
       if (readerPrefsSaveTimerRef.current !== null) {
         window.clearTimeout(readerPrefsSaveTimerRef.current);
-      }
-      if (readerPrefsMotionTimerRef.current !== null) {
-        window.clearTimeout(readerPrefsMotionTimerRef.current);
       }
       if (readerSwipeSettleTimerRef.current !== null) {
         window.clearTimeout(readerSwipeSettleTimerRef.current);
@@ -1086,6 +1115,12 @@ export default function Home() {
               el.scrollHeight,
               el.clientHeight
             );
+      const pageInfo =
+        readerMode === "paged"
+          ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
+          : getScrollPageInfo(el.scrollTop, el.scrollHeight, el.clientHeight);
+      setReaderPageInfo(pageInfo);
+      annotations.captureTxtSnapshot(progressPercent, pageInfo.current);
       setReaderProgressPercent((current) =>
         shouldPublishProgressPercent(current, progressPercent)
           ? progressPercent
@@ -1111,7 +1146,7 @@ export default function Home() {
         });
       }, 180);
     });
-  }, [openBook, readerMode]);
+  }, [annotations, openBook, readerMode]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1123,6 +1158,7 @@ export default function Home() {
         const progress = pendingEpubProgressRef.current;
         pendingEpubProgressRef.current = null;
         if (progress === null || !openBook) return;
+        setAnnotationSnapshot(epubReaderRef.current?.getCurrentSnapshot() ?? null);
 
         setReaderProgressPercent((current) =>
           shouldPublishProgressPercent(current, progress)
@@ -1136,73 +1172,15 @@ export default function Home() {
         );
       });
     },
-    [openBook]
+    [openBook, setAnnotationSnapshot]
   );
 
-  const handleTextSelect = useCallback((): boolean => {
-    const selection = window.getSelection();
-    if (!selection) return false;
-    const text = selection.toString().trim();
-    if (text.length > 0) {
-      setSelectedText(text);
-      dispatchReaderChrome({ type: "selection" });
-      return true;
-    }
-    return false;
-  }, []);
 
-  function handleClearSelection() {
-    setSelectedText(null);
-    const selection = window.getSelection();
-    if (selection) selection.removeAllRanges();
-  }
-
-  async function handleAsk() {
-    if (!question.trim()) return;
-    if (!activeAiProvider || !aiProviderUsable) {
-      setAskError(UI_TEXT.CONFIGURE_AI_PROMPT);
-      return;
-    }
-
-    setAskLoading(true);
-    setAskError(null);
-    setAnswer(null);
-
-    const context: Record<string, string> = {};
-    if (openBook) {
-      context.bookTitle = openBook.title;
-      context.bookFormat = openBook.format;
-    }
-    if (selectedText) {
-      context.selectedText = selectedText;
-    }
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          provider: activeAiProvider,
-          question: question.trim(),
-          context,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => null);
-        throw new Error(data?.error || `${UI_TEXT.REQUEST_FAILED} (${res.status})`);
-      }
-
-      const data = await res.json();
-      setAnswer(data.answer);
-    } catch (err) {
-      setAskError(
-        err instanceof Error ? err.message : UI_TEXT.REQUEST_FAILED
-      );
-    } finally {
-      setAskLoading(false);
-    }
-  }
+  const readerCurrentPage = readerPageInfo.current;
+  const handleTextSelect = useCallback(
+    () => annotations.captureTxtTextSelection(readerProgressPercent, readerCurrentPage),
+    [annotations, readerCurrentPage, readerProgressPercent]
+  );
 
   async function handleExportBackup() {
     setBackupStatus(null);
@@ -1211,12 +1189,7 @@ export default function Home() {
       const payload = await createBackupPayload();
       const json = JSON.stringify(payload, null, 2);
       const blob = new Blob([json], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "ai-reader-backup.json";
-      a.click();
-      URL.revokeObjectURL(url);
+      triggerBlobDownload(blob, "ai-reader-backup.json");
       setBackupStatus(UI_TEXT.BACKUP_EXPORTED);
     } catch (err) {
       setBackupError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
@@ -1234,6 +1207,9 @@ export default function Home() {
       await restoreBackupPayload(data);
       const restoredBooks = await listBooks();
       const restoredPositions = await listReadingPositions();
+      dismissReader();
+      clearReaderBook();
+      resetAskAi();
       setBooks(restoredBooks);
       setReadingProgressMap(buildReadingProgressMap(restoredPositions));
       void backfillMissingBookCovers(restoredBooks, {
@@ -1249,6 +1225,8 @@ export default function Home() {
           // Restored EPUBs still work even when cover extraction is unavailable.
         });
       setGroups(await listBookGroups());
+      setReadingStats(await listDailyReadingStats());
+      await background.reloadCustomBackground();
       setGroupFilter(null);
       setAiProviderSettings(loadAiProviderSettings());
       setBackupStatus(UI_TEXT.BACKUP_RESTORED);
@@ -1260,15 +1238,11 @@ export default function Home() {
   }
 
   function handleToolbarBack() {
-    dismissReader("library");
+    dismissReader();
   }
 
   function handleOpenReadingTab() {
-    if (openBook) {
-      presentReader();
-      return;
-    }
-    setActiveTab("reading");
+    navigation.selectTab("reading");
   }
 
   const handleReaderModeChange = useCallback(
@@ -1305,7 +1279,7 @@ export default function Home() {
         });
       }
     },
-    [openBook, readerMode, readerProgressPercent]
+    [openBook, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
   );
 
   const turnReaderPage = useCallback(async (
@@ -1346,16 +1320,20 @@ export default function Home() {
   }, [appPrefs.reduceMotion, openBook, readerMode]);
 
   const toggleReaderChrome = useCallback(() => {
+    if (readerChromeState.discoveryPending) {
+      markReaderControlsDiscovered();
+    }
     dispatchReaderChrome({ type: "tap", at: performance.now() });
-  }, []);
+  }, [readerChromeState.discoveryPending]);
 
   const handleTocSelect = useCallback(async (href: string) => {
     await epubReaderRef.current?.goTo(href);
   }, []);
 
+
   function handleOpenGoalSheet() {
     setGoalInputValue(readingGoal.targetMinutes);
-    setGoalSheetOpen(true);
+    navigation.presentSheet("reading-goal");
   }
 
   function handleSaveGoal() {
@@ -1436,7 +1414,7 @@ export default function Home() {
         "(prefers-reduced-motion: reduce)"
       ).matches,
     });
-    const duration = reduceMotion ? 0 : action === "none" ? 180 : 160;
+    const duration = getReaderSwipeSettleDuration(action, reduceMotion);
     const targetOffset = getReaderSwipeSettleOffset(
       action,
       currentOffset,
@@ -1529,8 +1507,14 @@ export default function Home() {
     const elapsed = Date.now() - pointerDown.time;
     const dx = e.clientX - pointerDown.x;
     const dy = e.clientY - pointerDown.y;
+    const pointerIsTap = isTapGesture({
+      durationMs: elapsed,
+      deltaX: dx,
+      deltaY: dy,
+      maxDistancePx: 32,
+    });
 
-    if (pointerDown.axis === "horizontal") {
+    if (pointerDown.axis === "horizontal" && !pointerIsTap) {
       const swipeAction = getReaderSwipeAction({
         startX: pointerDown.x,
         startY: pointerDown.y,
@@ -1546,7 +1530,13 @@ export default function Home() {
       return;
     }
 
-    if (pointerDown.axis === "vertical") return;
+    if (pointerDown.axis === "horizontal" && pointerIsTap) {
+      const reader = readerRef.current;
+      reader?.classList.remove(styles.readerSwipeTracking);
+      reader?.style.setProperty("--reader-swipe-x", "0px");
+    }
+
+    if (pointerDown.axis === "vertical" && !pointerIsTap) return;
 
     if (hasActiveReaderSwipeOffset(pointerDown.baseOffset)) {
       settleReaderSwipe(
@@ -1569,8 +1559,8 @@ export default function Home() {
       target.closest(`.${styles.readerBottomPill}`) ||
       target.closest(`.${styles.readerBottomProgress}`) ||
       target.closest(`.${styles.readerOverlayBack}`) ||
-      target.closest(`.${styles.readerFloatingTools}`) ||
-      target.closest(`.${styles.readerModeMenu}`)
+      target.closest(`.${styles.readerActionMenu}`) ||
+      target.closest(`.${styles.readerPagePill}`)
     ) {
       return;
     }
@@ -1590,26 +1580,86 @@ export default function Home() {
       }
     }
 
-    if (
-      !isTapGesture({
-        durationMs: elapsed,
-        deltaX: dx,
-        deltaY: dy,
-      })
-    ) {
+    if (!pointerIsTap) {
       return;
     }
 
     toggleReaderChrome();
   }, [appPrefs.swipeToTurn, handleTextSelect, settleReaderSwipe, toggleReaderChrome, turnReaderPage]);
 
+  const useCustomBackgroundImage =
+    appPrefs.backgroundMode === "custom" && background.customBackgroundBlob !== null;
+
+  const readerContent = (
+    <ReadingSession
+      book={openBook}
+      loading={readerLoading}
+      mode={readerMode}
+      preferences={readerPrefs}
+      pageInfo={readerPageInfo}
+      paragraphChunks={paragraphChunks}
+      highlights={readerHighlights}
+      chromeVisible={readerChromeVisible}
+      textReaderRef={readerRef}
+      epubReaderRef={epubReaderRef}
+      getReadingPosition={getReadingPosition}
+      saveReadingPosition={saveReadingPosition}
+      onPointerDown={handleReaderPointerDown}
+      onPointerMove={handleReaderPointerMove}
+      onPointerUp={handleReaderPointerUp}
+      onPointerCancel={() => {
+        const pointerDown = readerPointerDownRef.current;
+        readerPointerDownRef.current = null;
+        const viewportWidth = readerRef.current?.clientWidth ?? 0;
+        settleReaderSwipe(
+          "none",
+          pointerDown?.baseOffset ?? 0,
+          viewportWidth
+        );
+      }}
+      onTextSelect={(selection) => {
+        const selectionUpdate = resolveEpubSelectionUpdate(selection?.text ?? "");
+        setAnnotationSelection(selection);
+        setSelectedText(selectionUpdate.selectedText);
+        if (selectionUpdate.shouldShowChrome) {
+          dispatchReaderChrome({ type: "selection" });
+        }
+      }}
+      onReaderTap={toggleReaderChrome}
+      onReaderScrollStart={() =>
+        dispatchReaderChrome({ type: "scroll", at: performance.now() })
+      }
+      onSwipeTurn={(direction) =>
+        void turnReaderPage(direction, { instant: true })
+      }
+      onTocChange={setTocItems}
+      onProgressChange={handleEpubProgressChange}
+      onPageInfoChange={setReaderPageInfo}
+      onTextReaderScroll={handleReaderScroll}
+      onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
+      onBack={handleToolbarBack}
+      onOpenContents={() => navigation.presentSheet("toc")}
+      onOpenSettings={() => navigation.presentSheet("reader-settings")}
+      onAsk={() => navigation.presentSheet("ask-ai")}
+      selection={readerSelection}
+      lastHighlightColor={lastHighlightColor}
+      currentPageBookmarked={currentBookmark !== null}
+      onToggleBookmark={() => void toggleBookmark()}
+      onHighlight={handleHighlight}
+      annotationStatus={annotations.error ?? annotations.status}
+    />
+  );
+
   return (
-    <div
-      className={styles.app}
-      {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
-      {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
-    >
-      <AmbientBookBackground book={latestBook ?? null} reduceMotion={appPrefs.reduceMotion} />
+    <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
+      <NavigationProvider value={navigation}>
+      <div
+        className={styles.app}
+        data-app-shell="true"
+        {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
+        {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
+      >
+      <AmbientBookBackground book={useCustomBackgroundImage ? null : latestBook ?? null} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
       <input
         ref={fileInputRef}
         type="file"
@@ -1618,26 +1668,93 @@ export default function Home() {
         onChange={handleImport}
       />
 
+      <SharedBookTransition
+        readerEntry={readerEntry}
+        book={openBook}
+        readerContent={readerContent}
+      >
       <main
         className={`${styles.content} ${
-          activeTab === "reading" && readerPresented ? styles.readingContent : ""
-        } ${activeTab === "library" && libraryEditing ? styles.libraryEditingContent : ""}`}
+          activeTab === "library" && libraryEditing
+            ? styles.libraryEditingContent
+            : ""
+        }`}
       >
+        <NavigationStack
+          activeTab={activeTab}
+          pushes={navigation.state.pushes}
+          readerPresented={readerPresented}
+          renderPush={(entry) => (
+            <AppPushSurfaces
+              entry={entry}
+              data={{
+                collections: {
+                  collectionItems: collectionListItems,
+                  groupFilter,
+                  editing: collectionsEditing,
+                  editingGroupId,
+                  editingGroupName,
+                  onToggleEditing: () => {
+                    setCollectionsEditing((editing) => !editing);
+                    setEditingGroupId(null);
+                    setEditingGroupName("");
+                  },
+                  onSelectCollection: (filter) => {
+                    setGroupFilter(filter);
+                    setLibrarySearchQuery("");
+                    navigation.pop();
+                  },
+                  onStartRenamingGroup: (id, name) => {
+                    setEditingGroupId(id);
+                    setEditingGroupName(name);
+                  },
+                  onEditingGroupNameChange: setEditingGroupName,
+                  onRenameGroup: (id) => void handleRenameGroup(id),
+                  onDeleteGroup: (id) => void handleDeleteGroup(id),
+                  onOpenCreateCollection: () => {
+                    setNewGroupName("");
+                    navigation.presentSheet("collection-create");
+                  },
+                },
+                ai: {
+                  settings: aiProviderSettings,
+                  onSave: handleAiProviderSettingsSave,
+                },
+                background: {
+                  appPreferences: appPrefs,
+                  backgroundInputRef: background.backgroundInputRef,
+                  customBackgroundPreviewUrl:
+                    background.customBackgroundPreviewUrl,
+                  onPreferencesChange: handleAppPreferencesChange,
+                  onClearBackground: background.handleClearCustomBackground,
+                },
+              }}
+              actions={{
+                pop: navigation.pop,
+                pushAiProvider: (providerId) =>
+                  navigation.push("ai-provider-configure", {
+                    entityId: providerId,
+                  }),
+              }}
+            />
+          )}
+        >
+        <NavigationRoot tab="library">
         <LibrarySurface
-          className={`${styles.libraryPage} ${getNavigationSurfaceClass("library")}`}
+          className={styles.libraryPage}
           ariaHidden={activeTab !== "library"}
           data={{
             books,
             visibleBooks,
-            filteredBookCount: filteredBooks.length,
+            filteredBookCount: libraryShelfBooks.length,
+            featuredBook: libraryHomePresentation.featuredBook,
+            featuredLayout: libraryHomePresentation.featuredLayout,
             groups,
-            collectionItems: collectionListItems,
             progressMap: readingProgressMap,
             loading,
             importError,
           }}
           view={{
-            screen: libraryScreen,
             searchQuery: librarySearchQuery,
             mode: libraryView,
             activeCollectionName,
@@ -1646,36 +1763,17 @@ export default function Home() {
           }}
           editing={{
             library: libraryEditing,
-            collections: collectionsEditing,
             selectedBookIds,
             selectedCountLabel,
             allVisibleSelected,
-            editingGroupId,
-            editingGroupName,
           }}
           sentinelRef={libraryLoadSentinelRef}
           actions={{
             importBooks: () => fileInputRef.current?.click(),
             openCollections: () => {
-              setLibraryScreen("collections");
+              navigation.push("collections");
               setLibraryEditing(false);
               setSelectedBookIds([]);
-            },
-            closeCollections: () => {
-              setLibraryScreen("library");
-              setCollectionsEditing(false);
-              setEditingGroupId(null);
-              setEditingGroupName("");
-            },
-            toggleCollectionsEditing: () => {
-              setCollectionsEditing((editing) => !editing);
-              setEditingGroupId(null);
-              setEditingGroupName("");
-            },
-            selectCollection: (filter) => {
-              setGroupFilter(filter);
-              setLibrarySearchQuery("");
-              setLibraryScreen("library");
             },
             setSearchQuery: setLibrarySearchQuery,
             setViewMode: handleLibraryViewChange,
@@ -1685,86 +1783,31 @@ export default function Home() {
             selectAllVisible: handleSelectAllVisible,
             pressBook: handleBookPress,
             openBookActions: openBookActionSheet,
-            startRenamingGroup: (id, name) => {
-              setEditingGroupId(id);
-              setEditingGroupName(name);
-            },
-            setEditingGroupName,
-            renameGroup: (id) => void handleRenameGroup(id),
-            deleteGroup: (id) => void handleDeleteGroup(id),
-            openCreateCollection: () => {
-              setNewGroupName("");
-              setCollectionCreateSheetOpen(true);
-            },
           }}
         />
-        <ReadingSession
-          active={readerPresented && activeTab === "reading"}
-          book={openBook}
-          loading={readerLoading}
-          mode={readerMode}
-          preferences={readerPrefs}
-          paragraphChunks={paragraphChunks}
-          chromeVisible={readerChromeVisible}
-          tocItems={tocItems}
-          shellRef={readerShellRef}
-          textReaderRef={readerRef}
-          epubReaderRef={epubReaderRef}
-          getReadingPosition={getReadingPosition}
-          saveReadingPosition={saveReadingPosition}
-          onPointerDown={handleReaderPointerDown}
-          onPointerMove={handleReaderPointerMove}
-          onPointerUp={handleReaderPointerUp}
-          onPointerCancel={() => {
-            const pointerDown = readerPointerDownRef.current;
-            readerPointerDownRef.current = null;
-            const viewportWidth = readerRef.current?.clientWidth ?? 0;
-            settleReaderSwipe(
-              "none",
-              pointerDown?.baseOffset ?? 0,
-              viewportWidth
-            );
-          }}
-          onTextSelect={(text) => { const selectionUpdate = resolveEpubSelectionUpdate(text); setSelectedText(selectionUpdate.selectedText); if (selectionUpdate.shouldShowChrome) dispatchReaderChrome({ type: "selection" }); }}
-          onReaderTap={() =>
-            dispatchReaderChrome({ type: "tap", at: performance.now() })
-          }
-          onReaderScrollStart={() =>
-            dispatchReaderChrome({ type: "scroll", at: performance.now() })
-          }
-          onSwipeTurn={(direction) =>
-            void turnReaderPage(direction, { instant: true })
-          }
-          onTocChange={setTocItems}
-          onProgressChange={handleEpubProgressChange}
-          onTextReaderScroll={handleReaderScroll}
-          onSwipeTransitionEnd={handleReaderSwipeTransitionEnd}
-          onBack={handleToolbarBack}
-          onOpenContents={() => setTocDrawerOpen(true)}
-          onOpenSettings={() => setReaderSettingsOpen(true)}
-          onAsk={() => setAskSheetOpen(true)}
-          onModeChange={handleReaderModeChange}
-        />
-
+        </NavigationRoot>
+        <NavigationRoot tab="reading">
         <ReadingDashboard
-          className={`${styles.readingDashboard} ${getNavigationSurfaceClass("reading")} ${
-            readerPresented ? styles.readingDashboardReaderOpen : ""
-          }`}
+          className={styles.readingDashboard}
           ariaHidden={activeTab !== "reading" || readerPresented}
           todayMinutes={todayMinutesValue}
           targetMinutes={readingGoal.targetMinutes}
-          goalRingBackground={goalRingBackground}
+          goalPercent={goalPercent}
           totalMinutes={totalMinutesValue}
           insights={weeklyReadingInsights}
           latestBook={latestBook ?? null}
           latestBookProgress={latestBookProgress}
           onOpenGoal={handleOpenGoalSheet}
-          onOpenBook={(book) => void openBookForReading(book)}
+          onOpenBook={(book, originId) =>
+            void openBookForReading(book, originId)
+          }
           onImport={() => fileInputRef.current?.click()}
         />
+        </NavigationRoot>
 
+        <NavigationRoot tab="settings">
         <SettingsSurface
-          className={`${styles.settingsPage} ${getNavigationSurfaceClass("settings")}`}
+          className={styles.settingsPage}
           ariaHidden={activeTab !== "settings"}
           appPreferences={appPrefs}
           activeProviderLabel={
@@ -1778,14 +1821,26 @@ export default function Home() {
           backupStatus={backupStatus}
           backupError={backupError}
           backupInputRef={backupInputRef}
+          backgroundInputRef={background.backgroundInputRef}
+          customBackgroundAvailable={background.customBackgroundAvailable}
           onPreferencesChange={handleAppPreferencesChange}
-          onOpenAiSettings={() => setAiSettingsSheetOpen(true)}
+          onBackgroundModeChange={background.handleBackgroundModeChange}
+          onImportBackground={background.handleCustomBackgroundImport}
+          onOpenCustomBackgroundSettings={() =>
+            navigation.push("custom-background")
+          }
+          onOpenAiProviders={() => navigation.push("ai-providers")}
           onExportBackup={handleExportBackup}
           onImportBackup={handleImportBackup}
-          onOpenReaderSettings={() => setReaderSettingsOpen(true)}
+          onOpenReaderSettings={() =>
+            navigation.presentSheet("reader-settings")
+          }
           onOpenGoal={handleOpenGoalSheet}
         />
+        </NavigationRoot>
+        </NavigationStack>
       </main>
+      </SharedBookTransition>
 
       <AppNavigation
         activeTab={activeTab}
@@ -1798,93 +1853,69 @@ export default function Home() {
         hasSelection={selectedBookIds.length > 0}
         onOpenLibrary={() => {
           dismissReader("library");
-          setLibraryScreen("library");
           setCollectionsEditing(false);
         }}
         onOpenReading={handleOpenReadingTab}
         onOpenSettings={switchToSettings}
         onToggleSelectAll={handleSelectAllVisible}
         onOpenBatchGroup={openBatchGroupSheet}
-        onOpenBatchDelete={() => setBatchDeleteConfirmOpen(true)}
+        onOpenBatchDelete={() => navigation.presentSheet("batch-delete")}
       />
 
       <AppOverlays
         reader={{
-          settingsOpen: readerSettingsOpen,
           preferences: readerPrefs,
-          tocOpen: tocDrawerOpen,
           tocItems,
-          askOpen: askSheetOpen,
           selectedText,
           question,
-          answer,
+          messages: askMessages,
           askLoading,
           askError,
           aiUsable: aiProviderUsable,
           bookTitle: openBook?.title ?? null,
-          goalOpen: goalSheetOpen,
+          mode: readerMode,
+          pageInfo: readerPageInfo,
           todayMinutes: formatReadingMinutes(todaySeconds),
           targetMinutes: readingGoal.targetMinutes,
           goalInputValue,
-        }}
-        ai={{
-          settingsOpen: aiSettingsSheetOpen,
-          settings: aiProviderSettings,
+          bookmarks: annotations.bookmarks,
+          highlights: annotations.highlights,
+          currentPageBookmarked: annotations.currentBookmark !== null,
         }}
         library={{
+          books,
+          booksLoading: loading,
+          progressMap: readingProgressMap,
           groups,
           selectedCountLabel,
           newGroupName,
-          batchGroupOpen: batchGroupSheetOpen,
-          batchDeleteOpen: batchDeleteConfirmOpen,
-          createCollectionOpen: collectionCreateSheetOpen,
-        }}
-        bookAction={{
-          book: bookActionSheetBook,
-          progress: actionSheetBookProgress,
-          deleteConfirmOpen,
         }}
         group={{
-          open: groupSheetOpen,
-          book: groupSheetBook,
-          groups,
           editingGroupId,
           editingGroupName,
           newGroupName,
         }}
         actions={{
-          closeReaderSettings: () => setReaderSettingsOpen(false),
           changeReaderPreferences: handleReaderPrefsChange,
-          closeToc: () => setTocDrawerOpen(false),
+          changeReaderMode: handleReaderModeChange,
           selectTocItem: handleTocSelect,
-          closeAiSettings: () => setAiSettingsSheetOpen(false),
-          saveAiSettings: handleAiProviderSettingsSave,
-          closeAsk: () => setAskSheetOpen(false),
+          toggleBookmark: () => void toggleBookmark(),
+          selectAnnotation: (annotation) => void handleAnnotationSelect(annotation),
+          deleteAnnotation: (id) => void annotations.remove(id),
           setQuestion,
           ask: () => void handleAsk(),
           clearSelection: handleClearSelection,
-          openAiSettingsFromAsk: () => {
-            switchToSettings();
-            setAiSettingsSheetOpen(true);
-          },
-          closeGoal: () => setGoalSheetOpen(false),
+          openAiSettingsFromAsk,
           setGoalInputValue,
           saveGoal: handleSaveGoal,
-          closeBatchGroup: () => setBatchGroupSheetOpen(false),
           addSelectedBooksToGroup: (groupId) =>
             void handleAddSelectedBooksToGroup(groupId),
           createBatchGroup: () => void handleCreateBatchGroup(),
-          closeBatchDelete: () => setBatchDeleteConfirmOpen(false),
           deleteSelectedBooks: () => void handleDeleteSelectedBooks(),
-          closeCreateCollection: () => setCollectionCreateSheetOpen(false),
           createCollection: () => void handleCreateCollectionGroup(),
-          closeBookActions: closeBookActionSheet,
           openBook: (book) => void openBookForReading(book),
-          openGroupSheet,
           exportBook: (book) => void handleExportBook(book),
-          setDeleteConfirmOpen,
           deleteBook: (book) => void handleDeleteBook(book),
-          closeGroupSheet: () => setGroupSheetOpen(false),
           toggleBookGroup: (groupId) => void handleToggleGroup(groupId),
           setEditingGroup: (groupId, name) => {
             setEditingGroupId(groupId);
@@ -1897,6 +1928,8 @@ export default function Home() {
           createGroup: () => void handleCreateGroup(),
         }}
       />
-    </div>
+      </div>
+      </NavigationProvider>
+    </AppMotionRoot>
   );
 }

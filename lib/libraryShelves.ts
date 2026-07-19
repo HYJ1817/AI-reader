@@ -27,6 +27,14 @@ export function selectFeaturedLibraryBook<T extends LibraryShelfBook>(books: T[]
   return sortByRecency(books)[0] ?? null;
 }
 
+export function selectRecentlyOpenedLibraryBook<T extends LibraryShelfBook>(
+  books: T[]
+): T | null {
+  return [...books]
+    .filter((book) => timestamp(book.lastOpenedAt) > 0)
+    .sort((a, b) => timestamp(b.lastOpenedAt) - timestamp(a.lastOpenedAt))[0] ?? null;
+}
+
 export function selectRecentShelfBooks<T extends LibraryShelfBook>(
   books: T[],
   options: RecentShelfOptions = {}

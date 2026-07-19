@@ -64,21 +64,40 @@ describe("applyEpubReaderPreferences", () => {
 
     expect(rules?.["html, body"]).toEqual({
       background: "transparent !important",
+      "background-color": "transparent !important",
+      "color-scheme": "normal",
       "touch-action": "pan-y pinch-zoom",
       "overscroll-behavior-inline": "contain",
+      "scrollbar-width": "none",
+      "-ms-overflow-style": "none",
       "-webkit-tap-highlight-color": "transparent",
+    });
+    expect(rules?.["html::-webkit-scrollbar, body::-webkit-scrollbar"]).toEqual({
+      display: "none !important",
+      width: "0 !important",
+      height: "0 !important",
     });
     expect(rules?.body).toEqual({
       color: "#111111 !important",
       background: "transparent !important",
+      "background-color": "transparent !important",
       transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
     });
     expect(
-      rules?.["body > div, body > main, body > section, body > article"]
+      rules?.["body *:not(img):not(svg):not(video):not(canvas):not(picture)"]
     ).toEqual({
       background: "transparent !important",
+      "background-color": "transparent !important",
     });
-    expect(rules?.["p, div, span, li, h1, h2, h3, h4, h5, h6"]).toEqual({
+    expect(rules?.["body *::before, body *::after"]).toEqual({
+      background: "transparent !important",
+      "background-color": "transparent !important",
+    });
+    expect(
+      rules?.[
+        "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6"
+      ]
+    ).toEqual({
       color: "#111111 !important",
       transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
     });
@@ -103,10 +122,13 @@ describe("applyEpubReaderPreferences", () => {
     const serialized = serializeRulesLikeEpubJs(rules);
 
     expect(serialized).toContain(
-      "html, body{background:transparent !important;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;-webkit-tap-highlight-color:transparent}"
+      "html, body{background:transparent !important;background-color:transparent !important;color-scheme:normal;touch-action:pan-y pinch-zoom;overscroll-behavior-inline:contain;scrollbar-width:none;-ms-overflow-style:none;-webkit-tap-highlight-color:transparent}"
     );
     expect(serialized).toContain(
-      "body > div, body > main, body > section, body > article{background:transparent !important}"
+      "html::-webkit-scrollbar, body::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important}"
+    );
+    expect(serialized).toContain(
+      "body *:not(img):not(svg):not(video):not(canvas):not(picture){background:transparent !important;background-color:transparent !important}"
     );
     expect(serialized.join("\n")).not.toMatch(/\{0:/);
   });
@@ -179,6 +201,45 @@ describe("applyEpubReaderPreferences", () => {
     expect(controller.override).not.toHaveBeenCalled();
   });
 
+  it("applies custom typography overrides after custom settings change", () => {
+    const controller = createController();
+    const initialState = applyEpubReaderPreferences(
+      controller,
+      DEFAULT_READER_PREFERENCES,
+      { foreground: "#111111", background: "#ffffff" },
+      EMPTY_EPUB_PREFERENCE_STATE
+    );
+    vi.clearAllMocks();
+
+    applyEpubReaderPreferences(
+      controller,
+      {
+        ...DEFAULT_READER_PREFERENCES,
+        fontFamily: "serif",
+        boldText: true,
+        letterSpacingPercent: 6,
+        wordSpacingPercent: 18,
+        pageMarginPx: 20,
+        justifyText: true,
+      },
+      { foreground: "#111111", background: "#ffffff" },
+      initialState
+    );
+
+    expect(controller.register).not.toHaveBeenCalled();
+    expect(controller.select).not.toHaveBeenCalled();
+    expect(controller.override).toHaveBeenCalledWith(
+      "font-family",
+      '"Songti SC", "STSong", "Noto Serif CJK SC", serif'
+    );
+    expect(controller.override).toHaveBeenCalledWith("font-weight", "700");
+    expect(controller.override).toHaveBeenCalledWith("letter-spacing", "0.06em");
+    expect(controller.override).toHaveBeenCalledWith("word-spacing", "0.18em");
+    expect(controller.override).toHaveBeenCalledWith("padding-left", "20px");
+    expect(controller.override).toHaveBeenCalledWith("padding-right", "20px");
+    expect(controller.override).toHaveBeenCalledWith("text-align", "justify");
+  });
+
   it("reinstalls colors without reapplying typography when theme colors changed", () => {
     const controller = createController();
     const initialState = applyEpubReaderPreferences(
@@ -202,10 +263,35 @@ describe("applyEpubReaderPreferences", () => {
     const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
     expect(rules?.["html, body"]).toMatchObject({
       background: "transparent !important",
+      "background-color": "transparent !important",
     });
     expect(rules?.body).toMatchObject({
       color: "#f4f4f4 !important",
       background: "transparent !important",
+      "background-color": "transparent !important",
     });
+  });
+
+  it("uses the active dark theme foreground throughout EPUB text", () => {
+    const controller = createController();
+
+    applyEpubReaderPreferences(
+      controller,
+      { ...DEFAULT_READER_PREFERENCES, theme: "dark" },
+      { foreground: "#f3f4f6", background: "#171717" },
+      EMPTY_EPUB_PREFERENCE_STATE
+    );
+
+    const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
+    expect(rules?.body).toMatchObject({
+      color: "#f3f4f6 !important",
+      background: "transparent !important",
+      "background-color": "transparent !important",
+    });
+    expect(
+      rules?.[
+        "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6"
+      ]
+    ).toMatchObject({ color: "#f3f4f6 !important" });
   });
 });

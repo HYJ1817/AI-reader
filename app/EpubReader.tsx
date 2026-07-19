@@ -1,12 +1,27 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import type { ReadingPosition } from "@/lib/db";
+import type {
+  AnnotationRecord,
+  HighlightColor,
+  ReadingPosition,
+} from "@/lib/db";
+import type {
+  ReaderLocationSnapshot,
+  ReaderTextSelection,
+} from "@/lib/readerAnnotations";
 import { progressPercentFromEpubLocation } from "@/lib/epubProgress";
 import { normalizeEpubNavigation } from "@/lib/epubNavigation";
 import type { EpubTocItem } from "@/lib/epubNavigation";
-import { applyEpubAmbientCanvas } from "@/lib/epubAmbientCanvas";
+import {
+  applyEpubAmbientCanvas,
+  applyEpubViewTransparency,
+} from "@/lib/epubAmbientCanvas";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
+import {
+  getEpubBookPageInfo,
+  type ReaderPageInfo,
+} from "@/lib/readerPageInfo";
 import { shouldObserveSystemReaderTheme } from "@/lib/readerPreferences";
 import { getEpubRenditionOptions } from "@/lib/epubReaderMode";
 import type { ReaderMode } from "@/lib/readerMode";
@@ -31,6 +46,7 @@ import {
 } from "@/lib/motionInteractions";
 import {
   getReaderSwipeAction,
+  getReaderSwipeSettleDuration,
   getReaderSwipeSettleOffset,
   getReaderSwipeVisualOffset,
   hasActiveReaderSwipeOffset,
@@ -41,10 +57,16 @@ import { UI_TEXT } from "@/lib/uiText";
 import type { Rendition } from "epubjs";
 import styles from "./page.module.css";
 
+const EPUB_LOCATION_CHARS_PER_PAGE = 360;
+
 export type EpubReaderHandle = {
   next: () => Promise<void>;
   prev: () => Promise<void>;
   goTo: (href: string) => Promise<void>;
+  goToAnnotation: (locator: string) => Promise<void>;
+  getCurrentSnapshot: () => ReaderLocationSnapshot | null;
+  getVisibleText: () => string;
+  clearNativeSelection: () => void;
 };
 
 type EpubReaderProps = {
@@ -53,7 +75,8 @@ type EpubReaderProps = {
   mode: ReaderMode;
   getReadingPosition: (bookId: string) => Promise<ReadingPosition | undefined>;
   saveReadingPosition: (position: ReadingPosition) => Promise<void>;
-  onTextSelect?: (text: string) => void;
+  highlights?: AnnotationRecord[];
+  onTextSelect?: (selection: ReaderTextSelection | null) => void;
   onReaderTap?: () => void;
   onReaderScrollStart?: () => void;
   onSwipeTurn?: (
@@ -61,6 +84,7 @@ type EpubReaderProps = {
   ) => void | Promise<void>;
   onTocChange?: (items: EpubTocItem[]) => void;
   onProgressChange?: (progressPercent: number) => void;
+  onPageInfoChange?: (pageInfo: ReaderPageInfo) => void;
   preferences?: ReaderPreferences;
 };
 
@@ -68,6 +92,14 @@ type EpubBook = {
   open: (input: ArrayBuffer, what?: "binary") => Promise<unknown>;
   opened?: Promise<unknown>;
   spine?: { items?: unknown[] };
+  locations?: {
+    total?: number;
+    generate: (charactersPerLocation: number) => Promise<unknown>;
+  };
+  pageList?: {
+    firstPage?: number;
+    lastPage?: number;
+  };
   renderTo: (
     element: HTMLElement,
     options: {
@@ -84,6 +116,31 @@ type EpubBook = {
   destroy: () => void;
 };
 
+const epubTouchListenerOptions = { passive: true, capture: true } as const;
+const epubClickListenerOptions = { capture: true } as const;
+
+const EPUB_HIGHLIGHT_STYLES = {
+  yellow: { fill: "#ffd84d", "fill-opacity": "0.42", "mix-blend-mode": "multiply" },
+  green: { fill: "#65d68a", "fill-opacity": "0.38", "mix-blend-mode": "multiply" },
+  blue: { fill: "#62a8ff", "fill-opacity": "0.38", "mix-blend-mode": "multiply" },
+} satisfies Record<HighlightColor, Record<string, string>>;
+
+type EpubAnnotationController = {
+  highlight: (
+    locator: string,
+    data: { id: string },
+    callback?: unknown,
+    className?: string,
+    styles?: Record<string, string>
+  ) => unknown;
+  remove: (locator: string, type: "highlight") => void;
+};
+
+type AnnotatedRendition = Rendition & {
+  annotations: EpubAnnotationController;
+  getContents?: () => unknown;
+};
+
 const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubReader(
   {
     bookId,
@@ -91,12 +148,14 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     mode,
     getReadingPosition,
     saveReadingPosition,
+    highlights = [],
     onTextSelect,
     onReaderTap,
     onReaderScrollStart,
     onSwipeTurn,
     onTocChange,
     onProgressChange,
+    onPageInfoChange,
     preferences,
   },
   ref
@@ -113,6 +172,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const bookIdRef = useRef(bookId);
   const modeRef = useRef(mode);
   const latestLocatorRef = useRef<string | null>(null);
+  const latestProgressRef = useRef(0);
+  const latestPageNumberRef = useRef<number | undefined>(undefined);
+  const appliedHighlightLocatorsRef = useRef<string[]>([]);
+  const highlightsRef = useRef(highlights);
   const preferencesRef = useRef(preferences);
   const onTextSelectRef = useRef(onTextSelect);
   const onReaderTapRef = useRef(onReaderTap);
@@ -120,6 +183,9 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const onSwipeTurnRef = useRef(onSwipeTurn);
   const onTocChangeRef = useRef(onTocChange);
   const onProgressChangeRef = useRef(onProgressChange);
+  const onPageInfoChangeRef = useRef(onPageInfoChange);
+  const hasResolvedPageInfoRef = useRef(false);
+  const hasGeneratedLocationsRef = useRef(false);
   const attachedTapDocsRef = useRef<WeakSet<Document>>(new WeakSet());
   const saveTimerRef = useRef<number | null>(null);
   const pendingPositionRef = useRef<ReadingPosition | null>(null);
@@ -136,6 +202,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   useEffect(() => {
     if (bookIdRef.current !== bookId) {
       latestLocatorRef.current = null;
+      latestProgressRef.current = 0;
+      latestPageNumberRef.current = undefined;
+      hasResolvedPageInfoRef.current = false;
+      hasGeneratedLocationsRef.current = false;
     }
     bookIdRef.current = bookId;
   }, [bookId]);
@@ -188,6 +258,14 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     onProgressChangeRef.current = onProgressChange;
   }, [onProgressChange]);
 
+  useEffect(() => {
+    onPageInfoChangeRef.current = onPageInfoChange;
+  }, [onPageInfoChange]);
+
+  useEffect(() => {
+    highlightsRef.current = highlights;
+  }, [highlights]);
+
   const goNext = useCallback(async () => {
     if (renditionRef.current) {
       await (renditionRef.current as { next: () => Promise<void> }).next();
@@ -206,7 +284,125 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     }
   }, []);
 
-  useImperativeHandle(ref, () => ({ next: goNext, prev: goPrev, goTo }), [goNext, goPrev, goTo]);
+  const collectTextFromDocument = useCallback((doc: Document | undefined) => {
+    const body = doc?.body;
+    if (!body) return "";
+    const viewportWidth =
+      doc.documentElement.clientWidth || doc.defaultView?.innerWidth || 0;
+    const viewportHeight =
+      doc.documentElement.clientHeight || doc.defaultView?.innerHeight || 0;
+    const blocks = Array.from(
+      body.querySelectorAll("p, h1, h2, h3, h4, h5, h6, li, blockquote")
+    );
+    const visibleBlocks = blocks
+      .filter((element) => {
+        const rects = element.getClientRects();
+        for (let index = 0; index < rects.length; index += 1) {
+          const rect = rects[index];
+          if (
+            rect.bottom >= -80 &&
+            rect.right >= -80 &&
+            rect.top <= viewportHeight + 80 &&
+            rect.left <= viewportWidth + 80
+          ) {
+            return true;
+          }
+        }
+        return false;
+      })
+      .map((element) => element.textContent?.trim() ?? "")
+      .filter(Boolean);
+
+    if (visibleBlocks.length > 0) {
+      return visibleBlocks.join("\n\n");
+    }
+    return body?.innerText ?? "";
+  }, []);
+
+  const collectRenderedTextFromRendition = useCallback(() => {
+    const renderedContents = (
+      renditionRef.current as { getContents?: () => unknown } | null
+    )?.getContents?.();
+    const collect = (contents: unknown) =>
+      collectTextFromDocument(
+        (contents as { document?: Document } | null)?.document
+      );
+    if (Array.isArray(renderedContents)) {
+      return renderedContents.map(collect).filter(Boolean).join("\n\n");
+    }
+    return collect(renderedContents);
+  }, [collectTextFromDocument]);
+
+  const clearNativeSelection = useCallback(() => {
+    const contents = (
+      renditionRef.current as { getContents?: () => unknown } | null
+    )?.getContents?.();
+    const clear = (entry: unknown) => {
+      const content = entry as {
+        window?: { getSelection?: () => Selection | null };
+        document?: Document;
+      } | null;
+      const selection =
+        content?.window?.getSelection?.() ?? content?.document?.getSelection?.();
+      selection?.removeAllRanges();
+    };
+    if (Array.isArray(contents)) contents.forEach(clear);
+    else clear(contents);
+    onTextSelectRef.current?.(null);
+  }, []);
+
+  const syncHighlights = useCallback(
+    (rendition: AnnotatedRendition, records: AnnotationRecord[]) => {
+      appliedHighlightLocatorsRef.current.forEach((locator) => {
+        rendition.annotations.remove(locator, "highlight");
+      });
+      const nextLocators: string[] = [];
+      records.forEach((record) => {
+        if (record.kind !== "highlight" || !record.locator) return;
+        rendition.annotations.highlight(
+          record.locator,
+          { id: record.id },
+          undefined,
+          "ai-reader-highlight",
+          EPUB_HIGHLIGHT_STYLES[record.color ?? "yellow"]
+        );
+        nextLocators.push(record.locator);
+      });
+      appliedHighlightLocatorsRef.current = nextLocators;
+    },
+    []
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      next: goNext,
+      prev: goPrev,
+      goTo,
+      goToAnnotation: goTo,
+      getCurrentSnapshot: () => {
+        const locator = latestLocatorRef.current;
+        if (!locator) return null;
+        return {
+          locator,
+          text: collectRenderedTextFromRendition().trim().slice(0, 160),
+          progressPercent: latestProgressRef.current,
+          ...(latestPageNumberRef.current
+            ? { pageNumber: latestPageNumberRef.current }
+            : {}),
+        };
+      },
+      getVisibleText: collectRenderedTextFromRendition,
+      clearNativeSelection,
+    }),
+    [
+      goNext,
+      goPrev,
+      goTo,
+      collectRenderedTextFromRendition,
+      clearNativeSelection,
+    ]
+  );
 
   const getThemeColors = useCallback(() => {
     const root = containerRef.current ?? document.documentElement;
@@ -267,6 +463,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       if (locator !== "epub-unknown") {
         latestLocatorRef.current = locator;
       }
+      latestProgressRef.current = percent;
 
       pendingPositionRef.current = {
         bookId: currentBookId,
@@ -286,6 +483,19 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       }, 180);
 
       onProgressChangeRef.current?.(percent);
+      const book = bookRef.current as EpubBook | null;
+      const pageInfo = getEpubBookPageInfo(
+        location,
+        hasGeneratedLocationsRef.current
+          ? book?.locations?.total ?? -1
+          : -1,
+        book?.pageList
+      );
+      if (pageInfo) {
+        hasResolvedPageInfoRef.current = true;
+        latestPageNumberRef.current = pageInfo.current;
+        onPageInfoChangeRef.current?.(pageInfo);
+      }
     },
     [saveReadingPosition]
   );
@@ -305,8 +515,15 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         }
 
         const trimmedText = text.trim();
-        if (trimmedText.length > 0) {
-          onSelect(trimmedText);
+        if (trimmedText.length > 0 && typeof cfiRange === "string") {
+          onSelect({
+            locator: cfiRange,
+            text: trimmedText,
+            progressPercent: latestProgressRef.current,
+            ...(latestPageNumberRef.current
+              ? { pageNumber: latestPageNumberRef.current }
+              : {}),
+          });
         }
       } catch {
         // ignore selection read errors
@@ -407,7 +624,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       ) {
         return;
       }
-      onTextSelectRef.current?.(selectionText);
+      if (!selectionText) onTextSelectRef.current?.(null);
     };
     const reportSelectionChange = () => {
       const view = c?.window ?? doc.defaultView;
@@ -433,11 +650,12 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       }
       const selection = c?.window?.getSelection?.() ?? doc.getSelection?.();
       selection?.removeAllRanges();
-      onTextSelectRef.current?.("");
+      onTextSelectRef.current?.(null);
     };
 
     const fireReaderTap = (target: EventTarget | null) => {
-      if (isInteractiveTarget(target) || getSelectionText()) return;
+      if (isInteractiveTarget(target)) return;
+      if (getSelectionText()) clearSelectionForTap(Date.now());
       onReaderTapRef.current?.();
     };
 
@@ -457,7 +675,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         ).matches,
       });
       const generation = ++swipeSettleGenerationRef.current;
-      const duration = reducedMotion ? 0 : action === "none" ? 180 : 160;
+      const duration = getReaderSwipeSettleDuration(action, reducedMotion);
       const targetOffset = getReaderSwipeSettleOffset(
         action,
         currentOffset,
@@ -518,7 +736,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         };
         scrollIntentFired = false;
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener(
@@ -571,7 +789,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           onReaderScrollStartRef.current?.();
         }
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener(
@@ -583,7 +801,13 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         if (!start || !touch) return;
         const dx = touch.clientX - start.x;
         const dy = touch.clientY - start.y;
-        if (start.axis === "horizontal") {
+        const touchIsTap = isTapGesture({
+          durationMs: Date.now() - start.time,
+          deltaX: dx,
+          deltaY: dy,
+          maxDistancePx: 32,
+        });
+        if (start.axis === "horizontal" && !touchIsTap) {
           const action = getReaderSwipeAction({
             startX: start.x,
             startY: start.y,
@@ -600,6 +824,11 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           settleSwipe(action, currentOffset, viewportWidth);
           return;
         }
+        if (start.axis === "horizontal" && touchIsTap) {
+          const shell = shellRef.current;
+          shell?.classList.remove(styles.readerSwipeTracking);
+          shell?.style.setProperty("--reader-swipe-x", "0px");
+        }
         if (hasActiveReaderSwipeOffset(start.baseOffset)) {
           const shell = shellRef.current;
           settleSwipe(
@@ -614,11 +843,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           endSelectionText: getSelectionText(),
           isInteractiveTarget: isInteractiveTarget(start.target),
           scrollIntentFired,
-          isTapGesture: isTapGesture({
-            durationMs: Date.now() - start.time,
-            deltaX: dx,
-            deltaY: dy,
-          }),
+          isTapGesture: touchIsTap,
           target: start.target,
           at: touchEndAt,
         });
@@ -628,7 +853,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           onReaderTapRef.current?.();
         }
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener(
@@ -640,7 +865,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         const shell = shellRef.current;
         settleSwipe("none", start?.baseOffset ?? 0, shell?.clientWidth ?? 0);
       },
-      { passive: true }
+      epubTouchListenerOptions
     );
 
     doc.addEventListener("selectionchange", reportSelectionChange);
@@ -654,7 +879,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       syntheticClickToken = clickResult.token;
       if (clickResult.suppress) return;
       fireReaderTap(event.target);
-    });
+    }, epubClickListenerOptions);
 
     doc.addEventListener(
       "wheel",
@@ -678,6 +903,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
     setStatus("loading");
     setErrorMsg("");
+    hasResolvedPageInfoRef.current = false;
+    hasGeneratedLocationsRef.current = false;
 
     (async () => {
       try {
@@ -699,10 +926,12 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         );
         renditionRef.current = rendition;
         appliedPreferenceStateRef.current = EMPTY_EPUB_PREFERENCE_STATE;
+        syncHighlights(rendition as AnnotatedRendition, highlightsRef.current);
 
         rendition.on("relocated", handleRelocated);
         rendition.on("selected", handleSelected);
         rendition.on("rendered", (_section: unknown, view: unknown) => {
+          applyEpubViewTransparency(view);
           const contents = (view as { contents?: unknown } | null)?.contents;
           handleRenderedContents(contents);
         });
@@ -731,9 +960,52 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
             ? savedPosition?.locator
             : undefined);
         if (resumeLocator) {
-          await rendition.display(resumeLocator);
+          try {
+            await rendition.display(resumeLocator);
+          } catch {
+            latestLocatorRef.current = null;
+            if (cancelled) return;
+            await rendition.display();
+          }
         } else {
           await rendition.display();
+        }
+
+        // EPUBs are reflowable, so only a generated CFI table can provide a
+        // stable whole-book index when the publisher did not supply a page-list.
+        const locations = book.locations;
+        if (locations?.generate) {
+          const locationApi = rendition as Rendition & {
+            currentLocation?: () => Promise<unknown> | unknown;
+            reportLocation?: () => Promise<unknown> | unknown;
+          };
+          const currentLocation = locationApi.currentLocation?.bind(rendition);
+          const reportLocation = locationApi.reportLocation?.bind(rendition);
+          void locations
+            .generate(EPUB_LOCATION_CHARS_PER_PAGE)
+            .then(async () => {
+              if (cancelled) return;
+              hasGeneratedLocationsRef.current = true;
+              const location = await currentLocation?.();
+              if (!cancelled && location) handleRelocated(location);
+              await reportLocation?.();
+              if (!cancelled && !hasResolvedPageInfoRef.current) {
+                onPageInfoChangeRef.current?.({
+                  current: 1,
+                  total: 1,
+                  status: "unavailable",
+                });
+              }
+            })
+            .catch(() => {
+              if (!cancelled && !hasResolvedPageInfoRef.current) {
+                onPageInfoChangeRef.current?.({
+                  current: 1,
+                  total: 1,
+                  status: "unavailable",
+                });
+              }
+            });
         }
 
         const renderedContents = (rendition as { getContents?: () => unknown }).getContents?.();
@@ -781,6 +1053,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           // epub.js can throw while destroying a partially initialized iframe.
         }
         renditionRef.current = null;
+        appliedHighlightLocatorsRef.current = [];
         appliedPreferenceStateRef.current = EMPTY_EPUB_PREFERENCE_STATE;
       }
       if (bookRef.current) {
@@ -796,7 +1069,12 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         objectUrlRef.current = null;
       }
     };
-  }, [bookId, fileBlob, mode, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences]);
+  }, [bookId, fileBlob, mode, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, syncHighlights]);
+
+  useEffect(() => {
+    const rendition = renditionRef.current as AnnotatedRendition | null;
+    if (rendition) syncHighlights(rendition, highlights);
+  }, [highlights, syncHighlights]);
 
   useEffect(() => {
     if (!renditionRef.current || !preferences) return;
@@ -814,6 +1092,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     <div
       ref={shellRef}
       className={styles.epubReaderShell}
+      data-navigation-gesture-owner="reader"
       onTransitionEnd={handleSwipeTransitionEnd}
       style={{
         display: "flex",

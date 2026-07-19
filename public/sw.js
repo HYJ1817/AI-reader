@@ -1,9 +1,10 @@
-const CACHE_NAME = "ai-reader-v3";
+const CACHE_NAME = "ai-reader-v6";
+const MAX_RUNTIME_CACHE_ENTRIES = 80;
 const STATIC_ASSETS = [
   "/",
   "/manifest.webmanifest",
-  "/icon-192.svg",
-  "/icon-512.svg",
+  "/icon-192.png",
+  "/icon-512.png",
 ];
 
 self.addEventListener("install", (event) => {
@@ -24,11 +25,29 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
+async function trimRuntimeCache(cache) {
+  const requests = await cache.keys();
+  const runtimeRequests = requests.filter((request) => {
+    const pathname = new URL(request.url).pathname;
+    return !STATIC_ASSETS.includes(pathname);
+  });
+  const excessCount = runtimeRequests.length - MAX_RUNTIME_CACHE_ENTRIES;
+  if (excessCount <= 0) return;
+  await Promise.all(
+    runtimeRequests.slice(0, excessCount).map((request) => cache.delete(request))
+  );
+}
+
 async function fetchAndCache(request, cacheKey = request) {
   const response = await fetch(request);
   if (response.ok) {
-    const cache = await caches.open(CACHE_NAME);
-    await cache.put(cacheKey, response.clone());
+    try {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(cacheKey, response.clone());
+      await trimRuntimeCache(cache);
+    } catch {
+      // A cache quota/storage failure must not hide a successful network response.
+    }
   }
   return response;
 }
@@ -41,14 +60,14 @@ self.addEventListener("fetch", (event) => {
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetchAndCache(event.request, "/")
-        .catch(() => caches.match("/") || Response.error())
+        .catch(() => caches.match("/").then((response) => response || Response.error()))
     );
     return;
   }
 
   event.respondWith(
     fetchAndCache(event.request).catch(
-      () => caches.match(event.request) || Response.error()
+      () => caches.match(event.request).then((response) => response || Response.error())
     )
   );
 });

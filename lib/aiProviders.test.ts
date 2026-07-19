@@ -1,16 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AI_API_FORMATS,
+  AI_PROVIDER_PRESETS,
   DEFAULT_AI_PROVIDER_SETTINGS,
   createEmptyAiProvider,
   createAiProviderFromPreset,
   getActiveAiProvider,
   hasUsableAiProvider,
   loadAiProviderSettings,
+  materializeAiProviderBaseUrl,
+  resolveAiProviderFormatBaseUrl,
   providerToAiClientSettings,
   resolveAiProviderBaseUrl,
   sanitizeAiProviderSettings,
   saveAiProviderSettingsToStorage,
+  clearAiProviderSettingsFromStorage,
 } from "./aiProviders";
 
 const store = new Map<string, string>();
@@ -44,6 +48,42 @@ describe("AI provider API formats", () => {
       "openai-compatible",
       "anthropic-compatible",
       "gemini",
+    ]);
+  });
+
+  it("creates provider presets with their default API endpoint", () => {
+    expect(createAiProviderFromPreset("openai")).toMatchObject({
+      kind: "openai",
+      protocol: "openai-compatible",
+      baseUrl: "https://api.openai.com",
+      defaultPath: "/v1",
+      appendDefaultPath: true,
+    });
+    expect(createAiProviderFromPreset("anthropic")).toMatchObject({
+      kind: "anthropic",
+      protocol: "anthropic-compatible",
+      baseUrl: "https://api.anthropic.com",
+      defaultPath: "/v1",
+      appendDefaultPath: true,
+    });
+    expect(createAiProviderFromPreset("gemini")).toMatchObject({
+      kind: "gemini",
+      protocol: "gemini",
+      baseUrl: "https://generativelanguage.googleapis.com",
+      defaultPath: "/v1beta",
+      appendDefaultPath: true,
+    });
+  });
+
+  it("gives provider presets distinct short icon labels", () => {
+    expect(
+      AI_PROVIDER_PRESETS.map((preset) => [preset.kind, preset.iconLabel])
+    ).toEqual([
+      ["openai", "AI"],
+      ["anthropic", "A"],
+      ["gemini", "G"],
+      ["openrouter", "OR"],
+      ["xai", "x"],
     ]);
   });
 
@@ -86,6 +126,62 @@ describe("AI provider URL handling", () => {
     expect(resolveAiProviderBaseUrl(provider)).toBe("https://openrouter.ai/api/v1");
   });
 
+  it("materializes the default path into the saved provider base URL", () => {
+    const provider = createAiProviderFromPreset("openai", {
+      baseUrl: "https://api.openai.com",
+      apiKey: "key",
+      model: "gpt-4o-mini",
+      appendDefaultPath: true,
+    });
+
+    expect(materializeAiProviderBaseUrl(provider).baseUrl).toBe(
+      "https://api.openai.com/v1"
+    );
+  });
+
+  it("does not materialize the default path when automatic append is disabled", () => {
+    const provider = createAiProviderFromPreset("openai", {
+      baseUrl: "https://api.openai.com",
+      apiKey: "key",
+      model: "gpt-4o-mini",
+      appendDefaultPath: false,
+    });
+
+    expect(materializeAiProviderBaseUrl(provider).baseUrl).toBe(
+      "https://api.openai.com"
+    );
+  });
+
+  it("updates a known default URL when switching API formats", () => {
+    expect(
+      resolveAiProviderFormatBaseUrl({
+        currentBaseUrl: "https://api.openai.com",
+        protocol: "anthropic-compatible",
+        appendDefaultPath: true,
+      })
+    ).toBe("https://api.anthropic.com/v1");
+  });
+
+  it("updates a materialized known default URL when switching API formats", () => {
+    expect(
+      resolveAiProviderFormatBaseUrl({
+        currentBaseUrl: "https://api.openai.com/v1",
+        protocol: "gemini",
+        appendDefaultPath: true,
+      })
+    ).toBe("https://generativelanguage.googleapis.com/v1beta");
+  });
+
+  it("preserves a custom URL host while appending the selected format path", () => {
+    expect(
+      resolveAiProviderFormatBaseUrl({
+        currentBaseUrl: "https://my-proxy.example.com/openai",
+        protocol: "anthropic-compatible",
+        appendDefaultPath: true,
+      })
+    ).toBe("https://my-proxy.example.com/openai/v1");
+  });
+
   it("uses Gemini v1beta as its default path", () => {
     const provider = createEmptyAiProvider({
       protocol: "gemini",
@@ -124,6 +220,30 @@ describe("AI provider settings", () => {
         providers: [provider, { id: "", label: "" }],
       }).activeProviderId
     ).toBe("anthropic-1");
+  });
+
+  it("materializes default paths when sanitizing saved providers", () => {
+    const settings = sanitizeAiProviderSettings({
+      activeProviderId: "openai-1",
+      providers: [
+        {
+          id: "openai-1",
+          kind: "openai",
+          protocol: "openai-compatible",
+          label: "OpenAI",
+          baseUrl: "https://api.openai.com",
+          apiKey: "key",
+          model: "gpt-4o-mini",
+          models: [],
+          appendDefaultPath: true,
+          defaultPath: "/v1",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
+      ],
+    });
+
+    expect(settings.providers[0]?.baseUrl).toBe("https://api.openai.com/v1");
   });
 
   it("falls back to first provider when active id is missing", () => {
@@ -175,6 +295,20 @@ describe("AI provider settings", () => {
     });
 
     expect(getActiveAiProvider(loadAiProviderSettings())?.id).toBe("provider-1");
+  });
+
+  it("does not throw when provider storage is unavailable", () => {
+    vi.spyOn(localStorage, "setItem").mockImplementationOnce(() => {
+      throw new Error("quota exceeded");
+    });
+    expect(() =>
+      saveAiProviderSettingsToStorage(DEFAULT_AI_PROVIDER_SETTINGS)
+    ).not.toThrow();
+
+    vi.spyOn(localStorage, "removeItem").mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+    expect(() => clearAiProviderSettingsFromStorage()).not.toThrow();
   });
 
   it("converts a provider to legacy client settings for backup compatibility", () => {

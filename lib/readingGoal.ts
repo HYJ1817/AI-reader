@@ -30,7 +30,7 @@ function clampTargetMinutes(value: unknown): number {
     return DEFAULT_READING_TARGET_MINUTES;
   }
   const int = Math.floor(value);
-  if (int < 1) return 1;
+  if (int < 0) return 0;
   if (int > 1440) return 1440;
   return int;
 }
@@ -54,5 +54,9 @@ export function saveReadingGoalToStorage(goal: {
 }): void {
   if (typeof window === "undefined") return;
   const sanitized = { targetMinutes: clampTargetMinutes(goal.targetMinutes) };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+  } catch {
+    // Keep the current session usable when persistent storage is unavailable.
+  }
 }
