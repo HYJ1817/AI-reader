@@ -26,6 +26,26 @@ function globalRule(selector: string): string {
   return start < 0 || end < 0 ? "" : globalsCss.slice(start, end);
 }
 
+function cssBlock(source: string, start: number): string {
+  const open = source.indexOf("{", start);
+  if (start < 0 || open < 0) return "";
+
+  let depth = 0;
+  for (let index = open; index < source.length; index += 1) {
+    if (source[index] === "{") depth += 1;
+    if (source[index] === "}") depth -= 1;
+    if (depth === 0) return source.slice(start, index + 1);
+  }
+  return "";
+}
+
+function nestedGlobalRule(container: string, selector: string): string {
+  const containerStart = globalsCss.indexOf(`${container} {`);
+  const containerBlock = cssBlock(globalsCss, containerStart);
+  const selectorStart = containerBlock.indexOf(`${selector} {`);
+  return cssBlock(containerBlock, selectorStart);
+}
+
 describe("compact root chrome", () => {
   it("uses one safe-area-aware dimension contract", () => {
     const appRule = cssRule(".app");
@@ -103,6 +123,24 @@ describe("compact root chrome", () => {
     }
     expect(rootRule).toContain("--root-tab-accent: #7d55e7");
     expect(rootRule).toContain("--root-tab-active-icon: #ffffff");
+  });
+
+  it("uses the dark navigation material for the system dark scheme", () => {
+    const systemDarkRule = nestedGlobalRule(
+      "@media (prefers-color-scheme: dark)",
+      ":root"
+    );
+
+    expect(systemDarkRule).toContain(
+      "--root-tab-fill: rgba(44, 44, 46, 0.72)"
+    );
+    expect(systemDarkRule).toContain(
+      "--root-tab-border: rgba(255, 255, 255, 0.1)"
+    );
+    expect(systemDarkRule).toContain(
+      "--root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.24)"
+    );
+    expect(systemDarkRule).toContain("--root-tab-content: #aeaeb2");
   });
 
   it("exposes the active destination semantically without changing handlers", () => {

@@ -71,6 +71,10 @@
     --text-tertiary: #636366;
     --separator: #38383a;
     --tint: #0a84ff;
+    --root-tab-fill: rgba(44, 44, 46, 0.72);
+    --root-tab-border: rgba(255, 255, 255, 0.1);
+    --root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.24);
+    --root-tab-content: #aeaeb2;
     --status-success: #4ade80;
     --status-error: #ff6961;
     --goal-ring-surface: #1c1c1e;
