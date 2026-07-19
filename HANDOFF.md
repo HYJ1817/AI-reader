@@ -55,6 +55,80 @@ Product direction:
 - Prefer restrained iOS-like product UI: simple lists, large tap targets, bottom sheets, no marketing-style screens.
 - Real iPhone screenshots from the user are the acceptance source for visual bugs.
 
+## Reference Bottom Navigation (2026-07-19)
+
+Approved design and implementation plan:
+
+- `docs/superpowers/specs/2026-07-19-reference-bottom-navigation-design.md`
+  (`08940ba`).
+- `docs/superpowers/plans/2026-07-19-reference-bottom-navigation.md`
+  (`a4eae5f`).
+
+Functional commits:
+
+- `f0774f7` adds the dedicated root-tab motion timing.
+- `d3dc767` matches the approved reference geometry and visual treatment.
+- `aef6974` makes system-dark use the dark navigation material.
+- `1248922` adds the reference navigation browser coverage.
+- `20ecf28` hardens the root-navigation checks and performance evidence.
+
+Implemented behavior:
+
+- The frosted root navigation is centered at `min(302px, 100vw - 32px)` and
+  `76px` high, with a `33px` radius and a bottom offset of safe-area plus
+  `8px`. Its three equal-width tab regions preserve at least `44px` touch
+  targets and the existing Library, Reading, and Settings handlers.
+- Light uses a translucent white material, Sepia a translucent warm cream
+  material, and explicit Dark a translucent dark material. A system dark
+  color scheme uses the same dark fill, border, shadow, and content tokens
+  when no explicit reader theme overrides it.
+- One persistent indicator owns a centered `31px` square violet
+  (`#7d55e7`) backing. All three icons are `21px`; Settings uses a solid
+  eight-tooth gear rather than a stroked or character-built glyph.
+- The indicator has a dedicated `420ms` transform tween with easing
+  `[0.22, 1, 0.36, 1]`. Rapid taps retarget that same live transform from its
+  current position. Reduced motion sets the indicator transition duration to
+  zero, so it has no running animation.
+- The frosted fill, border, shadow, and blur are static material. They do not
+  participate in per-frame filter or layout animation; only the indicator
+  transform moves between equal tab regions.
+- Chromium receives an explicit standard `backdropFilter` compatibility
+  fallback on the navigation element. The CSS module retains both the
+  standard `backdrop-filter` declaration and Safari's prefixed
+  `-webkit-backdrop-filter` declaration.
+
+Fresh local verification on 2026-07-19:
+
+- `npm.cmd test`: exit code 0; 155/155 Vitest files and 1449/1449 tests
+  passed.
+- `npm.cmd run lint`: exit code 0; the full configured ESLint run emitted no
+  warnings.
+- `npm.cmd run build`: exit code 0; Next.js 16.2.6 webpack compiled
+  successfully in 2.8s, TypeScript finished in 5.7s, and 6/6 static pages
+  generated in 560ms before page optimization and build-trace collection.
+- `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14`:
+  exit code 0; 16/16 passed. The root-tab probe sampled 42 frames with
+  16.700000000000045ms P95, 0ms maximum long task, and 0 layout shift;
+  `longTaskSupported=true` and `layoutShiftSupported=true`.
+- `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-15-pro-max`:
+  exit code 0; 16/16 passed. The root-tab probe sampled 41 frames with
+  16.700000000000045ms P95, 0ms maximum long task, and 0 layout shift;
+  `longTaskSupported=true` and `layoutShiftSupported=true`.
+- These Chromium automation probes are a stable 60Hz smoke budget, not proof
+  of 120fps. A physical 120Hz iPhone Safari/PWA trace remains a non-blocking
+  device acceptance item and has not been completed.
+- The second phone-profile run refreshed the gitignored evidence under
+  `test-results/native-navigation/`. Paths were checked for four theme
+  materials, three root-tab states, and start/mid/complete root, push, reader,
+  and sheet transitions. The Light, Sepia, Dark, system-dark, Library,
+  Reading, and Settings screenshots were inspected at original resolution;
+  screenshots are intentionally not committed.
+
+Production status: **Not deployed**. This navigation batch has not been
+deployed to production and must remain undeployed unless the user separately
+authorizes a deployment. It is also not evidence of a completed physical
+120Hz device trace.
+
 ## Reading Goal React Bits Option Wheel (2026-07-17)
 
 Feature implementation commit: `5af6f8045f205395478358ab0fddd83524427d4b`
