@@ -164,7 +164,7 @@ export default function MotionSheet({
           height: visualViewportFrame.height,
         }
       : {}),
-  } as unknown as CSSProperties;
+  } satisfies CSSProperties;
 
   const runAnimation = useCallback(
     (target: number, kind: "settle" | "close", onComplete?: () => void) => {
@@ -393,7 +393,7 @@ export default function MotionSheet({
         {present && (
           <m.div
             key="motion-sheet"
-            className={`${styles.sheetOverlay} ${styles.motionSheetOverlay}`}
+            className={styles.sheetOverlay}
             style={overlayStyle}
             data-motion-sheet="overlay"
             data-sheet-closing={closeRequest ? "true" : undefined}
