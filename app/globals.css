@@ -27,8 +27,8 @@
   --root-tab-border: rgba(60, 60, 67, 0.14);
   --root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   --root-tab-content: #6e6e73;
-  --root-tab-accent: #7d55e7;
-  --root-tab-active-icon: #ffffff;
+  --root-tab-active-fill: rgba(118, 118, 128, 0.12);
+  --root-tab-active-icon: #000000;
   --focus-ring: color-mix(in srgb, var(--tint) 82%, #004b9a);
   --status-success: #197a3d;
   --status-error: #b42318;
@@ -75,6 +75,8 @@
     --root-tab-border: rgba(255, 255, 255, 0.1);
     --root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.24);
     --root-tab-content: #aeaeb2;
+    --root-tab-active-fill: rgba(255, 255, 255, 0.12);
+    --root-tab-active-icon: #ffffff;
     --status-success: #4ade80;
     --status-error: #ff6961;
     --goal-ring-surface: #1c1c1e;
@@ -178,8 +180,8 @@ button:disabled {
   --root-tab-border: rgba(60, 60, 67, 0.14);
   --root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
   --root-tab-content: #6e6e73;
-  --root-tab-accent: #7d55e7;
-  --root-tab-active-icon: #ffffff;
+  --root-tab-active-fill: rgba(118, 118, 128, 0.12);
+  --root-tab-active-icon: #000000;
   --status-success: #197a3d;
   --status-error: #b42318;
   --goal-ring-surface: #ffffff;
@@ -222,6 +224,8 @@ button:disabled {
   --root-tab-border: rgba(92, 74, 46, 0.16);
   --root-tab-shadow: 0 3px 8px rgba(72, 52, 24, 0.11);
   --root-tab-content: #776953;
+  --root-tab-active-fill: rgba(130, 105, 66, 0.14);
+  --root-tab-active-icon: #000000;
   --status-success: #39783d;
   --status-error: #a5342b;
   --goal-ring-surface: #fff8e9;
@@ -264,6 +268,8 @@ button:disabled {
   --root-tab-border: rgba(255, 255, 255, 0.1);
   --root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.24);
   --root-tab-content: #aeaeb2;
+  --root-tab-active-fill: rgba(255, 255, 255, 0.12);
+  --root-tab-active-icon: #ffffff;
   --status-success: #4ade80;
   --status-error: #ff6961;
   --goal-ring-surface: #1c1c1e;

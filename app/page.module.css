@@ -1504,10 +1504,10 @@
 .tabIndicator {
   position: absolute;
   z-index: 0;
-  top: 13px;
+  top: 8px;
   left: 16px;
   width: calc((100% - 32px) / 3);
-  height: 31px;
+  height: 60px;
   background: transparent;
   pointer-events: none;
 }
@@ -1515,13 +1515,9 @@
 .tabIndicator::after {
   content: "";
   position: absolute;
-  inset: 0 auto auto 50%;
-  width: 31px;
-  height: 31px;
-  border-radius: 10px;
-  background: var(--root-tab-accent);
-  box-shadow: 0 2px 5px rgba(70, 38, 158, 0.38);
-  transform: translateX(-50%);
+  inset: 0 4px;
+  border-radius: 30px;
+  background: var(--root-tab-active-fill);
 }
 
 .tabBarReadingHidden {

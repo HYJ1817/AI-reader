@@ -87,7 +87,7 @@ describe("compact root chrome", () => {
     expect(labelRule).toContain("font-size: var(--type-caption)");
   });
 
-  it("uses a theme-aware frosted pill with a violet active backing", () => {
+  it("uses a theme-aware frosted pill with a translucent active backing", () => {
     const barRule = cssRule(".tabBar");
     const indicatorRule = cssRule(".tabIndicator");
     const backingRule = cssRule(".tabIndicator::after");
@@ -99,17 +99,20 @@ describe("compact root chrome", () => {
     expect(barRule).toContain("backdrop-filter: blur(14px) saturate(112%)");
     expect(barRule).toContain("border: 0.5px solid var(--root-tab-border)");
     expect(barRule).toContain("box-shadow: var(--root-tab-shadow)");
+    expect(indicatorRule).toContain("top: 8px");
     expect(indicatorRule).toContain("width: calc((100% - 32px) / 3)");
-    expect(indicatorRule).toContain("height: 31px");
-    expect(backingRule).toContain("width: 31px");
-    expect(backingRule).toContain("height: 31px");
-    expect(backingRule).toContain("border-radius: 10px");
-    expect(backingRule).toContain("background: var(--root-tab-accent)");
-    expect(backingRule).not.toContain("height: 2px");
+    expect(indicatorRule).toContain("height: 60px");
+    expect(backingRule).toContain("inset: 0 4px");
+    expect(backingRule).toContain("border-radius: 30px");
+    expect(backingRule).toContain("background: var(--root-tab-active-fill)");
+    expect(backingRule).not.toContain("box-shadow");
+    expect(backingRule).not.toContain("filter");
+    expect(backingRule).not.toContain("backdrop-filter");
+    expect(backingRule).not.toContain("var(--root-tab-accent)");
     expect(solidIconRule).toContain("fill: currentColor");
   });
 
-  it("defines theme-specific root-tab material and content tokens", () => {
+  it("defines theme-specific root-tab material and selection tokens", () => {
     const rootRule = globalRule(":root");
     const lightRule = globalRule('[data-reader-theme="light"]');
     const sepiaRule = globalRule('[data-reader-theme="sepia"]');
@@ -120,10 +123,27 @@ describe("compact root chrome", () => {
       expect(rule).toContain("--root-tab-border:");
       expect(rule).toContain("--root-tab-shadow:");
       expect(rule).toContain("--root-tab-content:");
+      expect(rule).toContain("--root-tab-active-fill:");
+      expect(rule).toContain("--root-tab-active-icon:");
     }
-    expect(rootRule).toContain("--root-tab-accent: #7d55e7");
-    expect(rootRule).toContain("--root-tab-active-icon: #ffffff");
+    expect(rootRule).toContain(
+      "--root-tab-active-fill: rgba(118, 118, 128, 0.12)"
+    );
+    expect(rootRule).toContain("--root-tab-active-icon: #000000");
+    expect(rootRule).not.toContain("--root-tab-accent");
+    expect(lightRule).toContain(
+      "--root-tab-active-fill: rgba(118, 118, 128, 0.12)"
+    );
+    expect(lightRule).toContain("--root-tab-active-icon: #000000");
+    expect(sepiaRule).toContain(
+      "--root-tab-active-fill: rgba(130, 105, 66, 0.14)"
+    );
+    expect(sepiaRule).toContain("--root-tab-active-icon: #000000");
     expect(sepiaRule).toContain("--root-tab-content: #776953");
+    expect(darkRule).toContain(
+      "--root-tab-active-fill: rgba(255, 255, 255, 0.12)"
+    );
+    expect(darkRule).toContain("--root-tab-active-icon: #ffffff");
   });
 
   it("uses the dark navigation material for the system dark scheme", () => {
@@ -142,6 +162,10 @@ describe("compact root chrome", () => {
       "--root-tab-shadow: 0 3px 8px rgba(0, 0, 0, 0.24)"
     );
     expect(systemDarkRule).toContain("--root-tab-content: #aeaeb2");
+    expect(systemDarkRule).toContain(
+      "--root-tab-active-fill: rgba(255, 255, 255, 0.12)"
+    );
+    expect(systemDarkRule).toContain("--root-tab-active-icon: #ffffff");
   });
 
   it("exposes the active destination semantically without changing handlers", () => {
