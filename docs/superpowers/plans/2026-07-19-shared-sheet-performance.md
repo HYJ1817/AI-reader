@@ -161,7 +161,7 @@ Motion container and add the backdrop immediately before the panel:
 ```tsx
 <m.div
   key="motion-sheet"
-  className={`${styles.sheetOverlay} ${styles.motionSheetOverlay}`}
+  className={styles.sheetOverlay}
   style={overlayStyle}
   data-motion-sheet="overlay"
   data-sheet-closing={closeRequest ? "true" : undefined}
