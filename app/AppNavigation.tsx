@@ -6,7 +6,7 @@ import {
   getNavigationTabIndex,
   type NavigationTab,
 } from "@/lib/navigationMotion";
-import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
+import { MOTION_DURATION, ROOT_TAB_TRANSITION } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -47,11 +47,12 @@ export default function AppNavigation({
         <nav className={styles.tabBar} aria-label="主要导航">
           <m.span
             className={styles.tabIndicator}
+            data-root-tab-indicator="true"
             layoutId="root-tab-indicator"
             initial={false}
             animate={{ x: `${getNavigationTabIndex(activeTab) * 100}%` }}
             transition={
-              reduceMotion ? { duration: 0 } : MOTION_SPRING.navigation
+              reduceMotion ? { duration: 0 } : ROOT_TAB_TRANSITION
             }
             aria-hidden="true"
           />
@@ -93,14 +94,18 @@ export default function AppNavigation({
             aria-current={activeTab === "settings" ? "page" : undefined}
             onClick={onOpenSettings}
           >
-            <svg className={styles.tabIcon} viewBox="0 0 26 26" aria-hidden="true">
-              <path className={styles.tabIconStroke} d="M5.2 7.4h15.6M5.2 13h15.6M5.2 18.6h15.6" />
-              <circle className={styles.tabIconFill} cx="10" cy="7.4" r="2.2" />
-              <circle className={styles.tabIconFill} cx="16.2" cy="13" r="2.2" />
-              <circle className={styles.tabIconFill} cx="11.8" cy="18.6" r="2.2" />
-              <circle className={styles.tabIconStroke} cx="10" cy="7.4" r="2.2" />
-              <circle className={styles.tabIconStroke} cx="16.2" cy="13" r="2.2" />
-              <circle className={styles.tabIconStroke} cx="11.8" cy="18.6" r="2.2" />
+            <svg
+              className={styles.tabIcon}
+              viewBox="0 0 26 26"
+              aria-hidden="true"
+              data-root-tab-gear="true"
+            >
+              <path
+                className={styles.tabIconSolid}
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M9.55 2.3a1.55 1.55 0 0 1 1.5-1.18h1.9a1.55 1.55 0 0 1 1.5 1.18l.34 1.35c.43.18.84.42 1.22.7l1.32-.4a1.55 1.55 0 0 1 1.75.68l.95 1.65a1.55 1.55 0 0 1-.25 1.86l-.99.96c.06.47.06.94 0 1.41l.99.96c.5.49.61 1.25.25 1.86l-.95 1.65a1.55 1.55 0 0 1-1.75.68l-1.32-.4c-.38.28-.79.52-1.22.7l-.34 1.35a1.55 1.55 0 0 1-1.5 1.18h-1.9a1.55 1.55 0 0 1-1.5-1.18l-.34-1.35a7.2 7.2 0 0 1-1.22-.7l-1.32.4a1.55 1.55 0 0 1-1.75-.68l-.95-1.65a1.55 1.55 0 0 1 .25-1.86l.99-.96a5.7 5.7 0 0 1 0-1.41l-.99-.96a1.55 1.55 0 0 1-.25-1.86l.95-1.65a1.55 1.55 0 0 1 1.75-.68l1.32.4c.38-.28.79-.52 1.22-.7l.34-1.35ZM12 14.4a3.4 3.4 0 1 0 0-6.8 3.4 3.4 0 0 0 0 6.8Z"
+              />
             </svg>
             <span className={styles.tabLabel}>{UI_TEXT.SETTINGS}</span>
           </button>

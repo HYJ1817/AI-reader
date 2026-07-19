@@ -144,7 +144,8 @@ describe("persistent app surfaces", () => {
   it("renders one shared bottom-tab indicator", () => {
     expect(navigationSource).toContain("styles.tabIndicator");
     expect(navigationSource).toContain('layoutId="root-tab-indicator"');
-    expect(navigationSource).toContain("MOTION_SPRING.navigation");
+    expect(navigationSource).toContain("ROOT_TAB_TRANSITION");
+    expect(navigationSource).not.toContain("MOTION_SPRING.navigation");
     expect(navigationSource).not.toContain('"--tab-index"');
   });
 

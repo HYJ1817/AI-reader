@@ -64,7 +64,8 @@ describe("motion CSS", () => {
       "--ease-navigation: cubic-bezier(0.32, 0.72, 0, 1);"
     );
     expect(navigationStackSource).toContain("MOTION_SPRING.navigation");
-    expect(appNavigationSource).toContain("MOTION_SPRING.navigation");
+    expect(appNavigationSource).toContain("ROOT_TAB_TRANSITION");
+    expect(appNavigationSource).not.toContain("MOTION_SPRING.navigation");
     expect(navigationStackSource).toContain("useAppReducedMotion");
     expect(appNavigationSource).toContain("useAppReducedMotion");
     const readerShellStart = css.indexOf(".readerShell {");
