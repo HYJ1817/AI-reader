@@ -16,16 +16,13 @@
 - Featured-Library design commit: `5eaf3a3`; implementation plan commit:
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest local and remote product behavior batch: the reference bottom
-  navigation runtime and testing work through
-  `20ecf287c275237da076d564e2c19e8cf413dd66` (`test: harden root navigation
-  checks`). The branch and PR include this batch; later `docs:` commits,
-  starting with `423593b`, document it and are not runtime behavior.
+  navigation runtime, browser coverage, and Sepia contrast hardening through
+  `e09c32eb78747257d543b8b675b75fe8f6124a32` (`fix: improve sepia navigation
+  contrast`). The branch and PR include this batch.
 - Latest deployed product behavior commit:
-  `39173ba87c8319652a110574d5b0ab0e5c09443c` (`fix: clamp invalid reading
-  goal wheel values`). Production remains on this reading-goal wheel/clamp
-  batch; the reference bottom navigation is pushed to the branch and PR but
-  **Not deployed**.
-- Latest deployed Worker version: `7b2249fe-dc34-47fb-b77a-909262c2c11d`.
+  `e09c32eb78747257d543b8b675b75fe8f6124a32` (`fix: improve sepia navigation
+  contrast`). The reference bottom navigation is live in production.
+- Latest deployed Worker version: `91a6b9ef-fb23-44d7-82f1-ee2e4616aa24`.
 - GitHub CLI authentication is valid for `HYJ1817`; the feature branch is
   pushed and synchronized with `origin/codex/custom-background-settings`.
 
@@ -75,6 +72,8 @@ Functional commits:
 - `aef6974` makes system-dark use the dark navigation material.
 - `1248922` adds the reference navigation browser coverage.
 - `20ecf28` hardens the root-navigation checks and performance evidence.
+- `e09c32e` raises the Sepia inactive-label contrast to `4.5386:1` and locks
+  the computed browser result to the WCAG `4.5:1` minimum.
 
 Implemented behavior:
 
@@ -131,10 +130,36 @@ benchmarks.
   Reading, and Settings screenshots were inspected at original resolution;
   screenshots are intentionally not committed.
 
-Production status: **Not deployed**. This navigation batch has not been
-deployed to production and must remain undeployed unless the user separately
-authorizes a deployment. It is also not evidence of a completed physical
-120Hz device trace.
+Production deployment on 2026-07-19:
+
+- Status: **Deployed** from product commit `e09c32e` after the user explicitly
+  authorized production deployment.
+- OpenNext published Worker `ai-reader-pwa` version
+  `91a6b9ef-fb23-44d7-82f1-ee2e4616aa24` to `881817.xyz/*`. The deployed
+  build ID is `e3X3RCfTQNIiq18IZqmJi`.
+- Cloudflare uploaded four changed assets without retry:
+  `/BUILD_ID`, `/_next/static/chunks/app/page-1895fa03bc837979.js`,
+  `/_next/static/css/9d6d4e8c4b4bf048.css`, and
+  `/_next/static/css/f3d9f9d4f0a14f68.css`.
+- The production root and all 10 discovered JS/CSS assets returned `200`.
+  `/sw.js` returned `200` with `ai-reader-v6` and `skipWaiting`;
+  `/manifest.webmanifest`, `/.well-known/assetlinks.json`, and the Android TWA
+  APK also returned `200` with their expected content types.
+- Production JS contains `data-root-tab-gear` and
+  `data-root-tab-indicator`. Production CSS contains the `302px` width cap,
+  `76px` root-tab height, `#7d55e7` backing, `#776953` Sepia content color,
+  and `blur(14px)` material.
+- Production iPhone 14 native-navigation coverage passed `16/16`; its root-tab
+  sample recorded 41 frames, `16.8ms` P95, 0 maximum long task, and 0 layout
+  shift. Production iPhone 15 Pro Max initially passed `15/16` because one
+  isolated sample recorded `33.3ms` P95 with no long task or layout shift.
+  The same focused performance case then passed `5/5` at `16.7-16.8ms`, and a
+  fresh complete iPhone 15 Pro Max run passed `16/16` with 42 frames,
+  `16.7ms` P95, 0 maximum long task, and 0 layout shift. The threshold was not
+  relaxed and no code was changed for the isolated scheduler jitter.
+- These are Chromium automation smoke samples, not a physical 120Hz result.
+  The physical iPhone Safari/PWA trace remains a non-blocking device
+  acceptance item.
 
 ## Reading Goal React Bits Option Wheel (2026-07-17)
 
