@@ -73,7 +73,7 @@ describe("overlay and nested view motion", () => {
     );
     expect(motionSheetSource).toContain("style={{ opacity: progress }}");
     expect(motionSheetSource).toContain('data-motion-sheet="backdrop"');
-    expect(motionSheetSource).not.toContain('"--sheet-backdrop-opacity"');
+    expect(motionSheetSource).not.toContain("--sheet-backdrop-opacity");
     expect(motionSheetSource).not.toContain("initial={{ opacity: 0 }}");
     expect(motionSheetSource).not.toContain("animate={{ opacity: 1 }}");
     expect(motionSheetSource).not.toContain("exit={{ opacity: 0 }}");
