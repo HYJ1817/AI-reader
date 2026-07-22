@@ -260,9 +260,13 @@ describe("buildAiProviderRequest", () => {
     const body = JSON.parse(String(request.init.body));
 
     expect(request.url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=gemini-secret"
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
     );
-    expect(request.init.headers).toMatchObject({ "Content-Type": "application/json" });
+    expect(request.init.headers).toMatchObject({
+      "Content-Type": "application/json",
+      "x-goog-api-key": "gemini-secret",
+    });
+    expect(request.url).not.toContain("gemini-secret");
     expect(body.systemInstruction.parts[0].text).toContain("reading assistant");
     expect(body.contents[0].parts[0].text).toContain("hello");
   });

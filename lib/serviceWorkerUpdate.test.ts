@@ -86,6 +86,14 @@ describe("production service worker updates", () => {
     expect(workerSource).toContain('const CACHE_NAME = "ai-reader-v6"');
   });
 
+  it("deletes only stale AI Reader caches during activation", () => {
+    expect(workerSource).toContain('const CACHE_PREFIX = "ai-reader-"');
+    expect(workerSource).toContain("key.startsWith(CACHE_PREFIX)");
+    expect(workerSource).not.toContain(
+      "keys.filter((key) => key !== CACHE_NAME)"
+    );
+  });
+
   it("checks the deployed build id when a suspended PWA resumes", () => {
     expect(registrationSource).toContain('fetch("/BUILD_ID"');
     expect(registrationSource).toContain('cache: "no-store"');

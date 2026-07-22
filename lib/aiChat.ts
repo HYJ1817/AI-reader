@@ -187,10 +187,13 @@ export function buildAiProviderRequest(
     const split = splitSystemAndMessages(messages);
     const model = provider.model.replace(/^models\//, "");
     return {
-      url: `${baseUrl}/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(provider.apiKey)}`,
+      url: `${baseUrl}/models/${encodeURIComponent(model)}:generateContent`,
       init: {
         method: "POST",
-        headers: headersOf({ "Content-Type": "application/json" }),
+        headers: headersOf({
+          "Content-Type": "application/json",
+          "x-goog-api-key": provider.apiKey,
+        }),
         body: bodyOf({
           systemInstruction: {
             parts: [{ text: split.system }],
