@@ -144,6 +144,35 @@ describe("Book storage", () => {
     ]);
   });
 
+  it("keeps healthy books usable when one source record is missing", async () => {
+    await saveBook(
+      makeBook({ id: "first", fileBlob: new Blob(["first"]) })
+    );
+    await saveBook(
+      makeBook({ id: "broken", fileBlob: new Blob(["broken"]) })
+    );
+    await saveBook(
+      makeBook({ id: "second", fileBlob: new Blob(["second"]) })
+    );
+
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("bookFiles").delete("broken");
+    } finally {
+      inspectionDb.close();
+    }
+
+    expect((await listBookMetadata()).map((book) => book.id).sort()).toEqual([
+      "broken",
+      "first",
+      "second",
+    ]);
+    expect(await getBook("broken")).toBeUndefined();
+    expect(await (await getBook("first"))?.fileBlob.text()).toBe("first");
+    expect(await (await getBook("second"))?.fileBlob.text()).toBe("second");
+  });
+
   it("updates last-opened metadata without rewriting source bytes", async () => {
     await saveBook(
       makeBook({

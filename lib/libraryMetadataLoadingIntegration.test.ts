@@ -21,6 +21,11 @@ describe("metadata-only library integration", () => {
     expect(readerStateSource).toContain("await getBook(readerEntry.bookId)");
   });
 
+  it("keeps the library surface independent from source-file hydration", () => {
+    expect(pageSource).toContain("setBooks(await listBookMetadata())");
+    expect(pageSource).not.toContain("Promise.allSettled");
+  });
+
   it("updates last-opened metadata without rewriting source bytes", () => {
     expect(pageSource).toContain("updateBookLastOpenedAt(book.id, now)");
     expect(pageSource).not.toContain("saveBook({ ...book, lastOpenedAt: now })");
