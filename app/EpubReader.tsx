@@ -74,7 +74,7 @@ type EpubReaderProps = {
   fileBlob: Blob;
   mode: ReaderMode;
   getReadingPosition: (bookId: string) => Promise<ReadingPosition | undefined>;
-  saveReadingPosition: (position: ReadingPosition) => Promise<void>;
+  scheduleReadingPosition: (position: ReadingPosition) => void;
   highlights?: AnnotationRecord[];
   onTextSelect?: (selection: ReaderTextSelection | null) => void;
   onReaderTap?: () => void;
@@ -147,7 +147,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     fileBlob,
     mode,
     getReadingPosition,
-    saveReadingPosition,
+    scheduleReadingPosition,
     highlights = [],
     onTextSelect,
     onReaderTap,
@@ -187,8 +187,6 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const hasResolvedPageInfoRef = useRef(false);
   const hasGeneratedLocationsRef = useRef(false);
   const attachedTapDocsRef = useRef<WeakSet<Document>>(new WeakSet());
-  const saveTimerRef = useRef<number | null>(null);
-  const pendingPositionRef = useRef<ReadingPosition | null>(null);
   const swipeSettleTimerRef = useRef<number | null>(null);
   const swipeSettleGenerationRef = useRef(0);
   const pendingSwipeSettleRef = useRef<{
@@ -465,22 +463,14 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       }
       latestProgressRef.current = percent;
 
-      pendingPositionRef.current = {
+      const position: ReadingPosition = {
         bookId: currentBookId,
         locator,
         progressPercent: percent,
         readingMode: modeRef.current,
         updatedAt: new Date().toISOString(),
       };
-      if (saveTimerRef.current !== null) {
-        window.clearTimeout(saveTimerRef.current);
-      }
-      saveTimerRef.current = window.setTimeout(() => {
-        saveTimerRef.current = null;
-        const position = pendingPositionRef.current;
-        pendingPositionRef.current = null;
-        if (position) void saveReadingPosition(position);
-      }, 180);
+      scheduleReadingPosition(position);
 
       onProgressChangeRef.current?.(percent);
       const book = bookRef.current as EpubBook | null;
@@ -497,7 +487,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         onPageInfoChangeRef.current?.(pageInfo);
       }
     },
-    [saveReadingPosition]
+    [scheduleReadingPosition]
   );
 
   const handleSelected = useCallback(
@@ -1030,19 +1020,11 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
     return () => {
       cancelled = true;
-      if (saveTimerRef.current !== null) {
-        window.clearTimeout(saveTimerRef.current);
-        saveTimerRef.current = null;
-      }
       if (swipeSettleTimerRef.current !== null) {
         window.clearTimeout(swipeSettleTimerRef.current);
         swipeSettleTimerRef.current = null;
       }
       pendingSwipeSettleRef.current = null;
-      if (pendingPositionRef.current) {
-        void saveReadingPosition(pendingPositionRef.current);
-        pendingPositionRef.current = null;
-      }
       if (renditionRef.current) {
         const r = renditionRef.current as { off: (e: string, cb: unknown) => void; destroy: () => void };
         try {
@@ -1069,7 +1051,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         objectUrlRef.current = null;
       }
     };
-  }, [bookId, fileBlob, mode, getReadingPosition, saveReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, syncHighlights]);
+  }, [bookId, fileBlob, mode, getReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, syncHighlights]);
 
   useEffect(() => {
     const rendition = renditionRef.current as AnnotatedRendition | null;

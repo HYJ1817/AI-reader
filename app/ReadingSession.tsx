@@ -35,7 +35,7 @@ type ReadingSessionProps = {
   textReaderRef: RefObject<HTMLDivElement | null>;
   epubReaderRef: RefObject<EpubReaderHandle | null>;
   getReadingPosition: (bookId: string) => Promise<ReadingPosition | undefined>;
-  saveReadingPosition: (position: ReadingPosition) => Promise<void>;
+  scheduleReadingPosition: (position: ReadingPosition) => void;
   onPointerDown: PointerEventHandler<HTMLDivElement>;
   onPointerMove: PointerEventHandler<HTMLDivElement>;
   onPointerUp: PointerEventHandler<HTMLDivElement>;
@@ -73,7 +73,7 @@ export default function ReadingSession({
   textReaderRef,
   epubReaderRef,
   getReadingPosition,
-  saveReadingPosition,
+  scheduleReadingPosition,
   onPointerDown,
   onPointerMove,
   onPointerUp,
@@ -124,7 +124,7 @@ export default function ReadingSession({
             fileBlob={book.fileBlob}
             mode={mode}
             getReadingPosition={getReadingPosition}
-            saveReadingPosition={saveReadingPosition}
+            scheduleReadingPosition={scheduleReadingPosition}
             highlights={highlights}
             onTextSelect={onTextSelect}
             onReaderTap={onReaderTap}

@@ -23,7 +23,7 @@ import {
   updateBookGroupMembership,
   updateBookLastOpenedAt,
   renameBook,
-  type BookMetadata, type BookGroup, type DailyReadingStat,
+  type BookMetadata, type BookGroup, type DailyReadingStat, type ReadingPosition,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
 import {
@@ -140,6 +140,9 @@ import { requestPersistentStorage } from "@/lib/storagePersistence";
 import { createLocalId } from "@/lib/localId";
 import useAskAi from "@/app/useAskAi";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
+import {
+  createReaderPositionCoordinator,
+} from "@/lib/readerPositionCoordinator";
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -193,6 +196,12 @@ export default function Home() {
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [positionCoordinator] = useState(() =>
+    createReaderPositionCoordinator(saveReadingPosition, 180)
+  );
+  const scheduleReadingPosition = useCallback((position: ReadingPosition) => {
+    positionCoordinator.schedule(position);
+  }, [positionCoordinator]);
 
   const [readerPrefs, setReaderPrefs] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const [appPrefs, setAppPrefs] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES);
@@ -248,7 +257,6 @@ export default function Home() {
     action: ReturnType<typeof getReaderSwipeAction>;
   } | null>(null);
   const readerScrollFrameRef = useRef<number | null>(null);
-  const readerSaveTimerRef = useRef<number | null>(null);
   const epubProgressFrameRef = useRef<number | null>(null);
   const pendingEpubProgressRef = useRef<number | null>(null);
   const readerPrefsFrameRef = useRef<number | null>(null);
@@ -444,6 +452,9 @@ export default function Home() {
       if (targetTab) navigation.selectTab(targetTab);
       return;
     }
+    void positionCoordinator.flush().catch(() => {
+      setImportError(UI_TEXT.ERROR_READ_FILE);
+    });
     pendingReaderTargetRef.current = targetTab ?? null;
     navigation.dismissReader();
   }
@@ -643,6 +654,9 @@ export default function Home() {
   }
 
   async function handleDeleteBook(book: BookMetadata) {
+    if (openBook?.id === book.id) {
+      await positionCoordinator.cancel();
+    }
     await deleteBook(book.id);
     const updatedBooks = await listBookMetadata();
     setBooks(updatedBooks);
@@ -703,6 +717,9 @@ export default function Home() {
   async function handleDeleteSelectedBooks() {
     if (selectedBookIds.length === 0) return;
     const idsToDelete = [...selectedBookIds];
+    if (openBook && idsToDelete.includes(openBook.id)) {
+      await positionCoordinator.cancel();
+    }
     for (const id of idsToDelete) {
       await deleteBook(id);
     }
@@ -917,6 +934,7 @@ export default function Home() {
     book: BookMetadata,
     originId?: string
   ) => {
+    await positionCoordinator.flush();
     const fullBook = await getBook(book.id);
     if (!fullBook) {
       setImportError(UI_TEXT.ERROR_READ_FILE);
@@ -935,7 +953,7 @@ export default function Home() {
     const contentReady = prepareReaderBook(fullBook, savedPosition);
     navigation.presentReader(book.id, { originId });
     await contentReady;
-  }, [navigation, prepareReaderBook, resetAskAi]);
+  }, [navigation, positionCoordinator, prepareReaderBook, resetAskAi]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1052,9 +1070,6 @@ export default function Home() {
       if (epubProgressFrameRef.current !== null) {
         window.cancelAnimationFrame(epubProgressFrameRef.current);
       }
-      if (readerSaveTimerRef.current !== null) {
-        window.clearTimeout(readerSaveTimerRef.current);
-      }
       if (readerPrefsFrameRef.current !== null) {
         window.cancelAnimationFrame(readerPrefsFrameRef.current);
       }
@@ -1109,21 +1124,43 @@ export default function Home() {
           : map
       );
 
-      if (readerSaveTimerRef.current !== null) {
-        window.clearTimeout(readerSaveTimerRef.current);
-      }
-      readerSaveTimerRef.current = window.setTimeout(() => {
-        readerSaveTimerRef.current = null;
-        void saveReadingPosition({
-          bookId: openBook.id,
-          locator: readerMode === "paged" ? "txt-paged" : "txt-scroll",
-          progressPercent,
-          readingMode: readerMode,
-          updatedAt: new Date().toISOString(),
-        });
-      }, 180);
+      positionCoordinator.schedule({
+        bookId: openBook.id,
+        locator: readerMode === "paged" ? "txt-paged" : "txt-scroll",
+        progressPercent,
+        readingMode: readerMode,
+        updatedAt: new Date().toISOString(),
+      });
     });
-  }, [annotations, openBook, readerMode]);
+  }, [annotations, openBook, positionCoordinator, readerMode]);
+
+  useEffect(() => {
+    const flushPendingPosition = () =>
+      positionCoordinator.flush().catch(() => {
+        setImportError(UI_TEXT.ERROR_READ_FILE);
+      });
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        void flushPendingPosition();
+      }
+    };
+    const handlePageHide = () => void flushPendingPosition();
+    const handleBeforeReload = (event: Event) => {
+      const reloadEvent = event as CustomEvent<{
+        waitUntil?: (promise: Promise<void>) => void;
+      }>;
+      reloadEvent.detail?.waitUntil?.(flushPendingPosition());
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("ai-reader-before-reload", handleBeforeReload);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("ai-reader-before-reload", handleBeforeReload);
+    };
+  }, [positionCoordinator]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1233,18 +1270,25 @@ export default function Home() {
         scrollRestoredRef.current = false;
       }
 
+      const snapshot = epubReaderRef.current?.getCurrentSnapshot();
+      void positionCoordinator.saveNow({
+        bookId: openBook.id,
+        locator:
+          openBook.format === "epub"
+            ? snapshot?.locator ?? "epub-unknown"
+            : nextMode === "paged"
+              ? "txt-paged"
+              : "txt-scroll",
+        progressPercent:
+          openBook.format === "epub"
+            ? snapshot?.progressPercent ?? readerProgressPercent
+            : progress,
+        readingMode: nextMode,
+        updatedAt: new Date().toISOString(),
+      });
       setReaderMode(nextMode);
-      if (openBook.format === "txt") {
-        void saveReadingPosition({
-          bookId: openBook.id,
-          locator: nextMode === "paged" ? "txt-paged" : "txt-scroll",
-          progressPercent: progress,
-          readingMode: nextMode,
-          updatedAt: new Date().toISOString(),
-        });
-      }
     },
-    [openBook, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
+    [openBook, positionCoordinator, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
   );
 
   const turnReaderPage = useCallback(async (
@@ -1568,7 +1612,7 @@ export default function Home() {
       textReaderRef={readerRef}
       epubReaderRef={epubReaderRef}
       getReadingPosition={getReadingPosition}
-      saveReadingPosition={saveReadingPosition}
+      scheduleReadingPosition={scheduleReadingPosition}
       onPointerDown={handleReaderPointerDown}
       onPointerMove={handleReaderPointerMove}
       onPointerUp={handleReaderPointerUp}
