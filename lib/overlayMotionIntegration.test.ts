@@ -81,6 +81,51 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain("activeAnimationRef.current?.stop()");
   });
 
+  it("avoids forced layout while establishing cold-mount sheet geometry", () => {
+    expect(motionSheetSource).toMatch(
+      /const \[sheetHeight, setSheetHeight\] = useState\([^;]*window\.innerHeight/s
+    );
+    expect(motionSheetSource).toContain(
+      'typeof window === "undefined" ? 900'
+    );
+    expect(motionSheetSource).toContain("entry?.borderBoxSize");
+    expect(motionSheetSource).toContain("Array.isArray(borderBoxSize)");
+    expect(motionSheetSource).toContain("borderBox.blockSize");
+
+    const heightObserverEffect = motionSheetSource.match(
+      /useEffect\(\(\) => \{[\s\S]*?new ResizeObserver\(\(entries\) => \{([\s\S]*?)\}\);[\s\S]*?observer\.observe\(panel\);[\s\S]*?\}, \[\]\);/
+    );
+    expect(heightObserverEffect).not.toBeNull();
+    expect(heightObserverEffect?.[1]).toContain(
+      "panel.getBoundingClientRect().height"
+    );
+    expect(motionSheetSource.match(/panel\.getBoundingClientRect\(\)/g)).toHaveLength(
+      1
+    );
+    expect(motionSheetSource).not.toContain("updateHeight();");
+  });
+
+  it("initializes visual viewport state without a redundant mount update", () => {
+    const viewportInitializer = motionSheetSource.match(
+      /useState<VisualViewportFrame \| null>\(\(\) => \{([\s\S]*?)\n\s*\}\);/
+    );
+    expect(viewportInitializer).not.toBeNull();
+    expect(viewportInitializer?.[1]).toContain('typeof window === "undefined"');
+    expect(viewportInitializer?.[1]).toContain("window.visualViewport");
+
+    const viewportEffect = motionSheetSource.match(
+      /useEffect\(\(\) => \{[\s\S]*?const viewport = window\.visualViewport;([\s\S]*?)\}, \[\]\);/
+    );
+    expect(viewportEffect).not.toBeNull();
+    expect(viewportEffect?.[1]).toContain(
+      'viewport.addEventListener("resize", syncViewport)'
+    );
+    expect(viewportEffect?.[1]).toContain(
+      'viewport.addEventListener("scroll", syncViewport)'
+    );
+    expect(viewportEffect?.[1]).not.toMatch(/\n\s*syncViewport\(\);/);
+  });
+
   it("removes standalone keyframes from library and AI nested views", () => {
     for (const source of [librarySource, aiSettingsSource]) {
       expect(source).not.toContain("subviewEnterForward");

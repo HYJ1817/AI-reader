@@ -130,9 +130,22 @@ export default function MotionSheet({
   const [present, setPresent] = useState(true);
   const [closeRequest, setCloseRequest] =
     useState<SheetCloseRequest | null>(null);
-  const [sheetHeight, setSheetHeight] = useState(1);
+  const [sheetHeight, setSheetHeight] = useState(() =>
+    typeof window === "undefined" ? 900 : Math.max(1, window.innerHeight)
+  );
   const [visualViewportFrame, setVisualViewportFrame] =
-    useState<VisualViewportFrame | null>(null);
+    useState<VisualViewportFrame | null>(() => {
+      if (typeof window === "undefined") return null;
+      const viewport = window.visualViewport;
+      return viewport
+        ? {
+            offsetLeft: viewport.offsetLeft,
+            offsetTop: viewport.offsetTop,
+            width: viewport.width,
+            height: viewport.height,
+          }
+        : null;
+    });
   const panelRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(900);
   const dragControls = useDragControls();
@@ -202,12 +215,22 @@ export default function MotionSheet({
     const panel = panelRef.current;
     if (!panel) return;
 
-    const updateHeight = () => {
-      const nextHeight = Math.max(1, panel.getBoundingClientRect().height);
-      setSheetHeight(nextHeight);
-    };
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const borderBoxSize = entry?.borderBoxSize as
+        | ReadonlyArray<ResizeObserverSize>
+        | ResizeObserverSize
+        | undefined;
+      const borderBox = Array.isArray(borderBoxSize)
+        ? borderBoxSize[0]
+        : borderBoxSize;
+      const borderBoxHeight = borderBox ? borderBox.blockSize : undefined;
+      const nextHeight =
+        typeof borderBoxHeight === "number" && Number.isFinite(borderBoxHeight)
+          ? borderBoxHeight
+          : panel.getBoundingClientRect().height;
+      setSheetHeight(Math.max(1, nextHeight));
+    });
     observer.observe(panel);
     return () => observer.disconnect();
   }, []);
@@ -277,7 +300,6 @@ export default function MotionSheet({
       );
     };
 
-    syncViewport();
     viewport.addEventListener("resize", syncViewport);
     viewport.addEventListener("scroll", syncViewport);
     return () => {
