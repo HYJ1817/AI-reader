@@ -3711,13 +3711,12 @@
   display: contents;
 }
 
-.sheetOverlay::before {
-  content: "";
+.motionSheetBackdrop {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
-  opacity: var(--sheet-backdrop-opacity, 1);
   pointer-events: none;
+  will-change: opacity;
 }
 
 .bottomSheet {
@@ -3739,12 +3738,9 @@
   padding-bottom: calc(var(--safe-bottom) + 8px);
 }
 
-.motionSheetOverlay::before {
-  transition: none;
-}
-
 .motionSheetPanel {
   touch-action: pan-y;
+  will-change: transform;
 }
 
 .sheetDragHandle {
@@ -3987,6 +3983,58 @@
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.renameBookForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px calc(16px + var(--safe-bottom));
+}
+
+.renameBookForm label {
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.renameBookInput {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  outline: none;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+  font: inherit;
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+
+.renameBookInput:focus {
+  border-color: var(--tint);
+}
+
+.renameBookInput[aria-invalid="true"] {
+  border-color: #ff453a;
+}
+
+.renameBookError {
+  margin: 0;
+  color: #ff453a;
+  font-size: 13px;
+}
+
+.renameBookActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.renameBookActions .primaryButton,
+.renameBookActions .secondaryButton {
+  min-width: 76px;
+  margin-top: 8px;
 }
 
 .deleteConfirmBox {

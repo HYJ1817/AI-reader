@@ -27,6 +27,7 @@ const SHEET_ROUTES = [
   "ask-ai",
   "reading-goal",
   "book-actions",
+  "book-rename",
   "book-delete",
   "book-groups",
   "batch-groups",

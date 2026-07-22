@@ -1,8 +1,9 @@
 import {
   getCustomBackgroundRecord,
+  getBookFile,
   listAllAnnotations,
   listBookGroups,
-  listBooks,
+  listBookMetadata,
   listDailyReadingStats,
   listReadingPositions,
   replaceReaderData,
@@ -133,7 +134,7 @@ export async function createBackupPayload(input?: {
 }): Promise<BackupPayload> {
   const [books, positions, annotations, groups, dailyReadingStats, customBackground] =
     await Promise.all([
-      listBooks(),
+      listBookMetadata(),
       listReadingPositions(),
       listAllAnnotations(),
       listBookGroups(),
@@ -143,6 +144,10 @@ export async function createBackupPayload(input?: {
 
   const backupBooks: BackupBookMeta[] = [];
   for (const book of books) {
+    const fileBlob = await getBookFile(book.id);
+    if (!fileBlob) {
+      throw new Error(`Stored file is unavailable for book ${book.id}.`);
+    }
     backupBooks.push({
       id: book.id,
       title: book.title,
@@ -151,7 +156,7 @@ export async function createBackupPayload(input?: {
       size: book.size,
       createdAt: book.createdAt,
       lastOpenedAt: book.lastOpenedAt,
-      fileContent: await blobToBase64(book.fileBlob),
+      fileContent: await blobToBase64(fileBlob),
       groupIds: book.groupIds,
     });
   }

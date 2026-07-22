@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "confirmatory-trace-comparison",
+  "baselineRecord": "docs/performance/shared-sheet-trace-confirmatory-baseline-fa1fc21-a102547.json",
+  "candidateRecord": "docs/performance/shared-sheet-trace-confirmatory-candidate-a102547.json",
+  "historicalEvidenceRetained": [
+    "docs/performance/shared-sheet-trace-confirmatory-baseline-fa1fc21.json",
+    "docs/performance/shared-sheet-trace-confirmatory-candidate-44e7308.json",
+    "docs/performance/shared-sheet-trace-confirmatory-comparison-44e7308.json",
+    "docs/performance/shared-sheet-trace-baseline-fa1fc21.json",
+    "docs/performance/shared-sheet-trace-exploratory-3e4a5d1.json"
+  ],
+  "baselineRevision": "fa1fc216e424f1f2ac2bbd1cac7886253b24b922",
+  "candidateRevision": "a1025476515ac4a594a973b7780517f5b9db705b",
+  "scriptSha256": "16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb",
+  "browserVersion": "149.0.7827.55",
+  "browserRevision": "chromium-1228",
+  "acceptanceMethod": "scripts/shared-sheet-trace-probe.cjs evaluateDurationAcceptance: for UpdateLayoutTree and Paint main-thread total duration, and RasterTask all-thread total duration, candidate median and candidate maximum must each be <= baseline median / 2",
+  "acceptance": {
+    "UpdateLayoutTree": {
+      "baselineMedianMs": 36.733,
+      "ceilingMs": 18.3665,
+      "candidateMedianMs": 16.322,
+      "candidateMaximumMs": 16.751,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "Paint": {
+      "baselineMedianMs": 18.469,
+      "ceilingMs": 9.2345,
+      "candidateMedianMs": 4.068,
+      "candidateMaximumMs": 4.157,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "RasterTask": {
+      "baselineMedianMs": 89.551,
+      "ceilingMs": 44.7755,
+      "candidateMedianMs": 20.026,
+      "candidateMaximumMs": 22.161,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "allPass": true
+  },
+  "diagnostics": {
+    "baseline": {
+      "clickToMountMs": [39.5, 40.10000002384186, 35.60000002384186],
+      "p95FrameIntervalMs": [16.700000000000045, 633.3, 16.799999999999955],
+      "maximumFrameIntervalMs": [33.299999999999955, 633.3, 16.799999999999955],
+      "maximumLongTaskMs": [0, 621, 0],
+      "layoutShift": [0, 0, 0]
+    },
+    "candidate": {
+      "clickToMountMs": [30, 27.399999976158142, 27.799999952316284],
+      "p95FrameIntervalMs": [16.799999999999955, 16.700000000000045, 16.800000000000182],
+      "maximumFrameIntervalMs": [16.799999999999955, 16.700000000000045, 33.30000000000007],
+      "maximumLongTaskMs": [0, 0, 0],
+      "layoutShift": [0, 0, 0]
+    },
+    "note": "Click/frame/long-task/CLS values are trace-overhead diagnostics and do not alter the predeclared duration acceptance. Baseline run 2 retained a 633.3ms maximum frame, 621ms long task, and 606.631ms RasterTask total. Neither revision was retried or supplemented: each fixed revision used exactly one probe invocation containing exactly three fresh-context runs."
+  }
+}

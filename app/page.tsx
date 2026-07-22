@@ -9,7 +9,8 @@ import {
 } from "react";
 import styles from "./page.module.css";
 import {
-  listBooks,
+  listBookMetadata,
+  getBook,
   saveBook,
   saveReadingPosition,
   getReadingPosition,
@@ -20,11 +21,11 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  type BookRecord, type BookGroup, type DailyReadingStat,
+  updateBookLastOpenedAt,
+  renameBook,
+  type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
-import { extractEpubCoverImage } from "@/lib/epubCover";
-import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
   chunkParagraphs,
   getHorizontalPageInfo,
@@ -39,6 +40,7 @@ import AppPushSurfaces from "@/app/AppPushSurfaces";
 import { NavigationProvider } from "@/app/NavigationProvider";
 import NavigationStack, { NavigationRoot } from "@/app/NavigationStack";
 import AppOverlays from "@/app/AppOverlays";
+import PendingNavigationCoordinator from "@/app/PendingNavigationCoordinator";
 import AmbientBookBackground from "@/app/AmbientBookBackground";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import LibrarySurface from "@/app/LibrarySurface";
@@ -138,6 +140,10 @@ import { requestPersistentStorage } from "@/lib/storagePersistence";
 import { createLocalId } from "@/lib/localId";
 import useAskAi from "@/app/useAskAi";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
+import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
+import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
+import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
+import { assertBackupImportSize } from "@/lib/backupImport";
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -168,7 +174,7 @@ function withTimeout<T>(
 export default function Home() {
   const navigation = useAppNavigation();
   const activeTab = navigation.state.activeTab;
-  const [books, setBooks] = useState<BookRecord[]>([]);
+  const [books, setBooks] = useState<BookMetadata[]>([]);
   const [libraryRenderWindow, setLibraryRenderWindow] = useState({
     key: "",
     count: LIBRARY_RENDER_BATCH,
@@ -191,6 +197,8 @@ export default function Home() {
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [positionCoordinator] = useState(() => createReaderPositionCoordinator(saveReadingPosition, 180));
+  const scheduleReadingPosition = useReaderPositionLifecycle(positionCoordinator, setImportError);
 
   const [readerPrefs, setReaderPrefs] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const [appPrefs, setAppPrefs] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES);
@@ -246,7 +254,6 @@ export default function Home() {
     action: ReturnType<typeof getReaderSwipeAction>;
   } | null>(null);
   const readerScrollFrameRef = useRef<number | null>(null);
-  const readerSaveTimerRef = useRef<number | null>(null);
   const epubProgressFrameRef = useRef<number | null>(null);
   const pendingEpubProgressRef = useRef<number | null>(null);
   const readerPrefsFrameRef = useRef<number | null>(null);
@@ -299,25 +306,13 @@ export default function Home() {
       try {
         void requestPersistentStorage();
         const [storedBooks, storedPositions] = await withTimeout(
-          Promise.all([listBooks(), listReadingPositions()]),
+          Promise.all([listBookMetadata(), listReadingPositions()]),
           15000,
           "Local library storage timed out."
         );
         if (!cancelled) {
           setBooks(storedBooks);
           setReadingProgressMap(buildReadingProgressMap(storedPositions));
-          void backfillMissingBookCovers(storedBooks, {
-            extractCoverImage: extractEpubCoverImage,
-            saveBook,
-          })
-            .then((result) => {
-              if (!cancelled && result.updatedCount > 0) {
-                setBooks(result.books);
-              }
-            })
-            .catch(() => {
-              // Cover backfill is opportunistic; unreadable EPUB covers keep fallback covers.
-            });
         }
       } catch {
         if (!cancelled) setImportError(UI_TEXT.ERROR_READ_FILE);
@@ -435,35 +430,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [openBook, readerPresented]);
 
-  useEffect(() => {
-    const pendingPush = pendingPushAfterReaderRef.current;
-    if (pendingPush) {
-      if (navigation.state.sheets.length > 0) return;
-      if (readerPresented) {
-        navigation.dismissReader();
-        return;
-      }
-      pendingPushAfterReaderRef.current = null;
-      pendingReaderTargetRef.current = null;
-      navigation.selectTab("settings");
-      navigation.push(pendingPush);
-      return;
-    }
-
-    if (readerPresented) return;
-    const targetTab = pendingReaderTargetRef.current;
-    pendingReaderTargetRef.current = null;
-    if (targetTab) navigation.selectTab(targetTab);
-  }, [navigation, readerPresented]);
-
   function openAiSettingsFromAsk() {
-    if (!readerPresented && navigation.state.sheets.length === 0) {
+    if (!readerPresented && navigation.getState().sheets.length === 0) {
       navigation.selectTab("settings");
       navigation.push("ai-providers");
       return;
     }
     pendingPushAfterReaderRef.current = "ai-providers";
-    if (navigation.state.sheets.length > 0) {
+    if (navigation.getState().sheets.length > 0) {
       navigation.dismissSheet();
     } else {
       navigation.dismissReader();
@@ -475,6 +449,9 @@ export default function Home() {
       if (targetTab) navigation.selectTab(targetTab);
       return;
     }
+    void positionCoordinator.flush().catch(() => {
+      setImportError(UI_TEXT.ERROR_READ_FILE);
+    });
     pendingReaderTargetRef.current = targetTab ?? null;
     navigation.dismissReader();
   }
@@ -568,12 +545,6 @@ export default function Home() {
     handleAppPreferencesChange({ libraryView: view });
   }
 
-  const activeSheet = navigation.state.sheets.at(-1);
-  const groupSheetBook =
-    activeSheet?.route === "book-groups" && activeSheet.entityId
-      ? books.find((book) => book.id === activeSheet.entityId) ?? null
-      : null;
-
   function enterLibraryEditing() {
     setLibraryEditing(true);
   }
@@ -583,7 +554,7 @@ export default function Home() {
     setSelectedBookIds([]);
   }
 
-  function handleBookPress(book: BookRecord, originId: string) {
+  function handleBookPress(book: BookMetadata, originId: string) {
     if (libraryEditing) {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
@@ -607,7 +578,7 @@ export default function Home() {
     navigation.presentSheet("batch-groups");
   }
 
-  function openBookActionSheet(book: BookRecord) {
+  function openBookActionSheet(book: BookMetadata) {
     if (libraryEditing) {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
@@ -615,9 +586,10 @@ export default function Home() {
     navigation.presentSheet("book-actions", { entityId: book.id });
   }
 
-  async function handleCreateGroup() {
+  async function handleCreateGroup(bookId: string) {
     const trimmed = newGroupName.trim();
-    if (!trimmed || !groupSheetBook) return;
+    const currentBook = books.find((book) => book.id === bookId);
+    if (!trimmed || !currentBook) return;
     const group: BookGroup = {
       id: createLocalId(),
       name: trimmed,
@@ -627,27 +599,28 @@ export default function Home() {
     await saveBookGroup(group);
     const updatedGroups = await listBookGroups();
     setGroups(updatedGroups);
-    const currentIds = groupSheetBook.groupIds ?? [];
-    await updateBookGroupMembership(groupSheetBook.id, [...currentIds, group.id]);
-    setBooks(await listBooks());
+    const currentIds = currentBook.groupIds ?? [];
+    await updateBookGroupMembership(currentBook.id, [...currentIds, group.id]);
+    setBooks(await listBookMetadata());
     setNewGroupName("");
   }
 
-  async function handleToggleGroup(groupId: string) {
-    if (!groupSheetBook) return;
-    const currentIds = groupSheetBook.groupIds ?? [];
+  async function handleToggleGroup(bookId: string, groupId: string) {
+    const currentBook = books.find((book) => book.id === bookId);
+    if (!currentBook) return;
+    const currentIds = currentBook.groupIds ?? [];
     const newIds = currentIds.includes(groupId)
       ? currentIds.filter((id) => id !== groupId)
       : [...currentIds, groupId];
-    await updateBookGroupMembership(groupSheetBook.id, newIds);
-    setBooks(await listBooks());
+    await updateBookGroupMembership(currentBook.id, newIds);
+    setBooks(await listBookMetadata());
   }
 
   async function handleDeleteGroup(groupId: string) {
     await deleteBookGroup(groupId);
     const updatedGroups = await listBookGroups();
     setGroups(updatedGroups);
-    setBooks(await listBooks());
+    setBooks(await listBookMetadata());
     if (groupFilter === groupId) setGroupFilter(null);
   }
 
@@ -661,18 +634,28 @@ export default function Home() {
     setEditingGroupName("");
   }
 
-  async function handleExportBook(book: BookRecord) {
+  async function handleExportBook(book: BookMetadata) {
     try {
-      const exported = await createBookFileExport(book);
+      const fullBook = await getBook(book.id);
+      if (!fullBook) throw new Error(UI_TEXT.ERROR_READ_FILE);
+      const exported = await createBookFileExport(fullBook);
       triggerBlobDownload(exported.blob, exported.fileName);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
     }
   }
 
-  async function handleDeleteBook(book: BookRecord) {
+  async function handleRenameBook(bookId: string, title: string) {
+    await renameBook(bookId, title);
+    setBooks(await listBookMetadata());
+  }
+
+  async function handleDeleteBook(book: BookMetadata) {
+    if (openBook?.id === book.id) {
+      await positionCoordinator.cancel();
+    }
     await deleteBook(book.id);
-    const updatedBooks = await listBooks();
+    const updatedBooks = await listBookMetadata();
     setBooks(updatedBooks);
     setReadingProgressMap((map) => {
       const next = { ...map };
@@ -695,7 +678,7 @@ export default function Home() {
       const nextGroupIds = [...new Set([...(book.groupIds ?? []), groupId])];
       await updateBookGroupMembership(book.id, nextGroupIds);
     }
-    setBooks(await listBooks());
+    setBooks(await listBookMetadata());
     exitLibraryEditing();
   }
 
@@ -731,10 +714,13 @@ export default function Home() {
   async function handleDeleteSelectedBooks() {
     if (selectedBookIds.length === 0) return;
     const idsToDelete = [...selectedBookIds];
+    if (openBook && idsToDelete.includes(openBook.id)) {
+      await positionCoordinator.cancel();
+    }
     for (const id of idsToDelete) {
       await deleteBook(id);
     }
-    const updatedBooks = await listBooks();
+    const updatedBooks = await listBookMetadata();
     setBooks(updatedBooks);
     setReadingProgressMap((map) => {
       const next = { ...map };
@@ -764,7 +750,7 @@ export default function Home() {
       const record = await createBookRecordFromFile(file);
       await saveBook(record);
       autoOpenAttemptedRef.current = true;
-      setBooks(await listBooks());
+      setBooks(await listBookMetadata());
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED
@@ -942,23 +928,29 @@ export default function Home() {
   }, [books]);
 
   const openBookForReading = useCallback(async (
-    book: BookRecord,
+    book: BookMetadata,
     originId?: string
   ) => {
+    await positionCoordinator.flush();
+    const fullBook = await getBook(book.id);
+    if (!fullBook) {
+      setImportError(UI_TEXT.ERROR_READ_FILE);
+      return;
+    }
     const now = new Date().toISOString();
-    await saveBook({ ...book, lastOpenedAt: now });
+    await updateBookLastOpenedAt(book.id, now);
     const [nextBooks, savedPosition] = await Promise.all([
-      listBooks(),
+      listBookMetadata(),
       getReadingPosition(book.id),
     ]);
     setBooks(nextBooks);
 
     scrollRestoredRef.current = false;
     resetAskAi();
-    const contentReady = prepareReaderBook(book, savedPosition);
+    const contentReady = prepareReaderBook(fullBook, savedPosition);
     navigation.presentReader(book.id, { originId });
     await contentReady;
-  }, [navigation, prepareReaderBook, resetAskAi]);
+  }, [navigation, positionCoordinator, prepareReaderBook, resetAskAi]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1075,9 +1067,6 @@ export default function Home() {
       if (epubProgressFrameRef.current !== null) {
         window.cancelAnimationFrame(epubProgressFrameRef.current);
       }
-      if (readerSaveTimerRef.current !== null) {
-        window.clearTimeout(readerSaveTimerRef.current);
-      }
       if (readerPrefsFrameRef.current !== null) {
         window.cancelAnimationFrame(readerPrefsFrameRef.current);
       }
@@ -1132,21 +1121,15 @@ export default function Home() {
           : map
       );
 
-      if (readerSaveTimerRef.current !== null) {
-        window.clearTimeout(readerSaveTimerRef.current);
-      }
-      readerSaveTimerRef.current = window.setTimeout(() => {
-        readerSaveTimerRef.current = null;
-        void saveReadingPosition({
-          bookId: openBook.id,
-          locator: readerMode === "paged" ? "txt-paged" : "txt-scroll",
-          progressPercent,
-          readingMode: readerMode,
-          updatedAt: new Date().toISOString(),
-        });
-      }, 180);
+      positionCoordinator.schedule({
+        bookId: openBook.id,
+        locator: readerMode === "paged" ? "txt-paged" : "txt-scroll",
+        progressPercent,
+        readingMode: readerMode,
+        updatedAt: new Date().toISOString(),
+      });
     });
-  }, [annotations, openBook, readerMode]);
+  }, [annotations, openBook, positionCoordinator, readerMode]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1202,33 +1185,36 @@ export default function Home() {
     setBackupStatus(null);
     setBackupError(null);
     try {
+      assertBackupImportSize(file.size);
       const text = await file.text();
       const data = JSON.parse(text);
-      await restoreBackupPayload(data);
-      const restoredBooks = await listBooks();
-      const restoredPositions = await listReadingPositions();
-      dismissReader();
-      clearReaderBook();
-      resetAskAi();
-      setBooks(restoredBooks);
-      setReadingProgressMap(buildReadingProgressMap(restoredPositions));
-      void backfillMissingBookCovers(restoredBooks, {
-        extractCoverImage: extractEpubCoverImage,
-        saveBook,
-      })
-        .then((result) => {
-          if (result.updatedCount > 0) {
-            setBooks(result.books);
-          }
-        })
-        .catch(() => {
-          // Restored EPUBs still work even when cover extraction is unavailable.
-        });
-      setGroups(await listBookGroups());
-      setReadingStats(await listDailyReadingStats());
-      await background.reloadCustomBackground();
-      setGroupFilter(null);
-      setAiProviderSettings(loadAiProviderSettings());
+      await runBackupRestoreGuarded({
+        coordinator: positionCoordinator,
+        stopReader: () => {
+          navigation.dismissReader();
+          clearReaderBook();
+          resetAskAi();
+        },
+        restore: async () => {
+          await restoreBackupPayload(data);
+        },
+        reload: async () => {
+          const [restoredBooks, restoredPositions, restoredGroups, restoredStats] =
+            await Promise.all([
+              listBookMetadata(),
+              listReadingPositions(),
+              listBookGroups(),
+              listDailyReadingStats(),
+            ]);
+          setBooks(restoredBooks);
+          setReadingProgressMap(buildReadingProgressMap(restoredPositions));
+          setGroups(restoredGroups);
+          setReadingStats(restoredStats);
+          await background.reloadCustomBackground();
+          setGroupFilter(null);
+          setAiProviderSettings(loadAiProviderSettings());
+        },
+      });
       setBackupStatus(UI_TEXT.BACKUP_RESTORED);
     } catch (err) {
       setBackupError(err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED);
@@ -1268,18 +1254,25 @@ export default function Home() {
         scrollRestoredRef.current = false;
       }
 
+      const snapshot = epubReaderRef.current?.getCurrentSnapshot();
+      void positionCoordinator.saveNow({
+        bookId: openBook.id,
+        locator:
+          openBook.format === "epub"
+            ? snapshot?.locator ?? "epub-unknown"
+            : nextMode === "paged"
+              ? "txt-paged"
+              : "txt-scroll",
+        progressPercent:
+          openBook.format === "epub"
+            ? snapshot?.progressPercent ?? readerProgressPercent
+            : progress,
+        readingMode: nextMode,
+        updatedAt: new Date().toISOString(),
+      });
       setReaderMode(nextMode);
-      if (openBook.format === "txt") {
-        void saveReadingPosition({
-          bookId: openBook.id,
-          locator: nextMode === "paged" ? "txt-paged" : "txt-scroll",
-          progressPercent: progress,
-          readingMode: nextMode,
-          updatedAt: new Date().toISOString(),
-        });
-      }
     },
-    [openBook, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
+    [openBook, positionCoordinator, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
   );
 
   const turnReaderPage = useCallback(async (
@@ -1603,7 +1596,7 @@ export default function Home() {
       textReaderRef={readerRef}
       epubReaderRef={epubReaderRef}
       getReadingPosition={getReadingPosition}
-      saveReadingPosition={saveReadingPosition}
+      scheduleReadingPosition={scheduleReadingPosition}
       onPointerDown={handleReaderPointerDown}
       onPointerMove={handleReaderPointerMove}
       onPointerUp={handleReaderPointerUp}
@@ -1653,6 +1646,11 @@ export default function Home() {
   return (
     <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
       <NavigationProvider value={navigation}>
+      <PendingNavigationCoordinator
+        readerPresented={readerPresented}
+        pendingReaderTargetRef={pendingReaderTargetRef}
+        pendingPushAfterReaderRef={pendingPushAfterReaderRef}
+      />
       <div
         className={styles.app}
         data-app-shell="true"
@@ -1915,8 +1913,10 @@ export default function Home() {
           createCollection: () => void handleCreateCollectionGroup(),
           openBook: (book) => void openBookForReading(book),
           exportBook: (book) => void handleExportBook(book),
+          renameBook: handleRenameBook,
           deleteBook: (book) => void handleDeleteBook(book),
-          toggleBookGroup: (groupId) => void handleToggleGroup(groupId),
+          toggleBookGroup: (bookId, groupId) =>
+            void handleToggleGroup(bookId, groupId),
           setEditingGroup: (groupId, name) => {
             setEditingGroupId(groupId);
             setEditingGroupName(name);
@@ -1925,7 +1925,7 @@ export default function Home() {
           renameGroup: (groupId) => void handleRenameGroup(groupId),
           deleteGroup: (groupId) => void handleDeleteGroup(groupId),
           setNewGroupName,
-          createGroup: () => void handleCreateGroup(),
+          createGroup: (bookId) => void handleCreateGroup(bookId),
         }}
       />
       </div>

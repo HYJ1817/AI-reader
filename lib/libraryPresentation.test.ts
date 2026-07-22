@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildLibraryBookPresentation,
   formatBookDate,
@@ -16,6 +17,70 @@ describe("library presentation", () => {
   it("uses stable labels for missing and invalid dates", () => {
     expect(formatBookDate()).toBe("从未");
     expect(formatBookDate("invalid")).toBe("未知");
+  });
+
+  it("formats valid book dates with the existing Chinese date contract", () => {
+    const value = "2026-07-14T08:00:00+08:00";
+    expect(formatBookDate(value)).toBe(
+      new Date(value).toLocaleDateString("zh-CN", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    );
+  });
+
+  it("tracks the current default time zone within one module instance", async () => {
+    const originalTimeZone = process.env.TZ;
+    const originalDefaultTimeZone =
+      new Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const value = "2026-07-14T01:00:00.000Z";
+    const expected = () =>
+      new Date(value).toLocaleDateString("zh-CN", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+
+    try {
+      process.env.TZ = "Asia/Shanghai";
+      vi.resetModules();
+      const sameModule = await import("./libraryPresentation");
+      expect(sameModule.formatBookDate(value)).toBe(expected());
+
+      process.env.TZ = "America/Los_Angeles";
+      expect(sameModule.formatBookDate(value)).toBe(expected());
+    } finally {
+      process.env.TZ = originalTimeZone ?? originalDefaultTimeZone;
+      vi.resetModules();
+    }
+  });
+
+  it("eagerly reuses the main formatter until the time zone changes", () => {
+    const source = readFileSync(
+      new URL("./libraryPresentation.ts", import.meta.url),
+      "utf8"
+    );
+
+    expect(source).toMatch(
+      /^let bookDateFormatter = new Intl\.DateTimeFormat\("zh-CN", bookDateOptions\);/m
+    );
+    expect(source).toContain(
+      "let bookDateTimeZone = bookDateFormatter.resolvedOptions().timeZone;"
+    );
+    expect(source).toContain(
+      "const currentTimeZone = new Intl.DateTimeFormat().resolvedOptions().timeZone;"
+    );
+    expect(
+      source.match(
+        /new Intl\.DateTimeFormat\("zh-CN", bookDateOptions\)/g
+      )
+    ).toHaveLength(2);
+    expect(source).toMatch(
+      /if \(currentTimeZone !== bookDateTimeZone\) \{\s+bookDateFormatter = new Intl\.DateTimeFormat\("zh-CN", bookDateOptions\);\s+bookDateTimeZone = bookDateFormatter\.resolvedOptions\(\)\.timeZone;\s+\}/
+    );
+    expect(source).toContain("return bookDateFormatter.format(date);");
+    expect(source).not.toContain(".toLocaleDateString(");
   });
 
   it("uses a distinct file stem as source and otherwise stays honest", () => {

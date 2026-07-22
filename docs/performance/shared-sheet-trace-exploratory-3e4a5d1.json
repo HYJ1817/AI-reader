@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "exploratory-candidate",
+  "acceptanceStatus": "not-validated-requires-fresh-confirmatory-run",
+  "revision": "3e4a5d192403d4a8f878eea64f06bc29fcf6c699",
+  "baselineRecord": "docs/performance/shared-sheet-trace-baseline-fa1fc21.json",
+  "method": {
+    "device": "Playwright iPhone 14",
+    "runCount": 3,
+    "context": "fresh isolated context per run; service workers blocked",
+    "readiness": "domcontentloaded + visible library + data-library-loading=false + deterministic TXT import + list mode + visible real More button + 600ms idle",
+    "click": "real pointer click at the visible More button center",
+    "traceWindowUs": 700000,
+    "eventFilter": "complete events (ph=X) with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+    "mainThreadCategories": [
+      "UpdateLayoutTree",
+      "Layout",
+      "Paint"
+    ],
+    "allThreadCategories": [
+      "RasterTask"
+    ]
+  },
+  "browserVersion": null,
+  "browserVersionRecorded": false,
+  "executedProbeSha256": null,
+  "executedProbeSha256Recorded": false,
+  "permanentProbe": {
+    "path": "scripts/shared-sheet-trace-probe.cjs",
+    "sha256AtPreservation": "16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb"
+  },
+  "auditNote": "The exploratory run used the same documented matched method, but the temporary probe hash and Chromium version were not recorded at execution time and are intentionally null. The 50% comparison was selected after seeing this evidence, so these values are exploratory rather than confirmatory acceptance evidence.",
+  "runs": [
+    {
+      "run": 1,
+      "metrics": {
+        "clickToMount": 36.80000001192093,
+        "frames": 43,
+        "p95": 16.799999999999955,
+        "maxFrame": 33.30000000000018,
+        "longTasks": 0,
+        "maxLongTask": 0,
+        "totalLongTask": 0,
+        "layoutShift": 0,
+        "observerSupport": {
+          "longtask": true,
+          "layoutShift": true
+        }
+      },
+      "contract": {
+        "hasExplicitBackdrop": true,
+        "overlayInlineOpacity": "",
+        "overlayComputedOpacity": "1",
+        "overlayBackdropToken": "",
+        "panelBackdropToken": ""
+      },
+      "trace": {
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 781.405,
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 15.689, "selfMs": 15.689 },
+          "Layout": { "count": 3, "totalMs": 7.199, "selfMs": 7.199 },
+          "Paint": { "count": 49, "totalMs": 4.517, "selfMs": 2.077 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "RasterTask": { "count": 30, "totalMs": 22.63, "selfMs": 0.144 }
+        }
+      }
+    },
+    {
+      "run": 2,
+      "metrics": {
+        "clickToMount": 36.09999996423721,
+        "frames": 43,
+        "p95": 16.700000000000045,
+        "maxFrame": 16.799999999999955,
+        "longTasks": 0,
+        "maxLongTask": 0,
+        "totalLongTask": 0,
+        "layoutShift": 0,
+        "observerSupport": {
+          "longtask": true,
+          "layoutShift": true
+        }
+      },
+      "contract": {
+        "hasExplicitBackdrop": true,
+        "overlayInlineOpacity": "",
+        "overlayComputedOpacity": "1",
+        "overlayBackdropToken": "",
+        "panelBackdropToken": ""
+      },
+      "trace": {
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 774.746,
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 15.239, "selfMs": 15.239 },
+          "Layout": { "count": 3, "totalMs": 7.255, "selfMs": 7.255 },
+          "Paint": { "count": 32, "totalMs": 2.463, "selfMs": 1.242 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "RasterTask": { "count": 29, "totalMs": 26.752, "selfMs": 0.118 }
+        }
+      }
+    },
+    {
+      "run": 3,
+      "metrics": {
+        "clickToMount": 39.10000002384186,
+        "frames": 42,
+        "p95": 16.799999999999955,
+        "maxFrame": 33.299999999999955,
+        "longTasks": 0,
+        "maxLongTask": 0,
+        "totalLongTask": 0,
+        "layoutShift": 0,
+        "observerSupport": {
+          "longtask": true,
+          "layoutShift": true
+        }
+      },
+      "contract": {
+        "hasExplicitBackdrop": true,
+        "overlayInlineOpacity": "",
+        "overlayComputedOpacity": "1",
+        "overlayBackdropToken": "",
+        "panelBackdropToken": ""
+      },
+      "trace": {
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 759.382,
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 14.967, "selfMs": 14.967 },
+          "Layout": { "count": 3, "totalMs": 6.862, "selfMs": 6.862 },
+          "Paint": { "count": 49, "totalMs": 4.169, "selfMs": 1.907 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "RasterTask": { "count": 30, "totalMs": 17.442, "selfMs": 0.092 }
+        }
+      }
+    }
+  ],
+  "exploratoryDurationComparison": {
+    "UpdateLayoutTree": {
+      "baselineMedianMs": 41.917,
+      "ceilingMs": 20.9585,
+      "candidateMedianMs": 15.239,
+      "candidateMaximumMs": 15.689,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "Paint": {
+      "baselineMedianMs": 17.075,
+      "ceilingMs": 8.5375,
+      "candidateMedianMs": 4.169,
+      "candidateMaximumMs": 4.517,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "RasterTask": {
+      "baselineMedianMs": 67.918,
+      "ceilingMs": 33.959,
+      "candidateMedianMs": 22.63,
+      "candidateMaximumMs": 26.752,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    }
+  }
+}

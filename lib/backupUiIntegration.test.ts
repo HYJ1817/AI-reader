@@ -7,22 +7,23 @@ const pageSource = readFileSync(
 );
 
 describe("backup restore UI integration", () => {
-  it("clears stale reader and AI state after replacing the library", () => {
+  it("quiesces and clears stale reader state before replacing the library", () => {
+    const guardIndex = pageSource.indexOf("await runBackupRestoreGuarded({");
     const restoreIndex = pageSource.indexOf("await restoreBackupPayload(data)");
-    const resetIndex = pageSource.indexOf("resetAskAi();", restoreIndex);
+    const dismissIndex = pageSource.indexOf("navigation.dismissReader()", guardIndex);
+    const clearIndex = pageSource.indexOf("clearReaderBook();", guardIndex);
+    const resetIndex = pageSource.indexOf("resetAskAi();", guardIndex);
     const successIndex = pageSource.indexOf(
       "setBackupStatus(UI_TEXT.BACKUP_RESTORED)",
       restoreIndex
     );
 
+    expect(guardIndex).toBeGreaterThanOrEqual(0);
     expect(restoreIndex).toBeGreaterThanOrEqual(0);
-    expect(pageSource.indexOf("setOpenBook(null);", restoreIndex)).toBeLessThan(
-      successIndex
-    );
-    expect(pageSource.indexOf("setParagraphs([]);", restoreIndex)).toBeLessThan(
-      successIndex
-    );
-    expect(resetIndex).toBeGreaterThan(restoreIndex);
+    expect(dismissIndex).toBeGreaterThan(guardIndex);
+    expect(clearIndex).toBeGreaterThan(dismissIndex);
+    expect(resetIndex).toBeGreaterThan(clearIndex);
     expect(resetIndex).toBeLessThan(successIndex);
+    expect(restoreIndex).toBeGreaterThan(resetIndex);
   });
 });

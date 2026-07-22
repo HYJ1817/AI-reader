@@ -22,16 +22,22 @@ describe("app navigation hook integration", () => {
       "presentSheet",
       "dismissSheet",
       "removeInvalid",
+      "getState",
+      "subscribe",
     ]) {
       expect(hookSource).toMatch(new RegExp(`\\b${command}\\b`));
     }
   });
 
-  it("projects commands through one reducer-backed state ref", () => {
-    expect(hookSource).toMatch(/useReducer\(\s*reduceAppNavigation/);
-    expect(hookSource).toContain("stateRef");
-    expect(hookSource).toContain("reduceAppNavigation(stateRef.current, action)");
+  it("projects core navigation through an external store", () => {
+    expect(hookSource).toContain("useSyncExternalStore");
+    expect(hookSource).toContain("createAppNavigationStore");
+    expect(hookSource).toContain("getState");
+    expect(hookSource).toContain("subscribe");
+    expect(hookSource).toContain("reduceAppNavigation(");
     expect(hookSource).toContain("mergeNavigationHistory(");
+    expect(hookSource).not.toMatch(/\buseReducer\b/);
+    expect(hookSource).toContain("state: AppNavigationCoreState");
   });
 
   it("uses replace, push, and browser traversal for their distinct roles", () => {
@@ -42,7 +48,7 @@ describe("app navigation hook integration", () => {
   });
 
   it("replaces a transient sheet when it presents the reader", () => {
-    expect(hookSource).toContain("stateRef.current.sheets.length > 0");
+    expect(hookSource).toContain("store.getState().sheets.length > 0");
     expect(hookSource).toContain('? "replace" : "push"');
   });
 
@@ -58,5 +64,12 @@ describe("app navigation hook integration", () => {
     expect(providerSource).toContain("NavigationContext.Provider");
     expect(providerSource).toContain("export function useNavigation");
     expect(providerSource).toContain("useNavigation requires NavigationProvider");
+  });
+
+  it("exposes sheets through their own full-state subscription", () => {
+    expect(providerSource).toContain("useSyncExternalStore");
+    expect(providerSource).toContain("export function useNavigationSheets");
+    expect(providerSource).toContain("value.subscribe");
+    expect(providerSource).toContain("value.getState().sheets");
   });
 });

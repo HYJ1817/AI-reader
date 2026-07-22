@@ -21,26 +21,27 @@
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
     "motion": "^12.42.2",
-    "next": "16.2.6",
+    "next": "16.2.11",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "overrides": {
     "@xmldom/xmldom": "^0.8.13",
     "postcss": "^8.5.15",
+    "sharp": "0.35.3",
     "xmldom": "npm:@xmldom/xmldom@^0.8.13"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.20.1",
+    "@opennextjs/cloudflare": "^1.20.2",
     "@playwright/test": "^1.61.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
+    "eslint-config-next": "16.2.11",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5",
     "vitest": "^4.1.7",
-    "wrangler": "^4.108.0"
+    "wrangler": "^4.113.0"
   }
 }

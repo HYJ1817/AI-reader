@@ -67,6 +67,69 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).not.toContain("panel.style");
   });
 
+  it("isolates sheet backdrop opacity from the transform-only panel", () => {
+    expect(motionSheetSource).toContain(
+      "className={styles.motionSheetBackdrop}"
+    );
+    expect(motionSheetSource).toContain("style={{ opacity: progress }}");
+    expect(motionSheetSource).toContain('data-motion-sheet="backdrop"');
+    expect(motionSheetSource).not.toContain("--sheet-backdrop-opacity");
+    expect(motionSheetSource).not.toContain("initial={{ opacity: 0 }}");
+    expect(motionSheetSource).not.toContain("animate={{ opacity: 1 }}");
+    expect(motionSheetSource).not.toContain("exit={{ opacity: 0 }}");
+    expect(motionSheetSource).toContain("const interruptClose");
+    expect(motionSheetSource).toContain("activeAnimationRef.current?.stop()");
+  });
+
+  it("avoids forced layout while establishing cold-mount sheet geometry", () => {
+    expect(motionSheetSource).toMatch(
+      /const \[sheetHeight, setSheetHeight\] = useState\([^;]*window\.innerHeight/s
+    );
+    expect(motionSheetSource).toContain(
+      'typeof window === "undefined" ? 900'
+    );
+    expect(motionSheetSource).toContain(
+      "const y = useMotionValue(sheetHeight)"
+    );
+    expect(motionSheetSource).not.toContain("useMotionValue(900)");
+    expect(motionSheetSource).toContain("entry?.borderBoxSize");
+    expect(motionSheetSource).toContain("Array.isArray(borderBoxSize)");
+    expect(motionSheetSource).toContain("borderBox.blockSize");
+
+    const heightObserverEffect = motionSheetSource.match(
+      /useEffect\(\(\) => \{[\s\S]*?new ResizeObserver\(\(entries\) => \{([\s\S]*?)\}\);[\s\S]*?observer\.observe\(panel\);[\s\S]*?\}, \[\]\);/
+    );
+    expect(heightObserverEffect).not.toBeNull();
+    expect(heightObserverEffect?.[1]).toContain(
+      "panel.getBoundingClientRect().height"
+    );
+    expect(motionSheetSource.match(/panel\.getBoundingClientRect\(\)/g)).toHaveLength(
+      1
+    );
+    expect(motionSheetSource).not.toContain("updateHeight();");
+  });
+
+  it("initializes visual viewport state without a redundant mount update", () => {
+    const viewportInitializer = motionSheetSource.match(
+      /useState<VisualViewportFrame \| null>\(\(\) => \{([\s\S]*?)\n\s*\}\);/
+    );
+    expect(viewportInitializer).not.toBeNull();
+    expect(viewportInitializer?.[1]).toContain('typeof window === "undefined"');
+    expect(viewportInitializer?.[1]).toContain("window.visualViewport");
+
+    const viewportEffect = motionSheetSource.match(
+      /useEffect\(\(\) => \{[\s\S]*?const viewport = window\.visualViewport;([\s\S]*?)\}, \[\]\);/
+    );
+    expect(viewportEffect).not.toBeNull();
+    expect(viewportEffect?.[1]).toContain(
+      'viewport.addEventListener("resize", syncViewport)'
+    );
+    expect(viewportEffect?.[1]).toContain(
+      'viewport.addEventListener("scroll", syncViewport)'
+    );
+    expect(viewportEffect?.[1]).not.toMatch(/\n\s*syncViewport\(\);/);
+  });
+
   it("removes standalone keyframes from library and AI nested views", () => {
     for (const source of [librarySource, aiSettingsSource]) {
       expect(source).not.toContain("subviewEnterForward");
@@ -102,7 +165,8 @@ describe("overlay and nested view motion", () => {
 
   it("renders exactly one overlay from the navigation sheet stack", () => {
     expect(overlaysSource).toContain("useNavigation()");
-    expect(overlaysSource).toContain("navigation.state.sheets.at(-1)");
+    expect(overlaysSource).toContain("useNavigationSheets()");
+    expect(overlaysSource).toContain("sheets.at(-1)");
     expect(overlaysSource).toContain("switch (sheet.route)");
     expect(overlaysSource).toContain("data-sheet-route={sheet.route}");
     for (const route of [
@@ -112,6 +176,7 @@ describe("overlay and nested view motion", () => {
       "ask-ai",
       "reading-goal",
       "book-actions",
+      "book-rename",
       "book-delete",
       "book-groups",
       "batch-groups",

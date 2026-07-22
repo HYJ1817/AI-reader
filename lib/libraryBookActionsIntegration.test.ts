@@ -10,6 +10,10 @@ const overlaysSource = readFileSync(
   new URL("../app/AppOverlays.tsx", import.meta.url),
   "utf8"
 );
+const pageSource = readFileSync(
+  new URL("../app/page.tsx", import.meta.url),
+  "utf8"
+);
 const moduleCss = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -47,5 +51,23 @@ describe("book delete confirmation", () => {
     expect(overlaysSource).toContain('case "book-delete"');
     expect(overlaysSource).toContain("<BookDeleteSheet");
     expect(overlaysSource).not.toContain("bookAction.deleteConfirmOpen");
+  });
+});
+
+describe("book group actions", () => {
+  it("carries the active book id from the overlay into group mutations", () => {
+    expect(overlaysSource).toContain(
+      "actions.toggleBookGroup(book.id, item.id)"
+    );
+    expect(overlaysSource).toContain("actions.createGroup(book.id)");
+    expect(pageSource).toContain(
+      "async function handleToggleGroup(bookId: string, groupId: string)"
+    );
+    expect(pageSource).toContain(
+      "async function handleCreateGroup(bookId: string)"
+    );
+    expect(pageSource).toContain(
+      "const currentBook = books.find((book) => book.id === bookId)"
+    );
   });
 });

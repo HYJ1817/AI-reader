@@ -118,7 +118,13 @@ describe("motion CSS", () => {
     expect(pageSource).not.toContain("readerPrefsMotionTimerRef");
     expect(pageSource).not.toContain("readerPreferencesAdjusting");
     const willChangeDeclarations = css.match(/will-change:\s*[^;]+;/g) ?? [];
-    expect(willChangeDeclarations).toEqual(["will-change: transform;"]);
+    expect([...willChangeDeclarations].sort()).toEqual(
+      [
+        "will-change: opacity;",
+        "will-change: transform;",
+        "will-change: transform;",
+      ].sort()
+    );
     const swipeStart = css.indexOf(".readerSwipeTracking {");
     const swipeEnd = css.indexOf("}", swipeStart);
     expect(css.slice(swipeStart, swipeEnd)).toContain("will-change: transform;");
@@ -126,6 +132,26 @@ describe("motion CSS", () => {
 
   it("keeps the moving sheet shadow within a restrained paint budget", () => {
     expect(css).toContain("--shadow-sheet: 0 -8px 18px rgba(0, 0, 0, 0.16);");
+  });
+
+  it("keeps shared sheet entrance on bounded compositor properties", () => {
+    const backdropStart = css.indexOf(".motionSheetBackdrop {");
+    const backdropEnd = css.indexOf("}", backdropStart);
+    const backdropRule = css.slice(backdropStart, backdropEnd);
+    expect(backdropRule).toContain("will-change: opacity;");
+    expect(backdropRule).not.toMatch(/(?:filter|backdrop-filter|transform):/);
+
+    const panelStart = css.indexOf(".motionSheetPanel {");
+    const panelEnd = css.indexOf("}", panelStart);
+    const panelRule = css.slice(panelStart, panelEnd);
+    expect(panelRule).toContain("will-change: transform;");
+    expect(panelRule).not.toMatch(
+      /(?:top|left|right|bottom|width|height|filter|backdrop-filter):/
+    );
+
+    expect(css).not.toContain("--sheet-backdrop-opacity");
+    expect(css).not.toContain(".sheetOverlay::before");
+    expect(css).not.toContain(".motionSheetOverlay::before");
   });
 
   it("uses persistent tab surfaces instead of display switching or mount fades", () => {

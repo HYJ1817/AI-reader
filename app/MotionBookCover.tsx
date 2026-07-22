@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { m } from "motion/react";
-import type { BookRecord } from "@/lib/db";
+import type { BookMetadata } from "@/lib/db";
 import { bookCoverLayoutId } from "@/lib/sharedBookTransition";
 import { MOTION_SPRING } from "@/lib/motionSystem";
 import BookCover from "./BookCover";
@@ -13,7 +13,7 @@ import styles from "./page.module.css";
 export { bookCoverLayoutId } from "@/lib/sharedBookTransition";
 
 type MotionBookCoverProps = {
-  book: BookRecord;
+  book: BookMetadata;
   originId: string;
 };
 

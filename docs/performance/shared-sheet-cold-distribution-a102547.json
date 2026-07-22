@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "diagnostic-cold-distribution-playwright-trace-enabled",
+  "revision": "a1025476515ac4a594a973b7780517f5b9db705b",
+  "recordedAt": "2026-07-22",
+  "command": "npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14 --grep \"book action sheet entrance stays within mobile frame budgets\" --repeat-each=30 --workers=1 --retries=0",
+  "commandExitCode": 1,
+  "playwright": {
+    "version": "1.61.1",
+    "browser": "Chromium 149.0.7827.55",
+    "browserRevision": "chromium-1228",
+    "project": "iphone-14",
+    "workers": 1,
+    "retries": 0
+  },
+  "context": "diagnostic only: one continuous production-managed Playwright invocation; exactly 30 repeat-each tests; every repeat creates a fresh browser context/page; real visible library More button; no warm sheet mount; no replacement, retry, discard, or supplemental sample; no CDP timeline probe was attached, but the command omitted --trace=off while playwright.config.ts set trace=retain-on-failure, so Playwright trace recording was enabled and successful traces were deleted; this is not strict trace-off/no-trace acceptance evidence",
+  "traceMode": {
+    "cliOverride": null,
+    "configured": "retain-on-failure",
+    "recordingEnabled": true,
+    "strictTraceOff": false
+  },
+  "units": {
+    "run": "1-based sample ordinal",
+    "clickToMount": "milliseconds",
+    "frames": "count",
+    "p95": "milliseconds per sampled requestAnimationFrame interval",
+    "maxFrame": "milliseconds per sampled requestAnimationFrame interval",
+    "maxLongTask": "milliseconds",
+    "layoutShift": "dimensionless cumulative layout-shift score",
+    "budgetPass": "boolean",
+    "playwrightTestPass": "boolean"
+  },
+  "statisticsDefinition": {
+    "summaryMinimum": "minimum value across the 30 run records",
+    "summaryMedian": "sort ascending and select sorted[Math.floor(n / 2)]; for n=30 this is the 0-based index 15 upper-middle value, not the average of indexes 14 and 15",
+    "summaryP95": "sort ascending and select sorted[Math.floor(n * 0.95)]; for n=30 this is 0-based index 28; the observed array is non-empty and no explicit clamp is applied",
+    "summaryMaximum": "maximum value across the 30 run records",
+    "perRunP95": "inside each Playwright run, discard the first two requestAnimationFrame intervals, sort sampledIntervals ascending, then select sorted[Math.floor(sorted.length * 0.95)] using a 0-based index; no explicit clamp is applied and the test uses nullish fallback 0 only if the indexed value is absent"
+  },
+  "acceptance": {
+    "status": "diagnostic-not-strict-trace-off-acceptance",
+    "criteria": {
+      "clickToMountMsMaximum": 34,
+      "p95FrameIntervalMsMaximum": 20,
+      "maximumFrameIntervalMsMaximum": 34,
+      "maximumLongTaskMs": 0,
+      "layoutShift": 0
+    },
+    "passingSamples": 28,
+    "failingSamples": [9, 28],
+    "allPass": false,
+    "note": "The Playwright command reported 28 passed and 2 failed. Run 9 failed the predeclared maximum-frame criterion with 50ms; run 28 failed the click-to-mount criterion with 42.1ms. Playwright also requires frames >= 40 in addition to the five distribution criteria; all 30 samples met that extra assertion with 46-48 frames, so the Playwright failures are exactly the same two budget failures. Both are retained exactly as observed, with no retry, replacement, discard, or supplemental sample."
+  },
+  "summary": {
+    "clickToMountMs": { "minimum": 11.899999976158142, "median": 15.600000023841858, "p95": 28.600000023841858, "maximum": 42.10000002384186 },
+    "frames": { "minimum": 46, "median": 48, "p95": 48, "maximum": 48 },
+    "p95FrameIntervalMs": { "minimum": 16.700000000000045, "median": 16.799999999999955, "p95": 16.800000000000182, "maximum": 16.800000000000182 },
+    "maximumFrameIntervalMs": { "minimum": 16.700000000000045, "median": 16.799999999999955, "p95": 33.399999999999864, "maximum": 50 },
+    "maximumLongTaskMs": { "minimum": 0, "median": 0, "p95": 0, "maximum": 0 },
+    "layoutShift": { "minimum": 0, "median": 0, "p95": 0, "maximum": 0 }
+  },
+  "runs": [
+    { "run": 1, "clickToMount": 17.700000047683716, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 2, "clickToMount": 12.5, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 3, "clickToMount": 28.600000023841858, "frames": 48, "p95": 16.700000000000273, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 4, "clickToMount": 18.600000023841858, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 5, "clickToMount": 18, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 6, "clickToMount": 16.5, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 7, "clickToMount": 12.5, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 8, "clickToMount": 11.899999976158142, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 9, "clickToMount": 16.399999976158142, "frames": 46, "p95": 16.700000000000045, "maxFrame": 50, "maxLongTask": 0, "layoutShift": 0, "budgetPass": false, "playwrightTestPass": false },
+    { "run": 10, "clickToMount": 13.100000023841858, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 11, "clickToMount": 12.399999976158142, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 12, "clickToMount": 14.199999928474426, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 13, "clickToMount": 22.200000047683716, "frames": 47, "p95": 16.800000000000182, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 14, "clickToMount": 13.700000047683716, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 15, "clickToMount": 12.600000023841858, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 16, "clickToMount": 11.899999976158142, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.700000000000045, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 17, "clickToMount": 17.100000023841858, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 18, "clickToMount": 12.5, "frames": 48, "p95": 16.800000000000182, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 19, "clickToMount": 15.600000023841858, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 20, "clickToMount": 16.700000047683716, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 21, "clickToMount": 19.299999952316284, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 22, "clickToMount": 13.599999904632568, "frames": 48, "p95": 16.800000000000182, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 23, "clickToMount": 15.200000047683716, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 24, "clickToMount": 15.700000047683716, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 25, "clickToMount": 12.399999976158142, "frames": 48, "p95": 16.799999999999955, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 26, "clickToMount": 17.299999952316284, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 27, "clickToMount": 12.200000047683716, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 28, "clickToMount": 42.10000002384186, "frames": 47, "p95": 16.799999999999955, "maxFrame": 33.399999999999864, "maxLongTask": 0, "layoutShift": 0, "budgetPass": false, "playwrightTestPass": false },
+    { "run": 29, "clickToMount": 16.899999976158142, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.800000000000182, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true },
+    { "run": 30, "clickToMount": 11.899999976158142, "frames": 48, "p95": 16.700000000000045, "maxFrame": 16.799999999999955, "maxLongTask": 0, "layoutShift": 0, "budgetPass": true, "playwrightTestPass": true }
+  ]
+}

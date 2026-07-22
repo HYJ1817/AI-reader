@@ -1,12 +1,11 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { ReaderMode } from "./readerMode";
 
-export type BookRecord = {
+export type BookMetadata = {
   id: string;
   title: string;
   format: "epub" | "txt";
   fileName: string;
-  fileBlob: Blob;
   size: number;
   createdAt: string;
   lastOpenedAt?: string;
@@ -14,7 +13,11 @@ export type BookRecord = {
   coverImageBlob?: Blob;
 };
 
-type StoredBookRecord = Omit<BookRecord, "fileBlob" | "coverImageBlob"> & {
+export type BookRecord = BookMetadata & {
+  fileBlob: Blob;
+};
+
+type StoredBookRecord = Omit<BookMetadata, "coverImageBlob"> & {
   fileBlob?: Blob;
   coverImageBlob?: Blob;
 };
@@ -25,6 +28,12 @@ type BookFileRecord = {
   fileType: string;
   coverImageData?: ArrayBuffer;
   coverImageType?: string;
+};
+
+type BookCoverRecord = {
+  bookId: string;
+  coverImageData: ArrayBuffer;
+  coverImageType: string;
 };
 
 export type ReadingPosition = {
@@ -88,6 +97,7 @@ const CUSTOM_BACKGROUND_ID: CustomBackgroundRecord["id"] = "app-background";
 type AiReaderDb = Dexie & {
   books: EntityTable<StoredBookRecord, "id">;
   bookFiles: EntityTable<BookFileRecord, "bookId">;
+  bookCovers: EntityTable<BookCoverRecord, "bookId">;
   readingPositions: EntityTable<ReadingPosition, "bookId">;
   annotations: EntityTable<AnnotationRecord, "id">;
   dailyReadingStats: EntityTable<DailyReadingStat, "date">;
@@ -120,6 +130,10 @@ function createDb(): AiReaderDb {
     bookFiles: "bookId",
   });
 
+  db.version(6).stores({
+    bookCovers: "bookId",
+  });
+
   return db;
 }
 
@@ -140,46 +154,100 @@ export async function saveBook(record: BookRecord): Promise<void> {
     bookId: record.id,
     fileData: await fileBlob.arrayBuffer(),
     fileType: fileBlob.type || "application/octet-stream",
-    ...(coverImageBlob
-      ? {
-          coverImageData: await coverImageBlob.arrayBuffer(),
-          coverImageType: coverImageBlob.type || "image/*",
-        }
-      : {}),
   };
-  await db.transaction("rw", [db.books, db.bookFiles], async () => {
+  const coverRecord: BookCoverRecord | null = coverImageBlob
+    ? {
+        bookId: record.id,
+        coverImageData: await coverImageBlob.arrayBuffer(),
+        coverImageType: coverImageBlob.type || "image/*",
+      }
+    : null;
+  await db.transaction("rw", [db.books, db.bookFiles, db.bookCovers], async () => {
     await db.books.put(metadata);
     await db.bookFiles.put(fileRecord);
+    if (coverRecord) {
+      await db.bookCovers.put(coverRecord);
+    } else {
+      await db.bookCovers.delete(record.id);
+    }
   });
 }
 
-export async function listBooks(): Promise<BookRecord[]> {
+function compareBooksByRecency(a: BookMetadata, b: BookMetadata): number {
+  const aTime = a.lastOpenedAt ?? a.createdAt;
+  const bTime = b.lastOpenedAt ?? b.createdAt;
+  if (aTime !== bTime) return bTime.localeCompare(aTime);
+  return b.createdAt.localeCompare(a.createdAt);
+}
+
+function hydrateCover(record?: BookCoverRecord): Blob | undefined {
+  return record
+    ? new Blob([record.coverImageData], {
+        type: record.coverImageType || "image/*",
+      })
+    : undefined;
+}
+
+function toBookMetadata(
+  storedBook: StoredBookRecord,
+  coverRecord?: BookCoverRecord
+): BookMetadata {
+  const coverImageBlob = hydrateCover(coverRecord) ?? storedBook.coverImageBlob;
+  return {
+    id: storedBook.id,
+    title: storedBook.title,
+    format: storedBook.format,
+    fileName: storedBook.fileName,
+    size: storedBook.size,
+    createdAt: storedBook.createdAt,
+    ...(storedBook.lastOpenedAt
+      ? { lastOpenedAt: storedBook.lastOpenedAt }
+      : {}),
+    ...(storedBook.groupIds ? { groupIds: storedBook.groupIds } : {}),
+    ...(coverImageBlob ? { coverImageBlob } : {}),
+  };
+}
+
+export async function listBookMetadata(): Promise<BookMetadata[]> {
   const db = getDb();
-  const storedBooks = await db.books.toArray();
-  const all = await Promise.all(
-    storedBooks.map(async (storedBook) => {
-      const fileRecord = await db.bookFiles.get(storedBook.id);
-      if (fileRecord) return hydrateBookRecord(storedBook, fileRecord);
-      if (!(storedBook.fileBlob instanceof Blob)) {
-        throw new Error(`Stored file is unavailable for book ${storedBook.id}.`);
+  const [storedBooks, covers] = await Promise.all([
+    db.books.toArray(),
+    db.bookCovers.toArray(),
+  ]);
+  const coverByBookId = new Map(covers.map((cover) => [cover.bookId, cover]));
+  return storedBooks
+    .map((book) => toBookMetadata(book, coverByBookId.get(book.id)))
+    .sort(compareBooksByRecency);
+}
+
+export async function getBookFile(id: string): Promise<Blob | undefined> {
+  const db = getDb();
+  const fileRecord = await db.bookFiles.get(id);
+  if (fileRecord) {
+    return new Blob([fileRecord.fileData], { type: fileRecord.fileType });
+  }
+
+  const storedBook = await db.books.get(id);
+  if (!(storedBook?.fileBlob instanceof Blob)) return undefined;
+  const legacyBook: BookRecord = {
+    ...toBookMetadata(storedBook),
+    fileBlob: storedBook.fileBlob,
+  };
+  await saveBook(legacyBook);
+  return storedBook.fileBlob;
+}
+
+export async function listBooks(): Promise<BookRecord[]> {
+  const metadata = await listBookMetadata();
+  return Promise.all(
+    metadata.map(async (book) => {
+      const hydrated = await getBook(book.id);
+      if (!hydrated) {
+        throw new Error(`Stored file is unavailable for book ${book.id}.`);
       }
-      const legacyBook: BookRecord = {
-        ...storedBook,
-        fileBlob: storedBook.fileBlob,
-        ...(storedBook.coverImageBlob
-          ? { coverImageBlob: storedBook.coverImageBlob }
-          : {}),
-      };
-      await saveBook(legacyBook);
-      return legacyBook;
+      return hydrated;
     })
   );
-  return all.sort((a, b) => {
-    const aTime = a.lastOpenedAt ?? a.createdAt;
-    const bTime = b.lastOpenedAt ?? b.createdAt;
-    if (aTime !== bTime) return bTime.localeCompare(aTime);
-    return b.createdAt.localeCompare(a.createdAt);
-  });
 }
 
 export async function getBook(id: string): Promise<BookRecord | undefined> {
@@ -187,44 +255,36 @@ export async function getBook(id: string): Promise<BookRecord | undefined> {
   const storedBook = await db.books.get(id);
   if (!storedBook) return undefined;
   const fileRecord = await db.bookFiles.get(id);
-  if (fileRecord) return hydrateBookRecord(storedBook, fileRecord);
+  if (fileRecord) {
+    let coverRecord = await db.bookCovers.get(id);
+    if (!coverRecord && fileRecord.coverImageData) {
+      coverRecord = {
+        bookId: id,
+        coverImageData: fileRecord.coverImageData,
+        coverImageType: fileRecord.coverImageType || "image/*",
+      };
+      await db.bookCovers.put(coverRecord);
+    }
+    return {
+      ...toBookMetadata(storedBook, coverRecord),
+      fileBlob: new Blob([fileRecord.fileData], { type: fileRecord.fileType }),
+    };
+  }
   if (!(storedBook.fileBlob instanceof Blob)) return undefined;
   const legacyBook: BookRecord = {
-    ...storedBook,
+    ...toBookMetadata(storedBook),
     fileBlob: storedBook.fileBlob,
-    ...(storedBook.coverImageBlob
-      ? { coverImageBlob: storedBook.coverImageBlob }
-      : {}),
   };
   await saveBook(legacyBook);
   return legacyBook;
 }
 
-function hydrateBookRecord(
-  storedBook: StoredBookRecord,
-  fileRecord: BookFileRecord
-): BookRecord {
-  const metadata = { ...storedBook };
-  delete metadata.fileBlob;
-  delete metadata.coverImageBlob;
-  return {
-    ...metadata,
-    fileBlob: new Blob([fileRecord.fileData], { type: fileRecord.fileType }),
-    ...(fileRecord.coverImageData
-      ? {
-          coverImageBlob: new Blob([fileRecord.coverImageData], {
-            type: fileRecord.coverImageType || "image/*",
-          }),
-        }
-      : {}),
-  };
-}
-
 export async function deleteBook(id: string): Promise<void> {
   const db = getDb();
-  await db.transaction("rw", [db.books, db.bookFiles, db.readingPositions, db.annotations], async () => {
+  await db.transaction("rw", [db.books, db.bookFiles, db.bookCovers, db.readingPositions, db.annotations], async () => {
     await db.books.delete(id);
     await db.bookFiles.delete(id);
+    await db.bookCovers.delete(id);
     await db.readingPositions.delete(id);
     await db.annotations.where("bookId").equals(id).delete();
   });
@@ -309,6 +369,20 @@ export async function updateBookGroupMembership(bookId: string, groupIds: string
   await db.books.update(bookId, { groupIds: deduped });
 }
 
+export async function updateBookLastOpenedAt(
+  id: string,
+  lastOpenedAt: string
+): Promise<void> {
+  await getDb().books.update(id, { lastOpenedAt });
+}
+
+export async function renameBook(id: string, title: string): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Book title is required.");
+  const updated = await getDb().books.update(id, { title: trimmed });
+  if (updated === 0) throw new Error(`Book not found: ${id}.`);
+}
+
 export async function saveCustomBackgroundImage(imageBlob: Blob): Promise<void> {
   await getDb().customBackgrounds.put({
     id: CUSTOM_BACKGROUND_ID,
@@ -332,9 +406,10 @@ export async function deleteCustomBackgroundImage(): Promise<void> {
 
 export async function clearAllReaderData(): Promise<void> {
   const db = getDb();
-  await db.transaction("rw", [db.books, db.bookFiles, db.readingPositions, db.annotations, db.dailyReadingStats, db.bookGroups, db.customBackgrounds], async () => {
+  await db.transaction("rw", [db.books, db.bookFiles, db.bookCovers, db.readingPositions, db.annotations, db.dailyReadingStats, db.bookGroups, db.customBackgrounds], async () => {
     await db.books.clear();
     await db.bookFiles.clear();
+    await db.bookCovers.clear();
     await db.readingPositions.clear();
     await db.annotations.clear();
     await db.dailyReadingStats.clear();
@@ -361,13 +436,14 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
         bookId: metadata.id,
         fileData: await fileBlob.arrayBuffer(),
         fileType: fileBlob.type || "application/octet-stream",
-        ...(coverImageBlob
-          ? {
-              coverImageData: await coverImageBlob.arrayBuffer(),
-              coverImageType: coverImageBlob.type || "image/*",
-            }
-          : {}),
       } satisfies BookFileRecord,
+      cover: coverImageBlob
+        ? ({
+            bookId: metadata.id,
+            coverImageData: await coverImageBlob.arrayBuffer(),
+            coverImageType: coverImageBlob.type || "image/*",
+          } satisfies BookCoverRecord)
+        : null,
     }))
   );
   await db.transaction(
@@ -375,6 +451,7 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
     [
       db.books,
       db.bookFiles,
+      db.bookCovers,
       db.readingPositions,
       db.annotations,
       db.bookGroups,
@@ -384,12 +461,17 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
     async () => {
       await db.books.clear();
       await db.bookFiles.clear();
+      await db.bookCovers.clear();
       await db.readingPositions.clear();
       await db.annotations.clear();
       await db.bookGroups.clear();
       if (serializedBooks.length > 0) {
         await db.books.bulkPut(serializedBooks.map((book) => book.metadata));
         await db.bookFiles.bulkPut(serializedBooks.map((book) => book.file));
+        const covers = serializedBooks.flatMap((book) =>
+          book.cover ? [book.cover] : []
+        );
+        if (covers.length > 0) await db.bookCovers.bulkPut(covers);
       }
       if (data.readingPositions.length > 0) {
         await db.readingPositions.bulkPut(data.readingPositions);
