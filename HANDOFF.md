@@ -2723,6 +2723,21 @@ Observed results:
   16.7ms, max frame 16.8ms, max long task 0ms, and CLS 0.
 - These automated Chromium measurements verify the configured frame budgets;
   they do not prove sustained 120fps on physical iPhone Safari/PWA hardware.
+- The verified branch was pushed to the existing draft PR #4 without merging
+  `main`: https://github.com/HYJ1817/AI-reader/pull/4
+- Cloudflare OpenNext deployment published Worker version
+  `cea9e6de-5891-4654-afc6-aefc2b7536a2` with BUILD_ID
+  `k_xrRvQ_XuoW5yLieOY2e`.
+- Production verification passed for `/`, all 10 discovered JS/CSS assets,
+  `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and `/downloads/ai-reader-twa.apk`.
+  The remote APK remained 901574 bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`.
+  `POST /api/models` with `{}` returned the expected HTTP 400 provider-field
+  validation error.
+- The one-shot production iPhone 14 Playwright smoke run passed 3/3 with one
+  worker, no retries, and `--trace=off`. Sheet metrics were click-to-mount
+  13.4ms, frame P95 16.7ms, max frame 16.8ms, max long task 0ms, and CLS 0.
 
 Before making another code commit, rerun:
 
