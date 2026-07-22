@@ -2739,6 +2739,25 @@ Observed results:
   worker, no retries, and `--trace=off`. Sheet metrics were click-to-mount
   13.4ms, frame P95 16.7ms, max frame 16.8ms, max long task 0ms, and CLS 0.
 
+## Dependency Audit Repair (2026-07-22)
+
+- The PR #4 `CI / verify` failure on run `29905470857` was isolated to
+  `npm audit --audit-level=high`; Test, Lint, and Build all passed.
+- Updated Next.js and eslint-config-next from 16.2.6 to 16.2.11,
+  `@opennextjs/cloudflare` from 1.20.1 to 1.20.2, Wrangler from 4.108.0 to
+  4.113.0, and locked both Next/Miniflare dependency paths to patched
+  `sharp` 0.35.3 via an npm override.
+- A normal, non-force `npm audit fix` updated vulnerable compatible-range
+  transitive packages to `brace-expansion` 1.1.16/5.0.7 and `js-yaml` 4.3.0.
+  No `npm audit fix --force` was used and the CI audit threshold was not
+  weakened.
+- Fresh local verification: `npm audit --audit-level=high` found 0
+  vulnerabilities; Vitest passed 110 files / 963 tests; full ESLint, normal
+  Next build, standalone Next build, and OpenNext Cloudflare build passed.
+- The focused local iPhone 14 Playwright smoke run passed 3/3 with one worker,
+  no retries, and `--trace=off`; sheet metrics were click-to-mount 12.5ms,
+  frame P95/max 16.8ms, max long task 0ms, and CLS 0.
+
 Before making another code commit, rerun:
 
 ```powershell
