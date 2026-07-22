@@ -376,6 +376,13 @@ export async function updateBookLastOpenedAt(
   await getDb().books.update(id, { lastOpenedAt });
 }
 
+export async function renameBook(id: string, title: string): Promise<void> {
+  const trimmed = title.trim();
+  if (!trimmed) throw new Error("Book title is required.");
+  const updated = await getDb().books.update(id, { title: trimmed });
+  if (updated === 0) throw new Error(`Book not found: ${id}.`);
+}
+
 export async function saveCustomBackgroundImage(imageBlob: Blob): Promise<void> {
   await getDb().customBackgrounds.put({
     id: CUSTOM_BACKGROUND_ID,

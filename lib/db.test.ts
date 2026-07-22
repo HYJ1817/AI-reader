@@ -21,6 +21,7 @@ import {
   updateBookGroupName,
   updateBookGroupMembership,
   updateBookLastOpenedAt,
+  renameBook,
   saveCustomBackgroundImage,
   getCustomBackgroundImage,
   deleteCustomBackgroundImage,
@@ -163,6 +164,37 @@ describe("Book storage", () => {
     expect(await (await getBookFile("last-opened"))?.text()).toBe(
       "unchanged source"
     );
+  });
+
+  it("renames only the display title", async () => {
+    await saveBook(
+      makeBook({
+        id: "rename-me",
+        title: "Old title",
+        fileName: "original.epub",
+        groupIds: ["group-1"],
+      })
+    );
+
+    await renameBook("rename-me", "  New title  ");
+
+    const metadata = (await listBookMetadata()).find(
+      (book) => book.id === "rename-me"
+    );
+    expect(metadata).toMatchObject({
+      title: "New title",
+      fileName: "original.epub",
+      groupIds: ["group-1"],
+    });
+    expect(await (await getBookFile("rename-me"))?.text()).toBe("test");
+  });
+
+  it("rejects a blank display title", async () => {
+    await saveBook(makeBook({ id: "rename-me", title: "Keep title" }));
+    await expect(renameBook("rename-me", "   ")).rejects.toThrow(
+      "Book title is required."
+    );
+    expect((await listBookMetadata())[0].title).toBe("Keep title");
   });
 
   it("stores covers outside source-file records", async () => {
