@@ -147,7 +147,7 @@ export default function MotionSheet({
         : null;
     });
   const panelRef = useRef<HTMLDivElement>(null);
-  const y = useMotionValue(900);
+  const y = useMotionValue(sheetHeight);
   const dragControls = useDragControls();
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const animationGenerationRef = useRef(0);

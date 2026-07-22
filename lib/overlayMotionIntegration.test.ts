@@ -88,6 +88,10 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain(
       'typeof window === "undefined" ? 900'
     );
+    expect(motionSheetSource).toContain(
+      "const y = useMotionValue(sheetHeight)"
+    );
+    expect(motionSheetSource).not.toContain("useMotionValue(900)");
     expect(motionSheetSource).toContain("entry?.borderBoxSize");
     expect(motionSheetSource).toContain("Array.isArray(borderBoxSize)");
     expect(motionSheetSource).toContain("borderBox.blockSize");
