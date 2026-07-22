@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "confirmatory-trace-candidate",
+  "revision": "a1025476515ac4a594a973b7780517f5b9db705b",
+  "script": {
+    "path": "scripts/shared-sheet-trace-probe.cjs",
+    "sourceWorktree": "C:\\aaa\\ai-reader-pwa\\.worktrees\\shared-sheet-performance",
+    "sha256": "16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb"
+  },
+  "browserVersion": "149.0.7827.55",
+  "browserRevision": "chromium-1228",
+  "playwrightVersion": "1.61.1",
+  "baseURL": "http://localhost:3010",
+  "device": "Playwright iPhone 14",
+  "readiness": "domcontentloaded + visible library + data-library-loading=false + deterministic TXT import + list mode + visible real More button + 600ms idle",
+  "context": "fresh isolated context per run; service workers blocked",
+  "click": "real page.mouse click at the visible More button center",
+  "traceCategories": "-*,devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.frame,disabled-by-default-devtools.timeline.invalidationTracking,blink.user_timing,cc,disabled-by-default-cc.debug",
+  "traceWindowUs": 700000,
+  "executionMethod": {
+    "workdir": "C:\\aaa\\ai-reader-pwa\\.worktrees\\shared-sheet-performance",
+    "buildCommand": "npm.cmd run build",
+    "serverCommand": "npm.cmd run start -- --hostname localhost --port 3010",
+    "environmentVariables": {
+      "AB_REVISION": "a1025476515ac4a594a973b7780517f5b9db705b",
+      "PLAYWRIGHT_BASE_URL": "unset; scripts/shared-sheet-trace-probe.cjs defaulted to http://localhost:3010"
+    },
+    "actualProbeInvocation": "$env:AB_REVISION='a1025476515ac4a594a973b7780517f5b9db705b'; if(Test-Path Env:PLAYWRIGHT_BASE_URL){Remove-Item Env:PLAYWRIGHT_BASE_URL}; node scripts\\shared-sheet-trace-probe.cjs",
+    "equivalentExplicitProbeInvocation": "$env:AB_REVISION='a1025476515ac4a594a973b7780517f5b9db705b'; $env:PLAYWRIGHT_BASE_URL='http://localhost:3010'; node 'C:\\aaa\\ai-reader-pwa\\.worktrees\\shared-sheet-performance\\scripts\\shared-sheet-trace-probe.cjs'",
+    "serviceLifecycle": "build in workdir; start production server; verify the listener command line belongs to this worktree; run the fixed candidate probe exactly once for its fixed three runs; stop only the verified listener; confirm port 3010 is free"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "metrics": { "clickToMount": 30, "frames": 43, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "longTasks": 0, "maxLongTask": 0, "totalLongTask": 0, "layoutShift": 0, "observerSupport": { "longtask": true, "layoutShift": true } },
+      "contract": { "hasExplicitBackdrop": true, "overlayInlineOpacity": "", "overlayComputedOpacity": "1", "overlayBackdropToken": "", "panelBackdropToken": "" },
+      "trace": {
+        "marker": { "name": "shared-sheet-ab-real-more-click", "pid": 74300, "tid": 66584, "threadName": "CrRendererMain" },
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 773.144,
+        "eventFilter": "complete events (ph=\"X\") with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 44, "totalMs": 16.751, "selfMs": 16.751 },
+          "Layout": { "count": 2, "totalMs": 8.143, "selfMs": 8.143 },
+          "Paint": { "count": 32, "totalMs": 2.752, "selfMs": 1.4 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "UpdateLayoutTree": { "count": 44, "totalMs": 16.751, "selfMs": 16.751 },
+          "Layout": { "count": 2, "totalMs": 8.143, "selfMs": 8.143 },
+          "Paint": { "count": 32, "totalMs": 2.752, "selfMs": 1.4 },
+          "RasterTask": { "count": 29, "totalMs": 22.161, "selfMs": 0.096 }
+        }
+      }
+    },
+    {
+      "run": 2,
+      "metrics": { "clickToMount": 27.399999976158142, "frames": 43, "p95": 16.700000000000045, "maxFrame": 16.700000000000045, "longTasks": 0, "maxLongTask": 0, "totalLongTask": 0, "layoutShift": 0, "observerSupport": { "longtask": true, "layoutShift": true } },
+      "contract": { "hasExplicitBackdrop": true, "overlayInlineOpacity": "", "overlayComputedOpacity": "1", "overlayBackdropToken": "", "panelBackdropToken": "" },
+      "trace": {
+        "marker": { "name": "shared-sheet-ab-real-more-click", "pid": 70560, "tid": 67220, "threadName": "CrRendererMain" },
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 772.569,
+        "eventFilter": "complete events (ph=\"X\") with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 44, "totalMs": 15.726, "selfMs": 15.726 },
+          "Layout": { "count": 2, "totalMs": 6.745, "selfMs": 6.745 },
+          "Paint": { "count": 49, "totalMs": 4.157, "selfMs": 1.881 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "UpdateLayoutTree": { "count": 44, "totalMs": 15.726, "selfMs": 15.726 },
+          "Layout": { "count": 2, "totalMs": 6.745, "selfMs": 6.745 },
+          "Paint": { "count": 49, "totalMs": 4.157, "selfMs": 1.881 },
+          "RasterTask": { "count": 32, "totalMs": 20.026, "selfMs": 0.121 }
+        }
+      }
+    },
+    {
+      "run": 3,
+      "metrics": { "clickToMount": 27.799999952316284, "frames": 43, "p95": 16.800000000000182, "maxFrame": 33.30000000000007, "longTasks": 0, "maxLongTask": 0, "totalLongTask": 0, "layoutShift": 0, "observerSupport": { "longtask": true, "layoutShift": true } },
+      "contract": { "hasExplicitBackdrop": true, "overlayInlineOpacity": "", "overlayComputedOpacity": "1", "overlayBackdropToken": "", "panelBackdropToken": "" },
+      "trace": {
+        "marker": { "name": "shared-sheet-ab-real-more-click", "pid": 69036, "tid": 77452, "threadName": "CrRendererMain" },
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 783.988,
+        "eventFilter": "complete events (ph=\"X\") with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 43, "totalMs": 16.322, "selfMs": 16.322 },
+          "Layout": { "count": 2, "totalMs": 6.572, "selfMs": 6.572 },
+          "Paint": { "count": 49, "totalMs": 4.068, "selfMs": 1.838 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "UpdateLayoutTree": { "count": 43, "totalMs": 16.322, "selfMs": 16.322 },
+          "Layout": { "count": 2, "totalMs": 6.572, "selfMs": 6.572 },
+          "Paint": { "count": 49, "totalMs": 4.068, "selfMs": 1.838 },
+          "RasterTask": { "count": 32, "totalMs": 19.284, "selfMs": 0.109 }
+        }
+      }
+    }
+  ]
+}

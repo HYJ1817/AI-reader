@@ -10,7 +10,7 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state after the cold-mount evidence documentation fix: 20 commits
+- Local branch state after the final cold-sheet evidence commit: 23 commits
   ahead of `main`; no shared-sheet commit has been pushed, merged, or deployed.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
@@ -75,6 +75,119 @@ Current architecture:
   state. Its mount effect no longer forces layout. Focus trapping, background
   inert state, Escape, outside-tap, drag, interruption, reduced motion, themes,
   and history behavior stay on the existing shared paths.
+
+Latest Intl date-formatting tail fix (candidate
+`a1025476515ac4a594a973b7780517f5b9db705b`):
+
+- The remaining repeatable book-action mount cost came from `formatBookDate`:
+  the previous `Date#toLocaleDateString` path constructed locale machinery when
+  `AppOverlays` first rendered the active book sheet. In the same 20-context
+  microbenchmark, the old path's minimum/median/P95/maximum were
+  `7.5 / 8.4 / 15.9 / 15.9ms`; the final current-time-zone probe plus cached
+  formatter path was `0 / 0.1 / 0.2 / 0.2ms`.
+- `ca5d305` moved the Chinese book-date formatter to module initialization so
+  the main formatter is warmed before the More-button path. Review found that a
+  permanently cached default-zone formatter could become stale if the process
+  time zone changed without a module reload. `a102547` therefore probes the
+  current default zone, reuses the cached formatter while it matches, and
+  rebuilds it only after a zone change.
+- The cross-time-zone regression test switches one module instance from
+  `Asia/Shanghai` to `America/Los_Angeles` and compares both results with the
+  existing `toLocaleDateString("zh-CN", ...)` contract. Missing/invalid date
+  labels and the Chinese year/month/day presentation remain unchanged.
+
+Latest no-trace cold distribution (candidate `a102547`):
+
+- One uninterrupted production-managed command ran exactly 30 repeats with one
+  worker and zero retries:
+  `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+  --grep "book action sheet entrance stays within mobile frame budgets"
+  --repeat-each=30 --workers=1 --retries=0`. Every repeat used a fresh browser
+  context/page, the real visible library More button, and no warm sheet mount.
+  No sample was retried, discarded, supplemented, or replaced.
+- Exact samples and definitions are in
+  `docs/performance/shared-sheet-cold-distribution-a102547.json`. The run used
+  Playwright `1.61.1`, Chromium `149.0.7827.55` / `chromium-1228`.
+  Click-to-mount minimum/upper-middle median/P95/maximum were
+  `11.9 / 15.6 / 28.6 / 42.1ms`; per-run P95 frame intervals were
+  `16.7 / 16.8 / 16.8 / 16.8ms`; maximum-frame intervals were
+  `16.7 / 16.8 / 33.4 / 50ms`. All 30 samples recorded maximum long task `0ms`
+  and layout shift `0`; sampled frame counts were `46-48`.
+- The unchanged five-part criterion is click-to-mount `<=34ms`, P95 interval
+  `<=20ms`, maximum frame `<=34ms`, maximum long task `0ms`, and CLS `0` for
+  every sample. Run 9 failed with a `50ms` maximum frame. Run 28 failed with
+  `42.1ms` click-to-mount (its maximum frame was `33.4ms`). The command exited
+  `1` with `28 passed / 2 failed`; only `28/30` samples passed and `allPass` is
+  **false**. Playwright's extra `frames >= 40` assertion passed in all 30 runs
+  (`46-48` frames), so unlike the old `44e7308` run 6 there is no additional
+  Playwright-only failure in this distribution.
+- This is the newest automated cold distribution and materially improves the
+  typical click-to-mount values over `44e7308`, but it does **not** supersede
+  acceptance with a passing result: the cold tail remains outside budget. The
+  older `44e7308` `28/30` failure, including its `316.7ms` frame / `303ms` long
+  task, and all earlier failed evidence remain below and are not erased.
+
+Latest matched confirmatory trace (`fa1fc21` versus `a102547`):
+
+- Baseline and candidate were built and served serially on an exclusively
+  verified port `3010`. Each fixed revision used exactly one invocation of the
+  candidate-commit probe, containing its fixed three fresh-context runs. Both
+  used probe SHA-256
+  `16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb`,
+  Playwright `1.61.1`, Chromium `149.0.7827.55` / `chromium-1228`; port `3010`
+  was verified free between and after services. No trace was retried or
+  replaced.
+- Raw records are
+  `docs/performance/shared-sheet-trace-confirmatory-baseline-fa1fc21-a102547.json`
+  and `docs/performance/shared-sheet-trace-confirmatory-candidate-a102547.json`;
+  the machine-derived comparison is
+  `docs/performance/shared-sheet-trace-confirmatory-comparison-a102547.json`.
+  Both raw records contain the exact build/server lifecycle and executable
+  PowerShell probe invocation.
+- Committed `evaluateDurationAcceptance` passed all predeclared median-plus-
+  maximum conditions:
+
+| Category | Baseline runs | 50% ceiling | Candidate runs | Candidate median | Candidate maximum | Result |
+| --- | --- | ---: | --- | ---: | ---: | --- |
+| UpdateLayoutTree | `43.458 / 18.078 / 36.733ms` | `18.3665ms` | `16.751 / 15.726 / 16.322ms` | `16.322ms` | `16.751ms` | Pass |
+| Paint | `24.952 / 6.060 / 18.469ms` | `9.2345ms` | `2.752 / 4.157 / 4.068ms` | `4.068ms` | `4.157ms` | Pass |
+| RasterTask | `89.551 / 606.631 / 74.814ms` | `44.7755ms` | `22.161 / 20.026 / 19.284ms` | `20.026ms` | `22.161ms` | Pass |
+
+- Candidate traced click-to-mount was `30 / 27.4 / 27.8ms`, with P95 intervals
+  around `16.7-16.8ms`, maximum frame at most `33.3ms`, long task `0ms`, and
+  layout shift `0`. Baseline run 2 is retained exactly: it recorded a `633.3ms`
+  maximum/P95 frame, `621ms` long task, and `606.631ms` RasterTask total. These
+  frame values are trace-overhead diagnostics and do not alter the predeclared
+  duration comparison.
+
+Latest candidate quality gates:
+
+- `npm.cmd test` passed `104/104` files and `929/929` tests; `npm.cmd run lint`
+  exited `0`; `npm.cmd run build` compiled Next.js `16.2.6`, completed
+  TypeScript, and generated `6/6` static pages. The existing multiple-lockfile
+  workspace-root warning remains non-blocking.
+- Full `e2e/native-navigation.spec.ts` passed `19/19` on iPhone 14. Its cold
+  sheet smoke recorded `21.6ms` click-to-mount, 48 frames, about `16.8ms`
+  P95/maximum interval, `0ms` long task, and `0` layout shift.
+- The same full file on iPhone 15 Pro Max passed `18/19`. Its sheet smoke passed
+  at `13.9ms`, 48 frames, about `16.7ms` P95 / `16.8ms` maximum interval,
+  `0ms` long task, and `0` layout shift. The unrelated root-tab performance
+  test failed with 38 frames and a `33.3ms` P95 interval against its `20ms`
+  ceiling; long task and layout shift were `0`. It was not rerun. Therefore the
+  final full browser gate is a recorded failure, even though both sheet smokes
+  passed.
+- Impeccable detection over the shared sheet/navigation files plus
+  `lib/libraryPresentation.ts` returned JSON `[]`. All four new evidence JSON
+  files parsed; the 30-run summaries/failing ordinals and committed
+  `evaluateDurationAcceptance` comparison recomputed exactly. `git diff
+  --check` passed.
+- Everything remains local-only on `codex/shared-sheet-performance`. Nothing
+  has been pushed, merged, uploaded, or deployed. Automated Chromium validates
+  architecture, matched trace work reduction, and 60Hz smoke, but the newest
+  30-run distribution is still `allPass=false` and the iPhone 15 full gate has
+  one root-tab cadence failure. Physical 120Hz iPhone Safari and home-screen PWA
+  verification remain the final external acceptance boundary; no result here
+  proves 120fps.
 
 No-trace cold distribution (candidate `44e73085ecc8910373a5388c6dc9d07b611f58c4`):
 
@@ -2546,9 +2659,10 @@ Use this opener in the new conversation:
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。
-当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在本次文档修复提交后比 main 超前 20 个提交。所有 shared-sheet 改动仍是 local-only，未 push、merge、upload 或 deploy；不要假定用户已经授权合并、推送或部署。
-Task4 是混合结论：相同提交探针、相同 Chromium 的新 baseline/candidate 三次匹配 trace 已通过 UpdateLayoutTree、Paint、RasterTask 的预声明 50% median+maximum 时长条件；但一次连续、workers=1、retries=0 的 30 次 no-trace fresh-context 冷分布只有 28/30 满足五项预算，allPass=false。Run 4 有 316.7ms 最大帧和 303ms 长任务，Run 22 click-to-mount 为 35.1ms；另有 Run 6 因测试附加的 frames>=40 断言仅 36 帧而失败。没有失败样本被重试、替换或丢弃，不得修改阈值或把结果写成通过。
-精确逐样本、统计定义、trace 原始三次结果、可执行 PowerShell 方法和比较结果位于 docs/performance/shared-sheet-cold-distribution-44e7308.json、shared-sheet-trace-confirmatory-baseline-fa1fc21.json、shared-sheet-trace-confirmatory-candidate-44e7308.json 与 shared-sheet-trace-confirmatory-comparison-44e7308.json。早先 confirmatory 失败证据也仍保留在 HANDOFF，不得删除或覆盖。
-下一步先审查剩余 30-run 尾部，判断是否值得继续应用侧诊断/优化，还是将尾部作为当前自动化环境的未通过风险交由实体设备验收；不要未经新证据直接改产品代码。若继续诊断，保持生产构建、独占 Chromium、真实 More 按钮、fresh context、零重试/零替换，并将新结果与现有失败并列保存。
-自动化 Chromium 只验证架构、匹配 trace 工作量下降和 60Hz smoke，不能证明 120fps。物理 120Hz iPhone Safari 与主屏 PWA 仍是最终外部验收边界。任何 merge、push、PR、Cloudflare upload 或 production deploy 都必须等待用户明确选择。
+当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在最终证据提交后比 main 超前 23 个提交。所有 shared-sheet 改动仍是 local-only，未 push、merge、upload 或 deploy；不要假定用户已经授权合并、推送或部署。
+最新代码提交 ca5d305 + a102547 把首次书籍操作弹层中的 Intl 日期格式化从每次 toLocaleDateString 构造改为预热 formatter，并在每次格式化时探测当前默认时区、只在时区变化时刷新缓存。20-context 微基准从 7.5/8.4/15.9/15.9ms 降到 0/0.1/0.2/0.2ms；同一模块跨 Asia/Shanghai 与 America/Los_Angeles 的输出语义已有回归测试。
+最新一次连续 exactly-30、workers=1、retries=0 的 no-trace fresh-context 分布仍只有 28/30 满足五项预算，allPass=false：run 9 maximum frame 50ms，run 28 click-to-mount 42.1ms。命令为 28 passed / 2 failed，没有重试、替换、丢弃或补充样本。旧 44e7308 的 28/30 失败（含 316.7ms frame/303ms long task）和更早失败证据仍保留，不得删除；新结果改善典型值但没有把接受状态改成通过。
+最新 fa1fc21 versus a102547 matched traces 使用同一提交探针 SHA 16aca8…、同一 Chromium，baseline/candidate 各恰好一次 probe（三个 fresh contexts）并通过 ULT、Paint、RasterTask 的预声明 50% median+maximum 时长条件。baseline run 2 的 633.3ms frame、621ms long task 与 606.631ms RasterTask 原样保留，未补跑。
+新证据位于 docs/performance/shared-sheet-cold-distribution-a102547.json、shared-sheet-trace-confirmatory-baseline-fa1fc21-a102547.json、shared-sheet-trace-confirmatory-candidate-a102547.json 与 shared-sheet-trace-confirmatory-comparison-a102547.json。完整 Vitest 929/929、lint、build、iPhone 14 native-navigation 19/19 通过；iPhone 15 Pro Max 为 18/19，唯一失败是非 sheet 的 root-tab P95 33.3ms（阈值20），没有重跑；两台 sheet smoke 都通过。
+下一步先审查最新冷分布尾部和 iPhone 15 root-tab cadence 风险，决定是否继续只读诊断，或进入分支收尾选择；不得未经新证据修改阈值或产品代码。自动化 Chromium 只验证架构、匹配 trace 工作量下降和 60Hz smoke，不能证明 120fps。物理 120Hz iPhone Safari 与主屏 PWA 仍是最终外部验收边界。任何 merge、push、PR、Cloudflare upload 或 production deploy 都必须等待用户明确选择。
 ```
