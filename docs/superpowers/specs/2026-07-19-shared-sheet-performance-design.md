@@ -237,3 +237,70 @@ Before completion:
   risk instead of overstating automated evidence.
 - Changes to the shared component affect every sheet. Keep content components
   untouched and run the full sheet-route matrix on both phone profiles.
+
+## Cold-Mount Isolation Addendum (2026-07-22)
+
+### New evidence
+
+Thirty no-trace fresh-context samples placed first book-action panel mount at
+`22.4-40.9ms` (median `28.8ms`, P95 `38.0ms`), with six samples above the
+existing `34ms` guard. A minimally instrumented raw trace reproduced a
+`59.462ms` mount inside a `64.305ms` renderer task. The task contained
+`57.854ms` of React's synchronous scheduled flush, including `37.676ms` of JS
+self time and `16.177ms` of Layout. It contained no GC and consumed `57.211ms`
+of renderer CPU, so it was application work rather than an OS suspension.
+
+The sheet-only navigation action currently updates the reducer owned by the
+large `Home` component. That makes Library, Reading, Settings, navigation
+surfaces, and `AppOverlays` reconcile together before the panel can mount.
+`MotionSheet` then synchronously reads `getBoundingClientRect()`, applies
+background `inert`, focuses the dialog, and publishes an initial
+`visualViewport` React state update in the same discrete click task. The
+existing backdrop/panel compositor split improves work after mount, but cannot
+remove this pre-paint cold-mount critical path.
+
+### Approved architecture
+
+Keep the unified navigation reducer and browser-history semantics, but store
+its current state in a small navigation store with two subscriptions:
+
+- a core subscription for `activeTab`, push entries, and the reader entry;
+- a full subscription used by the sheet host through a dedicated
+  `useNavigationSheets()` selector.
+
+Sheet-only actions update history and the full state, notify sheet subscribers,
+and do not notify the core subscription. `Home` must not read
+`navigation.state.sheets`; imperative sheet checks use `getState()`, pending
+reader/settings coordination moves to a small sheet-subscribed coordinator,
+and group actions receive the active book id from `AppOverlays`. This preserves
+one reducer, key generation, history encoding, popstate/back behavior, and
+navigation commands while preventing sheet presentation from reconciling the
+entire application surface.
+
+`MotionSheet` initializes its working height from the viewport and lets
+`ResizeObserverEntry.borderBoxSize` provide the exact panel height after
+layout. It must not force `getBoundingClientRect()` during mount. Initial visual
+viewport geometry is read in the state initializer; the effect only responds
+to later resize/scroll events and must not publish an unchanged mount update.
+Focus, inert ownership, Escape, drag, outside tap, interruption, reduced motion,
+and focus restoration remain synchronous and behaviorally unchanged.
+
+### Acceptance
+
+- A unit test proves `present-sheet`/`dismiss-sheet` notify sheet subscribers
+  without notifying the core application subscription, while core navigation
+  actions still notify both as appropriate.
+- Source contracts prohibit `Home` from subscribing to `state.sheets`, require
+  `AppOverlays` to use `useNavigationSheets()`, and prohibit a mount-time
+  `getBoundingClientRect()`/immediate `syncViewport()` path.
+- The real More-button E2E test retains the existing `34ms` click-to-mount,
+  `20ms` P95, `34ms` maximum-frame, zero-long-task, and zero-CLS guards.
+- A distribution probe runs at least thirty fresh contexts against one
+  exclusive production browser. All samples must meet the same no-trace guards;
+  failures are reported rather than retried away.
+- The committed trace probe is rerun on baseline and candidate under the same
+  recorded Chromium build. The predeclared duration comparison remains a
+  confirmation target, not a substitute for the no-trace cold-click gate.
+- Full Vitest, ESLint, production build, and both complete mobile Playwright
+  profiles must pass. Chromium remains 60Hz-oriented evidence; a physical
+  120Hz iPhone Safari/PWA trace remains separate acceptance.
