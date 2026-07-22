@@ -10,7 +10,7 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state after the final cold-sheet evidence commit: 23 commits
+- Local branch state after the corrected trace-off evidence commit: 24 commits
   ahead of `main`; no shared-sheet commit has been pushed, merged, or deployed.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
@@ -96,36 +96,41 @@ Latest Intl date-formatting tail fix (candidate
   existing `toLocaleDateString("zh-CN", ...)` contract. Missing/invalid date
   labels and the Chinese year/month/day presentation remain unchanged.
 
-Latest no-trace cold distribution (candidate `a102547`):
+Latest strict trace-off cold distribution (product candidate `a102547`, evidence
+HEAD `11f0d8e`):
 
 - One uninterrupted production-managed command ran exactly 30 repeats with one
   worker and zero retries:
   `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
   --grep "book action sheet entrance stays within mobile frame budgets"
-  --repeat-each=30 --workers=1 --retries=0`. Every repeat used a fresh browser
-  context/page, the real visible library More button, and no warm sheet mount.
-  No sample was retried, discarded, supplemented, or replaced.
+  --repeat-each=30 --workers=1 --retries=0 --trace=off`. Playwright CLI help
+  explicitly lists `--trace <mode>` with `off` as a supported choice. The CLI
+  override disabled the configured `trace: "retain-on-failure"`. Every repeat
+  used a fresh browser context/page, the real visible library More button, and
+  no warm sheet mount. This exact-30 command was run once; no sample was
+  retried, discarded, supplemented, replaced, or rerun.
 - Exact samples and definitions are in
-  `docs/performance/shared-sheet-cold-distribution-a102547.json`. The run used
+  `docs/performance/shared-sheet-cold-distribution-a102547-trace-off.json`. The
+  run used
   Playwright `1.61.1`, Chromium `149.0.7827.55` / `chromium-1228`.
   Click-to-mount minimum/upper-middle median/P95/maximum were
-  `11.9 / 15.6 / 28.6 / 42.1ms`; per-run P95 frame intervals were
-  `16.7 / 16.8 / 16.8 / 16.8ms`; maximum-frame intervals were
-  `16.7 / 16.8 / 33.4 / 50ms`. All 30 samples recorded maximum long task `0ms`
-  and layout shift `0`; sampled frame counts were `46-48`.
+  `11.6 / 15.5 / 32.2 / 32.4ms`; per-run P95 frame intervals were
+  `16.7 / 16.7 / 16.8 / 16.8ms`; maximum-frame intervals were
+  `16.7 / 16.8 / 33.3 / 33.3ms`. All 30 samples recorded maximum long task
+  `0ms` and layout shift `0`; sampled frame counts were `47-48`.
 - The unchanged five-part criterion is click-to-mount `<=34ms`, P95 interval
   `<=20ms`, maximum frame `<=34ms`, maximum long task `0ms`, and CLS `0` for
-  every sample. Run 9 failed with a `50ms` maximum frame. Run 28 failed with
-  `42.1ms` click-to-mount (its maximum frame was `33.4ms`). The command exited
-  `1` with `28 passed / 2 failed`; only `28/30` samples passed and `allPass` is
-  **false**. Playwright's extra `frames >= 40` assertion passed in all 30 runs
-  (`46-48` frames), so unlike the old `44e7308` run 6 there is no additional
-  Playwright-only failure in this distribution.
-- This is the newest automated cold distribution and materially improves the
-  typical click-to-mount values over `44e7308`, but it does **not** supersede
-  acceptance with a passing result: the cold tail remains outside budget. The
-  older `44e7308` `28/30` failure, including its `316.7ms` frame / `303ms` long
-  task, and all earlier failed evidence remain below and are not erased.
+  every sample. All `30/30` samples passed, `allPass` is **true**, and the
+  command exited `0` with `30 passed`; Playwright's additional `frames >= 40`
+  assertion also passed in every sample. This is the only strict trace-off
+  cold-distribution acceptance run.
+- Method correction: the older `44e7308` and `a102547` distribution commands
+  omitted `--trace=off`. Although they attached no CDP timeline probe,
+  `playwright.config.ts` configured `trace: "retain-on-failure"`, which records
+  Playwright traces and deletes successful ones. Their exact values, commands,
+  exit codes, and failures remain preserved, but both JSON records are now
+  explicitly diagnostic and are not strict no-trace/trace-off acceptance
+  evidence.
 
 Latest matched confirmatory trace (`fa1fc21` versus `a102547`):
 
@@ -160,42 +165,55 @@ Latest matched confirmatory trace (`fa1fc21` versus `a102547`):
   frame values are trace-overhead diagnostics and do not alter the predeclared
   duration comparison.
 
-Latest candidate quality gates:
+Latest candidate quality gates and corrected trace-off browser gates:
 
 - `npm.cmd test` passed `104/104` files and `929/929` tests; `npm.cmd run lint`
   exited `0`; `npm.cmd run build` compiled Next.js `16.2.6`, completed
   TypeScript, and generated `6/6` static pages. The existing multiple-lockfile
   workspace-root warning remains non-blocking.
-- Full `e2e/native-navigation.spec.ts` passed `19/19` on iPhone 14. Its cold
-  sheet smoke recorded `21.6ms` click-to-mount, 48 frames, about `16.8ms`
-  P95/maximum interval, `0ms` long task, and `0` layout shift.
-- The same full file on iPhone 15 Pro Max passed `18/19`. Its sheet smoke passed
-  at `13.9ms`, 48 frames, about `16.7ms` P95 / `16.8ms` maximum interval,
-  `0ms` long task, and `0` layout shift. The unrelated root-tab performance
-  test failed with 38 frames and a `33.3ms` P95 interval against its `20ms`
-  ceiling; long task and layout shift were `0`. It was not rerun. Therefore the
-  final full browser gate is a recorded failure, even though both sheet smokes
-  passed.
+- The corrected full commands each ran once with `--workers=1 --retries=0
+  --trace=off`:
+  `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+  --workers=1 --retries=0 --trace=off` and
+  `npx.cmd playwright test e2e/native-navigation.spec.ts
+  --project=iphone-15-pro-max --workers=1 --retries=0 --trace=off`.
+  iPhone 14 passed `19/19`; its sheet smoke recorded `17.6ms`
+  click-to-mount, 48 frames, `16.7ms` P95 / `16.8ms` maximum interval, `0ms`
+  long task, and `0` layout shift.
+- iPhone 15 Pro Max passed `18/19`; its sheet smoke passed at `17.0ms`, 48
+  frames, `16.7ms` P95 / `16.8ms` maximum interval, `0ms` long task, and `0`
+  layout shift. The one observed failure was the push-transition performance
+  test: maximum interval `83.4ms` against its `80ms` ceiling. It is a non-sheet
+  test, but no causality or independence is claimed. It was not rerun. The
+  earlier `11f0d8e` iPhone 15 run's root-tab `18/19` failure is also retained as
+  an observed non-sheet root-tab failure, without claiming it was unrelated or
+  proved independent.
 - Impeccable detection over the shared sheet/navigation files plus
-  `lib/libraryPresentation.ts` returned JSON `[]`. All four new evidence JSON
-  files parsed; the 30-run summaries/failing ordinals and committed
+  `lib/libraryPresentation.ts` returned JSON `[]`. All three modified/new
+  distribution JSON files parsed; their 30-run summaries and failing ordinals,
+  plus the committed
   `evaluateDurationAcceptance` comparison recomputed exactly. `git diff
   --check` passed.
 - Everything remains local-only on `codex/shared-sheet-performance`. Nothing
   has been pushed, merged, uploaded, or deployed. Automated Chromium validates
-  architecture, matched trace work reduction, and 60Hz smoke, but the newest
-  30-run distribution is still `allPass=false` and the iPhone 15 full gate has
-  one root-tab cadence failure. Physical 120Hz iPhone Safari and home-screen PWA
-  verification remain the final external acceptance boundary; no result here
-  proves 120fps.
+  architecture, matched trace work reduction, strict trace-off 60Hz sheet
+  distribution, and 60Hz smoke. The strict trace-off distribution is
+  `allPass=true`, while the corrected iPhone 15 full gate still has one
+  push-transition cadence failure. Physical 120Hz iPhone Safari and home-screen
+  PWA verification remain the final external acceptance boundary; no result
+  here proves 120fps.
 
-No-trace cold distribution (candidate `44e73085ecc8910373a5388c6dc9d07b611f58c4`):
+Diagnostic cold distribution with Playwright trace recording enabled (candidate
+`44e73085ecc8910373a5388c6dc9d07b611f58c4`):
 
 - One uninterrupted production-managed command ran exactly 30 repeats with one
   worker and zero retries:
   `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
   --grep "book action sheet entrance stays within mobile frame budgets"
-  --repeat-each=30 --workers=1 --retries=0`. Each repeat used a fresh browser
+  --repeat-each=30 --workers=1 --retries=0`. This historical command did not
+  pass `--trace=off`, so the configured `trace: "retain-on-failure"` enabled
+  Playwright trace recording even though no CDP timeline probe was attached.
+  Each repeat used a fresh browser
   context/page, a real visible More-button click, and no warm sheet mount. No
   failed sample was retried, discarded, or replaced.
 - The exact per-run values and derivation are in
@@ -216,8 +234,8 @@ No-trace cold distribution (candidate `44e73085ecc8910373a5388c6dc9d07b611f58c4`
 - The Playwright command itself exited `1` with `27 passed / 3 failed`. In
   addition to runs 4 and 22, run 6 failed the test's separate `frames >= 40`
   assertion with 36 frames even though it passed all five distribution criteria.
-  These results are evidence of a real remaining cold-distribution tail, not a
-  passing 120fps claim.
+  These values remain useful diagnostic evidence, but this run is not strict
+  trace-off/no-trace acceptance evidence and cannot support a 120fps claim.
 
 Fresh matched confirmatory trace:
 
@@ -257,10 +275,11 @@ Fresh matched confirmatory trace:
   `25.517ms`, maximum `42.076ms`, ceiling `20.9585ms`); Paint was
   `12.628 / 5.201 / 5.609ms` (maximum `12.628ms`, ceiling `8.5375ms`);
   RasterTask was `41.227 / 47.451 / 21.581ms` (median `41.227ms`, maximum
-  `47.451ms`, ceiling `33.959ms`). Its five no-trace samples were
+  `47.451ms`, ceiling `33.959ms`). Its five non-CDP-timeline diagnostic samples
+  were
   `32.1 / 70.8 / 32.2 / 29.9 / 28.1ms`; the `70.8ms` sample also recorded a
   `66.7ms` frame and `72ms` long task. The new passing trace evidence does not
-  erase either that failure or the new 30-sample distribution failures.
+  erase either that failure or the later diagnostic distribution failures.
 
 Fresh candidate quality gates:
 
@@ -272,8 +291,9 @@ Fresh candidate quality gates:
 - Full `e2e/native-navigation.spec.ts` passed `19/19` on iPhone 14 and `19/19`
   on iPhone 15 Pro Max. The individual cold-sheet smokes recorded respectively
   `33.2ms` and `22.1ms` click-to-mount, 48 frames, about `16.8ms` P95/maximum
-  interval, `0ms` long task, and `0` layout shift. These individual passes do
-  not override the failed 30-run distribution.
+  interval, `0ms` long task, and `0` layout shift. These individual passes did
+  not override that historical diagnostic distribution's observed failures;
+  that distribution is no longer strict trace-off acceptance evidence.
 - Impeccable detection over `MotionSheet`, page styles, navigation hooks/store,
   overlays, coordinator, and root page returned JSON `[]`. Evidence JSON files
   parsed successfully; recomputing `evaluateDurationAcceptance` from the raw
@@ -286,8 +306,8 @@ Status and acceptance boundary:
   `codex/shared-sheet-performance`. Nothing in this shared-sheet branch has
   been pushed, merged, uploaded, or deployed.
 - Automated Chromium validates the architecture, behavior, matched trace work
-  reduction, and 60Hz smoke. The 30-sample no-trace distribution still has a
-  measured tail and is not fully accepted. Physical 120Hz iPhone Safari and
+  reduction, and 60Hz smoke. The latest explicit trace-off 30-sample
+  distribution passes its predeclared automated gate. Physical 120Hz iPhone Safari and
   home-screen PWA verification remains the final external device boundary; no
   automated result here proves 120fps.
 
@@ -438,7 +458,7 @@ Preserved matched A/B exploratory methodology and results:
   well as the median guards against a lucky median; three traces remain a
   deterministic smoke sample, not statistical proof. CDP tracing and its click
   marker add overhead, so traced click-to-mount values are not directly
-  comparable to the separate no-trace `<=34ms` cold entrance gate.
+  comparable to the separate strict trace-off `<=34ms` cold entrance gate.
 - Runtime evidence also separates the revisions: baseline had no explicit
   backdrop and published inherited token samples of `0.4962367179944912`,
   `0.2538695820719473`, and `0.5096813407169211`; the candidate had the
@@ -2659,10 +2679,10 @@ Use this opener in the new conversation:
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。
-当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在最终证据提交后比 main 超前 23 个提交。所有 shared-sheet 改动仍是 local-only，未 push、merge、upload 或 deploy；不要假定用户已经授权合并、推送或部署。
+当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在 corrected trace-off evidence 提交后比 main 超前 24 个提交。所有 shared-sheet 改动仍是 local-only，未 push、merge、upload 或 deploy；不要假定用户已经授权合并、推送或部署。
 最新代码提交 ca5d305 + a102547 把首次书籍操作弹层中的 Intl 日期格式化从每次 toLocaleDateString 构造改为预热 formatter，并在每次格式化时探测当前默认时区、只在时区变化时刷新缓存。20-context 微基准从 7.5/8.4/15.9/15.9ms 降到 0/0.1/0.2/0.2ms；同一模块跨 Asia/Shanghai 与 America/Los_Angeles 的输出语义已有回归测试。
-最新一次连续 exactly-30、workers=1、retries=0 的 no-trace fresh-context 分布仍只有 28/30 满足五项预算，allPass=false：run 9 maximum frame 50ms，run 28 click-to-mount 42.1ms。命令为 28 passed / 2 failed，没有重试、替换、丢弃或补充样本。旧 44e7308 的 28/30 失败（含 316.7ms frame/303ms long task）和更早失败证据仍保留，不得删除；新结果改善典型值但没有把接受状态改成通过。
+方法修正：playwright.config.ts 使用 trace=retain-on-failure，旧 44e7308 与 a102547 分布命令没有显式 --trace=off，所以它们虽无 CDP timeline，仍启用了 Playwright trace recording；两份 JSON 的原始数值/命令/退出码保留，但已降级为 diagnostic，不再是 strict no-trace acceptance。唯一 strict trace-off acceptance 是在 HEAD 11f0d8e 对产品候选 a102547 运行的一次连续 exactly-30、workers=1、retries=0、--trace=off fresh-context 分布：30/30、allPass=true、exit0；click-to-mount min/median/P95/max 11.6/15.5/32.2/32.4ms，per-run P95 max16.8ms，maxFrame max33.3ms，long task/CLS全0，frames47-48。没有重试、替换、丢弃、补充样本或重跑。旧两轮诊断失败仍保留，不得删除。
 最新 fa1fc21 versus a102547 matched traces 使用同一提交探针 SHA 16aca8…、同一 Chromium，baseline/candidate 各恰好一次 probe（三个 fresh contexts）并通过 ULT、Paint、RasterTask 的预声明 50% median+maximum 时长条件。baseline run 2 的 633.3ms frame、621ms long task 与 606.631ms RasterTask 原样保留，未补跑。
-新证据位于 docs/performance/shared-sheet-cold-distribution-a102547.json、shared-sheet-trace-confirmatory-baseline-fa1fc21-a102547.json、shared-sheet-trace-confirmatory-candidate-a102547.json 与 shared-sheet-trace-confirmatory-comparison-a102547.json。完整 Vitest 929/929、lint、build、iPhone 14 native-navigation 19/19 通过；iPhone 15 Pro Max 为 18/19，唯一失败是非 sheet 的 root-tab P95 33.3ms（阈值20），没有重跑；两台 sheet smoke 都通过。
-下一步先审查最新冷分布尾部和 iPhone 15 root-tab cadence 风险，决定是否继续只读诊断，或进入分支收尾选择；不得未经新证据修改阈值或产品代码。自动化 Chromium 只验证架构、匹配 trace 工作量下降和 60Hz smoke，不能证明 120fps。物理 120Hz iPhone Safari 与主屏 PWA 仍是最终外部验收边界。任何 merge、push、PR、Cloudflare upload 或 production deploy 都必须等待用户明确选择。
+strict trace-off 分布位于 docs/performance/shared-sheet-cold-distribution-a102547-trace-off.json；旧 docs/performance/shared-sheet-cold-distribution-a102547.json 与 shared-sheet-cold-distribution-44e7308.json 仅作诊断。matched CDP trace 证据不受 Playwright config 修正影响。代码未变，最近完整 Vitest 929/929、lint、build、Impeccable JSON[] 可继续引用。corrected 完整 native-navigation 都显式 --trace=off 且各仅跑一次：iPhone 14 19/19；iPhone 15 Pro Max 18/19，唯一失败为 push-transition maxInterval 83.4ms>80ms（非 sheet，但不声称 unrelated/独立），两台 sheet smoke 都通过。此前 11f0d8e iPhone 15 的 root-tab 18/19 失败也保留为一次非 sheet 失败，不能称 unrelated 或已证明无关。
+下一步审查 iPhone 15 的非 sheet cadence 风险，或进入分支收尾选择；不得未经新证据修改阈值或产品代码。自动化 Chromium 只验证架构、匹配 trace 工作量下降、strict trace-off 60Hz 分布和 smoke，不能证明 120fps。物理 120Hz iPhone Safari 与主屏 PWA 仍是最终外部验收边界。任何 merge、push、PR、Cloudflare upload 或 production deploy 都必须等待用户明确选择。
 ```

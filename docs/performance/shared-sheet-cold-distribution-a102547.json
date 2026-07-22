@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "evidenceRole": "no-trace-cold-distribution",
+  "evidenceRole": "diagnostic-cold-distribution-playwright-trace-enabled",
   "revision": "a1025476515ac4a594a973b7780517f5b9db705b",
   "recordedAt": "2026-07-22",
   "command": "npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14 --grep \"book action sheet entrance stays within mobile frame budgets\" --repeat-each=30 --workers=1 --retries=0",
@@ -13,7 +13,13 @@
     "workers": 1,
     "retries": 0
   },
-  "context": "one continuous production-managed Playwright invocation; exactly 30 repeat-each tests; every repeat creates a fresh browser context/page; real visible library More button; no warm sheet mount; no replacement, retry, discard, or supplemental sample",
+  "context": "diagnostic only: one continuous production-managed Playwright invocation; exactly 30 repeat-each tests; every repeat creates a fresh browser context/page; real visible library More button; no warm sheet mount; no replacement, retry, discard, or supplemental sample; no CDP timeline probe was attached, but the command omitted --trace=off while playwright.config.ts set trace=retain-on-failure, so Playwright trace recording was enabled and successful traces were deleted; this is not strict trace-off/no-trace acceptance evidence",
+  "traceMode": {
+    "cliOverride": null,
+    "configured": "retain-on-failure",
+    "recordingEnabled": true,
+    "strictTraceOff": false
+  },
   "units": {
     "run": "1-based sample ordinal",
     "clickToMount": "milliseconds",
@@ -33,6 +39,7 @@
     "perRunP95": "inside each Playwright run, discard the first two requestAnimationFrame intervals, sort sampledIntervals ascending, then select sorted[Math.floor(sorted.length * 0.95)] using a 0-based index; no explicit clamp is applied and the test uses nullish fallback 0 only if the indexed value is absent"
   },
   "acceptance": {
+    "status": "diagnostic-not-strict-trace-off-acceptance",
     "criteria": {
       "clickToMountMsMaximum": 34,
       "p95FrameIntervalMsMaximum": 20,
