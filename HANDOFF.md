@@ -40,6 +40,54 @@ git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
 
+## Metadata-Only Library Loading and Book Rename (2026-07-22)
+
+Approved design and implementation:
+
+- `347f3b3` records the metadata-only library design and `3d786b8` records the
+  execution plan.
+- `d76d915` adds Dexie v6 `bookCovers`, metadata-only library enumeration,
+  targeted source-file reads, targeted full-book hydration, and lazy migration
+  of a legacy cover when that individual book is opened.
+- `82dc413` converts library state and surfaces to `BookMetadata`. Startup and
+  metadata refreshes no longer enumerate every EPUB/TXT source blob; opening,
+  exporting, and history restoration hydrate only the requested book.
+- `e406d18` keeps backup format v2 unchanged while loading source files one at
+  a time instead of holding every book blob in the library enumeration path.
+- `5c719f2` adds the metadata-only rename mutation. It trims and changes the
+  display title while preserving the original filename, group membership, and
+  source bytes.
+- `52e5ccd` adds the `book-rename` shared-sheet route and the three-dot action,
+  automatic input focus, blank-title validation, Enter submission, async error
+  handling, and immediate metadata refresh. The route participates in the same
+  focus trap, inert background, history, Escape, and motion layer as the other
+  sheets.
+- `ddade45` corrects README and in-app AI disclosure: a request may send the
+  book name, format, selected text, nearby page text, current question, and
+  recent conversation; it does not send the entire book or export the API Key
+  in backups.
+
+Fresh verification at `ddade45`:
+
+- `npm.cmd test`: `106/106` files and `945/945` tests passed.
+- `npm.cmd run lint`: exited `0` with no findings.
+- `npm.cmd run build`: Next.js `16.2.6` compiled, TypeScript completed, and
+  `6/6` static pages generated. The existing multiple-lockfile workspace-root
+  warning remains non-blocking.
+- iPhone 14 trace-off Playwright: the all-sheet route/Escape test and the full
+  rename flow passed `2/2`. A separate cold book-action budget run passed `1/1`
+  with click-to-mount `12.4ms`, 48 frames, P95/max frame interval `16.7ms`,
+  maximum long task `0ms`, and layout shift `0`.
+- The rename storage regression verifies that the original filename, group IDs,
+  and source bytes remain unchanged. The browser flow verifies blank rejection,
+  Enter save, and updated titles in both the action sheet and library.
+
+Branch state before this handoff update: `codex/shared-sheet-performance` is
+eight commits ahead of `origin/codex/shared-sheet-performance`. These commits
+remain local only: they have not been pushed, merged, added to PR #4, uploaded,
+or deployed. Automated Chromium results do not prove physical 120Hz behavior;
+physical iPhone Safari/home-screen PWA validation remains an external boundary.
+
 ## Shared Sheet Cold-Mount Isolation and Final Evidence (2026-07-22)
 
 Approved cold-mount isolation design and plan:
