@@ -543,15 +543,19 @@ git commit -m "test: cover shared sheet entrance performance"
 - Verify: `e2e/native-navigation.spec.ts`
 - Verify: `playwright.config.ts`
 
-- [ ] **Step 1: Re-run the same real-click diagnostic probe**
+- [ ] **Step 1: Preserve the method, then run a fresh confirmation**
 
-Run a paired A/B diagnostic against the exact pre-fix baseline revision and the
-candidate revision. Build each production artifact with the same command and
-use one byte-identical temporary, gitignored `test-results` probe, the same
-Chromium binary and iPhone profile, a real More-button pointer click, identical
-readiness, and fresh isolated contexts. Capture three traces per revision and
-analyze the exact click-relative interval `[0, 700ms)`. Create and remove the
-temporary probe only with `apply_patch`.
+Track `scripts/shared-sheet-trace-probe.cjs` permanently and preserve the exact
+earlier matched exploratory baseline/candidate summaries as machine-readable
+JSON. Record honestly that the temporary probe hash and Chromium version were
+not captured during those earlier executions. Before collecting new evidence,
+commit the probe, summaries, and the conditions below so the fresh candidate
+run is confirmatory rather than another post-hoc comparison.
+
+Build the committed candidate production artifact, then run the committed
+probe for three fresh traces with its recorded SHA-256, Chromium version,
+revision, iPhone 14 profile, real More-button pointer click, identical readiness,
+exact click-relative interval `[0, 700ms)`, and fresh isolated contexts.
 
 Expected compared with the matched baseline:
 
@@ -561,18 +565,31 @@ Expected compared with the matched baseline:
   layout shift.
 - For each trace, sum `dur` for `UpdateLayoutTree` and Paint on
   `CrRendererMain`, and sum `dur` for RasterTask across renderer worker threads.
-  For each category, the candidate median and the candidate maximum across all
-  three traces must both be at most 50% of the matched baseline median.
-- The matched baseline medians define absolute ceilings of `20.9585ms` for
+  The 50% rule was selected after reviewing the exploratory results and is not
+  validated by those earlier values. For this predeclared fresh confirmation,
+  the candidate median and maximum across all three traces must both be at most
+  50% of the preserved exploratory baseline median.
+- The exploratory baseline medians define absolute ceilings of `20.9585ms` for
   UpdateLayoutTree, `8.5375ms` for Paint, and `33.959ms` for RasterTask. Record
   event counts, total duration, and self duration for diagnosis, but do not gate
   on counts. UpdateLayoutTree count follows animation/rAF ticks and may increase
   on higher-refresh hardware even when work per tick falls.
+- The 50% margin represents a material reduction in fixed-window work and is
+  comfortably beyond the exploratory run-to-run variation. Requiring both the
+  median and maximum guards against a lucky median. Three runs are a
+  deterministic smoke sample, not statistical proof.
+- CDP tracing and marker instrumentation add overhead. Do not compare traced
+  click-to-mount directly with the separate no-trace `<=34ms` cold gate.
 - The earlier fixed count ceilings derived from the deleted-probe
   `56/75/559` report are retired because that probe could not be reproduced
   identically; do not describe those unmatched count ceilings as passed.
 - Three fresh 4x CPU runs may be retained as additional diagnostics, but they
   are not substitutes for the paired unthrottled duration acceptance method.
+
+After the trace capture, run the real no-trace cold entrance test under its
+managed production server with `--repeat-each=5` on iPhone 14. Stop and report
+instead of accepting the trace result if any repeat violates its unchanged
+`<=34ms` click-to-mount gate.
 
 - [ ] **Step 2: Run focused and full unit verification**
 
@@ -629,9 +646,11 @@ Add a dated `Shared Sheet Performance` section near the current top of
 
 - Design commit `adbf38d` and the plan/implementation/test commit SHAs.
 - Root cause and the final two-layer architecture.
-- Matched before/after click-to-mount, frame, long-task, and exact
+- Preserved exploratory baseline/candidate and fresh confirmatory click-to-mount,
+  frame, long-task, and exact
   UpdateLayoutTree/Paint/RasterTask count, total-duration, and self-duration
-  evidence without calling Chromium proof of 120fps.
+  evidence, clearly separating traced and no-trace timings and without calling
+  Chromium proof of 120fps.
 - Focused/full Vitest, lint, build, both complete phone-profile results, theme
   screenshot inspection, detector output, and `git diff --check`.
 - The explicit statement that physical 120Hz iPhone Safari/PWA verification is

@@ -182,23 +182,32 @@ test, no long task, and zero layout shift. Source and computed-style assertions
 enforce the 120Hz-oriented compositor-only architecture. Physical iPhone 120Hz
 acceptance remains separate.
 
-Trace acceptance uses a paired, reproducible A/B method. Build production
-artifacts from the exact baseline and candidate revisions with the same build
-command, then run one byte-identical temporary probe with the same Chromium
-binary, iPhone profile, readiness sequence, real More-button pointer click, and
-fresh isolated contexts. Capture three traces per revision and analyze the
-exact click-relative interval `[0, 700ms)`. For each trace, sum `dur` separately
-for `UpdateLayoutTree` and `Paint` on `CrRendererMain`, and for `RasterTask`
-across renderer worker threads.
+Trace confirmation uses the permanently tracked
+`scripts/shared-sheet-trace-probe.cjs` and the preserved matched exploratory
+baseline. The probe records its own SHA-256, Chromium version, exact revision,
+iPhone profile, readiness sequence, real More-button pointer click, and three
+fresh isolated contexts. It analyzes the exact click-relative interval
+`[0, 700ms)`: `UpdateLayoutTree` and `Paint` on `CrRendererMain`, and
+`RasterTask` across renderer worker threads.
 
-For each category, both the candidate median and the candidate maximum across
-the three traces must be at most 50% of the matched baseline median. The matched
-baseline medians establish absolute ceilings of `20.9585ms` for
-`UpdateLayoutTree`, `8.5375ms` for Paint, and `33.959ms` for RasterTask. Event
-counts are diagnostic only: `UpdateLayoutTree` is commonly emitted with
+The 50% duration conditions were selected after examining the exploratory A/B
+results, so those earlier runs are not validated acceptance evidence. This
+document predeclares the conditions for a fresh candidate confirmation: for
+each category, both the candidate median and candidate maximum across three
+traces must be at most 50% of the preserved exploratory baseline median. The
+resulting absolute ceilings are `20.9585ms` for `UpdateLayoutTree`, `8.5375ms`
+for Paint, and `33.959ms` for RasterTask. Halving the fixed-window work is a
+material improvement comfortably larger than the observed exploratory
+run-to-run variation. Requiring the maximum as well as the median prevents one
+lucky central sample from hiding a regression. Three runs are a deterministic
+smoke sample, not statistical proof.
+
+Event counts are diagnostic only: `UpdateLayoutTree` is commonly emitted with
 animation/rAF ticks, so its count can remain stable for less work per tick and
 can rise on a 120Hz display. A fixed count ceiling must not substitute for the
-matched duration gate.
+duration conditions. CDP tracing and the click marker add instrumentation
+overhead, so traced click-to-mount values must not be compared directly with
+the separate no-trace `<=34ms` cold entrance gate.
 
 ## Quality Gates
 
@@ -210,9 +219,9 @@ Before completion:
   build must pass.
 - Full shared native-navigation coverage must pass on both configured phone
   profiles.
-- Matched before/after real-click traces must pass all three duration gates for
-  `UpdateLayoutTree`, Paint, and RasterTask; event counts are recorded only as
-  diagnostics.
+- After this predeclaration is committed, a fresh three-run candidate capture
+  from the committed probe must pass all three duration conditions for
+  `UpdateLayoutTree`, Paint, and RasterTask. Event counts remain diagnostic.
 - Impeccable's changed-source detector and `git diff --check` must pass.
 - No deployment or push occurs unless the user authorizes it after local
   verification.
