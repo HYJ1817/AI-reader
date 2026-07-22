@@ -5,8 +5,9 @@ import {
   useEffect,
   useId,
   useMemo,
-  useReducer,
   useRef,
+  useState,
+  useSyncExternalStore,
 } from "react";
 import {
   createAppNavigationState,
@@ -20,6 +21,11 @@ import {
   type SheetRoute,
 } from "@/lib/appNavigation";
 import {
+  createAppNavigationStore,
+  type AppNavigationCoreState,
+  type AppNavigationStore,
+} from "@/lib/appNavigationStore";
+import {
   decodeNavigationHistory,
   mergeNavigationHistory,
 } from "@/lib/navigationHistory";
@@ -31,7 +37,9 @@ type SheetOptions = Omit<SheetEntry, "key" | "kind" | "route">;
 type HistoryWrite = "push" | "replace";
 
 export type UseAppNavigationResult = {
-  state: AppNavigationState;
+  state: AppNavigationCoreState;
+  getState: AppNavigationStore["getState"];
+  subscribe: AppNavigationStore["subscribe"];
   selectTab: (tab: NavigationTab) => void;
   push: (route: PushRoute, options?: PushOptions) => void;
   pop: () => void;
@@ -43,24 +51,23 @@ export type UseAppNavigationResult = {
 };
 
 export default function useAppNavigation(): UseAppNavigationResult {
-  const [state, dispatch] = useReducer(
-    reduceAppNavigation,
-    createAppNavigationState()
+  const [store] = useState(() =>
+    createAppNavigationStore(createAppNavigationState())
   );
-  const stateRef = useRef(state);
+  const state = useSyncExternalStore(
+    store.subscribeCore,
+    store.getCoreSnapshot,
+    store.getCoreSnapshot
+  );
   const historyInitializedRef = useRef(false);
   const keyCounterRef = useRef(0);
   const keyPrefix = useId();
 
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-
   const nextKey = useCallback((kind: "push" | "reader" | "sheet") => {
     keyCounterRef.current =
-      Math.max(keyCounterRef.current, stateRef.current.revision) + 1;
+      Math.max(keyCounterRef.current, store.getState().revision) + 1;
     return `${keyPrefix}-${kind}-${keyCounterRef.current}`;
-  }, [keyPrefix]);
+  }, [keyPrefix, store]);
 
   const restore = useCallback(
     (restoredState: AppNavigationState): AppNavigationState => {
@@ -68,12 +75,11 @@ export default function useAppNavigation(): UseAppNavigationResult {
         type: "restore",
         state: restoredState,
       };
-      const nextState = reduceAppNavigation(stateRef.current, action);
-      stateRef.current = nextState;
-      dispatch(action);
+      const nextState = reduceAppNavigation(store.getState(), action);
+      store.setState(nextState);
       return nextState;
     },
-    []
+    [store]
   );
 
   useEffect(() => {
@@ -86,7 +92,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
         window.history.replaceState(
           mergeNavigationHistory(
             window.history.state,
-            stateRef.current
+            store.getState()
           ),
           ""
         );
@@ -111,12 +117,13 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [restore]);
+  }, [restore, store]);
 
   const commit = useCallback(
     (action: AppNavigationAction, historyWrite: HistoryWrite) => {
-      const nextState = reduceAppNavigation(stateRef.current, action);
-      if (nextState === stateRef.current) return;
+      const currentState = store.getState();
+      const nextState = reduceAppNavigation(currentState, action);
+      if (nextState === currentState) return;
 
       if (typeof window !== "undefined") {
         const payload = mergeNavigationHistory(
@@ -130,15 +137,15 @@ export default function useAppNavigation(): UseAppNavigationResult {
         }
       }
 
-      stateRef.current = nextState;
-      dispatch(action);
+      store.setState(nextState);
     },
-    []
+    [store]
   );
 
   const traverseBack = useCallback((action: AppNavigationAction) => {
-    const nextState = reduceAppNavigation(stateRef.current, action);
-    if (nextState === stateRef.current) return;
+    const currentState = store.getState();
+    const nextState = reduceAppNavigation(currentState, action);
+    if (nextState === currentState) return;
 
     if (
       typeof window !== "undefined" &&
@@ -148,15 +155,14 @@ export default function useAppNavigation(): UseAppNavigationResult {
       return;
     }
 
-    stateRef.current = nextState;
+    store.setState(nextState);
     if (typeof window !== "undefined") {
       window.history.replaceState(
         mergeNavigationHistory(window.history.state, nextState),
         ""
       );
     }
-    dispatch(action);
-  }, []);
+  }, [store]);
 
   const selectTab = useCallback(
     (tab: NavigationTab) => {
@@ -190,7 +196,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
   const presentReader = useCallback(
     (bookId: string, options?: ReaderOptions) => {
       const historyWrite: HistoryWrite =
-        stateRef.current.sheets.length > 0 ? "replace" : "push";
+        store.getState().sheets.length > 0 ? "replace" : "push";
       commit(
         {
           type: "present-reader",
@@ -204,7 +210,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
         historyWrite
       );
     },
-    [commit, nextKey]
+    [commit, nextKey, store]
   );
 
   const dismissReader = useCallback(() => {
@@ -243,6 +249,8 @@ export default function useAppNavigation(): UseAppNavigationResult {
   return useMemo(
     () => ({
       state,
+      getState: store.getState,
+      subscribe: store.subscribe,
       selectTab,
       push,
       pop,
@@ -262,6 +270,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
       removeInvalid,
       selectTab,
       state,
+      store,
     ]
   );
 }
