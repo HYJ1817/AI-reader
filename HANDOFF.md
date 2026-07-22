@@ -10,8 +10,9 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state after the corrected trace-off evidence commit: 24 commits
-  ahead of `main`; no shared-sheet commit has been pushed, merged, or deployed.
+- Local branch state after the deployment-record commit: 25 commits ahead of
+  `main`. The feature branch is pushed and draft PR #4 is open; it has not been
+  merged into `main`.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -22,10 +23,10 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest transparent-navigation design commit: `8746ab5`; implementation plan:
   `bfe9649`; product behavior: `f966a80`; browser coverage: `d74d932`.
-- Latest deployed product behavior commit: `f966a80` (`style: use translucent
-  root tab selection`). The translucent full-tab selection is live in
-  production; `d74d932` locks its browser contract.
-- Latest deployed Worker version: `b4ad2aee-254c-44a0-850d-902dcd6eeb4e`.
+- Latest deployed product behavior commit: `a102547` (`fix: refresh book dates
+  across time zones`), with shared-sheet evidence through `39905dc`.
+- Latest deployed Worker version: `6cdee0ad-c5df-4e07-ae6f-51d9d6eb950f`;
+  deployed BUILD_ID: `2pxiF9mNRwdxjPIMjJ1me`.
 - GitHub CLI authentication is valid for `HYJ1817`; local `main` is two commits
   ahead of `origin/main`. The merged feature branches and the stale
   `surface-visual-system` worktree have been removed locally and remotely.
@@ -194,14 +195,33 @@ Latest candidate quality gates and corrected trace-off browser gates:
   plus the committed
   `evaluateDurationAcceptance` comparison recomputed exactly. `git diff
   --check` passed.
-- Everything remains local-only on `codex/shared-sheet-performance`. Nothing
-  has been pushed, merged, uploaded, or deployed. Automated Chromium validates
-  architecture, matched trace work reduction, strict trace-off 60Hz sheet
-  distribution, and 60Hz smoke. The strict trace-off distribution is
-  `allPass=true`, while the corrected iPhone 15 full gate still has one
-  push-transition cadence failure. Physical 120Hz iPhone Safari and home-screen
-  PWA verification remain the final external acceptance boundary; no result
-  here proves 120fps.
+- The branch is pushed as `origin/codex/shared-sheet-performance`, and draft
+  PR #4 (`https://github.com/HYJ1817/AI-reader/pull/4`) targets `main`. It has
+  not been merged. The verified product/evidence commit `39905dc` was deployed
+  directly from this worktree to `881817.xyz/*` after the user explicitly
+  authorized deployment.
+- Final Cloudflare Worker version is
+  `6cdee0ad-c5df-4e07-ae6f-51d9d6eb950f`; local and production BUILD_ID both
+  equal `2pxiF9mNRwdxjPIMjJ1me`. The first upload in this deployment sequence
+  was superseded after verification found that the feature worktree lacked the
+  ignored signed APK. The unchanged main-worktree APK was copied into the
+  deployment package and the final version restored `/downloads/ai-reader-twa.apk`.
+- Production verification passed: `/`, all 10 discovered page JS/CSS assets,
+  `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`, and
+  `/.well-known/assetlinks.json` returned `200`; `/api/models` retained its
+  expected `400` validation response. The APK returned `200`,
+  `application/vnd.android.package-archive`, length `901574`, and SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`.
+- Production iPhone 14 trace-off sheet verification passed `3/3`: all sheet
+  routes/Escape, the cold book-action budget, and Light/Sepia/Dark/system-dark
+  materials. The sheet smoke recorded `18.1ms` click-to-mount, 48 frames,
+  `16.8ms` P95/maximum interval, `0ms` long task, and `0` layout shift.
+- Automated Chromium validates architecture, matched trace work reduction,
+  strict trace-off 60Hz sheet distribution, and 60Hz smoke. The strict
+  trace-off distribution is `allPass=true`, while the corrected iPhone 15 full
+  gate still has one push-transition cadence failure. Physical 120Hz iPhone
+  Safari and home-screen PWA verification remain the final external acceptance
+  boundary; no result here proves 120fps.
 
 Diagnostic cold distribution with Playwright trace recording enabled (candidate
 `44e73085ecc8910373a5388c6dc9d07b611f58c4`):
@@ -2679,10 +2699,10 @@ Use this opener in the new conversation:
 
 ```text
 继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。
-当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在 corrected trace-off evidence 提交后比 main 超前 24 个提交。所有 shared-sheet 改动仍是 local-only，未 push、merge、upload 或 deploy；不要假定用户已经授权合并、推送或部署。
+当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在部署记录提交后比 main 超前 25 个提交。功能分支已推送，草稿 PR #4 指向 main，但尚未合并。产品/evidence commit 39905dc 已按用户授权部署；最终 Worker 版本 6cdee0ad-c5df-4e07-ae6f-51d9d6eb950f，BUILD_ID 2pxiF9mNRwdxjPIMjJ1me。
 最新代码提交 ca5d305 + a102547 把首次书籍操作弹层中的 Intl 日期格式化从每次 toLocaleDateString 构造改为预热 formatter，并在每次格式化时探测当前默认时区、只在时区变化时刷新缓存。20-context 微基准从 7.5/8.4/15.9/15.9ms 降到 0/0.1/0.2/0.2ms；同一模块跨 Asia/Shanghai 与 America/Los_Angeles 的输出语义已有回归测试。
 方法修正：playwright.config.ts 使用 trace=retain-on-failure，旧 44e7308 与 a102547 分布命令没有显式 --trace=off，所以它们虽无 CDP timeline，仍启用了 Playwright trace recording；两份 JSON 的原始数值/命令/退出码保留，但已降级为 diagnostic，不再是 strict no-trace acceptance。唯一 strict trace-off acceptance 是在 HEAD 11f0d8e 对产品候选 a102547 运行的一次连续 exactly-30、workers=1、retries=0、--trace=off fresh-context 分布：30/30、allPass=true、exit0；click-to-mount min/median/P95/max 11.6/15.5/32.2/32.4ms，per-run P95 max16.8ms，maxFrame max33.3ms，long task/CLS全0，frames47-48。没有重试、替换、丢弃、补充样本或重跑。旧两轮诊断失败仍保留，不得删除。
 最新 fa1fc21 versus a102547 matched traces 使用同一提交探针 SHA 16aca8…、同一 Chromium，baseline/candidate 各恰好一次 probe（三个 fresh contexts）并通过 ULT、Paint、RasterTask 的预声明 50% median+maximum 时长条件。baseline run 2 的 633.3ms frame、621ms long task 与 606.631ms RasterTask 原样保留，未补跑。
 strict trace-off 分布位于 docs/performance/shared-sheet-cold-distribution-a102547-trace-off.json；旧 docs/performance/shared-sheet-cold-distribution-a102547.json 与 shared-sheet-cold-distribution-44e7308.json 仅作诊断。matched CDP trace 证据不受 Playwright config 修正影响。代码未变，最近完整 Vitest 929/929、lint、build、Impeccable JSON[] 可继续引用。corrected 完整 native-navigation 都显式 --trace=off 且各仅跑一次：iPhone 14 19/19；iPhone 15 Pro Max 18/19，唯一失败为 push-transition maxInterval 83.4ms>80ms（非 sheet，但不声称 unrelated/独立），两台 sheet smoke 都通过。此前 11f0d8e iPhone 15 的 root-tab 18/19 失败也保留为一次非 sheet 失败，不能称 unrelated 或已证明无关。
-下一步审查 iPhone 15 的非 sheet cadence 风险，或进入分支收尾选择；不得未经新证据修改阈值或产品代码。自动化 Chromium 只验证架构、匹配 trace 工作量下降、strict trace-off 60Hz 分布和 smoke，不能证明 120fps。物理 120Hz iPhone Safari 与主屏 PWA 仍是最终外部验收边界。任何 merge、push、PR、Cloudflare upload 或 production deploy 都必须等待用户明确选择。
+生产复核：根页面、10个页面JS/CSS、BUILD_ID、sw.js、manifest、assetlinks与签名APK均正常；APK哈希133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13。线上iPhone14 trace-off sheet烟测3/3，click-to-mount18.1ms、P95/max16.8ms、long task/CLS为0。下一步审查 iPhone 15 的非 sheet cadence 风险，执行物理120Hz iPhone Safari/PWA验收，或决定是否合并PR #4；不得未经新证据修改阈值或产品代码。自动化 Chromium 不能证明120fps。任何后续 merge、main push或production deploy都必须等待用户明确选择。
 ```
