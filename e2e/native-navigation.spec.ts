@@ -20,6 +20,7 @@ type SheetRoute =
   | "ask-ai"
   | "reading-goal"
   | "book-actions"
+  | "book-rename"
   | "book-delete"
   | "book-groups"
   | "batch-groups"
@@ -841,6 +842,7 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
     { route: "ask-ai" },
     { route: "reading-goal" },
     { route: "book-actions", entityId: bookId ?? undefined },
+    { route: "book-rename", entityId: bookId ?? undefined },
     { route: "book-delete", entityId: bookId ?? undefined },
     { route: "book-groups", entityId: bookId ?? undefined },
     { route: "batch-groups" },
@@ -877,6 +879,46 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
     await page.keyboard.press("Escape");
     await expect(host).toHaveCount(0);
   }
+});
+
+test("renames a book from its action sheet and validates blank titles", async ({
+  page,
+}) => {
+  await useLibraryListMode(page);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+
+  const actionsSheet = page.locator('[data-sheet-route="book-actions"]');
+  await actionsSheet
+    .getByRole("button", { name: "\u91cd\u547d\u540d\u4e66\u7c4d" })
+    .click();
+
+  const renameSheet = page.locator('[data-sheet-route="book-rename"]');
+  const titleInput = renameSheet.getByLabel("\u4e66\u540d");
+  await expect(titleInput).toBeFocused();
+  await titleInput.fill("   ");
+  await renameSheet.getByRole("button", { name: "\u4fdd\u5b58" }).click();
+  await expect(renameSheet.getByRole("alert")).toHaveText(
+    "\u8bf7\u8f93\u5165\u4e66\u540d"
+  );
+
+  const renamedTitle = "E2E \u91cd\u547d\u540d\u4e66\u7c4d";
+  await titleInput.fill(renamedTitle);
+  await titleInput.press("Enter");
+  await expect(renameSheet).toHaveCount(0);
+  await expect(actionsSheet.locator("strong", { hasText: renamedTitle })).toHaveText(
+    renamedTitle
+  );
+
+  await page.keyboard.press("Escape");
+  await expect(actionsSheet).toHaveCount(0);
+  await expect(
+    page.locator(
+      `${libraryRootSelector} [data-library-book-title="true"]`
+    ).filter({ hasText: renamedTitle })
+  ).toHaveText(renamedTitle);
 });
 
 test("Ask AI composer remains visible in a keyboard-sized viewport", async ({

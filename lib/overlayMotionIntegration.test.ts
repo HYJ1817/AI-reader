@@ -176,6 +176,7 @@ describe("overlay and nested view motion", () => {
       "ask-ai",
       "reading-goal",
       "book-actions",
+      "book-rename",
       "book-delete",
       "book-groups",
       "batch-groups",

@@ -22,6 +22,7 @@ import {
   updateBookGroupName,
   updateBookGroupMembership,
   updateBookLastOpenedAt,
+  renameBook,
   type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
@@ -634,6 +635,11 @@ export default function Home() {
     } catch (err) {
       setImportError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
     }
+  }
+
+  async function handleRenameBook(bookId: string, title: string) {
+    await renameBook(bookId, title);
+    setBooks(await listBookMetadata());
   }
 
   async function handleDeleteBook(book: BookMetadata) {
@@ -1879,6 +1885,7 @@ export default function Home() {
           createCollection: () => void handleCreateCollectionGroup(),
           openBook: (book) => void openBookForReading(book),
           exportBook: (book) => void handleExportBook(book),
+          renameBook: handleRenameBook,
           deleteBook: (book) => void handleDeleteBook(book),
           toggleBookGroup: (bookId, groupId) =>
             void handleToggleGroup(bookId, groupId),

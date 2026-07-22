@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import AskAiPanel, { type AiConversationMessage } from "@/app/AskAiPanel";
 import BookCover from "@/app/BookCover";
 import BottomSheet, { type CloseSheet } from "@/app/BottomSheet";
@@ -78,6 +78,7 @@ export type AppOverlaysProps = {
     createCollection: () => void;
     openBook: (book: BookMetadata) => void;
     exportBook: (book: BookMetadata) => void;
+    renameBook: (bookId: string, title: string) => Promise<void>;
     deleteBook: (book: BookMetadata) => void;
     toggleBookGroup: (bookId: string, groupId: string) => void;
     setEditingGroup: (groupId: string | null, name: string) => void;
@@ -91,6 +92,7 @@ export type AppOverlaysProps = {
 
 const BOOK_ROUTES = new Set([
   "book-actions",
+  "book-rename",
   "book-delete",
   "book-groups",
 ]);
@@ -191,6 +193,11 @@ export default function AppOverlays({
             book={sheetBook}
             progress={getBookProgressPercent(library.progressMap, sheetBook.id)}
             actions={actions}
+            onOpenRename={() =>
+              navigation.presentSheet("book-rename", {
+                entityId: sheetBook.id,
+              })
+            }
             onOpenGroups={() =>
               navigation.presentSheet("book-groups", {
                 entityId: sheetBook.id,
@@ -201,6 +208,14 @@ export default function AppOverlays({
                 entityId: sheetBook.id,
               })
             }
+            onClose={navigation.dismissSheet}
+          />
+        ) : null;
+      case "book-rename":
+        return sheetBook ? (
+          <BookRenameSheet
+            book={sheetBook}
+            onRename={actions.renameBook}
             onClose={navigation.dismissSheet}
           />
         ) : null;
@@ -419,6 +434,7 @@ function BookActionSheet({
   book,
   progress,
   actions,
+  onOpenRename,
   onOpenGroups,
   onOpenDelete,
   onClose,
@@ -426,6 +442,7 @@ function BookActionSheet({
   book: BookMetadata;
   progress: number;
   actions: AppOverlaysProps["actions"];
+  onOpenRename: () => void;
   onOpenGroups: () => void;
   onOpenDelete: () => void;
   onClose: () => void;
@@ -461,6 +478,11 @@ function BookActionSheet({
                 onClick={() => actions.openBook(book)}
               />
               <ActionRow
+                label={UI_TEXT.RENAME_BOOK}
+                icon="edit"
+                onClick={onOpenRename}
+              />
+              <ActionRow
                 label={UI_TEXT.MANAGE_GROUPS}
                 icon="list"
                 onClick={onOpenGroups}
@@ -493,6 +515,95 @@ function BookActionSheet({
               </button>
             </div>
           </div>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+function BookRenameSheet({
+  book,
+  onRename,
+  onClose,
+}: {
+  book: BookMetadata;
+  onRename: (bookId: string, title: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [title, setTitle] = useState(book.title);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  async function submit(close: CloseSheet) {
+    const trimmed = title.trim();
+    if (!trimmed) {
+      setError(UI_TEXT.BOOK_TITLE_REQUIRED);
+      inputRef.current?.focus();
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      await onRename(book.id, trimmed);
+      close();
+    } catch {
+      setError(UI_TEXT.RENAME_BOOK_FAILED);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <BottomSheet
+      onClose={onClose}
+      ariaLabel={UI_TEXT.RENAME_BOOK}
+      initialFocusRef={inputRef}
+    >
+      {(close) => (
+        <>
+          <SheetHeader title={UI_TEXT.RENAME_BOOK} close={close} />
+          <form
+            className={styles.renameBookForm}
+            onSubmit={(event) => {
+              event.preventDefault();
+              void submit(close);
+            }}
+          >
+            <label htmlFor="rename-book-title">{UI_TEXT.BOOK_TITLE}</label>
+            <input
+              ref={inputRef}
+              id="rename-book-title"
+              className={styles.renameBookInput}
+              value={title}
+              onChange={(event) => {
+                setTitle(event.target.value);
+                if (error) setError(null);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                  event.preventDefault();
+                  void submit(close);
+                }
+              }}
+              aria-invalid={error ? "true" : undefined}
+              aria-describedby={error ? "rename-book-error" : undefined}
+              disabled={saving}
+            />
+            {error ? (
+              <p id="rename-book-error" className={styles.renameBookError} role="alert">
+                {error}
+              </p>
+            ) : null}
+            <div className={styles.renameBookActions}>
+              <button type="button" className={styles.secondaryButton} onClick={() => close()} disabled={saving}>
+                {UI_TEXT.CANCEL}
+              </button>
+              <button type="submit" className={styles.primaryButton} disabled={saving}>
+                {UI_TEXT.SAVE}
+              </button>
+            </div>
+          </form>
         </>
       )}
     </BottomSheet>
@@ -722,7 +833,7 @@ function ActionRow({
   onClick,
 }: {
   label: string;
-  icon: "book" | "list" | "export";
+  icon: "book" | "edit" | "list" | "export";
   onClick: () => void;
 }) {
   return (
@@ -734,6 +845,8 @@ function ActionRow({
               <path d="M5 4.5c2-.2 3.6.2 5 1.4v10.6c-1.7-1.1-3.4-1.5-5-1.2V4.5Z" />
               <path d="M10 5.9c1.4-1.2 3-1.6 5-1.4v10.8c-1.6-.3-3.3.1-5 1.2V5.9Z" />
             </>
+          ) : icon === "edit" ? (
+            <path d="M13.6 3.6a2 2 0 0 1 2.8 2.8l-8.5 8.5-3.5 1 1-3.5 8.2-8.8Z" strokeLinecap="round" strokeLinejoin="round" />
           ) : icon === "list" ? (
             <path d="M4 5h12M4 10h12M4 15h12" strokeLinecap="round" />
           ) : (
