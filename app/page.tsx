@@ -143,6 +143,7 @@ import useReaderAnnotationsController from "@/app/useReaderAnnotationsController
 import {
   createReaderPositionCoordinator,
 } from "@/lib/readerPositionCoordinator";
+import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -1218,19 +1219,33 @@ export default function Home() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      await restoreBackupPayload(data);
-      const restoredBooks = await listBookMetadata();
-      const restoredPositions = await listReadingPositions();
-      dismissReader();
-      clearReaderBook();
-      resetAskAi();
-      setBooks(restoredBooks);
-      setReadingProgressMap(buildReadingProgressMap(restoredPositions));
-      setGroups(await listBookGroups());
-      setReadingStats(await listDailyReadingStats());
-      await background.reloadCustomBackground();
-      setGroupFilter(null);
-      setAiProviderSettings(loadAiProviderSettings());
+      await runBackupRestoreGuarded({
+        coordinator: positionCoordinator,
+        stopReader: () => {
+          navigation.dismissReader();
+          clearReaderBook();
+          resetAskAi();
+        },
+        restore: async () => {
+          await restoreBackupPayload(data);
+        },
+        reload: async () => {
+          const [restoredBooks, restoredPositions, restoredGroups, restoredStats] =
+            await Promise.all([
+              listBookMetadata(),
+              listReadingPositions(),
+              listBookGroups(),
+              listDailyReadingStats(),
+            ]);
+          setBooks(restoredBooks);
+          setReadingProgressMap(buildReadingProgressMap(restoredPositions));
+          setGroups(restoredGroups);
+          setReadingStats(restoredStats);
+          await background.reloadCustomBackground();
+          setGroupFilter(null);
+          setAiProviderSettings(loadAiProviderSettings());
+        },
+      });
       setBackupStatus(UI_TEXT.BACKUP_RESTORED);
     } catch (err) {
       setBackupError(err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED);
