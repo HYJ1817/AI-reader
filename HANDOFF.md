@@ -82,11 +82,29 @@ Fresh verification at `ddade45`:
   and source bytes remain unchanged. The browser flow verifies blank rejection,
   Enter save, and updated titles in both the action sheet and library.
 
-Branch state before this handoff update: `codex/shared-sheet-performance` is
-eight commits ahead of `origin/codex/shared-sheet-performance`. These commits
-remain local only: they have not been pushed, merged, added to PR #4, uploaded,
-or deployed. Automated Chromium results do not prove physical 120Hz behavior;
-physical iPhone Safari/home-screen PWA validation remains an external boundary.
+Publication and production verification:
+
+- The nine implementation/handoff commits through `9fc47c1` were pushed to
+  `origin/codex/shared-sheet-performance`; draft PR #4 remains open against
+  `main` and was not merged.
+- Commit `9fc47c1` was built in standalone mode, packaged with OpenNext, and
+  deployed to `881817.xyz/*`. Cloudflare Worker version:
+  `282cf0ea-4d52-4c9c-af84-379472b49800`; BUILD_ID:
+  `OwIBzBMRq3nmC0MjnzoDs`.
+- Production `/`, all 10 discovered page JS/CSS assets, `/BUILD_ID`, `/sw.js`,
+  `/manifest.webmanifest`, `/.well-known/assetlinks.json`, and the signed APK
+  returned `200`. `/api/models` retained its expected empty-request `400`.
+  The APK length is `901574` and SHA-256 is
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`.
+- Production iPhone 14 trace-off verification passed the all-sheet route/Escape
+  flow and the rename flow (`2/2`). The same single invocation's cold
+  book-action performance test failed click-to-mount at `38.6ms` against the
+  `34ms` ceiling. It retained 47 frames, `16.8ms` P95, `33.3ms` maximum frame,
+  `0ms` maximum long task, and layout shift `0`. This failure was not rerun,
+  discarded, or replaced.
+
+Automated Chromium results do not prove physical 120Hz behavior; physical
+iPhone Safari/home-screen PWA validation remains an external boundary.
 
 ## Shared Sheet Cold-Mount Isolation and Final Evidence (2026-07-22)
 
