@@ -23,7 +23,7 @@ import {
   updateBookGroupMembership,
   updateBookLastOpenedAt,
   renameBook,
-  type BookMetadata, type BookGroup, type DailyReadingStat, type ReadingPosition,
+  type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
 import {
@@ -140,9 +140,8 @@ import { requestPersistentStorage } from "@/lib/storagePersistence";
 import { createLocalId } from "@/lib/localId";
 import useAskAi from "@/app/useAskAi";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
-import {
-  createReaderPositionCoordinator,
-} from "@/lib/readerPositionCoordinator";
+import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
+import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 import { assertBackupImportSize } from "@/lib/backupImport";
 type ReaderTurnDirection = "prev" | "next";
@@ -198,12 +197,8 @@ export default function Home() {
   const backupInputRef = useRef<HTMLInputElement>(null);
   const [backupStatus, setBackupStatus] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
-  const [positionCoordinator] = useState(() =>
-    createReaderPositionCoordinator(saveReadingPosition, 180)
-  );
-  const scheduleReadingPosition = useCallback((position: ReadingPosition) => {
-    positionCoordinator.schedule(position);
-  }, [positionCoordinator]);
+  const [positionCoordinator] = useState(() => createReaderPositionCoordinator(saveReadingPosition, 180));
+  const scheduleReadingPosition = useReaderPositionLifecycle(positionCoordinator, setImportError);
 
   const [readerPrefs, setReaderPrefs] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const [appPrefs, setAppPrefs] = useState<AppPreferences>(DEFAULT_APP_PREFERENCES);
@@ -1135,34 +1130,6 @@ export default function Home() {
       });
     });
   }, [annotations, openBook, positionCoordinator, readerMode]);
-
-  useEffect(() => {
-    const flushPendingPosition = () =>
-      positionCoordinator.flush().catch(() => {
-        setImportError(UI_TEXT.ERROR_READ_FILE);
-      });
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        void flushPendingPosition();
-      }
-    };
-    const handlePageHide = () => void flushPendingPosition();
-    const handleBeforeReload = (event: Event) => {
-      const reloadEvent = event as CustomEvent<{
-        waitUntil?: (promise: Promise<void>) => void;
-      }>;
-      reloadEvent.detail?.waitUntil?.(flushPendingPosition());
-    };
-
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("ai-reader-before-reload", handleBeforeReload);
-    return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("ai-reader-before-reload", handleBeforeReload);
-    };
-  }, [positionCoordinator]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {

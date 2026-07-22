@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const readSource = (path: string) =>
@@ -8,6 +9,13 @@ const pageSource = readSource("app/page.tsx");
 const epubSource = readSource("app/EpubReader.tsx");
 const sessionSource = readSource("app/ReadingSession.tsx");
 const registrationSource = readSource("app/ServiceWorkerRegistration.tsx");
+const lifecycleUrl = new URL(
+  "../app/useReaderPositionLifecycle.ts",
+  import.meta.url
+);
+const lifecycleSource = existsSync(lifecycleUrl)
+  ? readFileSync(lifecycleUrl, "utf8")
+  : "";
 
 describe("reading position persistence integration", () => {
   it("routes TXT persistence through the shared coordinator", () => {
@@ -18,12 +26,13 @@ describe("reading position persistence integration", () => {
 
   it("flushes pending positions before book switches and lifecycle exits", () => {
     expect(pageSource).toContain("await positionCoordinator.flush()");
-    expect(pageSource).toContain('document.addEventListener("visibilitychange"');
-    expect(pageSource).toContain('window.addEventListener("pagehide"');
-    expect(pageSource).toContain(
+    expect(pageSource).toContain("useReaderPositionLifecycle(");
+    expect(lifecycleSource).toContain('document.addEventListener("visibilitychange"');
+    expect(lifecycleSource).toContain('window.addEventListener("pagehide"');
+    expect(lifecycleSource).toContain(
       'window.addEventListener("ai-reader-before-reload"'
     );
-    expect(pageSource).toContain("positionCoordinator.flush()");
+    expect(lifecycleSource).toContain("positionCoordinator.flush()");
   });
 
   it("keeps EPUB relocation writes outside rendition-local timers", () => {
