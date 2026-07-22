@@ -2697,6 +2697,33 @@ Observed results:
   - `/api/models` with `{}` returns the expected missing provider validation error.
 - `git diff --check` reported no whitespace errors; while files were uncommitted it emitted only Windows CRLF normalization warnings.
 
+## Reading Data Reliability Fixes (2026-07-22)
+
+- `750468a` coordinates debounced reader-position writes and exposes ordered
+  `saveNow`, `flush`, `cancel`, and restore blocking operations.
+- `44bbf33` flushes the latest TXT/EPUB position on reader dismissal, book
+  switches, visibility/page lifecycle exits, and controlled service-worker
+  reloads.
+- `a7e8031` blocks and drains stale position writes before backup restore.
+- `fa35033` rejects backup imports larger than 500MB before calling
+  `File.text()`.
+- `dcbc11f` limits service-worker cleanup to `ai-reader-*` caches and sends the
+  Gemini credential in `x-goog-api-key` instead of the URL query string.
+- `d130c19` proves a missing/corrupt book file does not hide healthy metadata or
+  prevent other books from opening.
+- `1399e04` moves lifecycle persistence into
+  `app/useReaderPositionLifecycle.ts` without raising the Home orchestration
+  size budget.
+- Fresh verification on `1399e04`: Vitest 110 files / 963 tests passed, full
+  ESLint passed, production `next build --webpack` passed, and
+  `git diff --check` found no whitespace errors.
+- Focused local iPhone 14 Playwright run passed 3/3 with one worker, no retries,
+  and `--trace=off`: reader dismissal/focus restoration, book rename, and book
+  action-sheet performance. Sheet metrics were click-to-mount 14ms, frame P95
+  16.7ms, max frame 16.8ms, max long task 0ms, and CLS 0.
+- These automated Chromium measurements verify the configured frame budgets;
+  they do not prove sustained 120fps on physical iPhone Safari/PWA hardware.
+
 Before making another code commit, rerun:
 
 ```powershell
