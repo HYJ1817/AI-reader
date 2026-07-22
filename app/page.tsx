@@ -144,6 +144,7 @@ import {
   createReaderPositionCoordinator,
 } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
+import { assertBackupImportSize } from "@/lib/backupImport";
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -1217,6 +1218,7 @@ export default function Home() {
     setBackupStatus(null);
     setBackupError(null);
     try {
+      assertBackupImportSize(file.size);
       const text = await file.text();
       const data = JSON.parse(text);
       await runBackupRestoreGuarded({

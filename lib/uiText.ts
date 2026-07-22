@@ -67,6 +67,7 @@ export const UI_TEXT = {
   IMPORT_BACKUP: "\u5bfc\u5165\u5907\u4efd",
   BACKUP_EXPORTED: "\u5907\u4efd\u5df2\u5bfc\u51fa\u3002",
   BACKUP_RESTORED: "\u5907\u4efd\u5df2\u6062\u590d\u3002",
+  BACKUP_TOO_LARGE: "\u5907\u4efd\u6587\u4ef6\u8d85\u8fc7 500MB\uff0c\u5f53\u524d\u8bbe\u5907\u65e0\u6cd5\u5b89\u5168\u6062\u590d\u3002",
   BACKGROUND: "\u80cc\u666f",
   BACKGROUND_AUTO: "\u8ddf\u968f\u56fe\u4e66",
   BACKGROUND_AUTO_HINT: "\u4f7f\u7528\u4e66\u5c01\u6216\u73b0\u6709\u80cc\u666f",
