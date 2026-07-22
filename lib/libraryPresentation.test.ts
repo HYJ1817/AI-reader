@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildLibraryBookPresentation,
@@ -16,6 +17,28 @@ describe("library presentation", () => {
   it("uses stable labels for missing and invalid dates", () => {
     expect(formatBookDate()).toBe("从未");
     expect(formatBookDate("invalid")).toBe("未知");
+  });
+
+  it("formats valid book dates with the existing Chinese date contract", () => {
+    expect(formatBookDate("2026-07-14T08:00:00+08:00")).toBe(
+      "2026年7月14日"
+    );
+  });
+
+  it("eagerly reuses one module-level formatter outside the click path", () => {
+    const source = readFileSync(
+      new URL("./libraryPresentation.ts", import.meta.url),
+      "utf8"
+    );
+
+    expect(source).toMatch(
+      /^const bookDateFormatter = new Intl\.DateTimeFormat\("zh-CN", \{/m
+    );
+    expect(source).toContain('year: "numeric"');
+    expect(source).toContain('month: "short"');
+    expect(source).toContain('day: "numeric"');
+    expect(source).toContain("return bookDateFormatter.format(date);");
+    expect(source).not.toContain(".toLocaleDateString(");
   });
 
   it("uses a distinct file stem as source and otherwise stays honest", () => {

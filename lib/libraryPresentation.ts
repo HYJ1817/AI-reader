@@ -1,6 +1,12 @@
 import { formatLibraryProgressLabel } from "./libraryProgress";
 import { normalizeProgressPercent } from "./readerProgress";
 
+const bookDateFormatter = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+});
+
 export type LibraryBookPresentation = {
   state: "unread" | "active" | "finished";
   sourceLabel: string;
@@ -87,9 +93,5 @@ export function formatBookDate(value?: string): string {
   if (!value) return "从未";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "未知";
-  return date.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return bookDateFormatter.format(date);
 }
