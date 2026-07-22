@@ -32,7 +32,33 @@ function haveSamePushEntries(
   return (
     current === next ||
     (current.length === next.length &&
-      current.every((entry, index) => entry === next[index]))
+      current.every((entry, index) => {
+        const nextEntry = next[index];
+        return (
+          entry === nextEntry ||
+          (entry.key === nextEntry.key &&
+            entry.kind === nextEntry.kind &&
+            entry.route === nextEntry.route &&
+            entry.entityId === nextEntry.entityId &&
+            entry.restoreFocusId === nextEntry.restoreFocusId &&
+            entry.scrollTop === nextEntry.scrollTop)
+        );
+      }))
+  );
+}
+
+function haveSameReader(
+  current: AppNavigationState["reader"],
+  next: AppNavigationState["reader"]
+): boolean {
+  return (
+    current === next ||
+    (current !== null &&
+      next !== null &&
+      current.key === next.key &&
+      current.kind === next.kind &&
+      current.bookId === next.bookId &&
+      current.originId === next.originId)
   );
 }
 
@@ -53,7 +79,7 @@ export function createAppNavigationStore(
     const coreChanged =
       nextState.activeTab !== state.activeTab ||
       !haveSamePushEntries(state.pushes, nextState.pushes) ||
-      nextState.reader !== state.reader;
+      !haveSameReader(state.reader, nextState.reader);
     state = nextState;
 
     if (coreChanged) {

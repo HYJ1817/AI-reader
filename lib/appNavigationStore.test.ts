@@ -6,6 +6,29 @@ import {
 } from "./appNavigation";
 import { createAppNavigationStore } from "./appNavigationStore";
 
+function createPushAndReaderState() {
+  const pushedState = reduceAppNavigation(createAppNavigationState(), {
+    type: "push",
+    entry: {
+      key: "push-1",
+      kind: "push",
+      route: "ai-providers",
+      entityId: "provider-1",
+      restoreFocusId: "settings-link",
+      scrollTop: 120,
+    },
+  });
+  return reduceAppNavigation(pushedState, {
+    type: "present-reader",
+    entry: {
+      key: "reader-1",
+      kind: "reader",
+      bookId: "book-1",
+      originId: "book-card-1",
+    },
+  });
+}
+
 describe("app navigation store", () => {
   it.each([
     [
@@ -118,4 +141,67 @@ describe("app navigation store", () => {
     expect(coreNotifications).toBe(actions.length);
     expect(fullNotifications).toBe(actions.length);
   });
+
+  it("preserves the core snapshot when popstate restores a cloned state that only dismisses a sheet", () => {
+    const historyState = createPushAndReaderState();
+    const currentState = reduceAppNavigation(historyState, {
+      type: "present-sheet",
+      entry: {
+        key: "sheet-1",
+        kind: "sheet",
+        route: "book-actions",
+        entityId: "book-1",
+      },
+    });
+    const store = createAppNavigationStore(currentState);
+    const initialCoreSnapshot = store.getCoreSnapshot();
+    let fullNotifications = 0;
+    let coreNotifications = 0;
+    store.subscribe(() => {
+      fullNotifications += 1;
+    });
+    store.subscribeCore(() => {
+      coreNotifications += 1;
+    });
+
+    const clonedHistoryState = structuredClone(historyState);
+    const restoredState = reduceAppNavigation(currentState, {
+      type: "restore",
+      state: clonedHistoryState,
+    });
+    store.setState(restoredState);
+
+    expect(restoredState.sheets).toEqual([]);
+    expect(store.getState()).toBe(restoredState);
+    expect(fullNotifications).toBe(1);
+    expect(coreNotifications).toBe(0);
+    expect(store.getCoreSnapshot()).toBe(initialCoreSnapshot);
+  });
+
+  it.each(["push route", "reader book"] as const)(
+    "notifies core subscribers when a cloned %s field really changes",
+    (field) => {
+      const currentState = createPushAndReaderState();
+      const store = createAppNavigationStore(currentState);
+      const initialCoreSnapshot = store.getCoreSnapshot();
+      let coreNotifications = 0;
+      store.subscribeCore(() => {
+        coreNotifications += 1;
+      });
+
+      const nextState = structuredClone(currentState);
+      if (field === "push route") {
+        nextState.pushes[0] = {
+          ...nextState.pushes[0],
+          route: "collections",
+        };
+      } else if (nextState.reader) {
+        nextState.reader = { ...nextState.reader, bookId: "book-2" };
+      }
+      store.setState(nextState);
+
+      expect(coreNotifications).toBe(1);
+      expect(store.getCoreSnapshot()).not.toBe(initialCoreSnapshot);
+    }
+  );
 });
