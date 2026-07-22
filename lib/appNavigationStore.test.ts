@@ -7,35 +7,70 @@ import {
 import { createAppNavigationStore } from "./appNavigationStore";
 
 describe("app navigation store", () => {
-  it("notifies full subscribers without changing the core snapshot for sheet-only state", () => {
-    const initialState = createAppNavigationState();
-    const store = createAppNavigationStore(initialState);
-    const initialCoreSnapshot = store.getCoreSnapshot();
-    let fullNotifications = 0;
-    let coreNotifications = 0;
-
-    store.subscribe(() => {
-      fullNotifications += 1;
-    });
-    store.subscribeCore(() => {
-      coreNotifications += 1;
-    });
-
-    const nextState = reduceAppNavigation(initialState, {
-      type: "present-sheet",
-      entry: {
+  it.each([
+    [
+      "present-sheet",
+      createAppNavigationState(),
+      {
+        type: "present-sheet",
+        entry: {
+          key: "sheet-1",
+          kind: "sheet",
+          route: "reading-goal",
+        },
+      } satisfies AppNavigationAction,
+    ],
+    [
+      "dismiss-sheet",
+      reduceAppNavigation(createAppNavigationState(), {
+        type: "present-sheet",
+        entry: {
+          key: "sheet-1",
+          kind: "sheet",
+          route: "reading-goal",
+        },
+      }),
+      { type: "dismiss-sheet" } satisfies AppNavigationAction,
+    ],
+    [
+      "sheet-only remove-invalid",
+      reduceAppNavigation(createAppNavigationState(), {
+        type: "present-sheet",
+        entry: {
+          key: "sheet-1",
+          kind: "sheet",
+          route: "reading-goal",
+        },
+      }),
+      {
+        type: "remove-invalid",
         key: "sheet-1",
-        kind: "sheet",
-        route: "reading-goal",
-      },
-    });
-    store.setState(nextState);
+      } satisfies AppNavigationAction,
+    ],
+  ])(
+    "notifies only full subscribers for %s",
+    (_name, initialState, action) => {
+      const store = createAppNavigationStore(initialState);
+      const initialCoreSnapshot = store.getCoreSnapshot();
+      let fullNotifications = 0;
+      let coreNotifications = 0;
 
-    expect(store.getState()).toBe(nextState);
-    expect(fullNotifications).toBe(1);
-    expect(coreNotifications).toBe(0);
-    expect(store.getCoreSnapshot()).toBe(initialCoreSnapshot);
-  });
+      store.subscribe(() => {
+        fullNotifications += 1;
+      });
+      store.subscribeCore(() => {
+        coreNotifications += 1;
+      });
+
+      const nextState = reduceAppNavigation(initialState, action);
+      store.setState(nextState);
+
+      expect(store.getState()).toBe(nextState);
+      expect(fullNotifications).toBe(1);
+      expect(coreNotifications).toBe(0);
+      expect(store.getCoreSnapshot()).toBe(initialCoreSnapshot);
+    }
+  );
 
   it("updates the core snapshot and notifies core subscribers for every core field", () => {
     const store = createAppNavigationStore(createAppNavigationState());

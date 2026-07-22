@@ -25,6 +25,17 @@ function createCoreSnapshot(
   };
 }
 
+function haveSamePushEntries(
+  current: AppNavigationState["pushes"],
+  next: AppNavigationState["pushes"]
+): boolean {
+  return (
+    current === next ||
+    (current.length === next.length &&
+      current.every((entry, index) => entry === next[index]))
+  );
+}
+
 export function createAppNavigationStore(
   initialState: AppNavigationState
 ): AppNavigationStore {
@@ -41,7 +52,7 @@ export function createAppNavigationStore(
 
     const coreChanged =
       nextState.activeTab !== state.activeTab ||
-      nextState.pushes !== state.pushes ||
+      !haveSamePushEntries(state.pushes, nextState.pushes) ||
       nextState.reader !== state.reader;
     state = nextState;
 

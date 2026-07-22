@@ -8,7 +8,10 @@ import ReaderCustomSettingsPanel from "@/app/ReaderCustomSettingsPanel";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
 import TocDrawer from "@/app/TocDrawer";
-import { useNavigation } from "@/app/NavigationProvider";
+import {
+  useNavigation,
+  useNavigationSheets,
+} from "@/app/NavigationProvider";
 import type { AnnotationRecord, BookGroup, BookRecord } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import {
@@ -76,13 +79,13 @@ export type AppOverlaysProps = {
     openBook: (book: BookRecord) => void;
     exportBook: (book: BookRecord) => void;
     deleteBook: (book: BookRecord) => void;
-    toggleBookGroup: (groupId: string) => void;
+    toggleBookGroup: (bookId: string, groupId: string) => void;
     setEditingGroup: (groupId: string | null, name: string) => void;
     setEditingGroupName: (name: string) => void;
     renameGroup: (groupId: string) => void;
     deleteGroup: (groupId: string) => void;
     setNewGroupName: (name: string) => void;
-    createGroup: () => void;
+    createGroup: (bookId: string) => void;
   };
 };
 
@@ -99,7 +102,8 @@ export default function AppOverlays({
   actions,
 }: AppOverlaysProps) {
   const navigation = useNavigation();
-  const sheet = navigation.state.sheets.at(-1);
+  const sheets = useNavigationSheets();
+  const sheet = sheets.at(-1);
   const sheetBook = sheet?.entityId
     ? library.books.find((book) => book.id === sheet.entityId) ?? null
     : null;
@@ -595,7 +599,9 @@ function BookGroupSheet({
                               type="checkbox"
                               className={styles.groupCheckbox}
                               checked={isChecked}
-                              onChange={() => actions.toggleBookGroup(item.id)}
+                              onChange={() =>
+                                actions.toggleBookGroup(book.id, item.id)
+                              }
                             />
                             <span className={styles.groupName}>{item.name}</span>
                           </label>
@@ -627,7 +633,7 @@ function BookGroupSheet({
             <GroupCreateRow
               value={group.newGroupName}
               onChange={actions.setNewGroupName}
-              onCreate={actions.createGroup}
+              onCreate={() => actions.createGroup(book.id)}
             />
             <div className={styles.groupSheetActions}>
               <button className={styles.primaryButton} onClick={() => close()}>

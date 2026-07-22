@@ -116,7 +116,8 @@ describe("overlay and nested view motion", () => {
 
   it("renders exactly one overlay from the navigation sheet stack", () => {
     expect(overlaysSource).toContain("useNavigation()");
-    expect(overlaysSource).toContain("navigation.state.sheets.at(-1)");
+    expect(overlaysSource).toContain("useNavigationSheets()");
+    expect(overlaysSource).toContain("sheets.at(-1)");
     expect(overlaysSource).toContain("switch (sheet.route)");
     expect(overlaysSource).toContain("data-sheet-route={sheet.route}");
     for (const route of [

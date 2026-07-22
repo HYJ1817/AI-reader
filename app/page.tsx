@@ -39,6 +39,7 @@ import AppPushSurfaces from "@/app/AppPushSurfaces";
 import { NavigationProvider } from "@/app/NavigationProvider";
 import NavigationStack, { NavigationRoot } from "@/app/NavigationStack";
 import AppOverlays from "@/app/AppOverlays";
+import PendingNavigationCoordinator from "@/app/PendingNavigationCoordinator";
 import AmbientBookBackground from "@/app/AmbientBookBackground";
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import LibrarySurface from "@/app/LibrarySurface";
@@ -435,35 +436,14 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [openBook, readerPresented]);
 
-  useEffect(() => {
-    const pendingPush = pendingPushAfterReaderRef.current;
-    if (pendingPush) {
-      if (navigation.state.sheets.length > 0) return;
-      if (readerPresented) {
-        navigation.dismissReader();
-        return;
-      }
-      pendingPushAfterReaderRef.current = null;
-      pendingReaderTargetRef.current = null;
-      navigation.selectTab("settings");
-      navigation.push(pendingPush);
-      return;
-    }
-
-    if (readerPresented) return;
-    const targetTab = pendingReaderTargetRef.current;
-    pendingReaderTargetRef.current = null;
-    if (targetTab) navigation.selectTab(targetTab);
-  }, [navigation, readerPresented]);
-
   function openAiSettingsFromAsk() {
-    if (!readerPresented && navigation.state.sheets.length === 0) {
+    if (!readerPresented && navigation.getState().sheets.length === 0) {
       navigation.selectTab("settings");
       navigation.push("ai-providers");
       return;
     }
     pendingPushAfterReaderRef.current = "ai-providers";
-    if (navigation.state.sheets.length > 0) {
+    if (navigation.getState().sheets.length > 0) {
       navigation.dismissSheet();
     } else {
       navigation.dismissReader();
@@ -568,12 +548,6 @@ export default function Home() {
     handleAppPreferencesChange({ libraryView: view });
   }
 
-  const activeSheet = navigation.state.sheets.at(-1);
-  const groupSheetBook =
-    activeSheet?.route === "book-groups" && activeSheet.entityId
-      ? books.find((book) => book.id === activeSheet.entityId) ?? null
-      : null;
-
   function enterLibraryEditing() {
     setLibraryEditing(true);
   }
@@ -615,9 +589,10 @@ export default function Home() {
     navigation.presentSheet("book-actions", { entityId: book.id });
   }
 
-  async function handleCreateGroup() {
+  async function handleCreateGroup(bookId: string) {
     const trimmed = newGroupName.trim();
-    if (!trimmed || !groupSheetBook) return;
+    const currentBook = books.find((book) => book.id === bookId);
+    if (!trimmed || !currentBook) return;
     const group: BookGroup = {
       id: createLocalId(),
       name: trimmed,
@@ -627,19 +602,20 @@ export default function Home() {
     await saveBookGroup(group);
     const updatedGroups = await listBookGroups();
     setGroups(updatedGroups);
-    const currentIds = groupSheetBook.groupIds ?? [];
-    await updateBookGroupMembership(groupSheetBook.id, [...currentIds, group.id]);
+    const currentIds = currentBook.groupIds ?? [];
+    await updateBookGroupMembership(currentBook.id, [...currentIds, group.id]);
     setBooks(await listBooks());
     setNewGroupName("");
   }
 
-  async function handleToggleGroup(groupId: string) {
-    if (!groupSheetBook) return;
-    const currentIds = groupSheetBook.groupIds ?? [];
+  async function handleToggleGroup(bookId: string, groupId: string) {
+    const currentBook = books.find((book) => book.id === bookId);
+    if (!currentBook) return;
+    const currentIds = currentBook.groupIds ?? [];
     const newIds = currentIds.includes(groupId)
       ? currentIds.filter((id) => id !== groupId)
       : [...currentIds, groupId];
-    await updateBookGroupMembership(groupSheetBook.id, newIds);
+    await updateBookGroupMembership(currentBook.id, newIds);
     setBooks(await listBooks());
   }
 
@@ -1653,6 +1629,11 @@ export default function Home() {
   return (
     <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
       <NavigationProvider value={navigation}>
+      <PendingNavigationCoordinator
+        readerPresented={readerPresented}
+        pendingReaderTargetRef={pendingReaderTargetRef}
+        pendingPushAfterReaderRef={pendingPushAfterReaderRef}
+      />
       <div
         className={styles.app}
         data-app-shell="true"
@@ -1916,7 +1897,8 @@ export default function Home() {
           openBook: (book) => void openBookForReading(book),
           exportBook: (book) => void handleExportBook(book),
           deleteBook: (book) => void handleDeleteBook(book),
-          toggleBookGroup: (groupId) => void handleToggleGroup(groupId),
+          toggleBookGroup: (bookId, groupId) =>
+            void handleToggleGroup(bookId, groupId),
           setEditingGroup: (groupId, name) => {
             setEditingGroupId(groupId);
             setEditingGroupName(name);
@@ -1925,7 +1907,7 @@ export default function Home() {
           renameGroup: (groupId) => void handleRenameGroup(groupId),
           deleteGroup: (groupId) => void handleDeleteGroup(groupId),
           setNewGroupName,
-          createGroup: () => void handleCreateGroup(),
+          createGroup: (bookId) => void handleCreateGroup(bookId),
         }}
       />
       </div>
