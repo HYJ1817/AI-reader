@@ -10,10 +10,8 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state after the Stage A preservation commit: 12 commits ahead of
-  `main` (nine shared-sheet implementation/test commits, two earlier
-  documentation follow-ups, and the committed trace methodology); no
-  shared-sheet commit has been pushed or deployed.
+- Local branch state after the cold-mount evidence commit: 19 commits ahead of
+  `main`; no shared-sheet commit has been pushed, merged, or deployed.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -40,6 +38,142 @@ git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## Shared Sheet Cold-Mount Isolation and Final Evidence (2026-07-22)
+
+Approved cold-mount isolation design and plan:
+
+- `9b4442a` documents the approved split-subscription architecture and execution
+  plan.
+- `1db971a` adds a single external navigation store with separate core and full
+  subscriptions.
+- `a58d8e4` removes sheet presentation from the root `Home` render path, moves
+  sheet reads into `AppOverlays`, and moves pending reader/settings coordination
+  into `PendingNavigationCoordinator`; group actions now receive the active
+  sheet's explicit `bookId`.
+- `04b8307` preserves semantic core push sequences across cloned history state,
+  so sheet-only history cleanup does not notify core subscribers.
+- `c32d21a` removes the mount-time sheet geometry read and redundant initial
+  visual-viewport update. ResizeObserver border-box geometry remains the exact
+  steady-state source, with a callback-only bounding-box fallback; focus and
+  inert ownership remain synchronous for accessibility.
+- `44e7308` aligns the initial sheet motion distance with the viewport-derived
+  initial height while preserving the shared transform-only panel and native
+  opacity backdrop.
+
+Current architecture:
+
+- `Home` subscribes only to active tab, push routes, and reader state. Presenting
+  or dismissing a sheet no longer reconciles the full app surface.
+- `AppOverlays` subscribes to the sheet slice through `useNavigationSheets()`.
+  The small pending-navigation coordinator owns the few transitions that need
+  both sheet and reader/settings coordination.
+- Navigation still uses one reducer/history model. Core and full subscribers see
+  the same canonical state, while semantic equality prevents sheet-only actions
+  from publishing a false core change.
+- `MotionSheet` initializes its motion distance and visual viewport from lazy
+  state. Its mount effect no longer forces layout. Focus trapping, background
+  inert state, Escape, outside-tap, drag, interruption, reduced motion, themes,
+  and history behavior stay on the existing shared paths.
+
+No-trace cold distribution (candidate `44e73085ecc8910373a5388c6dc9d07b611f58c4`):
+
+- One uninterrupted production-managed command ran exactly 30 repeats with one
+  worker and zero retries:
+  `npx.cmd playwright test e2e/native-navigation.spec.ts --project=iphone-14
+  --grep "book action sheet entrance stays within mobile frame budgets"
+  --repeat-each=30 --workers=1 --retries=0`. Each repeat used a fresh browser
+  context/page, a real visible More-button click, and no warm sheet mount. No
+  failed sample was retried, discarded, or replaced.
+- The exact per-run values and derivation are in
+  `docs/performance/shared-sheet-cold-distribution-44e7308.json`. The run used
+  Playwright `1.61.1`, Chromium `149.0.7827.55` / revision `chromium-1228`.
+- Click-to-mount minimum/median/P95/maximum were
+  `18.7 / 20.2 / 33.3 / 35.1ms`. Per-run P95 frame interval
+  minimum/median/P95/maximum were `16.7 / 16.7 / 16.8 / 16.8ms`. Per-run
+  maximum-frame minimum/median/P95/maximum were
+  `16.7 / 16.8 / 33.3 / 316.7ms`. Maximum long task was `303ms`; every sample
+  recorded layout shift `0`.
+- The predeclared five-part criterion was click-to-mount `<=34ms`, P95 interval
+  `<=20ms`, maximum frame `<=34ms`, maximum long task `0ms`, and CLS `0` for
+  every sample. Runs 4 and 22 failed, so only `28/30` samples passed and
+  `allPass` is **false**. Run 4 recorded `20.2ms` click-to-mount but a
+  `316.7ms` maximum frame and `303ms` long task; run 22 recorded `35.1ms`
+  click-to-mount.
+- The Playwright command itself exited `1` with `27 passed / 3 failed`. In
+  addition to runs 4 and 22, run 6 failed the test's separate `frames >= 40`
+  assertion with 36 frames even though it passed all five distribution criteria.
+  These results are evidence of a real remaining cold-distribution tail, not a
+  passing 120fps claim.
+
+Fresh matched confirmatory trace:
+
+- Baseline `fa1fc216e424f1f2ac2bbd1cac7886253b24b922` and candidate
+  `44e73085ecc8910373a5388c6dc9d07b611f58c4` were built and served serially on
+  an exclusively verified port `3010`. The candidate's committed probe file was
+  executed against both worktrees, with identical SHA-256
+  `16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb`,
+  Playwright `1.61.1`, Chromium `149.0.7827.55` / `chromium-1228`, and three
+  fresh isolated contexts per revision. Port `3010` was confirmed free between
+  and after services.
+- Raw three-run records are
+  `docs/performance/shared-sheet-trace-confirmatory-baseline-fa1fc21.json` and
+  `docs/performance/shared-sheet-trace-confirmatory-candidate-44e7308.json`;
+  the machine-derived comparison is
+  `docs/performance/shared-sheet-trace-confirmatory-comparison-44e7308.json`.
+- `evaluateDurationAcceptance` passed all predeclared categories. Each requires
+  both candidate median and candidate maximum to be no more than half the fresh
+  baseline median:
+
+| Category | Baseline runs | 50% ceiling | Candidate runs | Candidate median | Candidate maximum | Result |
+| --- | --- | ---: | --- | ---: | ---: | --- |
+| UpdateLayoutTree | `30.959 / 30.608 / 32.827ms` | `15.4795ms` | `14.441 / 14.521 / 14.007ms` | `14.441ms` | `14.521ms` | Pass |
+| Paint | `14.739 / 14.434 / 15.379ms` | `7.3695ms` | `4.161 / 2.416 / 3.918ms` | `3.918ms` | `4.161ms` | Pass |
+| RasterTask | `56.796 / 59.181 / 59.184ms` | `29.5905ms` | `20.059 / 21.328 / 18.626ms` | `20.059ms` | `21.328ms` | Pass |
+
+- Candidate traced click-to-mount was `33.1 / 34.4 / 31.7ms`; baseline was
+  `35.1 / 33.9 / 34.9ms`. All six trace runs recorded P95 interval at about
+  `16.7-16.8ms`, long task `0ms`, and layout shift `0`. Candidate trace run 2's
+  `34.4ms` was retained without retry. These click/frame values are diagnostics
+  under trace overhead and do not alter the duration acceptance.
+- The earlier post-`46c832f` confirmation failure remains part of the record:
+  candidate UpdateLayoutTree was `42.076 / 25.517 / 17.953ms` (median
+  `25.517ms`, maximum `42.076ms`, ceiling `20.9585ms`); Paint was
+  `12.628 / 5.201 / 5.609ms` (maximum `12.628ms`, ceiling `8.5375ms`);
+  RasterTask was `41.227 / 47.451 / 21.581ms` (median `41.227ms`, maximum
+  `47.451ms`, ceiling `33.959ms`). Its five no-trace samples were
+  `32.1 / 70.8 / 32.2 / 29.9 / 28.1ms`; the `70.8ms` sample also recorded a
+  `66.7ms` frame and `72ms` long task. The new passing trace evidence does not
+  erase either that failure or the new 30-sample distribution failures.
+
+Fresh candidate quality gates:
+
+- `npm.cmd test` passed `104/104` files and `926/926` tests.
+- `npm.cmd run lint` exited `0` with no findings.
+- `npm.cmd run build` exited `0`: Next.js `16.2.6` compiled, TypeScript
+  completed, and `6/6` static pages generated. The existing multiple-lockfile
+  workspace-root warning remains non-blocking.
+- Full `e2e/native-navigation.spec.ts` passed `19/19` on iPhone 14 and `19/19`
+  on iPhone 15 Pro Max. The individual cold-sheet smokes recorded respectively
+  `33.2ms` and `22.1ms` click-to-mount, 48 frames, about `16.8ms` P95/maximum
+  interval, `0ms` long task, and `0` layout shift. These individual passes do
+  not override the failed 30-run distribution.
+- Impeccable detection over `MotionSheet`, page styles, navigation hooks/store,
+  overlays, coordinator, and root page returned JSON `[]`. Evidence JSON files
+  parsed successfully; recomputing `evaluateDurationAcceptance` from the raw
+  records produced the values above. `git diff --check` passed.
+
+Status and acceptance boundary:
+
+- Work remains local-only in
+  `C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance` on
+  `codex/shared-sheet-performance`. Nothing in this shared-sheet branch has
+  been pushed, merged, uploaded, or deployed.
+- Automated Chromium validates the architecture, behavior, matched trace work
+  reduction, and 60Hz smoke. The 30-sample no-trace distribution still has a
+  measured tail and is not fully accepted. Physical 120Hz iPhone Safari and
+  home-screen PWA verification remains the final external device boundary; no
+  automated result here proves 120fps.
 
 ## Shared Sheet Performance Verification (2026-07-20)
 

@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "confirmatory-trace-baseline",
+  "revision": "fa1fc216e424f1f2ac2bbd1cac7886253b24b922",
+  "script": {
+    "path": "scripts/shared-sheet-trace-probe.cjs",
+    "sourceWorktree": "C:\\aaa\\ai-reader-pwa\\.worktrees\\shared-sheet-performance",
+    "sha256": "16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb"
+  },
+  "browserVersion": "149.0.7827.55",
+  "browserRevision": "chromium-1228",
+  "playwrightVersion": "1.61.1",
+  "baseURL": "http://localhost:3010",
+  "device": "Playwright iPhone 14",
+  "readiness": "domcontentloaded + visible library + data-library-loading=false + deterministic TXT import + list mode + visible real More button + 600ms idle",
+  "context": "fresh isolated context per run; service workers blocked",
+  "click": "real page.mouse click at the visible More button center",
+  "traceCategories": "-*,devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.frame,disabled-by-default-devtools.timeline.invalidationTracking,blink.user_timing,cc,disabled-by-default-cc.debug",
+  "traceWindowUs": 700000,
+  "runs": [
+    {
+      "run": 1,
+      "metrics": { "clickToMount": 35.10000002384186, "frames": 42, "p95": 16.700000000000045, "maxFrame": 33.299999999999955, "longTasks": 0, "maxLongTask": 0, "totalLongTask": 0, "layoutShift": 0, "observerSupport": { "longtask": true, "layoutShift": true } },
+      "contract": { "hasExplicitBackdrop": false, "overlayInlineOpacity": "1", "overlayComputedOpacity": "1", "overlayBackdropToken": "0.23489852893987673", "panelBackdropToken": "0.23489852893987673" },
+      "trace": {
+        "marker": { "name": "shared-sheet-ab-real-more-click", "pid": 18820, "tid": 59048, "threadName": "CrRendererMain" },
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 763.02,
+        "eventFilter": "complete events (ph=\"X\") with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 30.959, "selfMs": 30.959 },
+          "Layout": { "count": 4, "totalMs": 6.658, "selfMs": 6.658 },
+          "Paint": { "count": 100, "totalMs": 14.739, "selfMs": 8.781 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 30.959, "selfMs": 30.959 },
+          "Layout": { "count": 4, "totalMs": 6.658, "selfMs": 6.658 },
+          "Paint": { "count": 100, "totalMs": 14.739, "selfMs": 8.781 },
+          "RasterTask": { "count": 240, "totalMs": 56.796, "selfMs": 0.713 }
+        }
+      }
+    },
+    {
+      "run": 2,
+      "metrics": { "clickToMount": 33.89999997615814, "frames": 42, "p95": 16.799999999999955, "maxFrame": 33.39999999999998, "longTasks": 0, "maxLongTask": 0, "totalLongTask": 0, "layoutShift": 0, "observerSupport": { "longtask": true, "layoutShift": true } },
+      "contract": { "hasExplicitBackdrop": false, "overlayInlineOpacity": "1", "overlayComputedOpacity": "1", "overlayBackdropToken": "0.24442810437315932", "panelBackdropToken": "0.24442810437315932" },
+      "trace": {
+        "marker": { "name": "shared-sheet-ab-real-more-click", "pid": 70796, "tid": 71188, "threadName": "CrRendererMain" },
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 764.581,
+        "eventFilter": "complete events (ph=\"X\") with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 30.608, "selfMs": 30.608 },
+          "Layout": { "count": 4, "totalMs": 6.646, "selfMs": 6.646 },
+          "Paint": { "count": 100, "totalMs": 14.434, "selfMs": 8.473 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 30.608, "selfMs": 30.608 },
+          "Layout": { "count": 4, "totalMs": 6.646, "selfMs": 6.646 },
+          "Paint": { "count": 100, "totalMs": 14.434, "selfMs": 8.473 },
+          "RasterTask": { "count": 240, "totalMs": 59.181, "selfMs": 0.724 }
+        }
+      }
+    },
+    {
+      "run": 3,
+      "metrics": { "clickToMount": 34.89999997615814, "frames": 43, "p95": 16.799999999999955, "maxFrame": 16.799999999999955, "longTasks": 0, "maxLongTask": 0, "totalLongTask": 0, "layoutShift": 0, "observerSupport": { "longtask": true, "layoutShift": true } },
+      "contract": { "hasExplicitBackdrop": false, "overlayInlineOpacity": "1", "overlayComputedOpacity": "1", "overlayBackdropToken": "0.42409210056416957", "panelBackdropToken": "0.42409210056416957" },
+      "trace": {
+        "marker": { "name": "shared-sheet-ab-real-more-click", "pid": 72812, "tid": 63876, "threadName": "CrRendererMain" },
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 762.057,
+        "eventFilter": "complete events (ph=\"X\") with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 48, "totalMs": 32.827, "selfMs": 32.827 },
+          "Layout": { "count": 4, "totalMs": 6.819, "selfMs": 6.819 },
+          "Paint": { "count": 101, "totalMs": 15.379, "selfMs": 9.067 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "UpdateLayoutTree": { "count": 48, "totalMs": 32.827, "selfMs": 32.827 },
+          "Layout": { "count": 4, "totalMs": 6.819, "selfMs": 6.819 },
+          "Paint": { "count": 101, "totalMs": 15.379, "selfMs": 9.067 },
+          "RasterTask": { "count": 240, "totalMs": 59.184, "selfMs": 0.756 }
+        }
+      }
+    }
+  ]
+}
