@@ -12,7 +12,7 @@ import {
   useNavigation,
   useNavigationSheets,
 } from "@/app/NavigationProvider";
-import type { AnnotationRecord, BookGroup, BookRecord } from "@/lib/db";
+import type { AnnotationRecord, BookGroup, BookMetadata } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import {
   formatLibraryProgressLabel,
@@ -47,7 +47,7 @@ export type AppOverlaysProps = {
     currentPageBookmarked: boolean;
   };
   library: {
-    books: BookRecord[];
+    books: BookMetadata[];
     booksLoading: boolean;
     progressMap: ReadingProgressMap;
     groups: BookGroup[];
@@ -76,9 +76,9 @@ export type AppOverlaysProps = {
     createBatchGroup: () => void;
     deleteSelectedBooks: () => void;
     createCollection: () => void;
-    openBook: (book: BookRecord) => void;
-    exportBook: (book: BookRecord) => void;
-    deleteBook: (book: BookRecord) => void;
+    openBook: (book: BookMetadata) => void;
+    exportBook: (book: BookMetadata) => void;
+    deleteBook: (book: BookMetadata) => void;
     toggleBookGroup: (bookId: string, groupId: string) => void;
     setEditingGroup: (groupId: string | null, name: string) => void;
     setEditingGroupName: (name: string) => void;
@@ -423,7 +423,7 @@ function BookActionSheet({
   onOpenDelete,
   onClose,
 }: {
-  book: BookRecord;
+  book: BookMetadata;
   progress: number;
   actions: AppOverlaysProps["actions"];
   onOpenGroups: () => void;
@@ -504,8 +504,8 @@ function BookDeleteSheet({
   onDelete,
   onClose,
 }: {
-  book: BookRecord;
-  onDelete: (book: BookRecord) => void;
+  book: BookMetadata;
+  onDelete: (book: BookMetadata) => void;
   onClose: () => void;
 }) {
   return (
@@ -543,7 +543,7 @@ function BookGroupSheet({
   actions,
   onClose,
 }: {
-  book: BookRecord;
+  book: BookMetadata;
   groups: BookGroup[];
   group: AppOverlaysProps["group"];
   actions: AppOverlaysProps["actions"];

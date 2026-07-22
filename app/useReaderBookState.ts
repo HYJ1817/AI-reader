@@ -10,7 +10,9 @@ import {
 } from "react";
 import type { ReaderEntry } from "@/lib/appNavigation";
 import {
+  getBook,
   getReadingPosition,
+  type BookMetadata,
   type BookRecord,
   type ReadingPosition,
 } from "@/lib/db";
@@ -23,7 +25,7 @@ import { UI_TEXT } from "@/lib/uiText";
 
 type Options = {
   readerEntry: ReaderEntry | null;
-  books: BookRecord[];
+  books: BookMetadata[];
   libraryLoading: boolean;
   removeInvalid: (key: string) => void;
   setReaderMode: (mode: ReaderMode) => void;
@@ -125,20 +127,29 @@ export default function useReaderBookState({
       return;
     }
 
-    const restoredBook = books.find((book) => book.id === readerEntry.bookId);
-    if (!restoredBook) {
+    const metadata = books.find((book) => book.id === readerEntry.bookId);
+    if (!metadata) {
       removeInvalid(readerEntry.key);
       return;
     }
 
     let cancelled = false;
-    getReadingPosition(restoredBook.id)
-      .then((savedPosition) => {
-        if (!cancelled) void prepareReaderBook(restoredBook, savedPosition);
-      })
-      .catch(() => {
-        if (!cancelled) void prepareReaderBook(restoredBook);
-      });
+    const savedPositionPromise = getReadingPosition(readerEntry.bookId);
+    const restoreReaderBook = async () => {
+      try {
+        const restoredBook = await getBook(readerEntry.bookId);
+        const savedPosition = await savedPositionPromise;
+        if (cancelled) return;
+        if (!restoredBook) {
+          removeInvalid(readerEntry.key);
+          return;
+        }
+        void prepareReaderBook(restoredBook, savedPosition);
+      } catch {
+        if (!cancelled) removeInvalid(readerEntry.key);
+      }
+    };
+    void restoreReaderBook();
 
     return () => {
       cancelled = true;

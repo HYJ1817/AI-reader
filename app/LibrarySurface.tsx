@@ -5,7 +5,7 @@ import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import MotionBookCover from "@/app/MotionBookCover";
 import type { LibraryViewMode } from "@/lib/appPreferences";
-import type { BookGroup, BookRecord } from "@/lib/db";
+import type { BookGroup, BookMetadata } from "@/lib/db";
 import {
   getBookProgressPercent,
   type ReadingProgressMap,
@@ -19,10 +19,10 @@ export type LibrarySurfaceProps = {
   className: string;
   ariaHidden: boolean;
   data: {
-    books: BookRecord[];
-    visibleBooks: BookRecord[];
+    books: BookMetadata[];
+    visibleBooks: BookMetadata[];
     filteredBookCount: number;
-    featuredBook: BookRecord | null;
+    featuredBook: BookMetadata | null;
     featuredLayout: boolean;
     groups: BookGroup[];
     progressMap: ReadingProgressMap;
@@ -50,8 +50,8 @@ export type LibrarySurfaceProps = {
     setViewMode: (mode: LibraryViewMode) => void;
     toggleLibraryEditing: () => void;
     selectAllVisible: () => void;
-    pressBook: (book: BookRecord, originId: string) => void;
-    openBookActions: (book: BookRecord) => void;
+    pressBook: (book: BookMetadata, originId: string) => void;
+    openBookActions: (book: BookMetadata) => void;
   };
 };
 

@@ -20,6 +20,7 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
+  updateBookLastOpenedAt,
   saveCustomBackgroundImage,
   getCustomBackgroundImage,
   deleteCustomBackgroundImage,
@@ -140,6 +141,28 @@ describe("Book storage", () => {
       "first",
       "second",
     ]);
+  });
+
+  it("updates last-opened metadata without rewriting source bytes", async () => {
+    await saveBook(
+      makeBook({
+        id: "last-opened",
+        fileBlob: new Blob(["unchanged source"], { type: "text/plain" }),
+      })
+    );
+
+    await updateBookLastOpenedAt(
+      "last-opened",
+      "2026-07-22T12:00:00.000Z"
+    );
+
+    const metadata = (await listBookMetadata()).find(
+      (book) => book.id === "last-opened"
+    );
+    expect(metadata?.lastOpenedAt).toBe("2026-07-22T12:00:00.000Z");
+    expect(await (await getBookFile("last-opened"))?.text()).toBe(
+      "unchanged source"
+    );
   });
 
   it("stores covers outside source-file records", async () => {

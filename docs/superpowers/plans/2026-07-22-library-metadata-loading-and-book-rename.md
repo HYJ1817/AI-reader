@@ -16,7 +16,11 @@
 - `lib/db.test.ts`: real IndexedDB regression coverage for metadata-only listing, target hydration, covers, rename, and cascades.
 - `app/page.tsx`: metadata-only library state, lazy open/export, metadata refreshes, rename action, and removal of startup full-file cover backfill.
 - `app/useReaderBookState.ts`: history restoration by target ID rather than treating library metadata as a full reader record.
-- `app/LibrarySurface.tsx`, `app/AppOverlays.tsx`: accept `BookMetadata`; add the rename action and sheet.
+- `app/LibrarySurface.tsx`, `app/AppOverlays.tsx`, `app/MotionBookCover.tsx`,
+  `app/ReadingDashboard.tsx`, and `app/AmbientBookBackground.tsx`: accept
+  `BookMetadata`; add the rename action and sheet where applicable.
+- `lib/ambientBookBackground.ts`: accept metadata because ambient presentation
+  needs only the title, format, ID, and cover.
 - `lib/appNavigation.ts`: add the `book-rename` sheet route.
 - `lib/backup.ts`, `lib/backup.test.ts`: enumerate metadata and hydrate one file at a time while preserving v2 backup format.
 - `lib/libraryMetadataLoadingIntegration.test.ts`: source-level contract that startup/refresh paths cannot regress to `listBooks()`.
@@ -256,7 +260,11 @@ git commit -m "perf: load library metadata without book files"
 - Modify: `app/useReaderBookState.ts:1-165`
 - Modify: `app/LibrarySurface.tsx:1-70`
 - Modify: `app/AppOverlays.tsx:1-230`
+- Modify: `app/MotionBookCover.tsx:1-25`
+- Modify: `app/ReadingDashboard.tsx:1-30`
+- Modify: `app/AmbientBookBackground.tsx:1-35`
 - Modify: `lib/libraryFilters.ts:1-20`
+- Modify: `lib/ambientBookBackground.ts:1-30`
 - Modify: `lib/readerChromeIntegration.test.ts:45-55`
 
 - [ ] **Step 1: Write the failing source-contract test**

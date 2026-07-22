@@ -1,6 +1,6 @@
 import { acquireBlobUrl, releaseBlobUrl } from "./blobUrlCache";
 import { createFallbackCoverStyle } from "./bookCoverStyle";
-import type { BookRecord } from "./db";
+import type { BookMetadata } from "./db";
 
 export const AMBIENT_CROSSFADE_MS = 340;
 
@@ -20,7 +20,7 @@ export type AmbientTransitionState = {
 };
 
 export function createAmbientLayer(
-  book: BookRecord | null,
+  book: BookMetadata | null,
   imageUrl: string | null
 ): AmbientLayer {
   if (!book) {

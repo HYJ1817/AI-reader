@@ -369,6 +369,13 @@ export async function updateBookGroupMembership(bookId: string, groupIds: string
   await db.books.update(bookId, { groupIds: deduped });
 }
 
+export async function updateBookLastOpenedAt(
+  id: string,
+  lastOpenedAt: string
+): Promise<void> {
+  await getDb().books.update(id, { lastOpenedAt });
+}
+
 export async function saveCustomBackgroundImage(imageBlob: Blob): Promise<void> {
   await getDb().customBackgrounds.put({
     id: CUSTOM_BACKGROUND_ID,

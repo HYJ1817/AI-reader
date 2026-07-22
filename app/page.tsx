@@ -9,7 +9,8 @@ import {
 } from "react";
 import styles from "./page.module.css";
 import {
-  listBooks,
+  listBookMetadata,
+  getBook,
   saveBook,
   saveReadingPosition,
   getReadingPosition,
@@ -20,11 +21,10 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  type BookRecord, type BookGroup, type DailyReadingStat,
+  updateBookLastOpenedAt,
+  type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
 import { createBookRecordFromFile } from "@/lib/importBook";
-import { extractEpubCoverImage } from "@/lib/epubCover";
-import { backfillMissingBookCovers } from "@/lib/bookCoverBackfill";
 import {
   chunkParagraphs,
   getHorizontalPageInfo,
@@ -169,7 +169,7 @@ function withTimeout<T>(
 export default function Home() {
   const navigation = useAppNavigation();
   const activeTab = navigation.state.activeTab;
-  const [books, setBooks] = useState<BookRecord[]>([]);
+  const [books, setBooks] = useState<BookMetadata[]>([]);
   const [libraryRenderWindow, setLibraryRenderWindow] = useState({
     key: "",
     count: LIBRARY_RENDER_BATCH,
@@ -300,25 +300,13 @@ export default function Home() {
       try {
         void requestPersistentStorage();
         const [storedBooks, storedPositions] = await withTimeout(
-          Promise.all([listBooks(), listReadingPositions()]),
+          Promise.all([listBookMetadata(), listReadingPositions()]),
           15000,
           "Local library storage timed out."
         );
         if (!cancelled) {
           setBooks(storedBooks);
           setReadingProgressMap(buildReadingProgressMap(storedPositions));
-          void backfillMissingBookCovers(storedBooks, {
-            extractCoverImage: extractEpubCoverImage,
-            saveBook,
-          })
-            .then((result) => {
-              if (!cancelled && result.updatedCount > 0) {
-                setBooks(result.books);
-              }
-            })
-            .catch(() => {
-              // Cover backfill is opportunistic; unreadable EPUB covers keep fallback covers.
-            });
         }
       } catch {
         if (!cancelled) setImportError(UI_TEXT.ERROR_READ_FILE);
@@ -557,7 +545,7 @@ export default function Home() {
     setSelectedBookIds([]);
   }
 
-  function handleBookPress(book: BookRecord, originId: string) {
+  function handleBookPress(book: BookMetadata, originId: string) {
     if (libraryEditing) {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
@@ -581,7 +569,7 @@ export default function Home() {
     navigation.presentSheet("batch-groups");
   }
 
-  function openBookActionSheet(book: BookRecord) {
+  function openBookActionSheet(book: BookMetadata) {
     if (libraryEditing) {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
@@ -604,7 +592,7 @@ export default function Home() {
     setGroups(updatedGroups);
     const currentIds = currentBook.groupIds ?? [];
     await updateBookGroupMembership(currentBook.id, [...currentIds, group.id]);
-    setBooks(await listBooks());
+    setBooks(await listBookMetadata());
     setNewGroupName("");
   }
 
@@ -616,14 +604,14 @@ export default function Home() {
       ? currentIds.filter((id) => id !== groupId)
       : [...currentIds, groupId];
     await updateBookGroupMembership(currentBook.id, newIds);
-    setBooks(await listBooks());
+    setBooks(await listBookMetadata());
   }
 
   async function handleDeleteGroup(groupId: string) {
     await deleteBookGroup(groupId);
     const updatedGroups = await listBookGroups();
     setGroups(updatedGroups);
-    setBooks(await listBooks());
+    setBooks(await listBookMetadata());
     if (groupFilter === groupId) setGroupFilter(null);
   }
 
@@ -637,18 +625,20 @@ export default function Home() {
     setEditingGroupName("");
   }
 
-  async function handleExportBook(book: BookRecord) {
+  async function handleExportBook(book: BookMetadata) {
     try {
-      const exported = await createBookFileExport(book);
+      const fullBook = await getBook(book.id);
+      if (!fullBook) throw new Error(UI_TEXT.ERROR_READ_FILE);
+      const exported = await createBookFileExport(fullBook);
       triggerBlobDownload(exported.blob, exported.fileName);
     } catch (err) {
       setImportError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
     }
   }
 
-  async function handleDeleteBook(book: BookRecord) {
+  async function handleDeleteBook(book: BookMetadata) {
     await deleteBook(book.id);
-    const updatedBooks = await listBooks();
+    const updatedBooks = await listBookMetadata();
     setBooks(updatedBooks);
     setReadingProgressMap((map) => {
       const next = { ...map };
@@ -671,7 +661,7 @@ export default function Home() {
       const nextGroupIds = [...new Set([...(book.groupIds ?? []), groupId])];
       await updateBookGroupMembership(book.id, nextGroupIds);
     }
-    setBooks(await listBooks());
+    setBooks(await listBookMetadata());
     exitLibraryEditing();
   }
 
@@ -710,7 +700,7 @@ export default function Home() {
     for (const id of idsToDelete) {
       await deleteBook(id);
     }
-    const updatedBooks = await listBooks();
+    const updatedBooks = await listBookMetadata();
     setBooks(updatedBooks);
     setReadingProgressMap((map) => {
       const next = { ...map };
@@ -740,7 +730,7 @@ export default function Home() {
       const record = await createBookRecordFromFile(file);
       await saveBook(record);
       autoOpenAttemptedRef.current = true;
-      setBooks(await listBooks());
+      setBooks(await listBookMetadata());
     } catch (err) {
       setImportError(
         err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED
@@ -918,20 +908,25 @@ export default function Home() {
   }, [books]);
 
   const openBookForReading = useCallback(async (
-    book: BookRecord,
+    book: BookMetadata,
     originId?: string
   ) => {
+    const fullBook = await getBook(book.id);
+    if (!fullBook) {
+      setImportError(UI_TEXT.ERROR_READ_FILE);
+      return;
+    }
     const now = new Date().toISOString();
-    await saveBook({ ...book, lastOpenedAt: now });
+    await updateBookLastOpenedAt(book.id, now);
     const [nextBooks, savedPosition] = await Promise.all([
-      listBooks(),
+      listBookMetadata(),
       getReadingPosition(book.id),
     ]);
     setBooks(nextBooks);
 
     scrollRestoredRef.current = false;
     resetAskAi();
-    const contentReady = prepareReaderBook(book, savedPosition);
+    const contentReady = prepareReaderBook(fullBook, savedPosition);
     navigation.presentReader(book.id, { originId });
     await contentReady;
   }, [navigation, prepareReaderBook, resetAskAi]);
@@ -1181,25 +1176,13 @@ export default function Home() {
       const text = await file.text();
       const data = JSON.parse(text);
       await restoreBackupPayload(data);
-      const restoredBooks = await listBooks();
+      const restoredBooks = await listBookMetadata();
       const restoredPositions = await listReadingPositions();
       dismissReader();
       clearReaderBook();
       resetAskAi();
       setBooks(restoredBooks);
       setReadingProgressMap(buildReadingProgressMap(restoredPositions));
-      void backfillMissingBookCovers(restoredBooks, {
-        extractCoverImage: extractEpubCoverImage,
-        saveBook,
-      })
-        .then((result) => {
-          if (result.updatedCount > 0) {
-            setBooks(result.books);
-          }
-        })
-        .catch(() => {
-          // Restored EPUBs still work even when cover extraction is unavailable.
-        });
       setGroups(await listBookGroups());
       setReadingStats(await listDailyReadingStats());
       await background.reloadCustomBackground();
