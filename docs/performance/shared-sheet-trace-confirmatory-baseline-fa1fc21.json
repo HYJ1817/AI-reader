@@ -17,6 +17,18 @@
   "click": "real page.mouse click at the visible More button center",
   "traceCategories": "-*,devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.frame,disabled-by-default-devtools.timeline.invalidationTracking,blink.user_timing,cc,disabled-by-default-cc.debug",
   "traceWindowUs": 700000,
+  "executionMethod": {
+    "workdir": "C:\\aaa\\ai-reader-pwa",
+    "buildCommand": "npm.cmd run build",
+    "serverCommand": "npm.cmd run start -- --hostname localhost --port 3010",
+    "environmentVariables": {
+      "AB_REVISION": "fa1fc216e424f1f2ac2bbd1cac7886253b24b922",
+      "PLAYWRIGHT_BASE_URL": "unset; scripts/shared-sheet-trace-probe.cjs defaulted to http://localhost:3010"
+    },
+    "actualProbeInvocation": "$env:AB_REVISION='fa1fc216e424f1f2ac2bbd1cac7886253b24b922'; node 'C:\\aaa\\ai-reader-pwa\\.worktrees\\shared-sheet-performance\\scripts\\shared-sheet-trace-probe.cjs'",
+    "equivalentExplicitProbeInvocation": "$env:AB_REVISION='fa1fc216e424f1f2ac2bbd1cac7886253b24b922'; $env:PLAYWRIGHT_BASE_URL='http://localhost:3010'; node 'C:\\aaa\\ai-reader-pwa\\.worktrees\\shared-sheet-performance\\scripts\\shared-sheet-trace-probe.cjs'",
+    "serviceLifecycle": "build in workdir; start the production server; run the probe once; verify the port owner is that workdir's next start process before stopping it; confirm port 3010 is free"
+  },
   "runs": [
     {
       "run": 1,

@@ -10,8 +10,8 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state after the cold-mount evidence commit: 19 commits ahead of
-  `main`; no shared-sheet commit has been pushed, merged, or deployed.
+- Local branch state after the cold-mount evidence documentation fix: 20 commits
+  ahead of `main`; no shared-sheet commit has been pushed, merged, or deployed.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -121,6 +121,9 @@ Fresh matched confirmatory trace:
   `docs/performance/shared-sheet-trace-confirmatory-candidate-44e7308.json`;
   the machine-derived comparison is
   `docs/performance/shared-sheet-trace-confirmatory-comparison-44e7308.json`.
+  The two raw records also contain the exact worktree, build/server commands,
+  environment state, actual PowerShell probe invocation, and an equivalent
+  invocation with an explicit `PLAYWRIGHT_BASE_URL`.
 - `evaluateDurationAcceptance` passed all predeclared categories. Each requires
   both candidate median and candidate maximum to be no more than half the fresh
   baseline median:
@@ -2542,12 +2545,10 @@ Files related to EPUB background work:
 Use this opener in the new conversation:
 
 ```text
-继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance，先完整阅读 HANDOFF.md。
-当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在 Stage A 提交后比 main 超前 12 个提交，shared-sheet 改动仍未 push、merge 或 deploy。不要 reset、clean 或覆盖用户改动。先运行 git status -sb 和 git log -8 --oneline --decorate，再继续。
-当前任务是完成 shared-sheet 性能证据的两阶段校验。Stage A 已永久保存 scripts/shared-sheet-trace-probe.cjs 与两份探索性 JSON，并在新数据前预声明 50% 时长条件；旧 A/B 只能称为 exploratory，不能称为 validated acceptance。继续时必须使用已提交 probe 做 3 次 fresh candidate trace，并用 managed production 在 iphone-14 运行 no-trace cold test --repeat-each=5；任一 click-to-mount 超过现有 <=34ms gate 就停止并报告，不得改阈值。
-最新正式 Worker 版本是 b4ad2aee-254c-44a0-850d-902dcd6eeb4e，BUILD_ID 是 4v3x9xb-k-A4h_WSLRtL3；Worker 是 ai-reader-pwa，路由是 881817.xyz/*，生产地址是 https://881817.xyz。生产根页面、10 个发现的 JS/CSS、BUILD_ID、Service Worker、Manifest、Asset Links 和 APK 均返回 200；生产 native-navigation 在 iPhone 14 和 iPhone 15 Pro Max 都通过 16/16，根标签 smoke 分别为 42 帧/P95 16.7ms/0 长任务/0 布局偏移，以及 41 帧/P95 16.8ms/0 长任务/0 布局偏移。
-GitHub 已整理：v0.1.0 Release 已创建；Issue #2 跟踪实体 iPhone Safari/PWA 高刷新与 VoiceOver，Issue #3 跟踪必须依赖受影响 EPUB 或 Safari Web Inspector 证据的深色白框问题。Chromium 只证明稳定 60Hz smoke budget，不能宣称实体 120fps。
-独立/standalone 构建前只处理生成目录：先把工作区解析为 C:\aaa\ai-reader-pwa，再构造并验证 C:\aaa\ai-reader-pwa\.next 与 C:\aaa\ai-reader-pwa\.open-next 的父目录等于工作区、目标本身不等于工作区且目录名在白名单中；通过后才删除这两个目标。此次策略层在执行前拒绝 Remove-Item，因此改由 PowerShell/.NET 删除两个已经逐项验证的绝对生成目录；没有删除其他路径，也没有使用 git clean 或 git reset。本次透明导航部署上传 6 个变更资源且无需重试。
-Windows OpenNext 部署必须先设置 NEXT_PRIVATE_STANDALONE=true 与 NEXT_PRIVATE_OUTPUT_TRACE_ROOT=(Get-Location).Path，再 npm.cmd run build，然后执行 OpenNext build --skipNextBuild 和 deploy；普通 npm build 不会生成 .next/standalone。
-UI 品质路线图已经全部关闭，不要自动重开 Phase 1-6。下一步按用户新的产品优先级继续；若继续视觉优化，最终 critique 仍有两个非阻塞方向：增加轻量首次发现提示，或下沉设置页低频维护内容。真实 iPhone Safari/PWA 与 VoiceOver 验证仍是非阻塞风险。EPUB 深色透明 ambient 白色矩形仍未解决；没有问题 EPUB 或 Safari Web Inspector 证据时不要继续猜 CSS。
+继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。
+当前工作在 codex/shared-sheet-performance，不在 main；本地 main 比 origin/main 超前 2 个提交，当前功能分支在本次文档修复提交后比 main 超前 20 个提交。所有 shared-sheet 改动仍是 local-only，未 push、merge、upload 或 deploy；不要假定用户已经授权合并、推送或部署。
+Task4 是混合结论：相同提交探针、相同 Chromium 的新 baseline/candidate 三次匹配 trace 已通过 UpdateLayoutTree、Paint、RasterTask 的预声明 50% median+maximum 时长条件；但一次连续、workers=1、retries=0 的 30 次 no-trace fresh-context 冷分布只有 28/30 满足五项预算，allPass=false。Run 4 有 316.7ms 最大帧和 303ms 长任务，Run 22 click-to-mount 为 35.1ms；另有 Run 6 因测试附加的 frames>=40 断言仅 36 帧而失败。没有失败样本被重试、替换或丢弃，不得修改阈值或把结果写成通过。
+精确逐样本、统计定义、trace 原始三次结果、可执行 PowerShell 方法和比较结果位于 docs/performance/shared-sheet-cold-distribution-44e7308.json、shared-sheet-trace-confirmatory-baseline-fa1fc21.json、shared-sheet-trace-confirmatory-candidate-44e7308.json 与 shared-sheet-trace-confirmatory-comparison-44e7308.json。早先 confirmatory 失败证据也仍保留在 HANDOFF，不得删除或覆盖。
+下一步先审查剩余 30-run 尾部，判断是否值得继续应用侧诊断/优化，还是将尾部作为当前自动化环境的未通过风险交由实体设备验收；不要未经新证据直接改产品代码。若继续诊断，保持生产构建、独占 Chromium、真实 More 按钮、fresh context、零重试/零替换，并将新结果与现有失败并列保存。
+自动化 Chromium 只验证架构、匹配 trace 工作量下降和 60Hz smoke，不能证明 120fps。物理 120Hz iPhone Safari 与主屏 PWA 仍是最终外部验收边界。任何 merge、push、PR、Cloudflare upload 或 production deploy 都必须等待用户明确选择。
 ```
