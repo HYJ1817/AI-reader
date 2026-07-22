@@ -3,6 +3,8 @@ import Dexie from "dexie";
 import {
   saveBook,
   listBooks,
+  listBookMetadata,
+  getBookFile,
   getBook,
   deleteBook,
   saveReadingPosition,
@@ -96,6 +98,109 @@ describe("Book storage", () => {
     }
   });
 
+  it("lists metadata when the source file record is absent", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("books").put({
+        id: "metadata-only",
+        title: "Metadata Only",
+        format: "epub",
+        fileName: "metadata-only.epub",
+        size: 50_000_000,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+      await inspectionDb.table("bookFiles").delete("metadata-only");
+    } finally {
+      inspectionDb.close();
+    }
+
+    const books = await listBookMetadata();
+    expect(books).toEqual([
+      expect.objectContaining({ id: "metadata-only", title: "Metadata Only" }),
+    ]);
+    expect(books[0]).not.toHaveProperty("fileBlob");
+  });
+
+  it("loads only the requested source file", async () => {
+    await saveBook(makeBook({ id: "first", fileBlob: new Blob(["first"]) }));
+    await saveBook(makeBook({ id: "second", fileBlob: new Blob(["second"]) }));
+
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("bookFiles").delete("second");
+    } finally {
+      inspectionDb.close();
+    }
+
+    expect(await (await getBookFile("first"))?.text()).toBe("first");
+    expect(await getBookFile("second")).toBeUndefined();
+    expect((await listBookMetadata()).map((book) => book.id).sort()).toEqual([
+      "first",
+      "second",
+    ]);
+  });
+
+  it("stores covers outside source-file records", async () => {
+    await saveBook(
+      makeBook({
+        id: "covered",
+        coverImageBlob: new Blob(["cover"], { type: "image/png" }),
+      })
+    );
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      const file = await inspectionDb.table("bookFiles").get("covered");
+      const cover = await inspectionDb.table("bookCovers").get("covered");
+      expect(file.coverImageData).toBeUndefined();
+      expect(cover.coverImageData).toBeInstanceOf(ArrayBuffer);
+    } finally {
+      inspectionDb.close();
+    }
+  });
+
+  it("migrates one embedded legacy cover when that book is opened", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("books").put({
+        id: "legacy-cover",
+        title: "Legacy Cover",
+        format: "epub",
+        fileName: "legacy-cover.epub",
+        size: 4,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+      await inspectionDb.table("bookFiles").put({
+        bookId: "legacy-cover",
+        fileData: new TextEncoder().encode("book").buffer,
+        fileType: "application/epub+zip",
+        coverImageData: new TextEncoder().encode("legacy image").buffer,
+        coverImageType: "image/png",
+      });
+    } finally {
+      inspectionDb.close();
+    }
+
+    const opened = await getBook("legacy-cover");
+    expect(await opened?.coverImageBlob?.text()).toBe("legacy image");
+
+    const verifyDb = new Dexie("AiReader");
+    await verifyDb.open();
+    try {
+      const migratedCover = await verifyDb
+        .table("bookCovers")
+        .get("legacy-cover");
+      expect(new TextDecoder().decode(migratedCover.coverImageData)).toBe(
+        "legacy image"
+      );
+    } finally {
+      verifyDb.close();
+    }
+  });
+
   it("migrates legacy Blob records when they are first read", async () => {
     const inspectionDb = new Dexie("AiReader");
     await inspectionDb.open();
@@ -161,7 +266,12 @@ describe("Book storage", () => {
   });
 
   it("deletes a book and cascades to position and annotations", async () => {
-    await saveBook(makeBook({ id: "b1" }));
+    await saveBook(
+      makeBook({
+        id: "b1",
+        coverImageBlob: new Blob(["cover"], { type: "image/png" }),
+      })
+    );
     await saveReadingPosition(makePosition({ bookId: "b1" }));
     await addAnnotation(makeAnnotation({ id: "a1", bookId: "b1" }));
     await addAnnotation(makeAnnotation({ id: "a2", bookId: "b1" }));
@@ -171,6 +281,14 @@ describe("Book storage", () => {
     expect(await getBook("b1")).toBeUndefined();
     expect(await getReadingPosition("b1")).toBeUndefined();
     expect(await listAnnotations("b1")).toEqual([]);
+
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      expect(await inspectionDb.table("bookCovers").get("b1")).toBeUndefined();
+    } finally {
+      inspectionDb.close();
+    }
   });
 });
 
