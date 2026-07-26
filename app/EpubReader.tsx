@@ -19,6 +19,7 @@ import {
 } from "@/lib/epubAmbientCanvas";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import {
+  getAnnotationPageNumber,
   getEpubBookPageInfo,
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
@@ -483,7 +484,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       );
       if (pageInfo) {
         hasResolvedPageInfoRef.current = true;
-        latestPageNumberRef.current = pageInfo.current;
+        latestPageNumberRef.current = getAnnotationPageNumber(pageInfo);
         onPageInfoChangeRef.current?.(pageInfo);
       }
     },

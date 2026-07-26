@@ -73,7 +73,7 @@ describe("reader page indicator", () => {
     expect(css).toContain(".readerPagePill");
   });
 
-  it("models the EPUB calculation lifecycle instead of exposing a 1/1 placeholder", () => {
+  it("models EPUB locations without persisting them as annotation pages", () => {
     expect(readerBookStateSource).toContain(
       'book.format === "epub" ? "calculating" : undefined'
     );
@@ -81,6 +81,10 @@ describe("reader page indicator", () => {
     expect(epubReaderSource).toContain("hasGeneratedLocationsRef");
     expect(epubReaderSource).toContain("await currentLocation?.()");
     expect(epubReaderSource).toContain("await reportLocation?.()");
+    expect(epubReaderSource).toContain("getAnnotationPageNumber(pageInfo)");
+    expect(epubReaderSource).not.toContain(
+      "latestPageNumberRef.current = pageInfo.current"
+    );
     expect(epubReaderSource).toContain('status: "unavailable"');
   });
 });
