@@ -42,9 +42,9 @@ Get-Content HANDOFF.md
 
 ## Background EPUB Cover Backfill (2026-07-26, Current Authoritative State)
 
-- Current branch is `codex/shared-sheet-performance`; it is pushed and clean at
-  `f039ae6`. Draft PR #4 remains open against `main`; `main` was not merged or
-  pushed.
+- Current branch is `codex/shared-sheet-performance`; the latest product/source
+  commit is `f039ae6`, followed only by handoff documentation. Draft PR #4
+  remains open against `main`; `main` was not merged or pushed.
 - `6148c56` added the independent `saveBookCover(bookId, blob)` write path. It
   writes only `bookCovers` and never rewrites book metadata or EPUB/TXT source
   bytes through `saveBook()`.
@@ -108,7 +108,7 @@ Get-Content HANDOFF.md
 Authoritative next-session opener:
 
 ```text
-继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。当前分支 codex/shared-sheet-performance 已推送到 f039ae6，草稿 PR #4 未合并 main。后台 EPUB 封面补齐、恢复竞态修复、979 项测试、GitHub Actions run 30187136001 和生产部署均已完成；最终 Worker 版本 9e531901-cd25-4e2a-b3a9-b620c63fb638，BUILD_ID WP8Y-6wpyvBy7yL9QAnAa。任何后续 merge main、push main 或生产部署必须先取得用户明确确认。
+继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。当前分支 codex/shared-sheet-performance 已推送，最新产品代码提交 f039ae6，之后只有交接文档；草稿 PR #4 未合并 main。后台 EPUB 封面补齐、恢复竞态修复、979 项测试、GitHub Actions run 30187136001 和生产部署均已完成；最终 Worker 版本 9e531901-cd25-4e2a-b3a9-b620c63fb638，BUILD_ID WP8Y-6wpyvBy7yL9QAnAa。任何后续 merge main、push main 或生产部署必须先取得用户明确确认。
 ```
 
 ## Metadata-Only Library Loading and Book Rename (2026-07-22)
