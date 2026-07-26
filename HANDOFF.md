@@ -41,7 +41,7 @@ git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
 
-## Reading Dashboard Total Duration Clipping (2026-07-26, Pending Publication)
+## Reading Dashboard Total Duration Clipping (2026-07-27, Deployed)
 
 - The underlying accumulated reading value was correct, but the weekly header
   could show only its first digit. A seeded value of `65` retained
@@ -60,9 +60,25 @@ Get-Content HANDOFF.md
 - Fresh verification passed: focused CSS test 9/9, complete Vitest 111 files /
   983 tests, full ESLint, production Next.js build, and the targeted iPhone 14
   trace-off Playwright test 1/1.
-- This follow-up is not yet pushed, merged, or deployed. Production remains on
-  Worker version `39defdad-7ab0-45f3-9caa-e4d9dcfced27`, BUILD_ID
-  `fo2drdHK18b-Oa5pXVQAY`.
+- Product/test commit `c13ec8e` was pushed to
+  `origin/codex/shared-sheet-performance`; this follow-up was not merged into or
+  pushed directly to `main`.
+- Fresh publication verification passed: `npm audit --omit=dev
+  --audit-level=high` found 0 vulnerabilities, Vitest passed 111 files / 983
+  tests, full ESLint passed, the standalone Next.js build passed, and the
+  OpenNext Cloudflare build completed.
+- Production was deployed as Worker version
+  `b766b84f-c242-48b9-912e-6e5f00f56096`, BUILD_ID
+  `3MgOiVE9iDGcBa27cv1f7`.
+- Production verification passed for `/`, all 10 discovered JS/CSS assets,
+  `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and `/downloads/ai-reader-twa.apk`. The remote
+  APK remained 901574 bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`;
+  `POST /api/models` with `{}` returned the expected HTTP 400 validation error.
+- The targeted production iPhone 14 Playwright regression passed 1/1 with one
+  worker, no retries, and `--trace=off`, confirming seeded cumulative reading
+  time `65` remains fully visible rather than being clipped to `6`.
 
 ## EPUB Page/Location Semantics (2026-07-26, Current Authoritative State)
 
