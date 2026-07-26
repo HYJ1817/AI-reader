@@ -1,6 +1,9 @@
+export type ReaderPageUnit = "page" | "location";
+
 export type ReaderPageInfo = {
   current: number;
   total: number;
+  unit?: ReaderPageUnit;
   status?: "calculating" | "unavailable";
 };
 
@@ -17,21 +20,36 @@ function safePositiveInteger(value: number, fallback: number): number {
 export function normalizeReaderPageInfo(pageInfo: ReaderPageInfo): ReaderPageInfo {
   const total = safePositiveInteger(pageInfo.total, 1);
   const current = Math.min(total, safePositiveInteger(pageInfo.current, 1));
-  return { current, total };
+  return {
+    current,
+    total,
+    ...(pageInfo.unit ? { unit: pageInfo.unit } : {}),
+  };
 }
 
 export function formatReaderPageLabel(pageInfo: ReaderPageInfo): string {
-  if (pageInfo.status === "calculating") return "正在计算页数…";
-  if (pageInfo.status === "unavailable") return "页数未知";
+  if (pageInfo.status === "calculating") return "正在计算阅读位置…";
+  if (pageInfo.status === "unavailable") return "阅读位置未知";
   const normalized = normalizeReaderPageInfo(pageInfo);
-  return `${normalized.current}/${normalized.total}页`;
+  return normalized.unit === "location"
+    ? `位置 ${normalized.current}/${normalized.total}`
+    : `${normalized.current}/${normalized.total}页`;
 }
 
 export function formatReaderPageSummary(pageInfo: ReaderPageInfo): string {
-  if (pageInfo.status === "calculating") return "正在计算页数…";
-  if (pageInfo.status === "unavailable") return "页数未知";
+  if (pageInfo.status === "calculating") return "正在计算阅读位置…";
+  if (pageInfo.status === "unavailable") return "阅读位置未知";
   const normalized = normalizeReaderPageInfo(pageInfo);
-  return `第 ${normalized.current} 页（共 ${normalized.total} 页）`;
+  return normalized.unit === "location"
+    ? `位置 ${normalized.current}（共 ${normalized.total} 个）`
+    : `第 ${normalized.current} 页（共 ${normalized.total} 页）`;
+}
+
+export function getAnnotationPageNumber(
+  pageInfo: ReaderPageInfo
+): number | undefined {
+  if (pageInfo.unit === "location" || pageInfo.status) return undefined;
+  return normalizeReaderPageInfo(pageInfo).current;
 }
 
 export function estimateReaderPageInfo(
@@ -74,6 +92,7 @@ export function getEpubBookPageInfo(
     return normalizeReaderPageInfo({
       current: publishedPage - firstPage + 1,
       total: lastPage - firstPage + 1,
+      unit: "page",
     });
   }
 
@@ -91,6 +110,7 @@ export function getEpubBookPageInfo(
   return normalizeReaderPageInfo({
     current: Math.floor(locationIndex) + 1,
     total: Math.floor(locationTotal) + 1,
+    unit: "location",
   });
 }
 

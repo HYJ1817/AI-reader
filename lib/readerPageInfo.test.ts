@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   formatReaderPageLabel,
   formatReaderPageSummary,
+  getAnnotationPageNumber,
   getEpubBookPageInfo,
+  normalizeReaderPageInfo,
 } from "./readerPageInfo";
 
 describe("reader page status labels", () => {
@@ -13,8 +15,8 @@ describe("reader page status labels", () => {
       status: "calculating" as const,
     };
 
-    expect(formatReaderPageLabel(calculating)).toBe("正在计算页数…");
-    expect(formatReaderPageSummary(calculating)).toBe("正在计算页数…");
+    expect(formatReaderPageLabel(calculating)).toBe("正在计算阅读位置…");
+    expect(formatReaderPageSummary(calculating)).toBe("正在计算阅读位置…");
   });
 
   it("reports unavailable page information without false numbers", () => {
@@ -24,8 +26,36 @@ describe("reader page status labels", () => {
       status: "unavailable" as const,
     };
 
-    expect(formatReaderPageLabel(unavailable)).toBe("页数未知");
-    expect(formatReaderPageSummary(unavailable)).toBe("页数未知");
+    expect(formatReaderPageLabel(unavailable)).toBe("阅读位置未知");
+    expect(formatReaderPageSummary(unavailable)).toBe("阅读位置未知");
+  });
+});
+
+describe("reader page units", () => {
+  it("labels generated EPUB indexes as locations instead of pages", () => {
+    const location = { current: 288, total: 901, unit: "location" as const };
+
+    expect(formatReaderPageLabel(location)).toBe("位置 288/901");
+    expect(formatReaderPageSummary(location)).toBe("位置 288（共 901 个）");
+  });
+
+  it("preserves the location unit while normalizing its bounds", () => {
+    expect(
+      normalizeReaderPageInfo({
+        current: 999,
+        total: 20,
+        unit: "location" as const,
+      })
+    ).toEqual({ current: 20, total: 20, unit: "location" });
+  });
+
+  it("only exposes real pages to annotation records", () => {
+    expect(
+      getAnnotationPageNumber({ current: 8, total: 20, unit: "page" })
+    ).toBe(8);
+    expect(
+      getAnnotationPageNumber({ current: 8, total: 20, unit: "location" })
+    ).toBeUndefined();
   });
 });
 
@@ -37,7 +67,7 @@ describe("getEpubBookPageInfo", () => {
         900,
         { firstPage: 1, lastPage: 480 }
       )
-    ).toEqual({ current: 135, total: 480 });
+    ).toEqual({ current: 135, total: 480, unit: "page" });
   });
 
   it("rejects epub.js empty page-list defaults", () => {
@@ -50,16 +80,16 @@ describe("getEpubBookPageInfo", () => {
     ).toBeNull();
   });
 
-  it("converts the generated last CFI location index into a page count", () => {
+  it("converts the generated last CFI index into a whole-book location", () => {
     expect(
       getEpubBookPageInfo({ start: { location: 287 } }, 900)
-    ).toEqual({ current: 288, total: 901 });
+    ).toEqual({ current: 288, total: 901, unit: "location" });
   });
 
   it("accepts a generated table whose only valid index is zero", () => {
     expect(
       getEpubBookPageInfo({ start: { location: 0 } }, 0)
-    ).toEqual({ current: 1, total: 1 });
+    ).toEqual({ current: 1, total: 1, unit: "location" });
   });
 
   it("does not fall back to a chapter-local displayed page count", () => {
