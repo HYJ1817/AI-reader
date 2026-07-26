@@ -11,7 +11,7 @@ const hookSource = existsSync(hookUrl) ? readFileSync(hookUrl, "utf8") : "";
 describe("background book cover integration", () => {
   it("uses one shared hook for startup and restored metadata", () => {
     expect(pageSource).toContain('from "@/app/useBookCoverBackfill"');
-    expect(pageSource).toContain("startBookCoverBackfill(storedBooks)");
+    expect(hookSource).toContain("startBookCoverBackfill(storedBooks)");
     expect(pageSource).toContain("startBookCoverBackfill(restoredBooks)");
   });
 

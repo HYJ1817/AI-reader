@@ -158,20 +158,6 @@ type NavigatorWithWakeLock = Navigator & {
   };
 };
 
-function withTimeout<T>(
-  promise: Promise<T>,
-  ms: number,
-  message: string
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(message)), ms);
-    promise
-      .then(resolve)
-      .catch(reject)
-      .finally(() => window.clearTimeout(timer));
-  });
-}
-
 export default function Home() {
   const navigation = useAppNavigation();
   const activeTab = navigation.state.activeTab;
@@ -181,7 +167,6 @@ export default function Home() {
     count: LIBRARY_RENDER_BATCH,
   });
   const libraryLoadSentinelRef = useRef<HTMLDivElement>(null);
-  const visibleBookIdsRef = useRef<string[]>([]);
   const [readingProgressMap, setReadingProgressMap] = useState<ReadingProgressMap>({});
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
@@ -294,45 +279,9 @@ export default function Home() {
   const [editingGroupName, setEditingGroupName] = useState("");
   const autoOpenAttemptedRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
-  const startBookCoverBackfill = useBookCoverBackfill(
-    visibleBookIdsRef,
-    setBooks
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadLibrary() {
-      if (!hasIndexedDbSupport(window)) {
-        setImportError(UI_TEXT.ERROR_READ_FILE);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        void requestPersistentStorage();
-        const [storedBooks, storedPositions] = await withTimeout(
-          Promise.all([listBookMetadata(), listReadingPositions()]),
-          15000,
-          "Local library storage timed out."
-        );
-        if (!cancelled) {
-          setBooks(storedBooks);
-          startBookCoverBackfill(storedBooks);
-          setReadingProgressMap(buildReadingProgressMap(storedPositions));
-        }
-      } catch {
-        if (!cancelled) setImportError(UI_TEXT.ERROR_READ_FILE);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    loadLibrary();
-    return () => {
-      cancelled = true;
-    };
-  }, [startBookCoverBackfill]);
+  const { setVisibleBookIds, startBookCoverBackfill } = useBookCoverBackfill({
+    setBooks, setReadingProgressMap, setImportError, setLoading,
+  });
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -802,7 +751,7 @@ export default function Home() {
         : []),
       ...visibleBooks.map((book) => book.id),
     ];
-    visibleBookIdsRef.current = visibleBookIds;
+    setVisibleBookIds(visibleBookIds);
   });
   const collectionListItems = buildCollectionListItems(
     books, groups, UI_TEXT.ALL_BOOKS, UI_TEXT.UNGROUPED,

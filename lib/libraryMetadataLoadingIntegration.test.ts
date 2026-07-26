@@ -9,6 +9,10 @@ const readerStateSource = readFileSync(
   new URL("../app/useReaderBookState.ts", import.meta.url),
   "utf8"
 );
+const coverBackfillQueueSource = readFileSync(
+  new URL("./bookCoverBackfill.ts", import.meta.url),
+  "utf8"
+);
 const coverBackfillHookUrl = new URL(
   "../app/useBookCoverBackfill.ts",
   import.meta.url
@@ -34,13 +38,13 @@ describe("metadata-only library integration", () => {
   });
 
   it("publishes the metadata-only Library before starting cover backfill", () => {
-    const publishIndex = pageSource.indexOf("setBooks(storedBooks)");
-    const backfillIndex = pageSource.indexOf(
+    const publishIndex = coverBackfillHookSource.indexOf("setBooks(storedBooks)");
+    const backfillIndex = coverBackfillHookSource.indexOf(
       "startBookCoverBackfill(storedBooks)"
     );
     expect(publishIndex).toBeGreaterThan(-1);
     expect(backfillIndex).toBeGreaterThan(publishIndex);
-    expect(pageSource).not.toContain(
+    expect(coverBackfillHookSource).not.toContain(
       "await startBookCoverBackfill(storedBooks)"
     );
   });
@@ -50,7 +54,7 @@ describe("metadata-only library integration", () => {
     expect(coverBackfillHookSource).toContain("loadMissingBookCover");
     expect(coverBackfillHookSource).toContain("extractEpubCoverImage");
     expect(coverBackfillHookSource).not.toContain("listBooks(");
-    expect(coverBackfillHookSource).not.toContain("Promise.all");
+    expect(coverBackfillQueueSource).not.toContain("Promise.all");
   });
 
   it("updates last-opened metadata without rewriting source bytes", () => {

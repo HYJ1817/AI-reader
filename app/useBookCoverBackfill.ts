@@ -5,11 +5,12 @@ import {
   useEffect,
   useRef,
   type Dispatch,
-  type RefObject,
   type SetStateAction,
 } from "react";
 import { extractEpubCoverImage } from "@/lib/epubCover";
 import {
+  listBookMetadata,
+  listReadingPositions,
   loadMissingBookCover,
   type BookMetadata,
 } from "@/lib/db";
@@ -17,6 +18,13 @@ import {
   mergeBookCoverMetadata,
   runBookCoverBackfill,
 } from "@/lib/bookCoverBackfill";
+import { hasIndexedDbSupport } from "@/lib/browserStorage";
+import { requestPersistentStorage } from "@/lib/storagePersistence";
+import {
+  buildReadingProgressMap,
+  type ReadingProgressMap,
+} from "@/lib/libraryProgress";
+import { UI_TEXT } from "@/lib/uiText";
 
 type ScheduledRun =
   | { kind: "idle"; id: number }
@@ -30,10 +38,34 @@ type BackfillWindow = Window & {
   cancelIdleCallback?: (id: number) => void;
 };
 
-export default function useBookCoverBackfill(
-  visibleBookIdsRef: RefObject<readonly string[]>,
-  setBooks: Dispatch<SetStateAction<BookMetadata[]>>
-) {
+type BookCoverBackfillState = {
+  setBooks: Dispatch<SetStateAction<BookMetadata[]>>;
+  setReadingProgressMap: Dispatch<SetStateAction<ReadingProgressMap>>;
+  setImportError: Dispatch<SetStateAction<string | null>>;
+  setLoading: Dispatch<SetStateAction<boolean>>;
+};
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  message: string
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), ms);
+    promise
+      .then(resolve)
+      .catch(reject)
+      .finally(() => window.clearTimeout(timer));
+  });
+}
+
+export default function useBookCoverBackfill({
+  setBooks,
+  setReadingProgressMap,
+  setImportError,
+  setLoading,
+}: BookCoverBackfillState) {
+  const visibleBookIdsRef = useRef<readonly string[]>([]);
   const currentRunRef = useRef<AbortController | null>(null);
   const scheduledFrameRef = useRef<number | null>(null);
   const scheduledRunRef = useRef<ScheduledRun | null>(null);
@@ -57,7 +89,7 @@ export default function useBookCoverBackfill(
 
   useEffect(() => cancelCurrentRun, [cancelCurrentRun]);
 
-  return useCallback(
+  const startBookCoverBackfill = useCallback(
     (books: BookMetadata[]) => {
       cancelCurrentRun();
       const controller = new AbortController();
@@ -106,6 +138,53 @@ export default function useBookCoverBackfill(
         }
       });
     },
-    [cancelCurrentRun, setBooks, visibleBookIdsRef]
+    [cancelCurrentRun, setBooks]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadLibrary() {
+      if (!hasIndexedDbSupport(window)) {
+        setImportError(UI_TEXT.ERROR_READ_FILE);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        void requestPersistentStorage();
+        const [storedBooks, storedPositions] = await withTimeout(
+          Promise.all([listBookMetadata(), listReadingPositions()]),
+          15000,
+          "Local library storage timed out."
+        );
+        if (!cancelled) {
+          setBooks(storedBooks);
+          startBookCoverBackfill(storedBooks);
+          setReadingProgressMap(buildReadingProgressMap(storedPositions));
+        }
+      } catch {
+        if (!cancelled) setImportError(UI_TEXT.ERROR_READ_FILE);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    void loadLibrary();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    setBooks,
+    setImportError,
+    setLoading,
+    setReadingProgressMap,
+    startBookCoverBackfill,
+  ]);
+
+  const setVisibleBookIds = useCallback((bookIds: readonly string[]) => {
+    visibleBookIdsRef.current = bookIds;
+  }, []);
+
+  return { setVisibleBookIds, startBookCoverBackfill };
 }
