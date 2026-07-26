@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import Dexie from "dexie";
+import { readFileSync } from "node:fs";
 import {
   saveBook,
   listBooks,
+  listBookMetadata,
   saveReadingPosition,
   getReadingPosition,
   addAnnotation,
@@ -23,6 +26,8 @@ import {
 } from "./backup";
 import { createAiProviderFromPreset } from "./aiProviders";
 
+const backupSource = readFileSync(new URL("./backup.ts", import.meta.url), "utf8");
+
 function makeBook(overrides: Partial<BookRecord> = {}): BookRecord {
   return {
     id: crypto.randomUUID(),
@@ -41,6 +46,12 @@ beforeEach(async () => {
 });
 
 describe("createBackupPayload", () => {
+  it("enumerates metadata instead of hydrating the entire library", () => {
+    expect(backupSource).toContain("listBookMetadata");
+    expect(backupSource).toContain("getBookFile(book.id)");
+    expect(backupSource).not.toContain("listBooks");
+  });
+
   it("includes version 2", async () => {
     const payload = await createBackupPayload();
     expect(payload.version).toBe(2);
@@ -106,6 +117,26 @@ describe("createBackupPayload", () => {
     expect(payload.books[0].title).toBe("My Book");
     expect(payload.books[0].fileContent).toBeTruthy();
     expect(typeof payload.books[0].fileContent).toBe("string");
+  });
+
+  it("enumerates metadata and reports the specific missing backup source", async () => {
+    await saveBook(makeBook({ id: "available", title: "Available" }));
+    await saveBook(makeBook({ id: "missing", title: "Missing" }));
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("bookFiles").delete("missing");
+    } finally {
+      inspectionDb.close();
+    }
+
+    await expect(createBackupPayload()).rejects.toThrow(
+      "Stored file is unavailable for book missing."
+    );
+    expect((await listBookMetadata()).map((book) => book.id).sort()).toEqual([
+      "available",
+      "missing",
+    ]);
   });
 
   it("exports reading positions", async () => {

@@ -1,4 +1,5 @@
 const CACHE_NAME = "ai-reader-v6";
+const CACHE_PREFIX = "ai-reader-";
 const MAX_RUNTIME_CACHE_ENTRIES = 80;
 const STATIC_ASSETS = [
   "/",
@@ -18,7 +19,11 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
+        keys
+          .filter(
+            (key) => key.startsWith(CACHE_PREFIX) && key !== CACHE_NAME
+          )
+          .map((key) => caches.delete(key))
       )
     )
   );

@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "confirmatory-trace-comparison",
+  "baselineRecord": "docs/performance/shared-sheet-trace-confirmatory-baseline-fa1fc21.json",
+  "candidateRecord": "docs/performance/shared-sheet-trace-confirmatory-candidate-44e7308.json",
+  "historicalExploratoryRecordsRetained": [
+    "docs/performance/shared-sheet-trace-baseline-fa1fc21.json",
+    "docs/performance/shared-sheet-trace-exploratory-3e4a5d1.json"
+  ],
+  "baselineRevision": "fa1fc216e424f1f2ac2bbd1cac7886253b24b922",
+  "candidateRevision": "44e73085ecc8910373a5388c6dc9d07b611f58c4",
+  "scriptSha256": "16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb",
+  "browserVersion": "149.0.7827.55",
+  "browserRevision": "chromium-1228",
+  "acceptanceMethod": "scripts/shared-sheet-trace-probe.cjs evaluateDurationAcceptance: for UpdateLayoutTree and Paint main-thread total duration, and RasterTask all-thread total duration, candidate median and candidate maximum must each be <= baseline median / 2",
+  "acceptance": {
+    "UpdateLayoutTree": {
+      "baselineMedianMs": 30.959,
+      "ceilingMs": 15.4795,
+      "candidateMedianMs": 14.441,
+      "candidateMaximumMs": 14.521,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "Paint": {
+      "baselineMedianMs": 14.739,
+      "ceilingMs": 7.3695,
+      "candidateMedianMs": 3.918,
+      "candidateMaximumMs": 4.161,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "RasterTask": {
+      "baselineMedianMs": 59.181,
+      "ceilingMs": 29.5905,
+      "candidateMedianMs": 20.059,
+      "candidateMaximumMs": 21.328,
+      "medianPass": true,
+      "maximumPass": true,
+      "pass": true
+    },
+    "allPass": true
+  },
+  "diagnostics": {
+    "baseline": {
+      "clickToMountMs": [35.10000002384186, 33.89999997615814, 34.89999997615814],
+      "p95FrameIntervalMs": [16.700000000000045, 16.799999999999955, 16.799999999999955],
+      "maximumFrameIntervalMs": [33.299999999999955, 33.39999999999998, 16.799999999999955],
+      "maximumLongTaskMs": [0, 0, 0],
+      "layoutShift": [0, 0, 0]
+    },
+    "candidate": {
+      "clickToMountMs": [33.10000002384186, 34.39999997615814, 31.700000047683716],
+      "p95FrameIntervalMs": [16.700000000000045, 16.800000000000182, 16.799999999999955],
+      "maximumFrameIntervalMs": [16.799999999999955, 16.800000000000182, 16.800000000000068],
+      "maximumLongTaskMs": [0, 0, 0],
+      "layoutShift": [0, 0, 0]
+    },
+    "note": "Click/frame/long-task/CLS values are recorded as trace-overhead diagnostics and do not alter the predeclared duration acceptance. Candidate trace run 2 click-to-mount was 34.4ms; no retry or replacement run was made."
+  }
+}

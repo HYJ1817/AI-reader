@@ -40,9 +40,21 @@ export default function ServiceWorkerRegistration() {
     const hadController = Boolean(navigator.serviceWorker.controller);
     let reloading = false;
     let checkingBuildId = false;
-    const handleControllerChange = () => {
+    const flushReaderBeforeReload = async () => {
+      const pending: Promise<void>[] = [];
+      window.dispatchEvent(
+        new CustomEvent("ai-reader-before-reload", {
+          detail: {
+            waitUntil: (promise: Promise<void>) => pending.push(promise),
+          },
+        })
+      );
+      await Promise.allSettled(pending);
+    };
+    const handleControllerChange = async () => {
       if (!hadController || reloading) return;
       reloading = true;
+      await flushReaderBeforeReload();
       window.location.reload();
     };
     const checkForNewBuild = async () => {
@@ -59,6 +71,7 @@ export default function ServiceWorkerRegistration() {
         sessionStorage.setItem(BUILD_ID_STORAGE_KEY, buildId);
         if (previousBuildId && previousBuildId !== buildId) {
           reloading = true;
+          await flushReaderBeforeReload();
           window.location.reload();
         }
       } catch {

@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "evidenceRole": "exploratory-baseline",
+  "acceptanceStatus": "not-acceptance-evidence",
+  "revision": "fa1fc216e424f1f2ac2bbd1cac7886253b24b922",
+  "method": {
+    "device": "Playwright iPhone 14",
+    "runCount": 3,
+    "context": "fresh isolated context per run; service workers blocked",
+    "readiness": "domcontentloaded + visible library + data-library-loading=false + deterministic TXT import + list mode + visible real More button + 600ms idle",
+    "click": "real pointer click at the visible More button center",
+    "traceWindowUs": 700000,
+    "eventFilter": "complete events (ph=X) with start timestamp >= click marker and < marker + 700000us; durations clipped at window end",
+    "mainThreadCategories": [
+      "UpdateLayoutTree",
+      "Layout",
+      "Paint"
+    ],
+    "allThreadCategories": [
+      "RasterTask"
+    ]
+  },
+  "browserVersion": null,
+  "browserVersionRecorded": false,
+  "executedProbeSha256": null,
+  "executedProbeSha256Recorded": false,
+  "permanentProbe": {
+    "path": "scripts/shared-sheet-trace-probe.cjs",
+    "sha256AtPreservation": "16aca88955a4fceeaedfda0892e0f613401e8a7ac761dd76ff2f1bc07ced38eb"
+  },
+  "auditNote": "The exploratory run used the same documented matched method, but the temporary probe hash and Chromium version were not recorded at execution time and are intentionally null. This record is not confirmatory acceptance evidence.",
+  "runs": [
+    {
+      "run": 1,
+      "metrics": {
+        "clickToMount": 39.80000001192093,
+        "frames": 42,
+        "p95": 16.799999999999955,
+        "maxFrame": 33.299999999999955,
+        "longTasks": 0,
+        "maxLongTask": 0,
+        "totalLongTask": 0,
+        "layoutShift": 0,
+        "observerSupport": {
+          "longtask": true,
+          "layoutShift": true
+        }
+      },
+      "contract": {
+        "hasExplicitBackdrop": false,
+        "overlayInlineOpacity": "1",
+        "overlayComputedOpacity": "1",
+        "overlayBackdropToken": "0.4962367179944912",
+        "panelBackdropToken": "0.4962367179944912"
+      },
+      "trace": {
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 761.337,
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 43.407, "selfMs": 43.407 },
+          "Layout": { "count": 4, "totalMs": 7.237, "selfMs": 7.237 },
+          "Paint": { "count": 100, "totalMs": 28.319, "selfMs": 16.388 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "RasterTask": { "count": 240, "totalMs": 103.045, "selfMs": 1.321 }
+        }
+      }
+    },
+    {
+      "run": 2,
+      "metrics": {
+        "clickToMount": 35.5,
+        "frames": 42,
+        "p95": 16.799999999999955,
+        "maxFrame": 33.39999999999998,
+        "longTasks": 0,
+        "maxLongTask": 0,
+        "totalLongTask": 0,
+        "layoutShift": 0,
+        "observerSupport": {
+          "longtask": true,
+          "layoutShift": true
+        }
+      },
+      "contract": {
+        "hasExplicitBackdrop": false,
+        "overlayInlineOpacity": "1",
+        "overlayComputedOpacity": "1",
+        "overlayBackdropToken": "0.2538695820719473",
+        "panelBackdropToken": "0.2538695820719473"
+      },
+      "trace": {
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 768.714,
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 47, "totalMs": 35.3, "selfMs": 35.3 },
+          "Layout": { "count": 4, "totalMs": 6.761, "selfMs": 6.761 },
+          "Paint": { "count": 100, "totalMs": 17.075, "selfMs": 9.962 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "RasterTask": { "count": 240, "totalMs": 67.918, "selfMs": 1.027 }
+        }
+      }
+    },
+    {
+      "run": 3,
+      "metrics": {
+        "clickToMount": 44.30000001192093,
+        "frames": 41,
+        "p95": 16.700000000000045,
+        "maxFrame": 50,
+        "longTasks": 0,
+        "maxLongTask": 0,
+        "totalLongTask": 0,
+        "layoutShift": 0,
+        "observerSupport": {
+          "longtask": true,
+          "layoutShift": true
+        }
+      },
+      "contract": {
+        "hasExplicitBackdrop": false,
+        "overlayInlineOpacity": "1",
+        "overlayComputedOpacity": "1",
+        "overlayBackdropToken": "0.5096813407169211",
+        "panelBackdropToken": "0.5096813407169211"
+      },
+      "trace": {
+        "traceWindowMs": 700,
+        "traceCollectedAfterMarkerMs": 774.608,
+        "mainThread": {
+          "UpdateLayoutTree": { "count": 46, "totalMs": 41.917, "selfMs": 41.917 },
+          "Layout": { "count": 4, "totalMs": 7.649, "selfMs": 7.649 },
+          "Paint": { "count": 98, "totalMs": 16.205, "selfMs": 9.42 },
+          "RasterTask": { "count": 0, "totalMs": 0, "selfMs": 0 }
+        },
+        "allThreads": {
+          "RasterTask": { "count": 246, "totalMs": 67.071, "selfMs": 0.791 }
+        }
+      }
+    }
+  ]
+}

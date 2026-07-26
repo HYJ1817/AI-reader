@@ -19,12 +19,12 @@ import {
   type AmbientLayer,
   type AmbientTransitionState,
 } from "@/lib/ambientBookBackground";
-import type { BookRecord } from "@/lib/db";
+import type { BookMetadata } from "@/lib/db";
 import { MOTION_DURATION } from "@/lib/motionSystem";
 import styles from "./page.module.css";
 
 type AmbientBookBackgroundProps = {
-  book: BookRecord | null;
+  book: BookMetadata | null;
   customBackgroundBlob?: Blob | null;
   customBackgroundOpacity?: number;
   reduceMotion: boolean;

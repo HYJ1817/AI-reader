@@ -130,11 +130,24 @@ export default function MotionSheet({
   const [present, setPresent] = useState(true);
   const [closeRequest, setCloseRequest] =
     useState<SheetCloseRequest | null>(null);
-  const [sheetHeight, setSheetHeight] = useState(1);
+  const [sheetHeight, setSheetHeight] = useState(() =>
+    typeof window === "undefined" ? 900 : Math.max(1, window.innerHeight)
+  );
   const [visualViewportFrame, setVisualViewportFrame] =
-    useState<VisualViewportFrame | null>(null);
+    useState<VisualViewportFrame | null>(() => {
+      if (typeof window === "undefined") return null;
+      const viewport = window.visualViewport;
+      return viewport
+        ? {
+            offsetLeft: viewport.offsetLeft,
+            offsetTop: viewport.offsetTop,
+            width: viewport.width,
+            height: viewport.height,
+          }
+        : null;
+    });
   const panelRef = useRef<HTMLDivElement>(null);
-  const y = useMotionValue(900);
+  const y = useMotionValue(sheetHeight);
   const dragControls = useDragControls();
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const animationGenerationRef = useRef(0);
@@ -154,7 +167,6 @@ export default function MotionSheet({
     [borderRadius, brightness, progress, scale]
   );
   const overlayStyle = {
-    "--sheet-backdrop-opacity": progress,
     ...(visualViewportFrame
       ? {
           left: visualViewportFrame.offsetLeft,
@@ -165,7 +177,7 @@ export default function MotionSheet({
           height: visualViewportFrame.height,
         }
       : {}),
-  } as unknown as CSSProperties;
+  } satisfies CSSProperties;
 
   const runAnimation = useCallback(
     (target: number, kind: "settle" | "close", onComplete?: () => void) => {
@@ -203,12 +215,22 @@ export default function MotionSheet({
     const panel = panelRef.current;
     if (!panel) return;
 
-    const updateHeight = () => {
-      const nextHeight = Math.max(1, panel.getBoundingClientRect().height);
-      setSheetHeight(nextHeight);
-    };
-    updateHeight();
-    const observer = new ResizeObserver(updateHeight);
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      const borderBoxSize = entry?.borderBoxSize as
+        | ReadonlyArray<ResizeObserverSize>
+        | ResizeObserverSize
+        | undefined;
+      const borderBox = Array.isArray(borderBoxSize)
+        ? borderBoxSize[0]
+        : borderBoxSize;
+      const borderBoxHeight = borderBox ? borderBox.blockSize : undefined;
+      const nextHeight =
+        typeof borderBoxHeight === "number" && Number.isFinite(borderBoxHeight)
+          ? borderBoxHeight
+          : panel.getBoundingClientRect().height;
+      setSheetHeight(Math.max(1, nextHeight));
+    });
     observer.observe(panel);
     return () => observer.disconnect();
   }, []);
@@ -278,7 +300,6 @@ export default function MotionSheet({
       );
     };
 
-    syncViewport();
     viewport.addEventListener("resize", syncViewport);
     viewport.addEventListener("scroll", syncViewport);
     return () => {
@@ -394,20 +415,20 @@ export default function MotionSheet({
         {present && (
           <m.div
             key="motion-sheet"
-            className={`${styles.sheetOverlay} ${styles.motionSheetOverlay}`}
+            className={styles.sheetOverlay}
             style={overlayStyle}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{
-              duration: reduceMotion ? 0 : MOTION_DURATION.sheetExit,
-            }}
             data-motion-sheet="overlay"
             data-sheet-closing={closeRequest ? "true" : undefined}
             onClick={(event) => {
               if (event.target === event.currentTarget) close();
             }}
           >
+            <m.div
+              className={styles.motionSheetBackdrop}
+              style={{ opacity: progress }}
+              data-motion-sheet="backdrop"
+              aria-hidden="true"
+            />
             <m.div
               ref={panelRef}
               className={panelClassName}

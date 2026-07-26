@@ -4,7 +4,7 @@ import { AnimatePresence, m } from "motion/react";
 import AnimatedNumber from "@/app/AnimatedNumber";
 import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import MotionBookCover from "@/app/MotionBookCover";
-import type { BookRecord } from "@/lib/db";
+import type { BookMetadata } from "@/lib/db";
 import { formatLibraryProgressLabel } from "@/lib/libraryProgress";
 import { MOTION_DURATION } from "@/lib/motionSystem";
 import { buildReadingDashboardPresentation } from "@/lib/readingDashboardPresentation";
@@ -20,10 +20,10 @@ export type ReadingDashboardProps = {
   goalPercent: number;
   totalMinutes: number;
   insights: ReadingDayInsight[];
-  latestBook: BookRecord | null;
+  latestBook: BookMetadata | null;
   latestBookProgress: number;
   onOpenGoal: () => void;
-  onOpenBook: (book: BookRecord, originId: string) => void;
+  onOpenBook: (book: BookMetadata, originId: string) => void;
   onImport: () => void;
 };
 

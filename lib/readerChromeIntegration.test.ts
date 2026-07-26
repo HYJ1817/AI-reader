@@ -47,7 +47,7 @@ describe("reader chrome event integration", () => {
     );
     const importSource = pageSource.slice(importStart, importEnd);
 
-    expect(importSource).toContain("setBooks(await listBooks())");
+    expect(importSource).toContain("setBooks(await listBookMetadata())");
     expect(importSource).not.toContain("openBookForReading(record)");
   });
 

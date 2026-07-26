@@ -29,6 +29,14 @@ const cssSource = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const readmeSource = readFileSync(
+  new URL("../README.md", import.meta.url),
+  "utf8"
+);
+const aiSettingsSource = readFileSync(
+  new URL("../app/AiSettingsSurface.tsx", import.meta.url),
+  "utf8"
+);
 
 describe("Ask AI reader context integration", () => {
   it("keeps a visible conversation history instead of a single answer", () => {
@@ -97,5 +105,13 @@ describe("Ask AI reader context integration", () => {
   it("passes conversation messages from the API route into chat message building", () => {
     expect(routeSource).toContain("messages?: ChatConversationMessage[]");
     expect(routeSource).toContain("buildChatMessages(question, context ?? {}, messages ?? [])");
+  });
+
+  it("discloses the actual nearby text and recent conversation sent to AI", () => {
+    for (const source of [readmeSource, aiSettingsSource]) {
+      expect(source).toContain("\u9644\u8fd1\u6b63\u6587");
+      expect(source).toContain("\u6700\u8fd1\u5bf9\u8bdd");
+      expect(source).toContain("\u4e0d\u4f1a\u53d1\u9001\u6574\u672c\u4e66");
+    }
   });
 });
