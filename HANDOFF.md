@@ -10,9 +10,8 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- Local branch state after the deployment-record commit: 25 commits ahead of
-  `main`. The feature branch is pushed and draft PR #4 is open; it has not been
-  merged into `main`.
+- The feature branch remains ahead of `main`. Draft PR #4 is open and has not
+  been merged into `main`.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -23,10 +22,9 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest transparent-navigation design commit: `8746ab5`; implementation plan:
   `bfe9649`; product behavior: `f966a80`; browser coverage: `d74d932`.
-- Latest deployed product behavior commit: `a102547` (`fix: refresh book dates
-  across time zones`), with shared-sheet evidence through `39905dc`.
-- Latest deployed Worker version: `6cdee0ad-c5df-4e07-ae6f-51d9d6eb950f`;
-  deployed BUILD_ID: `2pxiF9mNRwdxjPIMjJ1me`.
+- Latest deployed product/source commit: `f039ae6`.
+- Latest deployed Worker version: `9e531901-cd25-4e2a-b3a9-b620c63fb638`;
+  deployed BUILD_ID: `WP8Y-6wpyvBy7yL9QAnAa`.
 - GitHub CLI authentication is valid for `HYJ1817`; local `main` is two commits
   ahead of `origin/main`. The merged feature branches and the stale
   `surface-visual-system` worktree have been removed locally and remotely.
@@ -39,6 +37,29 @@ git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## EPUB Page/Location Semantics (2026-07-26, Current Authoritative State)
+
+- Design commit `1bac948` and plan commit `b468d8c` document the fix. Product
+  commits `628c0d6` and `dbe9128` implement it.
+- A valid publisher-provided EPUB `page-list` still displays real page labels
+  such as `135/480页`. If the EPUB has no valid `page-list`, the generated
+  whole-book CFI index now displays as `位置 288/901`; it is no longer presented
+  as pagination comparable to Apple Books.
+- EPUB calculation and failure states now say `正在计算阅读位置…` and
+  `阅读位置未知`. TXT pagination keeps its existing page labels.
+- Generated location indexes are no longer copied into bookmark or highlight
+  `pageNumber` fields. CFI locators and progress remain available, while real
+  publisher page numbers continue to be stored.
+- Fresh verification passed: focused reader tests 3 files / 28 tests, complete
+  Vitest 111 files / 982 tests, full ESLint, and production Next.js build.
+  The iPhone 14 trace-off Playwright regression imported a long reflowable EPUB
+  without a `page-list` and passed 1/1, resolving to a whole-book `位置` total
+  greater than one without any `x/y页` label.
+- This change remains on `codex/shared-sheet-performance`; `main` was not
+  merged or pushed. Production was not redeployed and remains on Worker version
+  `9e531901-cd25-4e2a-b3a9-b620c63fb638`, BUILD_ID
+  `WP8Y-6wpyvBy7yL9QAnAa`.
 
 ## Background EPUB Cover Backfill (2026-07-26, Current Authoritative State)
 

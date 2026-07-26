@@ -74,7 +74,7 @@ async function buildLongEpub(): Promise<Buffer> {
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }
 
-test("EPUB page label resolves from calculating to a whole-book count", async ({
+test("EPUB location label resolves from calculating to a whole-book count", async ({
   page,
 }) => {
   await page.goto("/");
@@ -95,12 +95,12 @@ test("EPUB page label resolves from calculating to a whole-book count", async ({
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
 
   const chrome = page.locator('[data-reader-chrome-controls="true"]');
-  await expect(chrome).toContainText("正在计算页数…");
+  await expect(chrome).toContainText("正在计算阅读位置…");
   const observedLabels: string[] = [];
   await expect
     .poll(
       async () => {
-        const label = (await chrome.innerText()).match(/1\/(\d+)页/);
+        const label = (await chrome.innerText()).match(/位置 \d+\/(\d+)/);
         if (!label) return 0;
         observedLabels.push(label[0]);
         return Number(label[1]);
@@ -108,5 +108,6 @@ test("EPUB page label resolves from calculating to a whole-book count", async ({
       { timeout: 30_000 }
     )
     .toBeGreaterThan(1);
-  expect(observedLabels).not.toContain("1/1页");
+  expect(observedLabels).not.toContain("位置 1/1");
+  await expect(chrome).not.toContainText(/\d+\/\d+页/);
 });
