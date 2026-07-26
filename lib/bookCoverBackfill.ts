@@ -1,29 +1,52 @@
-import type { BookRecord } from "./db";
+import type { BookMetadata } from "./db";
 
-type BackfillDependencies = {
-  extractCoverImage: (fileBlob: Blob) => Promise<Blob | undefined>;
-  saveBook: (book: BookRecord) => Promise<void>;
+export type BookCoverBackfillOptions = {
+  books: BookMetadata[];
+  getVisibleBookIds: () => readonly string[];
+  loadCover: (bookId: string) => Promise<Blob | undefined>;
+  onCover: (bookId: string, coverImageBlob: Blob) => void;
+  signal?: AbortSignal;
 };
 
-export async function backfillMissingBookCovers(
-  books: BookRecord[],
-  { extractCoverImage, saveBook }: BackfillDependencies
-): Promise<{ books: BookRecord[]; updatedCount: number }> {
-  const updatedBooks = [...books];
-  let updatedCount = 0;
+export type BookCoverBackfillResult = {
+  attemptedIds: string[];
+  completedIds: string[];
+};
 
-  for (let index = 0; index < updatedBooks.length; index++) {
-    const book = updatedBooks[index];
-    if (book.format !== "epub" || book.coverImageBlob) continue;
+export async function runBookCoverBackfill({
+  books,
+  getVisibleBookIds,
+  loadCover,
+  onCover,
+  signal,
+}: BookCoverBackfillOptions): Promise<BookCoverBackfillResult> {
+  const candidates = books.filter(
+    (book) => book.format === "epub" && !book.coverImageBlob
+  );
+  const attempted = new Set<string>();
+  const attemptedIds: string[] = [];
+  const completedIds: string[] = [];
 
-    const coverImageBlob = await extractCoverImage(book.fileBlob);
-    if (!coverImageBlob) continue;
+  while (!signal?.aborted) {
+    const visibleIds = new Set(getVisibleBookIds());
+    const nextBook =
+      candidates.find(
+        (book) => !attempted.has(book.id) && visibleIds.has(book.id)
+      ) ?? candidates.find((book) => !attempted.has(book.id));
+    if (!nextBook) break;
 
-    const updatedBook = { ...book, coverImageBlob };
-    await saveBook(updatedBook);
-    updatedBooks[index] = updatedBook;
-    updatedCount += 1;
+    attempted.add(nextBook.id);
+    attemptedIds.push(nextBook.id);
+
+    try {
+      const coverImageBlob = await loadCover(nextBook.id);
+      if (!coverImageBlob || signal?.aborted) continue;
+      onCover(nextBook.id, coverImageBlob);
+      completedIds.push(nextBook.id);
+    } catch {
+      // A damaged or unreadable book keeps its fallback cover; continue the queue.
+    }
   }
 
-  return { books: updatedBooks, updatedCount };
+  return { attemptedIds, completedIds };
 }
