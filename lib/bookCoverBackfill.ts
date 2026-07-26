@@ -13,6 +13,18 @@ export type BookCoverBackfillResult = {
   completedIds: string[];
 };
 
+export function mergeBookCoverMetadata(
+  books: BookMetadata[],
+  bookId: string,
+  coverImageBlob: Blob
+): BookMetadata[] {
+  const matchingBook = books.find((book) => book.id === bookId);
+  if (!matchingBook || matchingBook.coverImageBlob) return books;
+  return books.map((book) =>
+    book.id === bookId ? { ...book, coverImageBlob } : book
+  );
+}
+
 export async function runBookCoverBackfill({
   books,
   getVisibleBookIds,

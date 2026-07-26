@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BookMetadata } from "./db";
-import { runBookCoverBackfill } from "./bookCoverBackfill";
+import {
+  mergeBookCoverMetadata,
+  runBookCoverBackfill,
+} from "./bookCoverBackfill";
 
 function makeBook(overrides: Partial<BookMetadata> = {}): BookMetadata {
   return {
@@ -169,5 +172,32 @@ describe("runBookCoverBackfill", () => {
     expect(result.attemptedIds).toEqual(["one"]);
     expect(result.completedIds).toEqual([]);
     expect(onCover).not.toHaveBeenCalled();
+  });
+});
+
+describe("mergeBookCoverMetadata", () => {
+  it("updates only the matching metadata entry and preserves existing covers", () => {
+    const existingCover = new Blob(["existing"]);
+    const extractedCover = new Blob(["extracted"]);
+    const first = makeBook({ id: "first" });
+    const second = makeBook({ id: "second" });
+    const covered = makeBook({ id: "covered", coverImageBlob: existingCover });
+
+    const updated = mergeBookCoverMetadata(
+      [first, second, covered],
+      "second",
+      extractedCover
+    );
+    const preserved = mergeBookCoverMetadata(
+      updated,
+      "covered",
+      extractedCover
+    );
+
+    expect(updated[0]).toBe(first);
+    expect(updated[1]).toEqual({ ...second, coverImageBlob: extractedCover });
+    expect(updated[2]).toBe(covered);
+    expect(preserved).toBe(updated);
+    expect(preserved[2].coverImageBlob).toBe(existingCover);
   });
 });

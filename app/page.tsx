@@ -141,6 +141,7 @@ import { createLocalId } from "@/lib/localId";
 import useAskAi from "@/app/useAskAi";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
 import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
+import useBookCoverBackfill from "@/app/useBookCoverBackfill";
 import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 import { assertBackupImportSize } from "@/lib/backupImport";
@@ -180,6 +181,7 @@ export default function Home() {
     count: LIBRARY_RENDER_BATCH,
   });
   const libraryLoadSentinelRef = useRef<HTMLDivElement>(null);
+  const visibleBookIdsRef = useRef<string[]>([]);
   const [readingProgressMap, setReadingProgressMap] = useState<ReadingProgressMap>({});
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
@@ -292,6 +294,10 @@ export default function Home() {
   const [editingGroupName, setEditingGroupName] = useState("");
   const autoOpenAttemptedRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
+  const startBookCoverBackfill = useBookCoverBackfill(
+    visibleBookIdsRef,
+    setBooks
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -312,6 +318,7 @@ export default function Home() {
         );
         if (!cancelled) {
           setBooks(storedBooks);
+          startBookCoverBackfill(storedBooks);
           setReadingProgressMap(buildReadingProgressMap(storedPositions));
         }
       } catch {
@@ -325,7 +332,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [startBookCoverBackfill]);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -788,6 +795,15 @@ export default function Home() {
         )
   );
   const visibleBooks = libraryShelfBooks.slice(0, visibleBookCount);
+  useEffect(() => {
+    const visibleBookIds = [
+      ...(libraryHomePresentation.featuredBook
+        ? [libraryHomePresentation.featuredBook.id]
+        : []),
+      ...visibleBooks.map((book) => book.id),
+    ];
+    visibleBookIdsRef.current = visibleBookIds;
+  });
   const collectionListItems = buildCollectionListItems(
     books, groups, UI_TEXT.ALL_BOOKS, UI_TEXT.UNGROUPED,
   );
@@ -1207,6 +1223,7 @@ export default function Home() {
               listDailyReadingStats(),
             ]);
           setBooks(restoredBooks);
+          startBookCoverBackfill(restoredBooks);
           setReadingProgressMap(buildReadingProgressMap(restoredPositions));
           setGroups(restoredGroups);
           setReadingStats(restoredStats);
