@@ -370,6 +370,44 @@ describe("Book storage", () => {
     }
   });
 
+  it("preserves a cover saved while EPUB extraction is still running", async () => {
+    await saveBook(
+      makeBook({
+        id: "concurrent-cover",
+        fileBlob: new Blob(["epub bytes"], {
+          type: "application/epub+zip",
+        }),
+      })
+    );
+    let finishExtraction!: (cover: Blob) => void;
+    let extractionStarted!: () => void;
+    const started = new Promise<void>((resolve) => {
+      extractionStarted = resolve;
+    });
+    const extractCover = vi.fn().mockImplementation(async () => {
+      extractionStarted();
+      return new Promise<Blob>((resolve) => {
+        finishExtraction = resolve;
+      });
+    });
+
+    const pending = loadMissingBookCover("concurrent-cover", extractCover);
+    await started;
+    await saveBookCover(
+      "concurrent-cover",
+      new Blob(["newer cover"], { type: "image/png" })
+    );
+    finishExtraction(new Blob(["stale extracted cover"], { type: "image/jpeg" }));
+
+    const result = await pending;
+    expect(result?.source).toBe("existing");
+    expect(result?.blob.type).toBe("image/png");
+    expect(await result?.blob.text()).toBe("newer cover");
+    expect(
+      await (await listBookMetadata())[0].coverImageBlob?.text()
+    ).toBe("newer cover");
+  });
+
   it("writes a cover without changing book metadata or source bytes", async () => {
     await saveBook(
       makeBook({

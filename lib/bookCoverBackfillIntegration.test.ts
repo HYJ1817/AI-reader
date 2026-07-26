@@ -13,6 +13,9 @@ describe("background book cover integration", () => {
     expect(pageSource).toContain('from "@/app/useBookCoverBackfill"');
     expect(hookSource).toContain("startBookCoverBackfill(storedBooks)");
     expect(pageSource).toContain("startBookCoverBackfill(restoredBooks)");
+    expect(pageSource).toMatch(
+      /await cancelBookCoverBackfillAndDrain\(\);\s*await restoreBackupPayload\(data\)/
+    );
   });
 
   it("supplies the latest rendered Library books as queue priority", () => {
@@ -24,8 +27,8 @@ describe("background book cover integration", () => {
   });
 
   it("cancels stale runs and publishes each successful cover functionally", () => {
-    expect(hookSource).toContain("new AbortController()");
-    expect(hookSource).toContain("currentRunRef.current?.abort()");
+    expect(hookSource).toContain("createBookCoverBackfillRunner");
+    expect(hookSource).toContain("runner.cancelAndDrain()");
     expect(hookSource).toContain("setBooks((currentBooks)");
     expect(hookSource).toContain("mergeBookCoverMetadata(");
   });

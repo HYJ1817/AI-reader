@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   type Dispatch,
   type SetStateAction,
@@ -15,6 +16,7 @@ import {
   type BookMetadata,
 } from "@/lib/db";
 import {
+  createBookCoverBackfillRunner,
   mergeBookCoverMetadata,
   runBookCoverBackfill,
 } from "@/lib/bookCoverBackfill";
@@ -26,10 +28,6 @@ import {
 } from "@/lib/libraryProgress";
 import { UI_TEXT } from "@/lib/uiText";
 
-type ScheduledRun =
-  | { kind: "idle"; id: number }
-  | { kind: "timeout"; id: number };
-
 type BackfillWindow = Window & {
   requestIdleCallback?: (
     callback: IdleRequestCallback,
@@ -38,11 +36,60 @@ type BackfillWindow = Window & {
   cancelIdleCallback?: (id: number) => void;
 };
 
+function waitForBackfillWindow(signal: AbortSignal): Promise<boolean> {
+  return new Promise((resolve) => {
+    let frameId: number | null = null;
+    let idleId: number | null = null;
+    let timeoutId: number | null = null;
+    let settled = false;
+
+    const finish = (ready: boolean) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", abort);
+      resolve(ready);
+    };
+    const abort = () => {
+      if (frameId !== null) window.cancelAnimationFrame(frameId);
+      const browserWindow = window as BackfillWindow;
+      if (idleId !== null) browserWindow.cancelIdleCallback?.(idleId);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      finish(false);
+    };
+
+    if (signal.aborted) {
+      finish(false);
+      return;
+    }
+    signal.addEventListener("abort", abort, { once: true });
+    frameId = window.requestAnimationFrame(() => {
+      frameId = null;
+      if (signal.aborted) {
+        finish(false);
+        return;
+      }
+      const browserWindow = window as BackfillWindow;
+      if (typeof browserWindow.requestIdleCallback === "function") {
+        idleId = browserWindow.requestIdleCallback(() => finish(true), {
+          timeout: 1000,
+        });
+      } else {
+        timeoutId = window.setTimeout(() => finish(true), 0);
+      }
+    });
+  });
+}
+
 type BookCoverBackfillState = {
   setBooks: Dispatch<SetStateAction<BookMetadata[]>>;
   setReadingProgressMap: Dispatch<SetStateAction<ReadingProgressMap>>;
   setImportError: Dispatch<SetStateAction<string | null>>;
   setLoading: Dispatch<SetStateAction<boolean>>;
+};
+
+type BookCoverBackfillRun = {
+  books: BookMetadata[];
+  getVisibleBookIds: () => readonly string[];
 };
 
 function withTimeout<T>(
@@ -66,40 +113,16 @@ export default function useBookCoverBackfill({
   setLoading,
 }: BookCoverBackfillState) {
   const visibleBookIdsRef = useRef<readonly string[]>([]);
-  const currentRunRef = useRef<AbortController | null>(null);
-  const scheduledFrameRef = useRef<number | null>(null);
-  const scheduledRunRef = useRef<ScheduledRun | null>(null);
-
-  const cancelCurrentRun = useCallback(() => {
-    currentRunRef.current?.abort();
-    currentRunRef.current = null;
-    if (scheduledFrameRef.current !== null) {
-      window.cancelAnimationFrame(scheduledFrameRef.current);
-      scheduledFrameRef.current = null;
-    }
-    const scheduled = scheduledRunRef.current;
-    scheduledRunRef.current = null;
-    if (!scheduled) return;
-    if (scheduled.kind === "idle") {
-      (window as BackfillWindow).cancelIdleCallback?.(scheduled.id);
-    } else {
-      window.clearTimeout(scheduled.id);
-    }
-  }, []);
-
-  useEffect(() => cancelCurrentRun, [cancelCurrentRun]);
-
-  const startBookCoverBackfill = useCallback(
-    (books: BookMetadata[]) => {
-      cancelCurrentRun();
-      const controller = new AbortController();
-      currentRunRef.current = controller;
-
-      const run = () => {
-        scheduledRunRef.current = null;
-        void runBookCoverBackfill({
+  const runner = useMemo(
+    () =>
+      createBookCoverBackfillRunner<BookCoverBackfillRun>(async (
+        { books, getVisibleBookIds },
+        signal
+      ) => {
+        if (!(await waitForBackfillWindow(signal))) return;
+        await runBookCoverBackfill({
           books,
-          getVisibleBookIds: () => visibleBookIdsRef.current,
+          getVisibleBookIds,
           loadCover: async (bookId) =>
             (
               await loadMissingBookCover(bookId, extractEpubCoverImage)
@@ -113,32 +136,29 @@ export default function useBookCoverBackfill({
               )
             );
           },
-          signal: controller.signal,
-        }).finally(() => {
-          if (currentRunRef.current === controller) {
-            currentRunRef.current = null;
-          }
+          signal,
         });
-      };
+      }),
+    [setBooks]
+  );
 
-      scheduledFrameRef.current = window.requestAnimationFrame(() => {
-        scheduledFrameRef.current = null;
-        if (controller.signal.aborted) return;
-        const browserWindow = window as BackfillWindow;
-        if (typeof browserWindow.requestIdleCallback === "function") {
-          scheduledRunRef.current = {
-            kind: "idle",
-            id: browserWindow.requestIdleCallback(run, { timeout: 1000 }),
-          };
-        } else {
-          scheduledRunRef.current = {
-            kind: "timeout",
-            id: window.setTimeout(run, 0),
-          };
-        }
-      });
+  useEffect(() => () => runner.cancel(), [runner]);
+
+  const startBookCoverBackfill = useCallback(
+    (books: BookMetadata[]) => {
+      void runner
+        .start({
+          books,
+          getVisibleBookIds: () => visibleBookIdsRef.current,
+        })
+        .catch(() => undefined);
     },
-    [cancelCurrentRun, setBooks]
+    [runner]
+  );
+
+  const cancelBookCoverBackfillAndDrain = useCallback(
+    () => runner.cancelAndDrain(),
+    [runner]
   );
 
   useEffect(() => {
@@ -186,5 +206,9 @@ export default function useBookCoverBackfill({
     visibleBookIdsRef.current = bookIds;
   }, []);
 
-  return { setVisibleBookIds, startBookCoverBackfill };
+  return {
+    setVisibleBookIds,
+    startBookCoverBackfill,
+    cancelBookCoverBackfillAndDrain,
+  };
 }

@@ -184,6 +184,37 @@ export async function saveBookCover(
   });
 }
 
+async function saveBookCoverIfMissing(
+  bookId: string,
+  coverImageBlob: Blob
+): Promise<{ blob: Blob; inserted: boolean } | undefined> {
+  const db = getDb();
+  const coverImageData = await coverImageBlob.arrayBuffer();
+  return db.transaction(
+    "rw",
+    [db.books, db.bookFiles, db.bookCovers],
+    async () => {
+      const existingCover = hydrateCover(await db.bookCovers.get(bookId));
+      if (existingCover) return { blob: existingCover, inserted: false };
+
+      const [metadata, fileRecord] = await Promise.all([
+        db.books.get(bookId),
+        db.bookFiles.get(bookId),
+      ]);
+      if (!metadata || metadata.format !== "epub" || !fileRecord) {
+        return undefined;
+      }
+
+      await db.bookCovers.add({
+        bookId,
+        coverImageData,
+        coverImageType: coverImageBlob.type || "image/*",
+      });
+      return { blob: coverImageBlob, inserted: true };
+    }
+  );
+}
+
 function compareBooksByRecency(a: BookMetadata, b: BookMetadata): number {
   const aTime = a.lastOpenedAt ?? a.createdAt;
   const bTime = b.lastOpenedAt ?? b.createdAt;
@@ -224,8 +255,12 @@ export async function loadMissingBookCover(
     const legacyCover = new Blob([fileRecord.coverImageData], {
       type: fileRecord.coverImageType || "image/*",
     });
-    await saveBookCover(bookId, legacyCover);
-    return { blob: legacyCover, source: "legacy" };
+    const savedCover = await saveBookCoverIfMissing(bookId, legacyCover);
+    if (!savedCover) return undefined;
+    return {
+      blob: savedCover.blob,
+      source: savedCover.inserted ? "legacy" : "existing",
+    };
   }
 
   const fileBlob = new Blob([fileRecord.fileData], {
@@ -239,8 +274,12 @@ export async function loadMissingBookCover(
   }
   if (!extractedCover) return undefined;
 
-  await saveBookCover(bookId, extractedCover);
-  return { blob: extractedCover, source: "extracted" };
+  const savedCover = await saveBookCoverIfMissing(bookId, extractedCover);
+  if (!savedCover) return undefined;
+  return {
+    blob: savedCover.blob,
+    source: savedCover.inserted ? "extracted" : "existing",
+  };
 }
 
 function toBookMetadata(

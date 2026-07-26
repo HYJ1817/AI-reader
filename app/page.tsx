@@ -279,7 +279,11 @@ export default function Home() {
   const [editingGroupName, setEditingGroupName] = useState("");
   const autoOpenAttemptedRef = useRef(false);
   const wakeLockRef = useRef<WakeLockSentinelLike | null>(null);
-  const { setVisibleBookIds, startBookCoverBackfill } = useBookCoverBackfill({
+  const {
+    setVisibleBookIds,
+    startBookCoverBackfill,
+    cancelBookCoverBackfillAndDrain,
+  } = useBookCoverBackfill({
     setBooks, setReadingProgressMap, setImportError, setLoading,
   });
 
@@ -1161,6 +1165,7 @@ export default function Home() {
           resetAskAi();
         },
         restore: async () => {
+          await cancelBookCoverBackfillAndDrain();
           await restoreBackupPayload(data);
         },
         reload: async () => {

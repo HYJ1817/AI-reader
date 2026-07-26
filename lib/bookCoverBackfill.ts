@@ -13,6 +13,47 @@ export type BookCoverBackfillResult = {
   completedIds: string[];
 };
 
+export type BookCoverBackfillRunner<Input> = {
+  start: (input: Input) => Promise<void>;
+  cancel: () => void;
+  cancelAndDrain: () => Promise<void>;
+};
+
+export function createBookCoverBackfillRunner<Input>(
+  run: (input: Input, signal: AbortSignal) => Promise<void>
+): BookCoverBackfillRunner<Input> {
+  let currentController: AbortController | null = null;
+  let tail: Promise<void> = Promise.resolve();
+
+  const cancel = () => {
+    currentController?.abort();
+  };
+
+  return {
+    start(input) {
+      cancel();
+      const controller = new AbortController();
+      currentController = controller;
+      const predecessor = tail.catch(() => undefined);
+      const task = predecessor
+        .then(async () => {
+          if (controller.signal.aborted) return;
+          await run(input, controller.signal);
+        })
+        .finally(() => {
+          if (currentController === controller) currentController = null;
+        });
+      tail = task;
+      return task;
+    },
+    cancel,
+    async cancelAndDrain() {
+      cancel();
+      await tail.catch(() => undefined);
+    },
+  };
+}
+
 export function mergeBookCoverMetadata(
   books: BookMetadata[],
   bookId: string,

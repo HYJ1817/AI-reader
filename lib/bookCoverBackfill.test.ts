@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BookMetadata } from "./db";
 import {
+  createBookCoverBackfillRunner,
   mergeBookCoverMetadata,
   runBookCoverBackfill,
 } from "./bookCoverBackfill";
@@ -172,6 +173,73 @@ describe("runBookCoverBackfill", () => {
     expect(result.attemptedIds).toEqual(["one"]);
     expect(result.completedIds).toEqual([]);
     expect(onCover).not.toHaveBeenCalled();
+  });
+});
+
+describe("createBookCoverBackfillRunner", () => {
+  it("never overlaps extraction work when a run is restarted", async () => {
+    const releases = new Map<string, () => void>();
+    const started: string[] = [];
+    let active = 0;
+    let maxActive = 0;
+    const runner = createBookCoverBackfillRunner<string>(
+      async (label, signal) => {
+        started.push(label);
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise<void>((resolve) => releases.set(label, resolve));
+        active -= 1;
+        expect(signal.aborted).toBe(label === "old");
+      }
+    );
+
+    const oldRun = runner.start("old");
+    await vi.waitFor(() => expect(started).toEqual(["old"]));
+    const restoredRun = runner.start("restored");
+    await Promise.resolve();
+    expect(started).toEqual(["old"]);
+
+    releases.get("old")?.();
+    await oldRun;
+    await vi.waitFor(() => expect(started).toEqual(["old", "restored"]));
+    releases.get("restored")?.();
+    await restoredRun;
+
+    expect(maxActive).toBe(1);
+  });
+
+  it("cancels and drains active work before replacement data is written", async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const activeStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const events: string[] = [];
+    const runner = createBookCoverBackfillRunner<string>(async (_, signal) => {
+      events.push("old-started");
+      started();
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      events.push(signal.aborted ? "old-aborted" : "old-finished");
+    });
+
+    void runner.start("old");
+    await activeStarted;
+    const drain = runner.cancelAndDrain().then(() => events.push("drained"));
+    await Promise.resolve();
+    expect(events).toEqual(["old-started"]);
+
+    release();
+    await drain;
+    events.push("restore-written");
+
+    expect(events).toEqual([
+      "old-started",
+      "old-aborted",
+      "drained",
+      "restore-written",
+    ]);
   });
 });
 
