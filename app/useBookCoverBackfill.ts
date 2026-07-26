@@ -35,11 +35,16 @@ export default function useBookCoverBackfill(
   setBooks: Dispatch<SetStateAction<BookMetadata[]>>
 ) {
   const currentRunRef = useRef<AbortController | null>(null);
+  const scheduledFrameRef = useRef<number | null>(null);
   const scheduledRunRef = useRef<ScheduledRun | null>(null);
 
   const cancelCurrentRun = useCallback(() => {
     currentRunRef.current?.abort();
     currentRunRef.current = null;
+    if (scheduledFrameRef.current !== null) {
+      window.cancelAnimationFrame(scheduledFrameRef.current);
+      scheduledFrameRef.current = null;
+    }
     const scheduled = scheduledRunRef.current;
     scheduledRunRef.current = null;
     if (!scheduled) return;
@@ -84,18 +89,22 @@ export default function useBookCoverBackfill(
         });
       };
 
-      const browserWindow = window as BackfillWindow;
-      if (typeof browserWindow.requestIdleCallback === "function") {
-        scheduledRunRef.current = {
-          kind: "idle",
-          id: browserWindow.requestIdleCallback(run, { timeout: 1000 }),
-        };
-      } else {
-        scheduledRunRef.current = {
-          kind: "timeout",
-          id: window.setTimeout(run, 0),
-        };
-      }
+      scheduledFrameRef.current = window.requestAnimationFrame(() => {
+        scheduledFrameRef.current = null;
+        if (controller.signal.aborted) return;
+        const browserWindow = window as BackfillWindow;
+        if (typeof browserWindow.requestIdleCallback === "function") {
+          scheduledRunRef.current = {
+            kind: "idle",
+            id: browserWindow.requestIdleCallback(run, { timeout: 1000 }),
+          };
+        } else {
+          scheduledRunRef.current = {
+            kind: "timeout",
+            id: window.setTimeout(run, 0),
+          };
+        }
+      });
     },
     [cancelCurrentRun, setBooks, visibleBookIdsRef]
   );

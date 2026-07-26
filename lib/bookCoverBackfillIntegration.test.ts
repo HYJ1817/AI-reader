@@ -31,6 +31,7 @@ describe("background book cover integration", () => {
   });
 
   it("schedules cover work without making startup or restore await it", () => {
+    expect(hookSource).toContain("requestAnimationFrame");
     expect(hookSource).toContain("requestIdleCallback");
     expect(pageSource).not.toContain(
       "await startBookCoverBackfill(restoredBooks)"
