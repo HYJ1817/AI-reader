@@ -22,9 +22,9 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest transparent-navigation design commit: `8746ab5`; implementation plan:
   `bfe9649`; product behavior: `f966a80`; browser coverage: `d74d932`.
-- Latest deployed product/source commit: `f039ae6`.
-- Latest deployed Worker version: `9e531901-cd25-4e2a-b3a9-b620c63fb638`;
-  deployed BUILD_ID: `WP8Y-6wpyvBy7yL9QAnAa`.
+- Latest deployed product/source commit: `f9f0141`.
+- Latest deployed Worker version: `39defdad-7ab0-45f3-9caa-e4d9dcfced27`;
+  deployed BUILD_ID: `fo2drdHK18b-Oa5pXVQAY`.
 - GitHub CLI authentication is valid for `HYJ1817`; local `main` is two commits
   ahead of `origin/main`. The merged feature branches and the stale
   `surface-visual-system` worktree have been removed locally and remotely.
@@ -57,9 +57,36 @@ Get-Content HANDOFF.md
   without a `page-list` and passed 1/1, resolving to a whole-book `位置` total
   greater than one without any `x/y页` label.
 - This change remains on `codex/shared-sheet-performance`; `main` was not
-  merged or pushed. Production was not redeployed and remains on Worker version
-  `9e531901-cd25-4e2a-b3a9-b620c63fb638`, BUILD_ID
-  `WP8Y-6wpyvBy7yL9QAnAa`.
+  merged or pushed. The authorized production deployment is recorded below.
+
+## EPUB Page/Location Production Deployment (2026-07-26)
+
+- Deployed product/source commit `f9f0141` to the existing `ai-reader-pwa`
+  Worker and `881817.xyz/*` route. Cloudflare Worker version:
+  `39defdad-7ab0-45f3-9caa-e4d9dcfced27`; BUILD_ID:
+  `fo2drdHK18b-Oa5pXVQAY`.
+- Deployment used the documented Windows sequence: standalone
+  `next build --webpack`, OpenNext `build --skipNextBuild`, then OpenNext
+  `deploy`. Wrangler uploaded only the new BUILD_ID and page chunk; Worker
+  startup time was 24ms.
+- Fresh predeployment verification passed: production dependency audit found
+  0 vulnerabilities, Vitest passed 111 files / 982 tests, full ESLint passed,
+  standalone Next.js build passed, and OpenNext build completed.
+- Production `/`, all 10 discovered page JS/CSS assets, `/BUILD_ID`, `/sw.js`,
+  `/manifest.webmanifest`, and `/.well-known/assetlinks.json` returned 200.
+  The deployed page chunk exactly matches both `.next` and `.open-next` with
+  SHA-256 `808BADA58358721DEE0B457173274943AB3EB23611E88A4A8CD03663CB07A201`
+  and contains the new location semantics.
+- The signed APK remained 901574 bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`.
+  `POST /api/models` with `{}` returned the expected HTTP 400 validation error.
+- The first production iPhone 14 trace-off EPUB check began immediately after
+  deployment and received the prior page wording (`正在计算页数…`, then
+  `1/72页`), so it failed. This result is retained. After the production
+  BUILD_ID and page-chunk hashes converged across the custom domain and Workers
+  preview domain, one explicit confirmation run passed 1/1 with no retries,
+  showing the generated whole-book value as `位置` rather than `页`.
+- Draft PR #4 remains open and unmerged. `main` was not changed.
 
 ## Background EPUB Cover Backfill (2026-07-26, Current Authoritative State)
 
