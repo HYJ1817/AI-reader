@@ -139,6 +139,11 @@ describe("reading dashboard composition", () => {
     expect(source).toContain("useAppReducedMotion");
   });
 
+  it("limits weekly summary overflow without clipping animated digits", () => {
+    expect(css).toContain(".readingWeekCard .sectionHeader > span {");
+    expect(css).not.toContain(".readingWeekCard .sectionHeader span {");
+  });
+
   it("gives the reading goal card layered press affordances", () => {
     const ringRule = rule(".dashboardGoalRing");
     expect(ringRule).toContain("transform: translate3d(0, 0, 0) scale(1)");

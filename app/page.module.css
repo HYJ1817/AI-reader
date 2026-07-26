@@ -2651,7 +2651,7 @@
   font-size: 18px;
 }
 
-.readingWeekCard .sectionHeader span {
+.readingWeekCard .sectionHeader > span {
   max-width: 48%;
   overflow: hidden;
   text-overflow: ellipsis;

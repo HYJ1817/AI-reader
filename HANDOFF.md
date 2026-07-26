@@ -10,8 +10,11 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- The feature branch remains ahead of `main`. Draft PR #4 is open and has not
-  been merged into `main`.
+- PR #4 was merged into remote `main` as merge commit
+  `243a8d19944fecadeabd0c6e73a0375ce8d7f257`; the post-merge `main` CI run
+  `30193601069` passed.
+- The active worktree remains on `codex/shared-sheet-performance` for the
+  follow-up dashboard fix described below; that follow-up is not yet published.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -37,6 +40,29 @@ git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## Reading Dashboard Total Duration Clipping (2026-07-26, Pending Publication)
+
+- The underlying accumulated reading value was correct, but the weekly header
+  could show only its first digit. A seeded value of `65` retained
+  `aria-label="65"` while the rendered screenshot displayed
+  `累计阅读：6 分钟`.
+- Root cause: `.readingWeekCard .sectionHeader span` applied the summary
+  container's `max-width: 48%` and `overflow: hidden` to every nested span,
+  including both layers of `AnimatedNumber`.
+- The product fix narrows that rule to the direct summary child with
+  `.readingWeekCard .sectionHeader > span`, so the summary can still truncate
+  as a whole without clipping animated digits.
+- TDD evidence: the CSS regression failed before the fix; the iPhone 14 browser
+  regression failed with computed `max-width: 48%`, then passed with
+  `max-width: none` and `overflow: visible`. The updated screenshot displays
+  `累计阅读：65 分钟` in full.
+- Fresh verification passed: focused CSS test 9/9, complete Vitest 111 files /
+  983 tests, full ESLint, production Next.js build, and the targeted iPhone 14
+  trace-off Playwright test 1/1.
+- This follow-up is not yet pushed, merged, or deployed. Production remains on
+  Worker version `39defdad-7ab0-45f3-9caa-e4d9dcfced27`, BUILD_ID
+  `fo2drdHK18b-Oa5pXVQAY`.
 
 ## EPUB Page/Location Semantics (2026-07-26, Current Authoritative State)
 
