@@ -173,6 +173,17 @@ export async function saveBook(record: BookRecord): Promise<void> {
   });
 }
 
+export async function saveBookCover(
+  bookId: string,
+  coverImageBlob: Blob
+): Promise<void> {
+  await getDb().bookCovers.put({
+    bookId,
+    coverImageData: await coverImageBlob.arrayBuffer(),
+    coverImageType: coverImageBlob.type || "image/*",
+  });
+}
+
 function compareBooksByRecency(a: BookMetadata, b: BookMetadata): number {
   const aTime = a.lastOpenedAt ?? a.createdAt;
   const bTime = b.lastOpenedAt ?? b.createdAt;
@@ -186,6 +197,50 @@ function hydrateCover(record?: BookCoverRecord): Blob | undefined {
         type: record.coverImageType || "image/*",
       })
     : undefined;
+}
+
+export type MissingBookCoverResult = {
+  blob: Blob;
+  source: "existing" | "legacy" | "extracted";
+};
+
+export async function loadMissingBookCover(
+  bookId: string,
+  extractCoverImage: (fileBlob: Blob) => Promise<Blob | undefined>
+): Promise<MissingBookCoverResult | undefined> {
+  const db = getDb();
+  const existingCover = hydrateCover(await db.bookCovers.get(bookId));
+  if (existingCover) {
+    return { blob: existingCover, source: "existing" };
+  }
+
+  const metadata = await db.books.get(bookId);
+  if (!metadata || metadata.format !== "epub") return undefined;
+
+  const fileRecord = await db.bookFiles.get(bookId);
+  if (!fileRecord) return undefined;
+
+  if (fileRecord.coverImageData) {
+    const legacyCover = new Blob([fileRecord.coverImageData], {
+      type: fileRecord.coverImageType || "image/*",
+    });
+    await saveBookCover(bookId, legacyCover);
+    return { blob: legacyCover, source: "legacy" };
+  }
+
+  const fileBlob = new Blob([fileRecord.fileData], {
+    type: fileRecord.fileType || "application/epub+zip",
+  });
+  let extractedCover: Blob | undefined;
+  try {
+    extractedCover = await extractCoverImage(fileBlob);
+  } catch {
+    return undefined;
+  }
+  if (!extractedCover) return undefined;
+
+  await saveBookCover(bookId, extractedCover);
+  return { blob: extractedCover, source: "extracted" };
 }
 
 function toBookMetadata(

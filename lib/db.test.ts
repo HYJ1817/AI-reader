@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import Dexie from "dexie";
 import {
   saveBook,
+  saveBookCover,
+  loadMissingBookCover,
   listBooks,
   listBookMetadata,
   getBookFile,
@@ -283,6 +285,110 @@ describe("Book storage", () => {
     } finally {
       verifyDb.close();
     }
+  });
+
+  it("migrates embedded legacy cover bytes without extracting the EPUB", async () => {
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      await inspectionDb.table("books").put({
+        id: "background-legacy-cover",
+        title: "Background Legacy Cover",
+        format: "epub",
+        fileName: "background-legacy-cover.epub",
+        size: 4,
+        createdAt: "2026-01-01T00:00:00.000Z",
+      });
+      await inspectionDb.table("bookFiles").put({
+        bookId: "background-legacy-cover",
+        fileData: new TextEncoder().encode("book").buffer,
+        fileType: "application/epub+zip",
+        coverImageData: new TextEncoder().encode("legacy image").buffer,
+        coverImageType: "image/png",
+      });
+    } finally {
+      inspectionDb.close();
+    }
+    const extractCover = vi.fn();
+
+    const result = await loadMissingBookCover(
+      "background-legacy-cover",
+      extractCover
+    );
+
+    expect(result?.source).toBe("legacy");
+    expect(await result?.blob.text()).toBe("legacy image");
+    expect(extractCover).not.toHaveBeenCalled();
+    expect(
+      await (await listBookMetadata())[0].coverImageBlob?.text()
+    ).toBe("legacy image");
+  });
+
+  it("saves an extracted cover without rewriting the source record", async () => {
+    await saveBook(
+      makeBook({
+        id: "background-extracted-cover",
+        fileBlob: new Blob(["unchanged epub bytes"], {
+          type: "application/epub+zip",
+        }),
+      })
+    );
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    const beforeFile = await inspectionDb
+      .table("bookFiles")
+      .get("background-extracted-cover");
+    inspectionDb.close();
+    const extractCover = vi.fn().mockResolvedValue(
+      new Blob(["extracted image"], { type: "image/jpeg" })
+    );
+
+    const result = await loadMissingBookCover(
+      "background-extracted-cover",
+      extractCover
+    );
+
+    expect(result?.source).toBe("extracted");
+    expect(await result?.blob.text()).toBe("extracted image");
+    expect(extractCover).toHaveBeenCalledTimes(1);
+    expect(await extractCover.mock.calls[0][0].text()).toBe(
+      "unchanged epub bytes"
+    );
+    const verifyDb = new Dexie("AiReader");
+    await verifyDb.open();
+    try {
+      const afterFile = await verifyDb
+        .table("bookFiles")
+        .get("background-extracted-cover");
+      expect(new Uint8Array(afterFile.fileData)).toEqual(
+        new Uint8Array(beforeFile.fileData)
+      );
+      expect(await verifyDb.table("bookCovers").get("background-extracted-cover"))
+        .toEqual(expect.objectContaining({ coverImageType: "image/jpeg" }));
+    } finally {
+      verifyDb.close();
+    }
+  });
+
+  it("writes a cover without changing book metadata or source bytes", async () => {
+    await saveBook(
+      makeBook({
+        id: "cover-only-write",
+        title: "Keep metadata",
+        fileBlob: new Blob(["keep source"]),
+      })
+    );
+
+    await saveBookCover(
+      "cover-only-write",
+      new Blob(["cover only"], { type: "image/webp" })
+    );
+
+    const book = await getBook("cover-only-write");
+    expect(book?.title).toBe("Keep metadata");
+    expect(await book?.fileBlob.text()).toBe("keep source");
+    expect(book?.coverImageBlob?.type).toBe("image/webp");
+    expect(await book?.coverImageBlob?.text()).toBe("cover only");
   });
 
   it("migrates legacy Blob records when they are first read", async () => {
