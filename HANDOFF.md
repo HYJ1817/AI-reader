@@ -40,6 +40,77 @@ git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
 
+## Background EPUB Cover Backfill (2026-07-26, Current Authoritative State)
+
+- Current branch is `codex/shared-sheet-performance`; it is pushed and clean at
+  `f039ae6`. Draft PR #4 remains open against `main`; `main` was not merged or
+  pushed.
+- `6148c56` added the independent `saveBookCover(bookId, blob)` write path. It
+  writes only `bookCovers` and never rewrites book metadata or EPUB/TXT source
+  bytes through `saveBook()`.
+- `loadMissingBookCover()` now repairs a single EPUB at a time: it first keeps
+  an existing `bookCovers` record, then migrates legacy
+  `bookFiles.coverImageData` directly, and only otherwise reconstructs and
+  parses that one EPUB for its cover.
+- `cfd24ea` added a serial queue that dynamically prioritizes currently visible
+  Library books, skips TXT/already-covered books, publishes each successful
+  cover immediately, and continues after a damaged/coverless EPUB.
+- `263324b`, `c9c2864`, and `4cbd7ab` integrated the queue after metadata-first
+  startup and after backup restore. Work is deferred until after the first
+  animation frame and an idle/timeout slot, so the Library first screen does
+  not wait for EPUB reads.
+- Independent review found a restore/restart race. `35bc398` fixed it with a
+  serialized runner plus `cancelAndDrain()` before backup replacement, so an
+  old extraction cannot overlap a restored queue or write stale cover data.
+  Cover persistence now rechecks `bookCovers` in a transaction and never
+  overwrites a cover saved while extraction is running.
+- Tests cover legacy `coverImageData` migration, extracted-cover persistence
+  without source rewrites, concurrent-cover preservation, visible priority,
+  global one-at-a-time processing across restarts, failure continuation,
+  restore draining, immediate React metadata publication, and metadata-first
+  startup without bulk EPUB reads.
+- New EPUB imports still extract their cover during import and save it directly
+  into `bookCovers`.
+
+## Final Verification and Deployment (2026-07-26)
+
+- Fresh lockfile install and verification on `f039ae6`:
+  - `npm ci` passed.
+  - `npm audit --omit=dev --audit-level=high` found 0 vulnerabilities.
+  - Vitest passed 111 files / 979 tests.
+  - Full ESLint passed.
+  - Normal Next.js build, standalone Next.js build, and OpenNext Cloudflare
+    build passed.
+  - `git diff --check` passed with only Windows line-ending notices while
+    files were uncommitted.
+- A newly published `brace-expansion` advisory has no compatible patch for the
+  v1 dependency still required by the current Next ESLint plugins. Global
+  forcing to v5 breaks ESLint's old `minimatch` call contract. CI therefore
+  audits deployable dependencies with `--omit=dev`; production PostCSS was
+  explicitly updated to patched `8.5.23`. Do not reintroduce a global
+  `brace-expansion@5` override without upgrading all old minimatch consumers.
+- Local iPhone 14 import/Library regression passed 2/2 with one worker, no
+  retries, and `--trace=off`. The same production run passed 2/2.
+- GitHub Actions run `30187136001` passed all `verify` steps for `f039ae6`.
+- Final Cloudflare deployment:
+  - Worker version: `9e531901-cd25-4e2a-b3a9-b620c63fb638`
+  - BUILD_ID: `WP8Y-6wpyvBy7yL9QAnAa`
+  - Production: `https://881817.xyz`
+- Final production verification passed for `/`, all 10 discovered JS/CSS
+  assets, `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and the signed APK. The APK remained 901574
+  bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`.
+  `POST /api/models` with `{}` returned the expected HTTP 400 validation error.
+- Any future merge into `main`, push to `main`, or another production deploy
+  still requires fresh explicit user authorization.
+
+Authoritative next-session opener:
+
+```text
+继续开发 C:\aaa\ai-reader-pwa\.worktrees\shared-sheet-performance。先完整阅读 HANDOFF.md，再运行 git status -sb 和 git log -8 --oneline --decorate。不要 reset、clean 或覆盖用户改动。当前分支 codex/shared-sheet-performance 已推送到 f039ae6，草稿 PR #4 未合并 main。后台 EPUB 封面补齐、恢复竞态修复、979 项测试、GitHub Actions run 30187136001 和生产部署均已完成；最终 Worker 版本 9e531901-cd25-4e2a-b3a9-b620c63fb638，BUILD_ID WP8Y-6wpyvBy7yL9QAnAa。任何后续 merge main、push main 或生产部署必须先取得用户明确确认。
+```
+
 ## Metadata-Only Library Loading and Book Rename (2026-07-22)
 
 Approved design and implementation:
