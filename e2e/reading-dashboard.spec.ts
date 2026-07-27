@@ -258,9 +258,18 @@ test("recorded minutes reveal the seven-day summary after the primary action", a
   await expect(dashboard.locator('[data-reading-goal="true"]')).toHaveCount(1);
   await expect(dashboard.locator('[data-reading-week="true"]')).toHaveCount(1);
   await expect(dashboard.getByText(/65\s*\u5206\u949f/)).toBeVisible();
-  await expect(
-    dashboard.locator('[data-reading-week="true"] [aria-label="65"]')
-  ).toBeVisible();
+  const totalNumber = dashboard.locator(
+    '[data-reading-week="true"] [aria-label="65"]'
+  );
+  await expect(totalNumber).toBeVisible();
+  const totalNumberStyle = await totalNumber.evaluate((element) => ({
+    maxWidth: getComputedStyle(element).maxWidth,
+    overflow: getComputedStyle(element).overflow,
+    text: element.textContent,
+  }));
+  expect(totalNumberStyle.text).toBe("65");
+  expect(totalNumberStyle.maxWidth).toBe("none");
+  expect(totalNumberStyle.overflow).toBe("visible");
 
   const surfaceOrder = await dashboard.evaluate((element) =>
     Array.from(

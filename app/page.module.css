@@ -185,6 +185,10 @@
   box-shadow: -12px 0 28px rgba(0, 0, 0, 0.1);
 }
 
+.pushSurface[data-push-motion="compact"] {
+  box-shadow: none;
+}
+
 .edgeBackGestureRegion {
   position: absolute;
   inset: 0 auto 0 0;
@@ -194,7 +198,17 @@
 }
 
 .rootParallaxLayer {
+  position: relative;
   min-height: 100%;
+}
+
+.pushDepthOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 1);
+  opacity: 0;
 }
 
 .libraryPage {
@@ -2651,7 +2665,7 @@
   font-size: 18px;
 }
 
-.readingWeekCard .sectionHeader span {
+.readingWeekCard .sectionHeader > span {
   max-width: 48%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -6410,6 +6424,20 @@
   padding: 0 20px 24px;
 }
 
+.providerConfigureStack {
+  display: grid;
+  gap: 24px;
+}
+
+.providerConfigureSection {
+  display: grid;
+  gap: 8px;
+}
+
+.providerConfigureSection .providerGroupLabel {
+  margin: 0;
+}
+
 .providerGroupLabel {
   margin: 0 0 10px;
   padding: 0 20px;
@@ -6426,13 +6454,13 @@
 }
 
 .providerGroupHeader .providerGroupLabel {
-  margin: 0 0 10px;
+  margin: 0;
 }
 
 .providerRefreshButton {
   min-width: 44px;
   min-height: 44px;
-  margin: 0 4px 10px 0;
+  margin: 0 4px 0 0;
   padding: 0 12px;
   border-radius: 999px;
   color: var(--tint);
@@ -6456,6 +6484,146 @@
   border-radius: var(--list-radius);
   background: var(--surface-primary);
   border: 0;
+}
+
+.providerPresetGrid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 9.5rem), 1fr)
+  );
+  gap: 8px;
+}
+
+.providerPresetButton {
+  position: relative;
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  color: var(--text-primary);
+  background: var(--surface-primary);
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerPresetButton:last-child {
+  grid-column: 1 / -1;
+}
+
+.providerPresetButton:active {
+  transform: scale(0.98);
+}
+
+.providerPresetButton[data-selected="true"] {
+  border-color: color-mix(in srgb, var(--tint) 32%, transparent);
+  background: color-mix(in srgb, var(--tint) 9%, var(--surface-primary));
+}
+
+.providerPresetButton > span:first-child {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.providerPresetButton:active > span:first-child {
+  transform: scale(0.94);
+}
+
+.providerPresetButton[data-selected="true"] > span:first-child {
+  transform: scale(1);
+}
+
+.providerPresetName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+  font-weight: 600;
+  text-align: left;
+}
+
+.providerPresetCheck {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  min-width: 18px;
+  color: var(--tint);
+  font-size: 1rem;
+  line-height: 1;
+  font-weight: 700;
+  text-align: center;
+  transform: scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerConnectionCard {
+  overflow: hidden;
+  border-radius: var(--list-radius);
+  background: var(--surface-primary);
+}
+
+.providerField {
+  min-height: 68px;
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  padding: 9px 16px;
+  border-bottom: 0.5px solid var(--hairline);
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.providerField:focus-within {
+  background: color-mix(in srgb, var(--tint) 6%, transparent);
+}
+
+.providerFieldLabel {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.providerField input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text-primary);
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.providerField input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.82;
+}
+
+.providerStickyActions {
+  position: sticky;
+  z-index: 3;
+  bottom: calc(-24px - var(--safe-bottom));
+  margin: 4px -20px calc(-24px - var(--safe-bottom));
+  padding: 12px 20px calc(12px + var(--safe-bottom));
+  border-top: 0.5px solid var(--hairline);
+  background: var(--app-bg);
+}
+
+.providerStickyActions .providerPrimaryButton {
+  margin-top: 0;
 }
 
 .providerChoiceRow,
@@ -6817,14 +6985,28 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pushDepthOverlay,
   .tocTabIndicator,
   .providerChoiceIcon,
   .providerModelCheck,
   .providerActiveBadge,
   .providerChoiceChevron,
+  .providerPresetButton,
+  .providerPresetCheck,
+  .providerField,
   .providerFormRow,
   .providerManualModelRow,
   .providerManualModelRow input {
     transition: none;
+  }
+}
+
+@media (max-width: 340px) {
+  .providerPresetGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .providerPresetButton:last-child {
+    grid-column: auto;
   }
 }

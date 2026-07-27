@@ -10,8 +10,12 @@
 - Merged pull request: `https://github.com/HYJ1817/AI-reader/pull/1`
   (`aa3798e`, regular merge commit; original commit SHAs preserved)
 - Base branch: `main`
-- The feature branch remains ahead of `main`. Draft PR #4 is open and has not
-  been merged into `main`.
+- PR #4 was merged into remote `main` as merge commit
+  `243a8d19944fecadeabd0c6e73a0375ce8d7f257`; the post-merge `main` CI run
+  `30193601069` passed.
+- The active worktree remains on `codex/shared-sheet-performance`; the AI
+  provider configuration polish described below is pushed and deployed but not
+  merged into `main`.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -22,9 +26,9 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest transparent-navigation design commit: `8746ab5`; implementation plan:
   `bfe9649`; product behavior: `f966a80`; browser coverage: `d74d932`.
-- Latest deployed product/source commit: `f9f0141`.
-- Latest deployed Worker version: `39defdad-7ab0-45f3-9caa-e4d9dcfced27`;
-  deployed BUILD_ID: `fo2drdHK18b-Oa5pXVQAY`.
+- Latest deployed product/source commit: `b5e46c5`.
+- Latest deployed Worker version: `cbefd6b1-14dd-493c-b71f-9f42f55d752c`;
+  deployed BUILD_ID: `nbWDm0GNAI4d_MMlgO8RR`.
 - GitHub CLI authentication is valid for `HYJ1817`; local `main` is two commits
   ahead of `origin/main`. The merged feature branches and the stale
   `surface-visual-system` worktree have been removed locally and remotely.
@@ -37,6 +41,125 @@ git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## AI Provider Configuration Polish (2026-07-27, Pushed and Deployed)
+
+- Approved design and implementation plan are committed as `3d0eb43` and
+  `6813564`. Product work through `b5e46c5` was pushed to
+  `origin/codex/shared-sheet-performance` and deployed directly from that
+  worktree after explicit user authorization. It was not merged or pushed into
+  `main`.
+- `0940be5` replaces the tall repeated provider list with a compact native
+  picker, one persistently labeled connection group, a grouped model section,
+  and a safe-area-aware sticky `保存并使用` action. Provider/model selection,
+  refresh, validation, storage, and API behavior remain on their existing data
+  paths.
+- The picker uses a two-column layout at normal text sizes and naturally falls
+  back to one column when text is enlarged. `8032990` moves the selection check
+  to a corner overlay so Anthropic and OpenRouter remain fully visible instead
+  of truncating. The 200% text regression verifies no root/body horizontal
+  overflow, all five presets inside the viewport with single-line labels, and
+  a sticky save region.
+- `8288fb8` removes animated `filter: brightness(...)` from root/push
+  transitions and replaces it with a pointer-inert native-opacity depth layer.
+  Translation remains transform-based; edge-back behavior and reduced-motion
+  handling are preserved. `24ac1fb` updates the older integration contract so
+  it requires the new overlay and rejects the removed brightness filter.
+- TDD commits `d4dfdff`, `7fa10de`, and `a30c74b` captured the configure
+  information architecture, compositor-safe push contract, and real-click cold
+  transition before implementation. The first browser RED failed because the
+  destination marker did not exist. After the product implementation, a second
+  timeout retained a screenshot proving the new destination had mounted; root
+  cause was a pending `page.evaluate` click-listener race. `26b8731` installs
+  the sampler synchronously on the actual trigger before clicking and then
+  reads the completed state. No product threshold was changed.
+- The final real-click provider transition passed on both iPhone 14 and iPhone
+  15 Pro Max with the predeclared gates: click-to-mount `<=34ms`, at least 40
+  sampled frames, P95 interval `<=20ms`, maximum interval `<=34ms`, maximum
+  long task `0ms`, and layout shift `0`. These are unthrottled Chromium
+  architecture/cadence checks; they do not prove physical 120Hz iPhone
+  Safari/home-screen PWA behavior.
+- Original-resolution visual evidence was inspected for Light, Sepia, Dark,
+  and system-dark. The browser regression also asserts that every provider name
+  remains unclipped and each appearance has a distinct page material.
+  Impeccable detection over `AiSettingsSurface.tsx`, `NavigationStack.tsx`, and
+  `page.module.css` returned JSON `[]`.
+- Fresh repository gates: `npm.cmd audit --omit=dev --audit-level=high` found 0
+  vulnerabilities; Vitest passed 112 files / 987 tests; ESLint passed; Next.js
+  16.2.11 production build compiled, completed TypeScript, and generated 6/6
+  static pages. The existing multiple-lockfile workspace-root warning remains
+  non-blocking.
+- The final trace-off native-navigation suite, one worker and no retries, passed
+  23/23 on iPhone 14. iPhone 15 Pro Max passed 22/23. Its retained failure was
+  the existing book-action Sheet cold-mount gate: click-to-mount `37.3ms`
+  against `34ms`; the same sample kept 48 frames, `16.7ms` P95/max interval,
+  `0ms` maximum long task, and layout shift `0`. Earlier production evidence in
+  this handoff retained a `38.6ms` sample for the same gate. No causality or
+  independence from the current changes is claimed, the threshold was not
+  modified, and the failure was not rerun.
+- Fresh publication gates repeated immediately before release: production npm
+  audit found 0 vulnerabilities, Vitest passed 112 files / 987 tests, ESLint
+  passed, the standalone Next.js build passed, and OpenNext Cloudflare build
+  produced `.open-next/worker.js`.
+- Cloudflare deployed Worker version
+  `cbefd6b1-14dd-493c-b71f-9f42f55d752c` to `881817.xyz/*`; Worker startup was
+  24ms and deployed BUILD_ID `nbWDm0GNAI4d_MMlgO8RR` exactly matches the local
+  build. Deployment uploaded the new BUILD_ID, CSS
+  `/_next/static/css/d9a2cf03a5f9b59f.css`, and page chunk
+  `/_next/static/chunks/app/page-dd053fb5e01da122.js`.
+- Production verification passed for `/`, all 10 discovered page JS/CSS
+  assets, `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and `/downloads/ai-reader-twa.apk`. The APK
+  remains 901574 bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`;
+  `POST /api/models` with `{}` returned the expected HTTP 400. The deployed
+  page/CSS contain the provider picker, configure destination, and depth-overlay
+  markers.
+- Direct production trace-off Playwright passed 3/3 on iPhone 14 and 3/3 on
+  iPhone 15 Pro Max for the provider cold transition, 200% text layout, and all
+  appearance themes. Automated Chromium still does not prove physical 120Hz.
+- Publication boundary: the feature branch is pushed and production is
+  deployed. `main` remains untouched by this release; any future merge or push
+  to `main` still requires explicit user confirmation.
+
+## Reading Dashboard Total Duration Clipping (2026-07-27, Deployed)
+
+- The underlying accumulated reading value was correct, but the weekly header
+  could show only its first digit. A seeded value of `65` retained
+  `aria-label="65"` while the rendered screenshot displayed
+  `累计阅读：6 分钟`.
+- Root cause: `.readingWeekCard .sectionHeader span` applied the summary
+  container's `max-width: 48%` and `overflow: hidden` to every nested span,
+  including both layers of `AnimatedNumber`.
+- The product fix narrows that rule to the direct summary child with
+  `.readingWeekCard .sectionHeader > span`, so the summary can still truncate
+  as a whole without clipping animated digits.
+- TDD evidence: the CSS regression failed before the fix; the iPhone 14 browser
+  regression failed with computed `max-width: 48%`, then passed with
+  `max-width: none` and `overflow: visible`. The updated screenshot displays
+  `累计阅读：65 分钟` in full.
+- Fresh verification passed: focused CSS test 9/9, complete Vitest 111 files /
+  983 tests, full ESLint, production Next.js build, and the targeted iPhone 14
+  trace-off Playwright test 1/1.
+- Product/test commit `c13ec8e` was pushed to
+  `origin/codex/shared-sheet-performance`; this follow-up was not merged into or
+  pushed directly to `main`.
+- Fresh publication verification passed: `npm audit --omit=dev
+  --audit-level=high` found 0 vulnerabilities, Vitest passed 111 files / 983
+  tests, full ESLint passed, the standalone Next.js build passed, and the
+  OpenNext Cloudflare build completed.
+- Production was deployed as Worker version
+  `b766b84f-c242-48b9-912e-6e5f00f56096`, BUILD_ID
+  `3MgOiVE9iDGcBa27cv1f7`.
+- Production verification passed for `/`, all 10 discovered JS/CSS assets,
+  `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and `/downloads/ai-reader-twa.apk`. The remote
+  APK remained 901574 bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`;
+  `POST /api/models` with `{}` returned the expected HTTP 400 validation error.
+- The targeted production iPhone 14 Playwright regression passed 1/1 with one
+  worker, no retries, and `--trace=off`, confirming seeded cumulative reading
+  time `65` remains fully visible rather than being clipped to `6`.
 
 ## EPUB Page/Location Semantics (2026-07-26, Current Authoritative State)
 

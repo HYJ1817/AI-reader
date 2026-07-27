@@ -21,6 +21,17 @@ type DraftProvider = Omit<AiProviderConfig, "protocol"> & {
   protocol: AiProviderProtocol | "";
 };
 
+const PROVIDER_COMPACT_LABEL: Record<
+  Exclude<AiProviderKind, "custom">,
+  string
+> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  gemini: "Gemini",
+  openrouter: "OpenRouter",
+  xai: "xAI",
+};
+
 export type AiSettingsSurfaceProps = {
   mode: "list" | "configure";
   settings: AiProviderSettings;
@@ -261,7 +272,10 @@ export default function AiSettingsSurface({
   const title = mode === "list" ? "AI 服务商" : editingProviderId ? "配置服务商" : "添加服务商";
 
   return (
-    <div className={styles.providerPushedSurface}>
+    <div
+      className={styles.providerPushedSurface}
+      data-provider-configure={mode === "configure" ? "true" : undefined}
+    >
       <div className={styles.providerSheetHeader}>
         <button
           type="button"
@@ -269,7 +283,7 @@ export default function AiSettingsSurface({
           onClick={onBack}
         >
           <span aria-hidden="true">{"\u2039"}</span>
-          {mode === "list" ? "设置" : "AI 服务商"}
+          {mode === "list" ? "设置" : "服务商"}
         </button>
         <h2>{title}</h2>
         <span className={styles.providerHeaderSpacer} />
@@ -309,6 +323,7 @@ export default function AiSettingsSurface({
               <button
                 type="button"
                 className={styles.providerPrimaryButton}
+                data-open-provider-configure="true"
                 onClick={() => onPushConfigure()}
               >
                 添加 AI 服务商
@@ -320,103 +335,117 @@ export default function AiSettingsSurface({
           )}
 
           {mode === "configure" && draft && (
-            <>
-              <p className={styles.providerGroupLabel}>服务商</p>
-              <div className={styles.providerListCard}>
-                {AI_PROVIDER_PRESETS.map((preset) => (
-                  <button
-                    key={preset.kind}
-                    type="button"
-                    className={styles.providerModelRow}
-                    aria-pressed={draft.kind === preset.kind}
-                    data-selected={draft.kind === preset.kind ? "true" : undefined}
-                    onClick={() => changeProviderKind(preset.kind)}
-                  >
-                    <span
-                      className={`${styles.providerChoiceIcon} ${
-                        styles[`providerIcon${preset.kind}`]
-                      }`}
-                    >
-                      {preset.iconLabel}
-                    </span>
-                    <span className={styles.providerChoiceText}>
-                      <strong>{preset.label}</strong>
-                      <small>{preset.defaultBaseUrl}</small>
-                    </span>
-                    <span className={styles.providerModelCheck}>
-                      {draft.kind === preset.kind ? "✓" : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
+            <div className={styles.providerConfigureStack}>
+              <section className={styles.providerConfigureSection}>
+                <p className={styles.providerGroupLabel}>服务商</p>
+                <div
+                  className={styles.providerPresetGrid}
+                  data-provider-preset-grid="true"
+                >
+                  {AI_PROVIDER_PRESETS.map((preset) => {
+                    const selected = draft.kind === preset.kind;
+                    return (
+                      <button
+                        key={preset.kind}
+                        type="button"
+                        className={styles.providerPresetButton}
+                        aria-pressed={selected}
+                        data-selected={selected ? "true" : undefined}
+                        onClick={() => changeProviderKind(preset.kind)}
+                      >
+                        <span
+                          className={`${styles.providerChoiceIcon} ${
+                            styles[`providerIcon${preset.kind}`]
+                          }`}
+                        >
+                          {preset.iconLabel}
+                        </span>
+                        <span className={styles.providerPresetName}>
+                          {PROVIDER_COMPACT_LABEL[preset.kind]}
+                        </span>
+                        <span
+                          className={styles.providerPresetCheck}
+                          aria-hidden="true"
+                        >
+                          {selected ? "✓" : ""}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
 
-              <p className={styles.providerGroupLabel}>名称</p>
-              <div className={styles.providerListCard}>
-                <label className={styles.providerFormRow}>
-                  <input
-                    value={draft.label}
-                    onChange={(event) => updateDraft({ label: event.target.value })}
-                    placeholder="例如：DeepSeek"
-                  />
-                </label>
-              </div>
-
-              <p className={styles.providerGroupLabel}>API Key</p>
-              <div className={styles.providerListCard}>
-                <label className={styles.providerFormRow}>
-                  <input
-                    value={draft.apiKey}
-                    onChange={(event) => updateDraft({ apiKey: event.target.value })}
-                    placeholder="sk-..."
-                    type="password"
-                    autoComplete="off"
-                  />
-                </label>
-              </div>
-
-              <p className={styles.providerGroupLabel}>API 地址</p>
-              <div className={styles.providerListCard}>
-                <label className={styles.providerFormRow}>
-                  <input
-                    value={draft.baseUrl}
-                    onChange={(event) => updateDraft({ baseUrl: event.target.value })}
-                    placeholder="https://api.example.com"
-                    inputMode="url"
-                  />
-                </label>
-                {draft.protocol ? (
-                  <label className={styles.providerSwitchRow}>
-                    <span>自动附加 {draft.defaultPath}</span>
+              <section className={styles.providerConfigureSection}>
+                <p className={styles.providerGroupLabel}>连接</p>
+                <div className={styles.providerConnectionCard}>
+                  <label className={styles.providerField}>
+                    <span className={styles.providerFieldLabel}>名称</span>
                     <input
-                      type="checkbox"
-                      className={styles.iosSwitch}
-                      checked={draft.appendDefaultPath}
+                      value={draft.label}
                       onChange={(event) =>
-                        toggleAppendDefaultPath(event.target.checked)
+                        updateDraft({ label: event.target.value })
                       }
+                      placeholder="例如：DeepSeek"
                     />
                   </label>
-                ) : (
-                  <div className={styles.providerStaticRow}>
-                    <strong>路径</strong>
-                    <span>选择服务商后设置</span>
-                  </div>
-                )}
-              </div>
+                  <label className={styles.providerField}>
+                    <span className={styles.providerFieldLabel}>API Key</span>
+                    <input
+                      value={draft.apiKey}
+                      onChange={(event) =>
+                        updateDraft({ apiKey: event.target.value })
+                      }
+                      placeholder="sk-..."
+                      type="password"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className={styles.providerField}>
+                    <span className={styles.providerFieldLabel}>API 地址</span>
+                    <input
+                      value={draft.baseUrl}
+                      onChange={(event) =>
+                        updateDraft({ baseUrl: event.target.value })
+                      }
+                      placeholder="https://api.example.com"
+                      inputMode="url"
+                    />
+                  </label>
+                  {draft.protocol ? (
+                    <label className={styles.providerSwitchRow}>
+                      <span>自动附加 {draft.defaultPath}</span>
+                      <input
+                        type="checkbox"
+                        className={styles.iosSwitch}
+                        checked={draft.appendDefaultPath}
+                        onChange={(event) =>
+                          toggleAppendDefaultPath(event.target.checked)
+                        }
+                      />
+                    </label>
+                  ) : (
+                    <div className={styles.providerStaticRow}>
+                      <strong>路径</strong>
+                      <span>选择服务商后设置</span>
+                    </div>
+                  )}
+                </div>
+              </section>
 
-              <div className={styles.providerGroupHeader}>
-                <p className={styles.providerGroupLabel}>模型</p>
-                <button
-                  type="button"
-                  className={styles.providerRefreshButton}
-                  onClick={refreshModels}
-                  disabled={refreshingModels}
-                  aria-busy={refreshingModels}
-                >
-                  {refreshingModels ? "刷新中..." : "刷新"}
-                </button>
-              </div>
-              <div className={styles.providerListCard}>
+              <section className={styles.providerConfigureSection}>
+                <div className={styles.providerGroupHeader}>
+                  <p className={styles.providerGroupLabel}>模型</p>
+                  <button
+                    type="button"
+                    className={styles.providerRefreshButton}
+                    onClick={refreshModels}
+                    disabled={refreshingModels}
+                    aria-busy={refreshingModels}
+                  >
+                    {refreshingModels ? "刷新中..." : "刷新"}
+                  </button>
+                </div>
+                <div className={styles.providerListCard}>
                 {draft.models.length > 0 ? (
                   draft.models.map((model) => (
                     <div
@@ -466,28 +495,34 @@ export default function AiSettingsSurface({
                     添加
                   </button>
                 </div>
-              </div>
+                </div>
+              </section>
               {modelRefreshStatus && (
                 <p className={styles.providerHelpText} role="status">
                   {modelRefreshStatus}
                 </p>
               )}
 
-              <button
-                type="button"
-                className={styles.providerPrimaryButton}
-                onClick={saveDraft}
-                disabled={!canSave}
-              >
-                保存并使用
-              </button>
-
               {editingProviderId && (
                 <button type="button" className={styles.providerDangerButton} onClick={deleteDraft}>
                   删除 AI 服务商
                 </button>
               )}
-            </>
+
+              <div
+                className={styles.providerStickyActions}
+                data-provider-sticky-actions="true"
+              >
+                <button
+                  type="button"
+                  className={styles.providerPrimaryButton}
+                  onClick={saveDraft}
+                  disabled={!canSave}
+                >
+                  保存并使用
+                </button>
+              </div>
+            </div>
           )}
       </div>
     </div>

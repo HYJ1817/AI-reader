@@ -27,12 +27,50 @@ type SheetRoute =
   | "batch-delete"
   | "collection-create";
 
+type ProviderTransitionMetrics = {
+  clickToMount: number;
+  frames: number;
+  p95: number;
+  maxInterval: number;
+  maxLongTask: number;
+  layoutShift: number;
+  motion: ProviderMotionSnapshot;
+};
+
+type ProviderMotionSnapshot = {
+  incomingX: number;
+  incomingOpacity: number;
+  previousX: number;
+  previousOpacity: number;
+  shadow: string;
+  profile: string | null;
+};
+
+type ProviderTransitionMeasurementState = {
+  clickedAt: number | null;
+  mountedAt: number | null;
+  intervals: number[];
+  longTasks: number[];
+  layoutShift: number;
+  motion: ProviderMotionSnapshot | null;
+  complete: boolean;
+  cleanup: () => void;
+};
+
+type ProviderBackMotionMetrics = {
+  frames: number;
+  maxX: number;
+  minOpacity: number;
+};
+
 const sampleText = readFileSync(
   path.resolve(process.cwd(), "e2e/fixtures/sample.txt"),
   "utf8"
 );
 const libraryRootSelector =
   '[data-navigation-root="library"][aria-hidden="false"]';
+const settingsRootSelector =
+  '[data-navigation-root="settings"][aria-hidden="false"]';
 const primaryNavigationName = /\u4e3b\u8981\u5bfc\u822a/;
 
 function wcagContrastRatio(foreground: string, background: string) {
@@ -116,6 +154,19 @@ async function openCollections(page: Page) {
   await expect(page.locator('[data-push-route="collections"]')).toBeVisible();
 }
 
+async function openAiProviderList(page: Page) {
+  const navigation = page.getByRole("navigation", {
+    name: primaryNavigationName,
+  });
+  await navigation.locator('[data-navigation-tab="settings"]').click();
+  await expect(page.locator(settingsRootSelector)).toBeVisible();
+  await page
+    .locator(settingsRootSelector)
+    .getByRole("button", { name: /AI 服务商/ })
+    .click();
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+}
+
 async function waitForHorizontalSettle(page: Page, selector: string) {
   await expect
     .poll(async () =>
@@ -140,6 +191,252 @@ async function waitForVerticalSettle(page: Page, selector: string) {
       })
     )
     .toBeLessThanOrEqual(1);
+}
+
+async function collectProviderTransitionMetrics(
+  page: Page,
+  trigger: () => Promise<void>
+): Promise<ProviderTransitionMetrics> {
+  await page.evaluate(() => {
+    const measurementWindow = window as typeof window & {
+      __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+    };
+    measurementWindow.__providerTransitionMeasurement?.cleanup();
+
+    if (
+      !PerformanceObserver.supportedEntryTypes.includes("longtask") ||
+      !PerformanceObserver.supportedEntryTypes.includes("layout-shift")
+    ) {
+      throw new Error("Required PerformanceObserver entry type is unavailable");
+    }
+
+    const triggerElement = document.querySelector(
+      '[data-open-provider-configure="true"]'
+    );
+    if (!(triggerElement instanceof HTMLElement)) {
+      throw new Error("Provider configure trigger is unavailable");
+    }
+
+    let previous = performance.now();
+    let animationFrame = 0;
+    const state: ProviderTransitionMeasurementState = {
+      clickedAt: null,
+      mountedAt: null,
+      intervals: [],
+      longTasks: [],
+      layoutShift: 0,
+      motion: null,
+      complete: false,
+      cleanup: () => undefined,
+    };
+
+    const longTaskObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        state.longTasks.push(entry.duration);
+      }
+    });
+    const layoutShiftObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        state.layoutShift += (entry as PerformanceEntry & { value: number }).value;
+      }
+    });
+    const mountObserver = new MutationObserver(() => {
+      if (state.clickedAt === null || state.mountedAt !== null) return;
+      const incoming = document.querySelector(
+        '[data-push-route="ai-provider-configure"]'
+      );
+      const previous = document.querySelector(
+        '[data-push-route="ai-providers"]'
+      );
+      if (!(incoming instanceof HTMLElement) || !(previous instanceof HTMLElement)) {
+        return;
+      }
+
+      state.mountedAt = performance.now();
+
+      const readX = (element: HTMLElement) => {
+        const transform = getComputedStyle(element).transform;
+        return transform === "none"
+          ? 0
+          : new DOMMatrixReadOnly(transform).m41;
+      };
+      const incomingStyle = getComputedStyle(incoming);
+      const previousStyle = getComputedStyle(previous);
+      state.motion = {
+        incomingX: readX(incoming),
+        incomingOpacity: Number.parseFloat(incomingStyle.opacity),
+        previousX: readX(previous),
+        previousOpacity: Number.parseFloat(previousStyle.opacity),
+        shadow: incomingStyle.boxShadow,
+        profile: incoming.getAttribute("data-push-motion"),
+      };
+    });
+
+    function handleClick() {
+      if (state.clickedAt !== null) return;
+      state.clickedAt = performance.now();
+      previous = state.clickedAt;
+
+      const sample = (now: number) => {
+        state.intervals.push(now - previous);
+        previous = now;
+        if (now - state.clickedAt! < 700) {
+          animationFrame = requestAnimationFrame(sample);
+          return;
+        }
+        state.complete = true;
+      };
+      animationFrame = requestAnimationFrame(sample);
+    }
+
+    state.cleanup = () => {
+      triggerElement.removeEventListener("click", handleClick, true);
+      mountObserver.disconnect();
+      longTaskObserver.disconnect();
+      layoutShiftObserver.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+    measurementWindow.__providerTransitionMeasurement = state;
+    longTaskObserver.observe({ entryTypes: ["longtask"] });
+    layoutShiftObserver.observe({ entryTypes: ["layout-shift"] });
+    mountObserver.observe(document.body, { childList: true, subtree: true });
+    triggerElement.addEventListener("click", handleClick, true);
+  });
+
+  try {
+    await trigger();
+    await page.waitForFunction(
+      () =>
+        Boolean(
+          (
+            window as typeof window & {
+              __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+            }
+          ).__providerTransitionMeasurement?.complete
+        ),
+      undefined,
+      { timeout: 1500 }
+    );
+
+    return await page.evaluate(() => {
+      const measurementWindow = window as typeof window & {
+        __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+      };
+      const state = measurementWindow.__providerTransitionMeasurement;
+      if (
+        !state ||
+        state.clickedAt === null ||
+        state.mountedAt === null ||
+        state.motion === null
+      ) {
+        throw new Error(
+          `Incomplete provider transition measurement (clicked=${state?.clickedAt !== null}, mounted=${state?.mountedAt !== null}, motion=${state?.motion !== null})`
+        );
+      }
+
+      const sorted = [...state.intervals].sort((a, b) => a - b);
+      const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+      const metrics = {
+        clickToMount: state.mountedAt - state.clickedAt,
+        frames: state.intervals.length,
+        p95: sorted[p95Index] ?? 0,
+        maxInterval: Math.max(...state.intervals),
+        maxLongTask:
+          state.longTasks.length > 0 ? Math.max(...state.longTasks) : 0,
+        layoutShift: state.layoutShift,
+        motion: state.motion,
+      };
+      state.cleanup();
+      delete measurementWindow.__providerTransitionMeasurement;
+      return metrics;
+    });
+  } catch (error) {
+    await page.evaluate(() => {
+      const measurementWindow = window as typeof window & {
+        __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+      };
+      measurementWindow.__providerTransitionMeasurement?.cleanup();
+      delete measurementWindow.__providerTransitionMeasurement;
+    });
+    throw error;
+  }
+}
+
+async function collectProviderBackMotionMetrics(
+  page: Page,
+  trigger: () => Promise<void>
+): Promise<ProviderBackMotionMetrics> {
+  await page.evaluate(() => {
+    const measurementWindow = window as typeof window & {
+      __providerBackMotionMeasurement?: {
+        xs: number[];
+        opacities: number[];
+        complete: boolean;
+      };
+    };
+    const state = {
+      xs: [] as number[],
+      opacities: [] as number[],
+      complete: false,
+    };
+    measurementWindow.__providerBackMotionMeasurement = state;
+    const startedAt = performance.now();
+
+    const sample = (now: number) => {
+      const surface = document.querySelector(
+        '[data-push-route="ai-provider-configure"]'
+      );
+      if (surface instanceof HTMLElement) {
+        const style = getComputedStyle(surface);
+        const transform = style.transform;
+        state.xs.push(
+          transform === "none"
+            ? 0
+            : new DOMMatrixReadOnly(transform).m41
+        );
+        state.opacities.push(Number.parseFloat(style.opacity));
+      }
+      if (now - startedAt < 600) {
+        requestAnimationFrame(sample);
+        return;
+      }
+      state.complete = true;
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await trigger();
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        (
+          window as typeof window & {
+            __providerBackMotionMeasurement?: { complete: boolean };
+          }
+        ).__providerBackMotionMeasurement?.complete
+      ),
+    undefined,
+    { timeout: 1_500 }
+  );
+
+  return page.evaluate(() => {
+    const measurementWindow = window as typeof window & {
+      __providerBackMotionMeasurement?: {
+        xs: number[];
+        opacities: number[];
+      };
+    };
+    const state = measurementWindow.__providerBackMotionMeasurement;
+    delete measurementWindow.__providerBackMotionMeasurement;
+    if (!state || state.xs.length === 0 || state.opacities.length === 0) {
+      throw new Error("Provider back motion did not produce frame samples");
+    }
+    return {
+      frames: state.xs.length,
+      maxX: Math.max(...state.xs),
+      minOpacity: Math.min(...state.opacities),
+    };
+  });
 }
 
 async function injectPush(
@@ -813,6 +1110,176 @@ test("reader horizontal gestures never trigger application edge back", async ({
   await expect(page.locator('[data-push-route="collections"]')).toHaveCount(1);
 });
 
+test("AI provider configure transition stays within mobile frame budgets", async ({
+  page,
+}, testInfo) => {
+  await openAiProviderList(page);
+  const add = page.getByRole("button", { name: "添加 AI 服务商" });
+  await expect(add).toBeVisible();
+
+  const metrics = await collectProviderTransitionMetrics(page, () => add.click());
+
+  await expect(page.locator('[data-provider-configure="true"]')).toBeVisible();
+  await expect(page.locator('[data-provider-preset-grid="true"]')).toBeVisible();
+  await testInfo.attach("ai-provider-transition.json", {
+    body: JSON.stringify({ project: testInfo.project.name, ...metrics }, null, 2),
+    contentType: "application/json",
+  });
+
+  expect(metrics.clickToMount).toBeLessThanOrEqual(34);
+  expect(metrics.frames).toBeGreaterThanOrEqual(40);
+  expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.maxInterval).toBeLessThanOrEqual(34);
+  expect(metrics.maxLongTask).toBe(0);
+  expect(metrics.layoutShift).toBe(0);
+  expect(metrics.motion.profile).toBe("compact");
+  expect(metrics.motion.incomingX).toBeGreaterThanOrEqual(20);
+  expect(metrics.motion.incomingX).toBeLessThanOrEqual(23);
+  expect(metrics.motion.incomingOpacity).toBeLessThanOrEqual(0.05);
+  expect(metrics.motion.previousX).toBeGreaterThanOrEqual(-13);
+  expect(metrics.motion.previousX).toBeLessThanOrEqual(1);
+  expect(metrics.motion.previousOpacity).toBeGreaterThanOrEqual(0);
+  expect(metrics.motion.previousOpacity).toBeLessThanOrEqual(1);
+  expect(metrics.motion.shadow).toBe("none");
+});
+
+test("provider compact back reverses direction and keeps edge back", async ({
+  page,
+}) => {
+  await openAiProviderList(page);
+  const add = page.locator('[data-open-provider-configure="true"]');
+  await add.click();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+
+  const metrics = await collectProviderBackMotionMetrics(page, async () => {
+    await page.goBack();
+  });
+
+  await expect(
+    page.locator('[data-push-route="ai-provider-configure"]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+  expect(metrics.frames).toBeGreaterThanOrEqual(8);
+  expect(metrics.maxX).toBeGreaterThanOrEqual(20);
+  expect(metrics.maxX).toBeLessThanOrEqual(23);
+  expect(metrics.minOpacity).toBeLessThanOrEqual(0.05);
+
+  await add.click();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await dragTouch(page, { x: 4, y: 360 }, { x: 340, y: 360 });
+  await expect(
+    page.locator('[data-push-route="ai-provider-configure"]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+});
+
+test("AI provider configuration remains usable at 200 percent text", async ({
+  page,
+}, testInfo) => {
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  await openAiProviderList(page);
+  await page.getByRole("button", { name: "添加 AI 服务商" }).click();
+
+  const configure = page.locator('[data-provider-configure="true"]');
+  const picker = page.locator('[data-provider-preset-grid="true"]');
+  await expect(configure).toBeVisible();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await expect(picker.getByRole("button")).toHaveCount(5);
+  await expect(configure.getByText("名称", { exact: true })).toBeVisible();
+  await expect(configure.getByText("API Key", { exact: true })).toBeVisible();
+  await expect(configure.getByText("API 地址", { exact: true })).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const buttons = Array.from(
+      document.querySelectorAll('[data-provider-preset-grid="true"] button')
+    );
+    const saveRegion = document.querySelector(
+      '[data-provider-sticky-actions="true"]'
+    );
+    return {
+      rootOverflow:
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
+      presetsInViewport: buttons.every((button) => {
+        const rect = button.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= window.innerWidth;
+      }),
+      presetLabelsSingleLine: buttons.every((button) => {
+        const label = button.querySelector(":scope > span:nth-child(2)");
+        if (!(label instanceof HTMLElement)) return false;
+        const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight);
+        return label.getBoundingClientRect().height <= lineHeight * 1.1;
+      }),
+      savePosition: saveRegion ? getComputedStyle(saveRegion).position : "missing",
+    };
+  });
+  expect(layout.rootOverflow).toBeLessThanOrEqual(1);
+  expect(layout.bodyOverflow).toBeLessThanOrEqual(1);
+  expect(layout.presetsInViewport).toBe(true);
+  expect(layout.presetLabelsSingleLine).toBe(true);
+  expect(layout.savePosition).toBe("sticky");
+  await capture(page, testInfo, "ai-provider-configure-text-200");
+});
+
+test("AI provider configuration follows app appearance themes", async ({
+  page,
+}, testInfo) => {
+  await openAiProviderList(page);
+  await page.getByRole("button", { name: "添加 AI 服务商" }).click();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await hideNextDevIndicator(page);
+
+  const app = page.locator('[data-app-shell="true"]');
+  const configure = page.locator('[data-provider-configure="true"]');
+  const backgrounds: string[] = [];
+  const presetLabels = configure.locator(
+    '[data-provider-preset-grid="true"] button > span:nth-child(2)'
+  );
+  await expect(presetLabels).toHaveCount(5);
+  expect(
+    await presetLabels.evaluateAll((labels) =>
+      labels.every((label) => label.scrollWidth <= label.clientWidth)
+    )
+  ).toBe(true);
+  for (const theme of ["light", "sepia", "dark"] as const) {
+    await app.evaluate((element, nextTheme) => {
+      element.setAttribute("data-reader-theme", nextTheme);
+    }, theme);
+    const background = await configure.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    );
+    backgrounds.push(background);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth
+      )
+    ).toBeLessThanOrEqual(1);
+    await capture(page, testInfo, `ai-provider-configure-theme-${theme}`);
+  }
+  expect(new Set(backgrounds).size).toBe(3);
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await app.evaluate((element) => {
+    element.removeAttribute("data-reader-theme");
+  });
+  await expect(configure).toBeVisible();
+  await capture(page, testInfo, "ai-provider-configure-theme-system-dark");
+});
+
 test("all pushed routes mount and return through history", async ({ page }) => {
   const routes: Array<{ route: PushRoute; entityId?: string }> = [
     { route: "collections" },
@@ -1006,6 +1473,20 @@ test("reduced motion keeps push and sheet destinations functional", async ({
       return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
     });
   expect(Math.abs(pushX)).toBeLessThanOrEqual(1);
+
+  await dismissHistoryEntry(page, '[data-push-route="collections"]');
+  await openAiProviderList(page);
+  await page.locator('[data-open-provider-configure="true"]').click();
+  const compactPush = page.locator(
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await expect(compactPush).toBeVisible();
+  await expect(compactPush).toHaveAttribute("data-push-motion", "compact");
+  const compactPushX = await compactPush.evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+  });
+  expect(Math.abs(compactPushX)).toBeLessThanOrEqual(1);
 
   await injectSheet(page, "collection-create");
   const panel = page.locator(

@@ -88,8 +88,15 @@ describe("motion CSS", () => {
   });
 
   it("uses compact Motion offsets without duplicate reader presentation CSS", () => {
-    expect(navigationMotionSource).toContain("direction * -12");
-    expect(navigationMotionSource).toContain("direction * 22");
+    expect(navigationMotionSource).toContain("COMPACT_PUSH_OFFSETS");
+    expect(navigationMotionSource).toContain("covered: -12");
+    expect(navigationMotionSource).toContain("incoming: 22");
+    expect(navigationMotionSource).toContain(
+      "direction * COMPACT_PUSH_OFFSETS.covered"
+    );
+    expect(navigationMotionSource).toContain(
+      "direction * COMPACT_PUSH_OFFSETS.incoming"
+    );
     expect(css).not.toContain(".appSurfaceBefore");
     expect(css).not.toContain(".appSurfaceAfter");
     expect(css).not.toContain(".readerSessionInactive");
