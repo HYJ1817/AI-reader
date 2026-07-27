@@ -34,6 +34,16 @@ type ProviderTransitionMetrics = {
   maxInterval: number;
   maxLongTask: number;
   layoutShift: number;
+  motion: ProviderMotionSnapshot;
+};
+
+type ProviderMotionSnapshot = {
+  incomingX: number;
+  incomingOpacity: number;
+  previousX: number;
+  previousOpacity: number;
+  shadow: string;
+  profile: string | null;
 };
 
 type ProviderTransitionMeasurementState = {
@@ -42,8 +52,15 @@ type ProviderTransitionMeasurementState = {
   intervals: number[];
   longTasks: number[];
   layoutShift: number;
+  motion: ProviderMotionSnapshot | null;
   complete: boolean;
   cleanup: () => void;
+};
+
+type ProviderBackMotionMetrics = {
+  frames: number;
+  maxX: number;
+  minOpacity: number;
 };
 
 const sampleText = readFileSync(
@@ -208,6 +225,7 @@ async function collectProviderTransitionMetrics(
       intervals: [],
       longTasks: [],
       layoutShift: 0,
+      motion: null,
       complete: false,
       cleanup: () => undefined,
     };
@@ -223,13 +241,35 @@ async function collectProviderTransitionMetrics(
       }
     });
     const mountObserver = new MutationObserver(() => {
-      if (
-        state.clickedAt !== null &&
-        state.mountedAt === null &&
-        document.querySelector('[data-provider-configure="true"]')
-      ) {
-        state.mountedAt = performance.now();
+      if (state.clickedAt === null || state.mountedAt !== null) return;
+      const incoming = document.querySelector(
+        '[data-push-route="ai-provider-configure"]'
+      );
+      const previous = document.querySelector(
+        '[data-push-route="ai-providers"]'
+      );
+      if (!(incoming instanceof HTMLElement) || !(previous instanceof HTMLElement)) {
+        return;
       }
+
+      state.mountedAt = performance.now();
+
+      const readX = (element: HTMLElement) => {
+        const transform = getComputedStyle(element).transform;
+        return transform === "none"
+          ? 0
+          : new DOMMatrixReadOnly(transform).m41;
+      };
+      const incomingStyle = getComputedStyle(incoming);
+      const previousStyle = getComputedStyle(previous);
+      state.motion = {
+        incomingX: readX(incoming),
+        incomingOpacity: Number.parseFloat(incomingStyle.opacity),
+        previousX: readX(previous),
+        previousOpacity: Number.parseFloat(previousStyle.opacity),
+        shadow: incomingStyle.boxShadow,
+        profile: incoming.getAttribute("data-push-motion"),
+      };
     });
 
     function handleClick() {
@@ -283,9 +323,14 @@ async function collectProviderTransitionMetrics(
         __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
       };
       const state = measurementWindow.__providerTransitionMeasurement;
-      if (!state || state.clickedAt === null || state.mountedAt === null) {
+      if (
+        !state ||
+        state.clickedAt === null ||
+        state.mountedAt === null ||
+        state.motion === null
+      ) {
         throw new Error(
-          `Incomplete provider transition measurement (clicked=${state?.clickedAt !== null}, mounted=${state?.mountedAt !== null})`
+          `Incomplete provider transition measurement (clicked=${state?.clickedAt !== null}, mounted=${state?.mountedAt !== null}, motion=${state?.motion !== null})`
         );
       }
 
@@ -299,6 +344,7 @@ async function collectProviderTransitionMetrics(
         maxLongTask:
           state.longTasks.length > 0 ? Math.max(...state.longTasks) : 0,
         layoutShift: state.layoutShift,
+        motion: state.motion,
       };
       state.cleanup();
       delete measurementWindow.__providerTransitionMeasurement;
@@ -314,6 +360,83 @@ async function collectProviderTransitionMetrics(
     });
     throw error;
   }
+}
+
+async function collectProviderBackMotionMetrics(
+  page: Page,
+  trigger: () => Promise<void>
+): Promise<ProviderBackMotionMetrics> {
+  await page.evaluate(() => {
+    const measurementWindow = window as typeof window & {
+      __providerBackMotionMeasurement?: {
+        xs: number[];
+        opacities: number[];
+        complete: boolean;
+      };
+    };
+    const state = {
+      xs: [] as number[],
+      opacities: [] as number[],
+      complete: false,
+    };
+    measurementWindow.__providerBackMotionMeasurement = state;
+    const startedAt = performance.now();
+
+    const sample = (now: number) => {
+      const surface = document.querySelector(
+        '[data-push-route="ai-provider-configure"]'
+      );
+      if (surface instanceof HTMLElement) {
+        const style = getComputedStyle(surface);
+        const transform = style.transform;
+        state.xs.push(
+          transform === "none"
+            ? 0
+            : new DOMMatrixReadOnly(transform).m41
+        );
+        state.opacities.push(Number.parseFloat(style.opacity));
+      }
+      if (now - startedAt < 600) {
+        requestAnimationFrame(sample);
+        return;
+      }
+      state.complete = true;
+    };
+    requestAnimationFrame(sample);
+  });
+
+  await trigger();
+  await page.waitForFunction(
+    () =>
+      Boolean(
+        (
+          window as typeof window & {
+            __providerBackMotionMeasurement?: { complete: boolean };
+          }
+        ).__providerBackMotionMeasurement?.complete
+      ),
+    undefined,
+    { timeout: 1_500 }
+  );
+
+  return page.evaluate(() => {
+    const measurementWindow = window as typeof window & {
+      __providerBackMotionMeasurement?: {
+        xs: number[];
+        opacities: number[];
+      };
+    };
+    const state = measurementWindow.__providerBackMotionMeasurement;
+    delete measurementWindow.__providerBackMotionMeasurement;
+    if (!state || state.xs.length === 0 || state.opacities.length === 0) {
+      throw new Error("Provider back motion did not produce frame samples");
+    }
+    return {
+      frames: state.xs.length,
+      maxX: Math.max(...state.xs),
+      minOpacity: Math.min(...state.opacities),
+    };
+  });
 }
 
 async function injectPush(
@@ -1009,6 +1132,51 @@ test("AI provider configure transition stays within mobile frame budgets", async
   expect(metrics.maxInterval).toBeLessThanOrEqual(34);
   expect(metrics.maxLongTask).toBe(0);
   expect(metrics.layoutShift).toBe(0);
+  expect(metrics.motion.profile).toBe("compact");
+  expect(metrics.motion.incomingX).toBeGreaterThanOrEqual(20);
+  expect(metrics.motion.incomingX).toBeLessThanOrEqual(23);
+  expect(metrics.motion.incomingOpacity).toBeLessThanOrEqual(0.05);
+  expect(metrics.motion.previousX).toBeGreaterThanOrEqual(-13);
+  expect(metrics.motion.previousX).toBeLessThanOrEqual(1);
+  expect(metrics.motion.previousOpacity).toBeGreaterThanOrEqual(0);
+  expect(metrics.motion.previousOpacity).toBeLessThanOrEqual(1);
+  expect(metrics.motion.shadow).toBe("none");
+});
+
+test("provider compact back reverses direction and keeps edge back", async ({
+  page,
+}) => {
+  await openAiProviderList(page);
+  const add = page.locator('[data-open-provider-configure="true"]');
+  await add.click();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+
+  const metrics = await collectProviderBackMotionMetrics(page, async () => {
+    await page.goBack();
+  });
+
+  await expect(
+    page.locator('[data-push-route="ai-provider-configure"]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+  expect(metrics.frames).toBeGreaterThanOrEqual(8);
+  expect(metrics.maxX).toBeGreaterThanOrEqual(20);
+  expect(metrics.maxX).toBeLessThanOrEqual(23);
+  expect(metrics.minOpacity).toBeLessThanOrEqual(0.05);
+
+  await add.click();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await dragTouch(page, { x: 4, y: 360 }, { x: 340, y: 360 });
+  await expect(
+    page.locator('[data-push-route="ai-provider-configure"]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
 });
 
 test("AI provider configuration remains usable at 200 percent text", async ({
@@ -1305,6 +1473,20 @@ test("reduced motion keeps push and sheet destinations functional", async ({
       return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
     });
   expect(Math.abs(pushX)).toBeLessThanOrEqual(1);
+
+  await dismissHistoryEntry(page, '[data-push-route="collections"]');
+  await openAiProviderList(page);
+  await page.locator('[data-open-provider-configure="true"]').click();
+  const compactPush = page.locator(
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await expect(compactPush).toBeVisible();
+  await expect(compactPush).toHaveAttribute("data-push-motion", "compact");
+  const compactPushX = await compactPush.evaluate((element) => {
+    const transform = getComputedStyle(element).transform;
+    return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+  });
+  expect(Math.abs(compactPushX)).toBeLessThanOrEqual(1);
 
   await injectSheet(page, "collection-create");
   const panel = page.locator(
