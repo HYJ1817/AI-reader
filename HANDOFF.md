@@ -13,8 +13,9 @@
 - PR #4 was merged into remote `main` as merge commit
   `243a8d19944fecadeabd0c6e73a0375ce8d7f257`; the post-merge `main` CI run
   `30193601069` passed.
-- The active worktree remains on `codex/shared-sheet-performance` for the
-  follow-up dashboard fix described below; that follow-up is not yet published.
+- The active worktree remains on `codex/shared-sheet-performance` for the local
+  AI provider configuration polish described below; that work is not yet
+  published.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -40,6 +41,64 @@ git status -sb
 git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
+
+## AI Provider Configuration Polish (2026-07-27, Local Only)
+
+- Approved design and implementation plan are committed as `3d0eb43` and
+  `6813564`. Product work is on `codex/shared-sheet-performance`; none of these
+  commits has been pushed, merged into `main`, or deployed.
+- `0940be5` replaces the tall repeated provider list with a compact native
+  picker, one persistently labeled connection group, a grouped model section,
+  and a safe-area-aware sticky `保存并使用` action. Provider/model selection,
+  refresh, validation, storage, and API behavior remain on their existing data
+  paths.
+- The picker uses a two-column layout at normal text sizes and naturally falls
+  back to one column when text is enlarged. `8032990` moves the selection check
+  to a corner overlay so Anthropic and OpenRouter remain fully visible instead
+  of truncating. The 200% text regression verifies no root/body horizontal
+  overflow, all five presets inside the viewport with single-line labels, and
+  a sticky save region.
+- `8288fb8` removes animated `filter: brightness(...)` from root/push
+  transitions and replaces it with a pointer-inert native-opacity depth layer.
+  Translation remains transform-based; edge-back behavior and reduced-motion
+  handling are preserved. `24ac1fb` updates the older integration contract so
+  it requires the new overlay and rejects the removed brightness filter.
+- TDD commits `d4dfdff`, `7fa10de`, and `a30c74b` captured the configure
+  information architecture, compositor-safe push contract, and real-click cold
+  transition before implementation. The first browser RED failed because the
+  destination marker did not exist. After the product implementation, a second
+  timeout retained a screenshot proving the new destination had mounted; root
+  cause was a pending `page.evaluate` click-listener race. `26b8731` installs
+  the sampler synchronously on the actual trigger before clicking and then
+  reads the completed state. No product threshold was changed.
+- The final real-click provider transition passed on both iPhone 14 and iPhone
+  15 Pro Max with the predeclared gates: click-to-mount `<=34ms`, at least 40
+  sampled frames, P95 interval `<=20ms`, maximum interval `<=34ms`, maximum
+  long task `0ms`, and layout shift `0`. These are unthrottled Chromium
+  architecture/cadence checks; they do not prove physical 120Hz iPhone
+  Safari/home-screen PWA behavior.
+- Original-resolution visual evidence was inspected for Light, Sepia, Dark,
+  and system-dark. The browser regression also asserts that every provider name
+  remains unclipped and each appearance has a distinct page material.
+  Impeccable detection over `AiSettingsSurface.tsx`, `NavigationStack.tsx`, and
+  `page.module.css` returned JSON `[]`.
+- Fresh repository gates: `npm.cmd audit --omit=dev --audit-level=high` found 0
+  vulnerabilities; Vitest passed 112 files / 987 tests; ESLint passed; Next.js
+  16.2.11 production build compiled, completed TypeScript, and generated 6/6
+  static pages. The existing multiple-lockfile workspace-root warning remains
+  non-blocking.
+- The final trace-off native-navigation suite, one worker and no retries, passed
+  23/23 on iPhone 14. iPhone 15 Pro Max passed 22/23. Its retained failure was
+  the existing book-action Sheet cold-mount gate: click-to-mount `37.3ms`
+  against `34ms`; the same sample kept 48 frames, `16.7ms` P95/max interval,
+  `0ms` maximum long task, and layout shift `0`. Earlier production evidence in
+  this handoff retained a `38.6ms` sample for the same gate. No causality or
+  independence from the current changes is claimed, the threshold was not
+  modified, and the failure was not rerun.
+- Publication boundary: this feature is ready for review locally. A new explicit
+  user confirmation is still required before pushing the branch, merging or
+  pushing `main`, or deploying production. The deployed Worker and BUILD_ID at
+  the top of this handoff remain unchanged.
 
 ## Reading Dashboard Total Duration Clipping (2026-07-27, Deployed)
 
