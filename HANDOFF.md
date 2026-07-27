@@ -13,9 +13,9 @@
 - PR #4 was merged into remote `main` as merge commit
   `243a8d19944fecadeabd0c6e73a0375ce8d7f257`; the post-merge `main` CI run
   `30193601069` passed.
-- The active worktree remains on `codex/shared-sheet-performance` for the local
-  AI provider configuration polish described below; that work is not yet
-  published.
+- The active worktree remains on `codex/shared-sheet-performance`; the AI
+  provider configuration polish described below is pushed and deployed but not
+  merged into `main`.
 - Latest reader-tab motion design commit: `1e77fb3`; implementation plan:
   `b0c5176`; implementation: `720575a`, `9082766`, and `53c7125`; browser
   coverage and stabilization: `bd871fd` and `3e0bff4`.
@@ -26,9 +26,9 @@
   `91a8450`; implementation and verification continue through `d9463a5`.
 - Latest transparent-navigation design commit: `8746ab5`; implementation plan:
   `bfe9649`; product behavior: `f966a80`; browser coverage: `d74d932`.
-- Latest deployed product/source commit: `f9f0141`.
-- Latest deployed Worker version: `39defdad-7ab0-45f3-9caa-e4d9dcfced27`;
-  deployed BUILD_ID: `fo2drdHK18b-Oa5pXVQAY`.
+- Latest deployed product/source commit: `b5e46c5`.
+- Latest deployed Worker version: `cbefd6b1-14dd-493c-b71f-9f42f55d752c`;
+  deployed BUILD_ID: `nbWDm0GNAI4d_MMlgO8RR`.
 - GitHub CLI authentication is valid for `HYJ1817`; local `main` is two commits
   ahead of `origin/main`. The merged feature branches and the stale
   `surface-visual-system` worktree have been removed locally and remotely.
@@ -42,11 +42,13 @@ git log -8 --oneline --decorate
 Get-Content HANDOFF.md
 ```
 
-## AI Provider Configuration Polish (2026-07-27, Local Only)
+## AI Provider Configuration Polish (2026-07-27, Pushed and Deployed)
 
 - Approved design and implementation plan are committed as `3d0eb43` and
-  `6813564`. Product work is on `codex/shared-sheet-performance`; none of these
-  commits has been pushed, merged into `main`, or deployed.
+  `6813564`. Product work through `b5e46c5` was pushed to
+  `origin/codex/shared-sheet-performance` and deployed directly from that
+  worktree after explicit user authorization. It was not merged or pushed into
+  `main`.
 - `0940be5` replaces the tall repeated provider list with a compact native
   picker, one persistently labeled connection group, a grouped model section,
   and a safe-area-aware sticky `保存并使用` action. Provider/model selection,
@@ -95,10 +97,30 @@ Get-Content HANDOFF.md
   this handoff retained a `38.6ms` sample for the same gate. No causality or
   independence from the current changes is claimed, the threshold was not
   modified, and the failure was not rerun.
-- Publication boundary: this feature is ready for review locally. A new explicit
-  user confirmation is still required before pushing the branch, merging or
-  pushing `main`, or deploying production. The deployed Worker and BUILD_ID at
-  the top of this handoff remain unchanged.
+- Fresh publication gates repeated immediately before release: production npm
+  audit found 0 vulnerabilities, Vitest passed 112 files / 987 tests, ESLint
+  passed, the standalone Next.js build passed, and OpenNext Cloudflare build
+  produced `.open-next/worker.js`.
+- Cloudflare deployed Worker version
+  `cbefd6b1-14dd-493c-b71f-9f42f55d752c` to `881817.xyz/*`; Worker startup was
+  24ms and deployed BUILD_ID `nbWDm0GNAI4d_MMlgO8RR` exactly matches the local
+  build. Deployment uploaded the new BUILD_ID, CSS
+  `/_next/static/css/d9a2cf03a5f9b59f.css`, and page chunk
+  `/_next/static/chunks/app/page-dd053fb5e01da122.js`.
+- Production verification passed for `/`, all 10 discovered page JS/CSS
+  assets, `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and `/downloads/ai-reader-twa.apk`. The APK
+  remains 901574 bytes with SHA-256
+  `133DFABF690E7EE9AA47B80C75CAE6B63E1B37EA133C742AB22ECBF5E9AF3A13`;
+  `POST /api/models` with `{}` returned the expected HTTP 400. The deployed
+  page/CSS contain the provider picker, configure destination, and depth-overlay
+  markers.
+- Direct production trace-off Playwright passed 3/3 on iPhone 14 and 3/3 on
+  iPhone 15 Pro Max for the provider cold transition, 200% text layout, and all
+  appearance themes. Automated Chromium still does not prove physical 120Hz.
+- Publication boundary: the feature branch is pushed and production is
+  deployed. `main` remains untouched by this release; any future merge or push
+  to `main` still requires explicit user confirmation.
 
 ## Reading Dashboard Total Duration Clipping (2026-07-27, Deployed)
 
