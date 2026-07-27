@@ -6484,7 +6484,10 @@
 
 .providerPresetGrid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 9.5rem), 1fr)
+  );
   gap: 8px;
 }
 
@@ -6536,7 +6539,9 @@
 
 .providerPresetName {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.9375rem;
   line-height: 1.2;
   font-weight: 600;

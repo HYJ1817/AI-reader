@@ -36,6 +36,16 @@ type ProviderTransitionMetrics = {
   layoutShift: number;
 };
 
+type ProviderTransitionMeasurementState = {
+  clickedAt: number | null;
+  mountedAt: number | null;
+  intervals: number[];
+  longTasks: number[];
+  layoutShift: number;
+  complete: boolean;
+  cleanup: () => void;
+};
+
 const sampleText = readFileSync(
   path.resolve(process.cwd(), "e2e/fixtures/sample.txt"),
   "utf8"
@@ -167,110 +177,143 @@ async function waitForVerticalSettle(page: Page, selector: string) {
 }
 
 async function collectProviderTransitionMetrics(
-  page: Page
+  page: Page,
+  trigger: () => Promise<void>
 ): Promise<ProviderTransitionMetrics> {
-  return page.evaluate(
-    () =>
-      new Promise<ProviderTransitionMetrics>((resolve, reject) => {
-        const intervals: number[] = [];
-        const longTasks: number[] = [];
-        let layoutShift = 0;
-        let clickedAt: number | null = null;
-        let mountedAt: number | null = null;
-        let previous = performance.now();
+  await page.evaluate(() => {
+    const measurementWindow = window as typeof window & {
+      __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+    };
+    measurementWindow.__providerTransitionMeasurement?.cleanup();
 
-        if (
-          !PerformanceObserver.supportedEntryTypes.includes("longtask") ||
-          !PerformanceObserver.supportedEntryTypes.includes("layout-shift")
-        ) {
-          reject(
-            new Error("Required PerformanceObserver entry type is unavailable")
-          );
+    if (
+      !PerformanceObserver.supportedEntryTypes.includes("longtask") ||
+      !PerformanceObserver.supportedEntryTypes.includes("layout-shift")
+    ) {
+      throw new Error("Required PerformanceObserver entry type is unavailable");
+    }
+
+    const triggerElement = document.querySelector(
+      '[data-open-provider-configure="true"]'
+    );
+    if (!(triggerElement instanceof HTMLElement)) {
+      throw new Error("Provider configure trigger is unavailable");
+    }
+
+    let previous = performance.now();
+    let animationFrame = 0;
+    const state: ProviderTransitionMeasurementState = {
+      clickedAt: null,
+      mountedAt: null,
+      intervals: [],
+      longTasks: [],
+      layoutShift: 0,
+      complete: false,
+      cleanup: () => undefined,
+    };
+
+    const longTaskObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        state.longTasks.push(entry.duration);
+      }
+    });
+    const layoutShiftObserver = new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        state.layoutShift += (entry as PerformanceEntry & { value: number }).value;
+      }
+    });
+    const mountObserver = new MutationObserver(() => {
+      if (
+        state.clickedAt !== null &&
+        state.mountedAt === null &&
+        document.querySelector('[data-provider-configure="true"]')
+      ) {
+        state.mountedAt = performance.now();
+      }
+    });
+
+    function handleClick() {
+      if (state.clickedAt !== null) return;
+      state.clickedAt = performance.now();
+      previous = state.clickedAt;
+
+      const sample = (now: number) => {
+        state.intervals.push(now - previous);
+        previous = now;
+        if (now - state.clickedAt! < 700) {
+          animationFrame = requestAnimationFrame(sample);
           return;
         }
+        state.complete = true;
+      };
+      animationFrame = requestAnimationFrame(sample);
+    }
 
-        const longTaskObserver = new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            longTasks.push(entry.duration);
-          }
-        });
-        longTaskObserver.observe({ entryTypes: ["longtask"] });
+    state.cleanup = () => {
+      triggerElement.removeEventListener("click", handleClick, true);
+      mountObserver.disconnect();
+      longTaskObserver.disconnect();
+      layoutShiftObserver.disconnect();
+      cancelAnimationFrame(animationFrame);
+    };
+    measurementWindow.__providerTransitionMeasurement = state;
+    longTaskObserver.observe({ entryTypes: ["longtask"] });
+    layoutShiftObserver.observe({ entryTypes: ["layout-shift"] });
+    mountObserver.observe(document.body, { childList: true, subtree: true });
+    triggerElement.addEventListener("click", handleClick, true);
+  });
 
-        const layoutShiftObserver = new PerformanceObserver((list) => {
-          for (const entry of list.getEntries()) {
-            layoutShift += (entry as PerformanceEntry & { value: number }).value;
-          }
-        });
-        layoutShiftObserver.observe({ entryTypes: ["layout-shift"] });
-
-        const mountObserver = new MutationObserver(() => {
-          if (
-            clickedAt !== null &&
-            mountedAt === null &&
-            document.querySelector('[data-provider-configure="true"]')
-          ) {
-            mountedAt = performance.now();
-          }
-        });
-        mountObserver.observe(document.body, { childList: true, subtree: true });
-
-        const timeout = window.setTimeout(() => {
-          cleanup();
-          reject(new Error("Provider transition did not finish within 1500ms"));
-        }, 1500);
-
-        function cleanup() {
-          window.clearTimeout(timeout);
-          document.removeEventListener("click", handleClick, true);
-          mountObserver.disconnect();
-          longTaskObserver.disconnect();
-          layoutShiftObserver.disconnect();
-        }
-
-        function handleClick(event: MouseEvent) {
-          const target = event.target;
-          if (
-            clickedAt !== null ||
-            !(target instanceof Element) ||
-            !target.closest('[data-open-provider-configure="true"]')
-          ) {
-            return;
-          }
-
-          clickedAt = performance.now();
-          previous = clickedAt;
-
-          const sample = (now: number) => {
-            intervals.push(now - previous);
-            previous = now;
-            if (now - clickedAt! < 700) {
-              requestAnimationFrame(sample);
-              return;
+  try {
+    await trigger();
+    await page.waitForFunction(
+      () =>
+        Boolean(
+          (
+            window as typeof window & {
+              __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
             }
+          ).__providerTransitionMeasurement?.complete
+        ),
+      undefined,
+      { timeout: 1500 }
+    );
 
-            cleanup();
-            if (mountedAt === null) {
-              reject(new Error("Provider configure surface never mounted"));
-              return;
-            }
+    return await page.evaluate(() => {
+      const measurementWindow = window as typeof window & {
+        __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+      };
+      const state = measurementWindow.__providerTransitionMeasurement;
+      if (!state || state.clickedAt === null || state.mountedAt === null) {
+        throw new Error(
+          `Incomplete provider transition measurement (clicked=${state?.clickedAt !== null}, mounted=${state?.mountedAt !== null})`
+        );
+      }
 
-            const sorted = [...intervals].sort((a, b) => a - b);
-            const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
-            resolve({
-              clickToMount: mountedAt - clickedAt!,
-              frames: intervals.length,
-              p95: sorted[p95Index] ?? 0,
-              maxInterval: Math.max(...intervals),
-              maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-              layoutShift,
-            });
-          };
-          requestAnimationFrame(sample);
-        }
-
-        document.addEventListener("click", handleClick, true);
-      })
-  );
+      const sorted = [...state.intervals].sort((a, b) => a - b);
+      const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+      const metrics = {
+        clickToMount: state.mountedAt - state.clickedAt,
+        frames: state.intervals.length,
+        p95: sorted[p95Index] ?? 0,
+        maxInterval: Math.max(...state.intervals),
+        maxLongTask:
+          state.longTasks.length > 0 ? Math.max(...state.longTasks) : 0,
+        layoutShift: state.layoutShift,
+      };
+      state.cleanup();
+      delete measurementWindow.__providerTransitionMeasurement;
+      return metrics;
+    });
+  } catch (error) {
+    await page.evaluate(() => {
+      const measurementWindow = window as typeof window & {
+        __providerTransitionMeasurement?: ProviderTransitionMeasurementState;
+      };
+      measurementWindow.__providerTransitionMeasurement?.cleanup();
+      delete measurementWindow.__providerTransitionMeasurement;
+    });
+    throw error;
+  }
 }
 
 async function injectPush(
@@ -951,10 +994,7 @@ test("AI provider configure transition stays within mobile frame budgets", async
   const add = page.getByRole("button", { name: "添加 AI 服务商" });
   await expect(add).toBeVisible();
 
-  const metricsPromise = collectProviderTransitionMetrics(page);
-  await page.waitForTimeout(40);
-  await add.click();
-  const metrics = await metricsPromise;
+  const metrics = await collectProviderTransitionMetrics(page, () => add.click());
 
   await expect(page.locator('[data-provider-configure="true"]')).toBeVisible();
   await expect(page.locator('[data-provider-preset-grid="true"]')).toBeVisible();
@@ -981,6 +1021,10 @@ test("AI provider configuration remains usable at 200 percent text", async ({
   const configure = page.locator('[data-provider-configure="true"]');
   const picker = page.locator('[data-provider-preset-grid="true"]');
   await expect(configure).toBeVisible();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
   await expect(picker.getByRole("button")).toHaveCount(5);
   await expect(configure.getByText("名称", { exact: true })).toBeVisible();
   await expect(configure.getByText("API Key", { exact: true })).toBeVisible();
@@ -1001,12 +1045,19 @@ test("AI provider configuration remains usable at 200 percent text", async ({
         const rect = button.getBoundingClientRect();
         return rect.left >= 0 && rect.right <= window.innerWidth;
       }),
+      presetLabelsSingleLine: buttons.every((button) => {
+        const label = button.querySelector(":scope > span:nth-child(2)");
+        if (!(label instanceof HTMLElement)) return false;
+        const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight);
+        return label.getBoundingClientRect().height <= lineHeight * 1.1;
+      }),
       savePosition: saveRegion ? getComputedStyle(saveRegion).position : "missing",
     };
   });
   expect(layout.rootOverflow).toBeLessThanOrEqual(1);
   expect(layout.bodyOverflow).toBeLessThanOrEqual(1);
   expect(layout.presetsInViewport).toBe(true);
+  expect(layout.presetLabelsSingleLine).toBe(true);
   expect(layout.savePosition).toBe("sticky");
   await capture(page, testInfo, "ai-provider-configure-text-200");
 });
