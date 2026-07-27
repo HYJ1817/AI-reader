@@ -534,6 +534,13 @@ function PushLayer({
 
   const settlingTarget = edgeBackSettle?.target ?? 0;
   const settlingComplete = edgeBackSettle?.mode === "complete";
+  const pushExitTarget = reduceMotion
+    ? { opacity: 0, x: 0 }
+    : settlingTop && settlingComplete
+      ? { opacity: 1, x: settlingTarget }
+      : compactPush
+        ? { opacity: 0, x: COMPACT_PUSH_OFFSETS.incoming }
+        : { opacity: 1, x: "100%" };
 
   return (
     <m.section
@@ -580,13 +587,7 @@ function PushLayer({
                         : "-30%",
                 }),
       }}
-      exit={
-        reduceMotion
-          ? { opacity: 0, x: 0 }
-          : compactPush
-            ? { opacity: 0, x: COMPACT_PUSH_OFFSETS.incoming }
-            : { opacity: 1, x: "100%" }
-      }
+      exit={pushExitTarget}
       transition={
         reduceMotion
           ? { duration: MOTION_DURATION.reduced }

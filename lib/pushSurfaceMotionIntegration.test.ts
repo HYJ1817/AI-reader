@@ -37,6 +37,10 @@ describe("push surface motion integration", () => {
     expect(navigationSource).toContain(
       "data-push-motion={motionProfile}"
     );
+    expect(navigationSource).toContain("const pushExitTarget =");
+    expect(navigationSource).toMatch(
+      /settlingTop\s*&&\s*settlingComplete\s*\?\s*\{\s*opacity:\s*1,\s*x:\s*settlingTarget\s*\}/s
+    );
     expect(navigationSource).toContain("MOTION_SPRING.navigation");
     expect(navigationSource).toMatch(
       /compactCovered\s*\?\s*0\s*:\s*PUSH_DEPTH_OPACITY/
