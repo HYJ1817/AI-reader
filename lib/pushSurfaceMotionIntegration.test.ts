@@ -23,10 +23,29 @@ describe("push surface motion integration", () => {
 
   it("removes depth interpolation for reduced motion", () => {
     expect(navigationSource).toMatch(
-      /reduceMotion\s*\|\|\s*pushDepth\s*===\s*0\s*\?\s*0\s*:\s*PUSH_DEPTH_OPACITY/
+      /reduceMotion\s*\|\|\s*pushDepth\s*===\s*0\s*\?\s*0\s*:\s*compactCovered\s*\?\s*0\s*:\s*PUSH_DEPTH_OPACITY/
     );
     expect(pageCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pushDepthOverlay\s*\{[\s\S]*?transition:\s*none/
+    );
+  });
+
+  it("uses the compact profile only for provider configuration pushes", () => {
+    expect(navigationSource).toContain("getPushMotionProfile");
+    expect(navigationSource).toContain("COMPACT_PUSH_OFFSETS.incoming");
+    expect(navigationSource).toContain("COMPACT_PUSH_OFFSETS.covered");
+    expect(navigationSource).toContain(
+      "data-push-motion={motionProfile}"
+    );
+    expect(navigationSource).toContain("MOTION_SPRING.navigation");
+    expect(navigationSource).toMatch(
+      /compactCovered\s*\?\s*0\s*:\s*PUSH_DEPTH_OPACITY/
+    );
+    expect(pageCss).toMatch(
+      /\.pushSurface\[data-push-motion="compact"\]\s*\{[^}]*box-shadow:\s*none;/s
+    );
+    expect(pageCss).not.toMatch(
+      /\.pushSurface\s*\{[^}]*box-shadow:\s*none;/s
     );
   });
 });
