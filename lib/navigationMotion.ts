@@ -7,6 +7,19 @@ export const NAVIGATION_TABS = [
 export type NavigationTab = (typeof NAVIGATION_TABS)[number];
 export type NavigationSurfaceState = "before" | "active" | "after";
 
+export const COMPACT_PUSH_OFFSETS = {
+  incoming: 22,
+  covered: -12,
+} as const;
+
+export type PushMotionProfile = "depth" | "compact";
+
+export function getPushMotionProfile(
+  route: string | undefined
+): PushMotionProfile {
+  return route === "ai-provider-configure" ? "compact" : "depth";
+}
+
 export function getNavigationTabIndex(tab: NavigationTab): number {
   return NAVIGATION_TABS.indexOf(tab);
 }
@@ -34,7 +47,7 @@ export function getRootTabOffsets(
   }
 
   return {
-    outgoing: direction * -12,
-    incoming: direction * 22,
+    outgoing: direction * COMPACT_PUSH_OFFSETS.covered,
+    incoming: direction * COMPACT_PUSH_OFFSETS.incoming,
   };
 }

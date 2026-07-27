@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  COMPACT_PUSH_OFFSETS,
+  getPushMotionProfile,
   getRootTabOffsets,
   getNavigationSurfaceState,
   getNavigationTabIndex,
@@ -30,6 +32,22 @@ describe("navigation motion", () => {
     expect(getRootTabOffsets("reading", "reading")).toEqual({
       outgoing: 0,
       incoming: 0,
+    });
+  });
+
+  it("uses compact navigation motion only for provider configuration", () => {
+    expect(getPushMotionProfile("ai-provider-configure")).toBe("compact");
+    expect(getPushMotionProfile("ai-providers")).toBe("depth");
+    expect(getPushMotionProfile("collections")).toBe("depth");
+    expect(getPushMotionProfile("custom-background")).toBe("depth");
+    expect(getPushMotionProfile(undefined)).toBe("depth");
+  });
+
+  it("shares root navigation travel distances with compact pushes", () => {
+    expect(COMPACT_PUSH_OFFSETS).toEqual({ incoming: 22, covered: -12 });
+    expect(getRootTabOffsets("library", "settings")).toEqual({
+      outgoing: COMPACT_PUSH_OFFSETS.covered,
+      incoming: COMPACT_PUSH_OFFSETS.incoming,
     });
   });
 });
