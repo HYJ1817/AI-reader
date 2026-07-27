@@ -30,7 +30,8 @@ describe("pushed application surfaces", () => {
     expect(stackSource).toContain("AnimatePresence");
     expect(stackSource).toContain('x: "100%"');
     expect(stackSource).toContain('"-30%"');
-    expect(stackSource).toContain("brightness(0.94)");
+    expect(stackSource).toContain("pushDepthOverlay");
+    expect(stackSource).not.toContain("brightness(0.94)");
     expect(stackSource).toContain("useAppReducedMotion");
     expect(stackSource).toContain("styles.rootParallaxLayer");
   });
