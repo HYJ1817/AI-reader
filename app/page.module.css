@@ -194,7 +194,17 @@
 }
 
 .rootParallaxLayer {
+  position: relative;
   min-height: 100%;
+}
+
+.pushDepthOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 1);
+  opacity: 0;
 }
 
 .libraryPage {
@@ -6510,17 +6520,17 @@
   background: color-mix(in srgb, var(--tint) 9%, var(--surface-primary));
 }
 
-.providerPresetButton .providerChoiceIcon {
+.providerPresetButton > span:first-child {
   width: 36px;
   height: 36px;
   border-radius: 10px;
 }
 
-.providerPresetButton:active .providerChoiceIcon {
+.providerPresetButton:active > span:first-child {
   transform: scale(0.94);
 }
 
-.providerPresetButton[data-selected="true"] .providerChoiceIcon {
+.providerPresetButton[data-selected="true"] > span:first-child {
   transform: scale(1);
 }
 
@@ -6962,6 +6972,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .pushDepthOverlay,
   .tocTabIndicator,
   .providerChoiceIcon,
   .providerModelCheck,

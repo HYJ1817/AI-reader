@@ -22,8 +22,8 @@ describe("push surface motion integration", () => {
   });
 
   it("removes depth interpolation for reduced motion", () => {
-    expect(navigationSource).toContain(
-      "reduceMotion || pushDepth === 0 ? 0 : PUSH_DEPTH_OPACITY"
+    expect(navigationSource).toMatch(
+      /reduceMotion\s*\|\|\s*pushDepth\s*===\s*0\s*\?\s*0\s*:\s*PUSH_DEPTH_OPACITY/
     );
     expect(pageCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.pushDepthOverlay\s*\{[\s\S]*?transition:\s*none/

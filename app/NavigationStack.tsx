@@ -61,6 +61,8 @@ type EdgeBackSettle = {
   target: number;
 };
 
+const PUSH_DEPTH_OPACITY = 0.06;
+
 const NavigationStackContext =
   createContext<NavigationStackContextValue | null>(null);
 
@@ -206,10 +208,10 @@ export function NavigationRoot({
     [0, 1],
     ["-30%", "0%"]
   );
-  const edgePreviousBrightness = useTransform(
+  const edgePreviousOverlayOpacity = useTransform(
     context.edgeBackProgress,
     [0, 1],
-    ["brightness(0.94)", "brightness(1)"]
+    [PUSH_DEPTH_OPACITY, 0]
   );
   const active = tab === activeTab;
   const interactive = active && pushDepth === 0 && !readerPresented;
@@ -263,20 +265,14 @@ export function NavigationRoot({
                     context.edgeBackSettleMode === "complete"
                       ? "0%"
                       : "-30%",
-                  filter:
-                    context.edgeBackSettleMode === "complete"
-                      ? "brightness(1)"
-                      : "brightness(0.94)",
                 }
-            : {
-                x: reduceMotion || pushDepth === 0 ? "0%" : "-30%",
-                filter:
-                  pushDepth > 0 ? "brightness(0.94)" : "brightness(1)",
-              }
+              : {
+                  x: reduceMotion || pushDepth === 0 ? "0%" : "-30%",
+                }
         }
         style={
           trackingPrevious
-            ? { x: edgePreviousX, filter: edgePreviousBrightness }
+            ? { x: edgePreviousX }
             : undefined
         }
         transition={
@@ -291,6 +287,45 @@ export function NavigationRoot({
         }
       >
         {children}
+        <m.div
+          className={styles.pushDepthOverlay}
+          aria-hidden="true"
+          initial={false}
+          animate={
+            trackingPrevious
+              ? undefined
+              : settlingPrevious
+                ? {
+                    opacity:
+                      reduceMotion ||
+                      context.edgeBackSettleMode === "complete"
+                        ? 0
+                        : PUSH_DEPTH_OPACITY,
+                  }
+                : {
+                    opacity:
+                      reduceMotion || pushDepth === 0
+                        ? 0
+                        : PUSH_DEPTH_OPACITY,
+                  }
+          }
+          style={
+            trackingPrevious
+              ? { opacity: edgePreviousOverlayOpacity }
+              : undefined
+          }
+          transition={
+            reduceMotion
+              ? { duration: MOTION_DURATION.reduced }
+              : settlingPrevious &&
+                  context.edgeBackSettleMode === "complete"
+                ? {
+                    duration: MOTION_DURATION.gestureSettle,
+                    ease: [0.32, 0.72, 0, 1],
+                  }
+                : MOTION_SPRING.navigation
+          }
+        />
       </m.div>
     </m.section>
   );
@@ -342,10 +377,10 @@ function PushLayer({
     [0, 1],
     ["-30%", "0%"]
   );
-  const edgePreviousBrightness = useTransform(
+  const edgePreviousOverlayOpacity = useTransform(
     edgeBackProgress,
     [0, 1],
-    ["brightness(0.94)", "brightness(1)"]
+    [PUSH_DEPTH_OPACITY, 0]
   );
 
   function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
@@ -437,7 +472,7 @@ function PushLayer({
   const edgeStyle = trackingTop
     ? { x: edgeBackX }
     : trackingPrevious
-      ? { x: edgePreviousX, filter: edgePreviousBrightness }
+      ? { x: edgePreviousX }
       : {};
 
   const settlingTarget = edgeBackSettle?.target ?? 0;
@@ -451,20 +486,16 @@ function PushLayer({
       animate={{
         opacity: visible ? 1 : 0,
         ...(settlingTop
-          ? { x: settlingTarget, filter: "brightness(1)" }
+          ? { x: settlingTarget }
           : settlingPrevious
             ? {
                 x: settlingComplete ? "0%" : "-30%",
-                filter: settlingComplete
-                  ? "brightness(1)"
-                  : "brightness(0.94)",
               }
-          : trackingTop || trackingPrevious
-          ? {}
-          : {
-              x: reduceMotion ? 0 : top ? 0 : "-30%",
-              filter: top ? "brightness(1)" : "brightness(0.94)",
-            }),
+            : trackingTop || trackingPrevious
+              ? {}
+              : {
+                  x: reduceMotion ? 0 : top ? 0 : "-30%",
+                }),
       }}
       exit={reduceMotion ? { opacity: 0, x: 0 } : { opacity: 1, x: "100%" }}
       transition={
@@ -500,6 +531,43 @@ function PushLayer({
       {...(!interactive ? { inert: true } : {})}
     >
       {children}
+      <m.div
+        className={styles.pushDepthOverlay}
+        aria-hidden="true"
+        initial={false}
+        animate={
+          trackingPrevious
+            ? undefined
+            : settlingPrevious
+              ? {
+                  opacity:
+                    reduceMotion || settlingComplete
+                      ? 0
+                      : PUSH_DEPTH_OPACITY,
+                }
+              : {
+                  opacity:
+                    reduceMotion || distanceFromTop === 0
+                      ? 0
+                      : PUSH_DEPTH_OPACITY,
+                }
+        }
+        style={
+          trackingPrevious
+            ? { opacity: edgePreviousOverlayOpacity }
+            : undefined
+        }
+        transition={
+          reduceMotion
+            ? { duration: MOTION_DURATION.reduced }
+            : settlingPrevious && settlingComplete
+              ? {
+                  duration: MOTION_DURATION.gestureSettle,
+                  ease: [0.32, 0.72, 0, 1],
+                }
+              : MOTION_SPRING.navigation
+        }
+      />
       {interactive && (
         <div
           className={styles.edgeBackGestureRegion}
