@@ -1062,6 +1062,56 @@ test("AI provider configuration remains usable at 200 percent text", async ({
   await capture(page, testInfo, "ai-provider-configure-text-200");
 });
 
+test("AI provider configuration follows app appearance themes", async ({
+  page,
+}, testInfo) => {
+  await openAiProviderList(page);
+  await page.getByRole("button", { name: "添加 AI 服务商" }).click();
+  await waitForHorizontalSettle(
+    page,
+    '[data-push-route="ai-provider-configure"]'
+  );
+  await hideNextDevIndicator(page);
+
+  const app = page.locator('[data-app-shell="true"]');
+  const configure = page.locator('[data-provider-configure="true"]');
+  const backgrounds: string[] = [];
+  const presetLabels = configure.locator(
+    '[data-provider-preset-grid="true"] button > span:nth-child(2)'
+  );
+  await expect(presetLabels).toHaveCount(5);
+  expect(
+    await presetLabels.evaluateAll((labels) =>
+      labels.every((label) => label.scrollWidth <= label.clientWidth)
+    )
+  ).toBe(true);
+  for (const theme of ["light", "sepia", "dark"] as const) {
+    await app.evaluate((element, nextTheme) => {
+      element.setAttribute("data-reader-theme", nextTheme);
+    }, theme);
+    const background = await configure.evaluate(
+      (element) => getComputedStyle(element).backgroundColor
+    );
+    backgrounds.push(background);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth
+      )
+    ).toBeLessThanOrEqual(1);
+    await capture(page, testInfo, `ai-provider-configure-theme-${theme}`);
+  }
+  expect(new Set(backgrounds).size).toBe(3);
+
+  await page.emulateMedia({ colorScheme: "dark" });
+  await app.evaluate((element) => {
+    element.removeAttribute("data-reader-theme");
+  });
+  await expect(configure).toBeVisible();
+  await capture(page, testInfo, "ai-provider-configure-theme-system-dark");
+});
+
 test("all pushed routes mount and return through history", async ({ page }) => {
   const routes: Array<{ route: PushRoute; entityId?: string }> = [
     { route: "collections" },

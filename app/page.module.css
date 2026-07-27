@@ -6492,10 +6492,11 @@
 }
 
 .providerPresetButton {
+  position: relative;
   min-width: 0;
   min-height: 58px;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 18px;
+  grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
@@ -6549,6 +6550,9 @@
 }
 
 .providerPresetCheck {
+  position: absolute;
+  top: 6px;
+  right: 7px;
   min-width: 18px;
   color: var(--tint);
   font-size: 1rem;
