@@ -27,12 +27,23 @@ type SheetRoute =
   | "batch-delete"
   | "collection-create";
 
+type ProviderTransitionMetrics = {
+  clickToMount: number;
+  frames: number;
+  p95: number;
+  maxInterval: number;
+  maxLongTask: number;
+  layoutShift: number;
+};
+
 const sampleText = readFileSync(
   path.resolve(process.cwd(), "e2e/fixtures/sample.txt"),
   "utf8"
 );
 const libraryRootSelector =
   '[data-navigation-root="library"][aria-hidden="false"]';
+const settingsRootSelector =
+  '[data-navigation-root="settings"][aria-hidden="false"]';
 const primaryNavigationName = /\u4e3b\u8981\u5bfc\u822a/;
 
 function wcagContrastRatio(foreground: string, background: string) {
@@ -116,6 +127,19 @@ async function openCollections(page: Page) {
   await expect(page.locator('[data-push-route="collections"]')).toBeVisible();
 }
 
+async function openAiProviderList(page: Page) {
+  const navigation = page.getByRole("navigation", {
+    name: primaryNavigationName,
+  });
+  await navigation.locator('[data-navigation-tab="settings"]').click();
+  await expect(page.locator(settingsRootSelector)).toBeVisible();
+  await page
+    .locator(settingsRootSelector)
+    .getByRole("button", { name: /AI 服务商/ })
+    .click();
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+}
+
 async function waitForHorizontalSettle(page: Page, selector: string) {
   await expect
     .poll(async () =>
@@ -140,6 +164,113 @@ async function waitForVerticalSettle(page: Page, selector: string) {
       })
     )
     .toBeLessThanOrEqual(1);
+}
+
+async function collectProviderTransitionMetrics(
+  page: Page
+): Promise<ProviderTransitionMetrics> {
+  return page.evaluate(
+    () =>
+      new Promise<ProviderTransitionMetrics>((resolve, reject) => {
+        const intervals: number[] = [];
+        const longTasks: number[] = [];
+        let layoutShift = 0;
+        let clickedAt: number | null = null;
+        let mountedAt: number | null = null;
+        let previous = performance.now();
+
+        if (
+          !PerformanceObserver.supportedEntryTypes.includes("longtask") ||
+          !PerformanceObserver.supportedEntryTypes.includes("layout-shift")
+        ) {
+          reject(
+            new Error("Required PerformanceObserver entry type is unavailable")
+          );
+          return;
+        }
+
+        const longTaskObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            longTasks.push(entry.duration);
+          }
+        });
+        longTaskObserver.observe({ entryTypes: ["longtask"] });
+
+        const layoutShiftObserver = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            layoutShift += (entry as PerformanceEntry & { value: number }).value;
+          }
+        });
+        layoutShiftObserver.observe({ entryTypes: ["layout-shift"] });
+
+        const mountObserver = new MutationObserver(() => {
+          if (
+            clickedAt !== null &&
+            mountedAt === null &&
+            document.querySelector('[data-provider-configure="true"]')
+          ) {
+            mountedAt = performance.now();
+          }
+        });
+        mountObserver.observe(document.body, { childList: true, subtree: true });
+
+        const timeout = window.setTimeout(() => {
+          cleanup();
+          reject(new Error("Provider transition did not finish within 1500ms"));
+        }, 1500);
+
+        function cleanup() {
+          window.clearTimeout(timeout);
+          document.removeEventListener("click", handleClick, true);
+          mountObserver.disconnect();
+          longTaskObserver.disconnect();
+          layoutShiftObserver.disconnect();
+        }
+
+        function handleClick(event: MouseEvent) {
+          const target = event.target;
+          if (
+            clickedAt !== null ||
+            !(target instanceof Element) ||
+            !target.closest('[data-open-provider-configure="true"]')
+          ) {
+            return;
+          }
+
+          clickedAt = performance.now();
+          previous = clickedAt;
+
+          const sample = (now: number) => {
+            intervals.push(now - previous);
+            previous = now;
+            if (now - clickedAt! < 700) {
+              requestAnimationFrame(sample);
+              return;
+            }
+
+            cleanup();
+            if (mountedAt === null) {
+              reject(new Error("Provider configure surface never mounted"));
+              return;
+            }
+
+            const sorted = [...intervals].sort((a, b) => a - b);
+            const p95Index = Math.max(0, Math.ceil(sorted.length * 0.95) - 1);
+            resolve({
+              clickToMount: mountedAt - clickedAt!,
+              frames: intervals.length,
+              p95: sorted[p95Index] ?? 0,
+              maxInterval: Math.max(...intervals),
+              maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
+              layoutShift,
+            });
+          };
+          requestAnimationFrame(sample);
+        }
+
+        document.addEventListener("click", handleClick, true);
+      })
+  );
 }
 
 async function injectPush(
@@ -811,6 +942,73 @@ test("reader horizontal gestures never trigger application edge back", async ({
 
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   await expect(page.locator('[data-push-route="collections"]')).toHaveCount(1);
+});
+
+test("AI provider configure transition stays within mobile frame budgets", async ({
+  page,
+}, testInfo) => {
+  await openAiProviderList(page);
+  const add = page.getByRole("button", { name: "添加 AI 服务商" });
+  await expect(add).toBeVisible();
+
+  const metricsPromise = collectProviderTransitionMetrics(page);
+  await page.waitForTimeout(40);
+  await add.click();
+  const metrics = await metricsPromise;
+
+  await expect(page.locator('[data-provider-configure="true"]')).toBeVisible();
+  await expect(page.locator('[data-provider-preset-grid="true"]')).toBeVisible();
+  await testInfo.attach("ai-provider-transition.json", {
+    body: JSON.stringify({ project: testInfo.project.name, ...metrics }, null, 2),
+    contentType: "application/json",
+  });
+
+  expect(metrics.clickToMount).toBeLessThanOrEqual(34);
+  expect(metrics.frames).toBeGreaterThanOrEqual(40);
+  expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.maxInterval).toBeLessThanOrEqual(34);
+  expect(metrics.maxLongTask).toBe(0);
+  expect(metrics.layoutShift).toBe(0);
+});
+
+test("AI provider configuration remains usable at 200 percent text", async ({
+  page,
+}, testInfo) => {
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  await openAiProviderList(page);
+  await page.getByRole("button", { name: "添加 AI 服务商" }).click();
+
+  const configure = page.locator('[data-provider-configure="true"]');
+  const picker = page.locator('[data-provider-preset-grid="true"]');
+  await expect(configure).toBeVisible();
+  await expect(picker.getByRole("button")).toHaveCount(5);
+  await expect(configure.getByText("名称", { exact: true })).toBeVisible();
+  await expect(configure.getByText("API Key", { exact: true })).toBeVisible();
+  await expect(configure.getByText("API 地址", { exact: true })).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const buttons = Array.from(
+      document.querySelectorAll('[data-provider-preset-grid="true"] button')
+    );
+    const saveRegion = document.querySelector(
+      '[data-provider-sticky-actions="true"]'
+    );
+    return {
+      rootOverflow:
+        document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      bodyOverflow: document.body.scrollWidth - document.body.clientWidth,
+      presetsInViewport: buttons.every((button) => {
+        const rect = button.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= window.innerWidth;
+      }),
+      savePosition: saveRegion ? getComputedStyle(saveRegion).position : "missing",
+    };
+  });
+  expect(layout.rootOverflow).toBeLessThanOrEqual(1);
+  expect(layout.bodyOverflow).toBeLessThanOrEqual(1);
+  expect(layout.presetsInViewport).toBe(true);
+  expect(layout.savePosition).toBe("sticky");
+  await capture(page, testInfo, "ai-provider-configure-text-200");
 });
 
 test("all pushed routes mount and return through history", async ({ page }) => {
