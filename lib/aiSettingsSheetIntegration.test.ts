@@ -15,8 +15,11 @@ describe("AI settings provider surface", () => {
     expect(aiSettingsSource).toContain("AI_PROVIDER_PRESETS.map");
     expect(aiSettingsSource).toContain("changeProviderKind");
     expect(aiSettingsSource).toContain("preset.iconLabel");
-    expect(aiSettingsSource).toContain('aria-pressed={draft.kind === preset.kind}');
-    expect(aiSettingsSource).toContain('data-selected={draft.kind === preset.kind ? "true" : undefined}');
+    expect(aiSettingsSource).toContain("const selected = draft.kind === preset.kind");
+    expect(aiSettingsSource).toContain("aria-pressed={selected}");
+    expect(aiSettingsSource).toContain(
+      'data-selected={selected ? "true" : undefined}'
+    );
     expect(aiSettingsSource).toContain('aria-pressed={draft.model === model.id}');
     expect(aiSettingsSource).toContain('data-selected={draft.model === model.id ? "true" : undefined}');
 
@@ -40,9 +43,7 @@ describe("AI settings provider surface", () => {
   });
 
   it("keeps native provider and model selection semantics", () => {
-    expect(aiSettingsSource).toContain(
-      'aria-pressed={draft.kind === preset.kind}'
-    );
+    expect(aiSettingsSource).toContain("aria-pressed={selected}");
     expect(aiSettingsSource).toContain(
       'aria-pressed={draft.model === model.id}'
     );
