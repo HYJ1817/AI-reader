@@ -215,7 +215,7 @@ describe("shared sheet trace probe", () => {
     expect(baseline.executedProbeSha256).toBeNull();
     expect(candidate.executedProbeSha256).toBeNull();
     const permanentProbeSha256 = createHash("sha256")
-      .update(readFileSync(probePath))
+      .update(readFileSync(probePath, "utf8").replace(/\r\n/g, "\n"))
       .digest("hex");
     expect(baseline.permanentProbe.sha256AtPreservation).toBe(
       permanentProbeSha256
