@@ -33,7 +33,8 @@ describe("shared reader presentation integration", () => {
     expect(transitionSource).toContain('data-reader-presented="true"');
     expect(transitionSource).toContain("closest<HTMLButtonElement>");
     expect(transitionSource).not.toContain("EpubReader");
-    expect(stackSource).toContain("active && !readerPresented ? 1 : 0");
+    expect(stackSource).toContain("const coveredOpacity =");
+    expect(stackSource).toContain("active && !readerPresented");
   });
 
   it("restores focus from current refs after an exit callback closes over old props", () => {
