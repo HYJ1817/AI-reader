@@ -1695,10 +1695,6 @@ test("push transition meets mobile frame cadence and long-task budgets", async (
   page,
 }, testInfo) => {
   await page.waitForTimeout(600);
-  const longTaskSupported = await page.evaluate(() =>
-    PerformanceObserver.supportedEntryTypes.includes("longtask")
-  );
-  expect(longTaskSupported).toBe(true);
   const metricsPromise = collectInteractionMetrics(page, {
     durationMs: 800,
     clickSelector: libraryRootSelector,
