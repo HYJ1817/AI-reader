@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import {
@@ -40,6 +40,13 @@ test("interaction probe records root retargeting without layout shift", async ({
 
   const metrics = await metricsPromise;
   await attachInteractionMetrics(testInfo, "root-retarget-baseline", metrics);
+  const evidencePath = testInfo.outputPath("root-retarget-baseline.json");
+
+  expect(existsSync(evidencePath)).toBe(true);
+  expect(JSON.parse(readFileSync(evidencePath, "utf8"))).toEqual({
+    project: testInfo.project.name,
+    metrics,
+  });
 
   expect(metrics.frames).toBeGreaterThan(20);
   expect(metrics.maxLongTask).toBe(0);

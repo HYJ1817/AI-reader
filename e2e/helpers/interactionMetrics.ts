@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import type { Page, TestInfo } from "@playwright/test";
 
 export type InteractionMetrics = {
@@ -26,8 +28,11 @@ export async function collectInteractionMetrics(
     let clickedAt: number | null = null;
     let mountedAt: number | null = null;
     let previousFrame = performance.now();
-    let animationFrame = 0;
+    let animationFrame: number | null = null;
     const observers: PerformanceObserver[] = [];
+    let mutationObserver: MutationObserver | undefined;
+    let mutationObserved = false;
+    let clickListenerRegistered = false;
 
     const handleEntries = (entries: PerformanceEntryList) => {
       for (const entry of entries) {
@@ -41,6 +46,7 @@ export async function collectInteractionMetrics(
 
     const recordMount = () => {
       if (
+        clickedAt !== null &&
         mountedAt === null &&
         mountSelector &&
         document.querySelector(mountSelector)
@@ -49,7 +55,6 @@ export async function collectInteractionMetrics(
       }
     };
 
-    const mutationObserver = new MutationObserver(recordMount);
     const clickListener = (event: MouseEvent) => {
       if (
         clickedAt === null &&
@@ -58,27 +63,31 @@ export async function collectInteractionMetrics(
         event.target.closest(clickSelector)
       ) {
         clickedAt = performance.now();
+        recordMount();
       }
     };
 
-    for (const entryType of ["longtask", "layout-shift"] as const) {
-      if (!PerformanceObserver.supportedEntryTypes.includes(entryType)) {
-        continue;
-      }
-      const observer = new PerformanceObserver((list) => {
-        handleEntries(list.getEntries());
-      });
-      observer.observe({ entryTypes: [entryType] });
-      observers.push(observer);
-    }
-
-    mutationObserver.observe(document.body, { childList: true, subtree: true });
-    recordMount();
-    if (clickSelector) {
-      document.addEventListener("click", clickListener, true);
-    }
-
     try {
+      mutationObserver = new MutationObserver(recordMount);
+      for (const entryType of ["longtask", "layout-shift"] as const) {
+        if (!PerformanceObserver.supportedEntryTypes.includes(entryType)) {
+          continue;
+        }
+        const observer = new PerformanceObserver((list) => {
+          handleEntries(list.getEntries());
+        });
+        observer.observe({ entryTypes: [entryType] });
+        observers.push(observer);
+      }
+
+      mutationObserver.observe(document.body, { childList: true, subtree: true });
+      mutationObserved = true;
+      recordMount();
+      if (clickSelector) {
+        document.addEventListener("click", clickListener, true);
+        clickListenerRegistered = true;
+      }
+
       await new Promise<void>((resolve) => {
         const startedAt = performance.now();
         const sample = (now: number) => {
@@ -93,14 +102,26 @@ export async function collectInteractionMetrics(
         animationFrame = requestAnimationFrame(sample);
       });
     } finally {
-      cancelAnimationFrame(animationFrame);
-      if (clickSelector) {
-        document.removeEventListener("click", clickListener, true);
+      const safely = (operation: () => void) => {
+        try {
+          operation();
+        } catch {
+          // Cleanup errors must not hide a sampler setup or execution error.
+        }
+      };
+
+      if (animationFrame !== null) {
+        safely(() => cancelAnimationFrame(animationFrame!));
       }
-      mutationObserver.disconnect();
+      if (clickListenerRegistered) {
+        safely(() => document.removeEventListener("click", clickListener, true));
+      }
+      if (mutationObserved) {
+        safely(() => mutationObserver?.disconnect());
+      }
       for (const observer of observers) {
-        handleEntries(observer.takeRecords());
-        observer.disconnect();
+        safely(() => handleEntries(observer.takeRecords()));
+        safely(() => observer.disconnect());
       }
     }
 
@@ -123,12 +144,15 @@ export async function attachInteractionMetrics(
   name: string,
   metrics: InteractionMetrics
 ) {
+  const evidencePath = testInfo.outputPath(`${name}.json`);
+  await mkdir(path.dirname(evidencePath), { recursive: true });
+  await writeFile(
+    evidencePath,
+    JSON.stringify({ project: testInfo.project.name, metrics }, null, 2),
+    "utf8"
+  );
   await testInfo.attach(`${name}.json`, {
-    body: JSON.stringify(
-      { project: testInfo.project.name, metrics },
-      null,
-      2
-    ),
+    path: evidencePath,
     contentType: "application/json",
   });
 }

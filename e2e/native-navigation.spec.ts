@@ -1130,6 +1130,7 @@ test("AI provider configure transition stays within mobile frame budgets", async
     contentType: "application/json",
   });
 
+  expect(metrics.clickToMount).toBeGreaterThanOrEqual(0);
   expect(metrics.clickToMount).toBeLessThanOrEqual(34);
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
   expect(metrics.p95).toBeLessThanOrEqual(20);
@@ -1584,6 +1585,7 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
   await attachInteractionMetrics(testInfo, "book-sheet-performance", metrics);
 
   expect(metrics.clickToMount).not.toBeNull();
+  expect(metrics.clickToMount ?? -1).toBeGreaterThanOrEqual(0);
   expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(34);
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
   expect(metrics.p95Frame).toBeLessThanOrEqual(20);
