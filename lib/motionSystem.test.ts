@@ -17,6 +17,10 @@ const appMotionRootSource = readFileSync(
   new URL("../app/AppMotionRoot.tsx", import.meta.url),
   "utf8"
 );
+const motionLifecycleSource = readFileSync(
+  new URL("./motionLifecycle.ts", import.meta.url),
+  "utf8"
+);
 
 function createMatchMediaHarness(initialMatches: boolean) {
   let matches = initialMatches;
@@ -201,6 +205,7 @@ describe("motion runtime root", () => {
     expect(appMotionRootSource).toContain("useAppMotionPolicy");
     expect(appMotionRootSource).toContain("useAppReducedMotion");
     expect(appMotionRootSource).toContain("useAppMotionLifecycle");
+    expect(appMotionRootSource).toContain("subscribeMotionLifecycle");
     expect(appMotionRootSource).toContain('"always" : "never"');
     expect(appMotionRootSource).not.toContain("domAnimation");
 
@@ -210,13 +215,21 @@ describe("motion runtime root", () => {
       "visibilitychange",
       "orientationchange",
     ]) {
-      expect(appMotionRootSource).toContain(`"${eventName}"`);
+      expect(motionLifecycleSource).toContain(`"${eventName}"`);
     }
 
     const rootMotionTags =
       appMotionRootSource.match(/<(?:MotionConfig|LayoutGroup)\b[^>]*>/g) ?? [];
     expect(rootMotionTags).toHaveLength(2);
     expect(rootMotionTags).not.toContainEqual(expect.stringMatching(/\bkey\s*=/));
+
+    expect(appMotionRootSource).toMatch(
+      /<LayoutGroup id="ai-reader-app">\s*<MotionLifecycleProvider>/
+    );
+    const appMotionRootDefinition = appMotionRootSource.slice(
+      appMotionRootSource.indexOf("export default function AppMotionRoot")
+    );
+    expect(appMotionRootDefinition).not.toContain("useReducer(");
   });
 });
 

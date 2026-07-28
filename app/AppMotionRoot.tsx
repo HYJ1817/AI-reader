@@ -5,13 +5,16 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useReducer,
+  useRef,
   useSyncExternalStore,
   type ReactNode,
 } from "react";
 import {
   createMotionLifecycleState,
   reduceMotionLifecycle,
+  subscribeMotionLifecycle,
   type MotionLifecycleState,
 } from "@/lib/motionLifecycle";
 import {
@@ -53,11 +56,39 @@ export function useAppMotionLifecycle(): MotionLifecycleState {
   return lifecycle;
 }
 
-export default function AppMotionRoot({ reduceMotion, children }: { reduceMotion: boolean; children: ReactNode }) {
+function MotionLifecycleProvider({ children }: { children: ReactNode }) {
   const [motionLifecycle, dispatchMotionLifecycle] = useReducer(
     reduceMotionLifecycle,
     createMotionLifecycleState()
   );
+  const lifecycleRef = useRef(motionLifecycle);
+
+  useLayoutEffect(() => {
+    lifecycleRef.current = motionLifecycle;
+  }, [motionLifecycle]);
+
+  useEffect(
+    () =>
+      subscribeMotionLifecycle({
+        windowTarget: window,
+        documentTarget: document,
+        dispatch(event) {
+          lifecycleRef.current = reduceMotionLifecycle(lifecycleRef.current, event);
+          dispatchMotionLifecycle(event);
+        },
+        getSuspended: () => lifecycleRef.current.suspended,
+      }),
+    []
+  );
+
+  return (
+    <AppMotionLifecycleContext.Provider value={motionLifecycle}>
+      {children}
+    </AppMotionLifecycleContext.Provider>
+  );
+}
+
+export default function AppMotionRoot({ reduceMotion, children }: { reduceMotion: boolean; children: ReactNode }) {
   const systemPreference = useSyncExternalStore(
     systemMotionPreferenceStore.subscribe,
     systemMotionPreferenceStore.getSnapshot,
@@ -65,42 +96,15 @@ export default function AppMotionRoot({ reduceMotion, children }: { reduceMotion
   );
   const motionPolicy = getMotionPolicy(reduceMotion, systemPreference);
 
-  useEffect(() => {
-    const suspend = () => dispatchMotionLifecycle({ type: "suspend" });
-    const resume = () => dispatchMotionLifecycle({ type: "resume" });
-    const updateVisibility = () => {
-      if (document.hidden) {
-        suspend();
-      } else {
-        resume();
-      }
-    };
-    const invalidateViewport = () =>
-      dispatchMotionLifecycle({ type: "viewport-change" });
-
-    window.addEventListener("pagehide", suspend);
-    window.addEventListener("pageshow", resume);
-    document.addEventListener("visibilitychange", updateVisibility);
-    window.addEventListener("orientationchange", invalidateViewport);
-    updateVisibility();
-
-    return () => {
-      window.removeEventListener("pagehide", suspend);
-      window.removeEventListener("pageshow", resume);
-      document.removeEventListener("visibilitychange", updateVisibility);
-      window.removeEventListener("orientationchange", invalidateViewport);
-    };
-  }, []);
-
   return (
-    <AppMotionLifecycleContext.Provider value={motionLifecycle}>
-      <AppMotionPolicyContext.Provider value={motionPolicy}>
-        <LazyMotion features={domMax} strict>
-          <MotionConfig reducedMotion={motionPolicy === "reduced" ? "always" : "never"}>
-            <LayoutGroup id="ai-reader-app">{children}</LayoutGroup>
-          </MotionConfig>
-        </LazyMotion>
-      </AppMotionPolicyContext.Provider>
-    </AppMotionLifecycleContext.Provider>
+    <AppMotionPolicyContext.Provider value={motionPolicy}>
+      <LazyMotion features={domMax} strict>
+        <MotionConfig reducedMotion={motionPolicy === "reduced" ? "always" : "never"}>
+          <LayoutGroup id="ai-reader-app">
+            <MotionLifecycleProvider>{children}</MotionLifecycleProvider>
+          </LayoutGroup>
+        </MotionConfig>
+      </LazyMotion>
+    </AppMotionPolicyContext.Provider>
   );
 }
