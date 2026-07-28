@@ -181,29 +181,34 @@ export function reduceAppNavigation(
       const invalidPushIndex = state.pushes.findIndex(
         (entry) => entry.key === action.key
       );
-      const pushes =
-        invalidPushIndex === -1
-          ? state.pushes
-          : state.pushes.slice(0, invalidPushIndex);
-      const reader =
-        state.reader?.key === action.key ? null : state.reader;
+      if (invalidPushIndex !== -1) {
+        return next(
+          state,
+          {
+            pushes: state.pushes.slice(0, invalidPushIndex),
+            reader: null,
+            sheets: [],
+          },
+          "backward"
+        );
+      }
+
+      if (state.reader?.key === action.key) {
+        return next(state, { reader: null, sheets: [] }, "backward");
+      }
+
       const invalidSheetIndex = state.sheets.findIndex(
         (entry) => entry.key === action.key
       );
-      const sheets =
-        invalidSheetIndex === -1
-          ? state.sheets
-          : state.sheets.slice(0, invalidSheetIndex);
-
-      if (
-        pushes.length === state.pushes.length &&
-        reader === state.reader &&
-        sheets.length === state.sheets.length
-      ) {
-        return state;
+      if (invalidSheetIndex !== -1) {
+        return next(
+          state,
+          { sheets: state.sheets.slice(0, invalidSheetIndex) },
+          "backward"
+        );
       }
 
-      return next(state, { pushes, reader, sheets }, "backward");
+      return state;
     }
   }
 }

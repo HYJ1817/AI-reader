@@ -6,7 +6,10 @@ import {
   type AppNavigationAction,
 } from "./appNavigation";
 import { createAppNavigationStore } from "./appNavigationStore";
-import { dismissSheetStackWithHistory } from "../app/useAppNavigation";
+import {
+  dismissSheetStackWithHistory,
+  removeInvalidWithHistory,
+} from "../app/useAppNavigation";
 import {
   decodeNavigationHistory,
   encodeNavigationHistory,
@@ -83,6 +86,46 @@ function createFakeHistory(state: unknown) {
     goCalls,
     replaceCalls,
   };
+}
+
+function createMemoryHistory(entries: unknown[], initialCursor: number) {
+  let cursor = initialCursor;
+  const goCalls: number[] = [];
+  const replaceCalls: Array<[unknown, string]> = [];
+
+  return {
+    history: {
+      get state() {
+        return entries[cursor];
+      },
+      go(delta?: number) {
+        const requestedCursor = cursor + (delta ?? 0);
+        cursor = Math.min(entries.length - 1, Math.max(0, requestedCursor));
+        goCalls.push(delta ?? 0);
+      },
+      replaceState(nextState: unknown, title: string) {
+        entries[cursor] = nextState;
+        replaceCalls.push([nextState, title]);
+      },
+    },
+    cursor: () => cursor,
+    goCalls,
+    replaceCalls,
+  };
+}
+
+function restoreMemoryHistory(
+  store: ReturnType<typeof createAppNavigationStore>,
+  history: ReturnType<typeof createMemoryHistory>
+) {
+  const restoredState = decodeNavigationHistory(history.history.state);
+  if (!restoredState) throw new Error("expected a navigation history state");
+  store.setState(
+    reduceAppNavigation(store.getState(), {
+      type: "restore",
+      state: restoredState,
+    })
+  );
 }
 
 describe("app navigation store", () => {
@@ -349,6 +392,107 @@ describe("app navigation store", () => {
       sheets: [],
       direction: "backward",
     });
+  });
+
+  it("aligns sheet invalidation with its retained history prefix", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const h3 = reduceAppNavigation(h2, {
+      type: "present-sheet",
+      entry: { key: "sheet-3", kind: "sheet", route: "book-delete" },
+    });
+    const store = createAppNavigationStore(h3);
+    const history = createMemoryHistory(
+      [h0, h1, h2, h3].map(encodeNavigationHistory),
+      3
+    );
+
+    removeInvalidWithHistory(store, "sheet-3", history.history);
+
+    expect(history.goCalls).toEqual([-1]);
+    expect(history.cursor()).toBe(2);
+    restoreMemoryHistory(store, history);
+    expect(store.getState().sheets.map((sheet) => sheet.key)).toEqual([
+      "sheet-1",
+      "sheet-2",
+    ]);
+
+    dismissSheetStackWithHistory(store, history.history);
+    expect(history.goCalls).toEqual([-1, -2]);
+    expect(history.cursor()).toBe(0);
+    restoreMemoryHistory(store, history);
+    expect(store.getState().sheets).toEqual([]);
+  });
+
+  it.each([
+    ["reader-1", 2, 1],
+    ["push-1", 3, 0],
+  ])(
+    "moves invalid %s removal to its surviving ancestor",
+    (invalidKey, expectedDepth, expectedCursor) => {
+      const h0 = createAppNavigationState();
+      const h1 = reduceAppNavigation(h0, {
+        type: "push",
+        entry: { key: "push-1", kind: "push", route: "collections" },
+      });
+      const h2 = reduceAppNavigation(h1, {
+        type: "present-reader",
+        entry: { key: "reader-1", kind: "reader", bookId: "book-1" },
+      });
+      const h3 = reduceAppNavigation(h2, {
+        type: "present-sheet",
+        entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+      });
+      const store = createAppNavigationStore(h3);
+      const history = createMemoryHistory(
+        [h0, h1, h2, h3].map(encodeNavigationHistory),
+        3
+      );
+
+      removeInvalidWithHistory(store, invalidKey, history.history);
+
+      expect(history.goCalls).toEqual([-expectedDepth]);
+      expect(history.cursor()).toBe(expectedCursor);
+      restoreMemoryHistory(store, history);
+      expect(store.getState().sheets).toEqual([]);
+      if (invalidKey === "reader-1") {
+        expect(store.getState().reader).toBeNull();
+        expect(store.getState().pushes.map((push) => push.key)).toEqual([
+          "push-1",
+        ]);
+      } else {
+        expect(store.getState().reader).toBeNull();
+        expect(store.getState().pushes).toEqual([]);
+      }
+    }
+  );
+
+  it("replaces invalid history and leaves an absent invalid key untouched", () => {
+    const initialState = createSheetStackState();
+    const store = createAppNavigationStore(initialState);
+    const history = createFakeHistory({ retained: true });
+
+    removeInvalidWithHistory(store, "sheet-2", history.history);
+
+    expect(history.goCalls).toEqual([]);
+    expect(history.replaceCalls).toHaveLength(1);
+    expect(history.replaceCalls[0]?.[1]).toBe("");
+    expect(decodeNavigationHistory(history.getState())).toMatchObject({
+      sheets: [{ key: "sheet-1" }],
+    });
+
+    const recoveredState = store.getState();
+    removeInvalidWithHistory(store, "missing", history.history);
+    expect(store.getState()).toBe(recoveredState);
+    expect(history.goCalls).toEqual([]);
+    expect(history.replaceCalls).toHaveLength(1);
   });
 
   it("exposes full navigation state through the navigation provider", () => {

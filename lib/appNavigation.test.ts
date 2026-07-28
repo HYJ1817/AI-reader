@@ -188,21 +188,21 @@ describe("app navigation", () => {
     expect(dismissed.direction).toBe("backward");
   });
 
-  it("removes an invalid entry from every possible layer", () => {
+  it("cascades an invalid push through reader and sheet layers", () => {
     const state: AppNavigationState = {
       activeTab: "library",
       pushes: [
         { key: "keep", kind: "push", route: "collections" },
-        { key: "invalid", kind: "push", route: "custom-background" },
+        { key: "invalid-push", kind: "push", route: "custom-background" },
       ],
       reader: {
-        key: "invalid",
+        key: "reader-1",
         kind: "reader",
-        bookId: "missing-book",
+        bookId: "book-1",
       },
       sheets: [
-        { key: "invalid", kind: "sheet", route: "book-actions" },
-        { key: "sheet-keep", kind: "sheet", route: "toc" },
+        { key: "sheet-1", kind: "sheet", route: "book-actions" },
+        { key: "sheet-2", kind: "sheet", route: "toc" },
       ],
       direction: "forward",
       revision: 5,
@@ -210,7 +210,7 @@ describe("app navigation", () => {
 
     const recovered = reduceAppNavigation(state, {
       type: "remove-invalid",
-      key: "invalid",
+      key: "invalid-push",
     });
 
     expect(recovered.pushes.map((entry) => entry.key)).toEqual(["keep"]);
@@ -219,9 +219,32 @@ describe("app navigation", () => {
     expect(recovered.direction).toBe("backward");
   });
 
+  it("cascades an invalid reader through sheet layers", () => {
+    const state: AppNavigationState = {
+      ...createAppNavigationState(),
+      pushes: [{ key: "push-1", kind: "push", route: "collections" }],
+      reader: { key: "invalid-reader", kind: "reader", bookId: "book-1" },
+      sheets: [
+        { key: "sheet-1", kind: "sheet", route: "book-actions" },
+        { key: "sheet-2", kind: "sheet", route: "book-rename" },
+      ],
+    };
+
+    const recovered = reduceAppNavigation(state, {
+      type: "remove-invalid",
+      key: "invalid-reader",
+    });
+
+    expect(recovered.pushes).toBe(state.pushes);
+    expect(recovered.reader).toBeNull();
+    expect(recovered.sheets).toEqual([]);
+  });
+
   it("removes an invalid sheet and every sheet above it", () => {
     const state: AppNavigationState = {
       ...createAppNavigationState(),
+      pushes: [{ key: "push-1", kind: "push", route: "collections" }],
+      reader: { key: "reader-1", kind: "reader", bookId: "book-1" },
       sheets: [
         { key: "sheet-1", kind: "sheet", route: "book-actions" },
         { key: "sheet-2", kind: "sheet", route: "book-rename" },
@@ -235,6 +258,8 @@ describe("app navigation", () => {
     });
 
     expect(recovered.sheets.map((entry) => entry.key)).toEqual(["sheet-1"]);
+    expect(recovered.pushes).toBe(state.pushes);
+    expect(recovered.reader).toBe(state.reader);
   });
 
   it.each([
@@ -264,6 +289,19 @@ describe("app navigation", () => {
       expect(recovered.pushes.map((entry) => entry.key)).toEqual(expectedKeys);
     }
   );
+
+  it("does not change state for a key that is absent from every layer", () => {
+    const state: AppNavigationState = {
+      ...createAppNavigationState(),
+      pushes: [{ key: "push-1", kind: "push", route: "collections" }],
+      reader: { key: "reader-1", kind: "reader", bookId: "book-1" },
+      sheets: [{ key: "sheet-1", kind: "sheet", route: "book-actions" }],
+    };
+
+    expect(
+      reduceAppNavigation(state, { type: "remove-invalid", key: "missing" })
+    ).toBe(state);
+  });
 
   it("does not revise an empty stack for a no-op pop or dismiss", () => {
     const state = createAppNavigationState();

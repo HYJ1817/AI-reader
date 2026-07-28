@@ -36,12 +36,12 @@ type ReaderOptions = Omit<ReaderEntry, "key" | "kind" | "bookId">;
 type SheetOptions = Omit<SheetEntry, "key" | "kind" | "route">;
 type HistoryWrite = "push" | "replace";
 
-type SheetStackNavigationStore = Pick<
+export type NavigationCommandStore = Pick<
   AppNavigationStore,
   "getState" | "setState"
 >;
 
-type NavigationHistoryAdapter = {
+export type NavigationHistoryAdapter = {
   readonly state: unknown;
   go: (delta?: number) => void;
   replaceState: (data: unknown, title: string) => void;
@@ -64,7 +64,7 @@ export type UseAppNavigationResult = {
 };
 
 export function dismissSheetStackWithHistory(
-  store: SheetStackNavigationStore,
+  store: NavigationCommandStore,
   history?: NavigationHistoryAdapter
 ): void {
   const currentState = store.getState();
@@ -78,6 +78,43 @@ export function dismissSheetStackWithHistory(
   if (history && decodeNavigationHistory(history.state)) {
     store.setState(nextState);
     history.go(-depth);
+    return;
+  }
+
+  store.setState(nextState);
+  if (history) {
+    history.replaceState(mergeNavigationHistory(history.state, nextState), "");
+  }
+}
+
+function getRemovedNavigationDepth(
+  currentState: AppNavigationState,
+  nextState: AppNavigationState
+): number {
+  return (
+    currentState.pushes.length - nextState.pushes.length +
+    (currentState.reader === nextState.reader ? 0 : 1) +
+    currentState.sheets.length - nextState.sheets.length
+  );
+}
+
+export function removeInvalidWithHistory(
+  store: NavigationCommandStore,
+  key: string,
+  history?: NavigationHistoryAdapter
+): void {
+  const currentState = store.getState();
+  const nextState = reduceAppNavigation(currentState, {
+    type: "remove-invalid",
+    key,
+  });
+  if (nextState === currentState) return;
+
+  const removedDepth = getRemovedNavigationDepth(currentState, nextState);
+  if (history && decodeNavigationHistory(history.state)) {
+    store.setState(nextState);
+    history.replaceState(mergeNavigationHistory(history.state, nextState), "");
+    history.go(-removedDepth);
     return;
   }
 
@@ -303,9 +340,13 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
   const removeInvalid = useCallback(
     (key: string) => {
-      commit({ type: "remove-invalid", key }, "replace");
+      removeInvalidWithHistory(
+        store,
+        key,
+        typeof window === "undefined" ? undefined : window.history
+      );
     },
-    [commit]
+    [store]
   );
 
   return useMemo(
