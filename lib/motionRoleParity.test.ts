@@ -21,8 +21,20 @@ describe("motion duration CSS parity", () => {
     expect(cssDuration("--motion-standard")).toBe(
       MOTION_DURATION.state * 1000
     );
+    expect(cssDuration("--motion-state-exit")).toBe(
+      MOTION_DURATION.stateExit * 1000
+    );
+    expect(cssDuration("--motion-root")).toBe(
+      MOTION_DURATION.rootTab * 1000
+    );
+    expect(cssDuration("--motion-tab-indicator")).toBe(
+      MOTION_DURATION.tab * 1000
+    );
     expect(cssDuration("--motion-navigation")).toBe(
       MOTION_DURATION.pushEnter * 1000
+    );
+    expect(cssDuration("--motion-navigation-exit")).toBe(
+      MOTION_DURATION.pushExit * 1000
     );
     expect(cssDuration("--motion-sheet")).toBe(
       MOTION_DURATION.sheetEnter * 1000
@@ -33,11 +45,20 @@ describe("motion duration CSS parity", () => {
     expect(cssDuration("--motion-sheet-exit")).toBe(
       MOTION_DURATION.sheetExit * 1000
     );
+    expect(cssDuration("--motion-popover")).toBe(
+      MOTION_DURATION.popoverEnter * 1000
+    );
+    expect(cssDuration("--motion-popover-exit")).toBe(
+      MOTION_DURATION.popoverExit * 1000
+    );
     expect(cssDuration("--motion-chrome-enter")).toBe(
       MOTION_DURATION.chromeEnter * 1000
     );
     expect(cssDuration("--motion-chrome-exit")).toBe(
       MOTION_DURATION.chromeExit * 1000
+    );
+    expect(cssDuration("--motion-reduced")).toBe(
+      MOTION_DURATION.reduced * 1000
     );
   });
 });

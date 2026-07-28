@@ -2,10 +2,13 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   MOTION_DURATION,
+  MOTION_EASE,
   MOTION_SPRING,
   REDUCED_MOTION_QUERY,
+  ROOT_TAB_CONTENT_TRANSITION,
   ROOT_TAB_TRANSITION,
   createSystemMotionPreferenceStore,
+  getRoleTransition,
   getMotionPolicy,
   getReaderTransitionTiming,
 } from "./motionSystem";
@@ -46,27 +49,36 @@ function createMatchMediaHarness(initialMatches: boolean) {
 
 describe("motion system", () => {
   it("defines one complete product duration role table", () => {
-    expect(MOTION_DURATION).toMatchObject({
+    expect(MOTION_DURATION).toEqual({
       press: 0.12,
-      state: 0.2,
-      rootTab: 0.42,
-      pushEnter: 0.34,
-      pushExit: 0.24,
-      readerEnter: 0.3,
-      readerExit: 0.22,
-      sheetEnter: 0.3,
-      sheetExit: 0.25,
-      chromeEnter: 0.2,
-      chromeExit: 0.16,
+      state: 0.16,
+      stateExit: 0.12,
+      tab: 0.22,
+      rootTab: 0.16,
+      pushEnter: 0.28,
+      pushExit: 0.2,
+      readerEnter: 0.28,
+      readerExit: 0.21,
+      sheetEnter: 0.28,
+      sheetExit: 0.22,
+      popoverEnter: 0.18,
+      popoverExit: 0.12,
+      chromeEnter: 0.16,
+      chromeExit: 0.12,
       gestureSettle: 0.22,
-      reduced: 0.12,
+      reduced: 0.1,
     });
   });
 
-  it("uses a slow zero-bounce transform tween for the root tab indicator", () => {
+  it("uses the short indicator tween for root tab content", () => {
+    expect(ROOT_TAB_CONTENT_TRANSITION).toEqual({
+      type: "tween",
+      duration: 0.16,
+      ease: [0.22, 1, 0.36, 1],
+    });
     expect(ROOT_TAB_TRANSITION).toEqual({
       type: "tween",
-      duration: 0.42,
+      duration: 0.22,
       ease: [0.22, 1, 0.36, 1],
     });
   });
@@ -78,20 +90,89 @@ describe("motion system", () => {
   });
 
   it("uses a fast reader exit without reusing entrance delay", () => {
-    expect(MOTION_DURATION.readerEnter).toBe(0.3);
-    expect(MOTION_DURATION.readerExit).toBe(0.22);
+    expect(MOTION_DURATION.readerEnter).toBe(0.28);
+    expect(MOTION_DURATION.readerExit).toBe(0.21);
     expect(getReaderTransitionTiming(false)).toEqual({
-      contentEnter: { duration: 0.2, delay: 0.072 },
-      contentExit: { duration: 0.22, delay: 0 },
-      coverEnterOpacity: { duration: 0.2, delay: 0.126 },
-      coverExitOpacity: { duration: 0.22, delay: 0 },
+      contentEnter: { duration: 0.16, delay: MOTION_DURATION.readerEnter * 0.24 },
+      contentExit: { duration: 0.21, delay: 0 },
+      coverEnterOpacity: {
+        duration: 0.16,
+        delay: MOTION_DURATION.readerEnter * 0.42,
+      },
+      coverExitOpacity: { duration: 0.21, delay: 0 },
     });
     expect(getReaderTransitionTiming(true)).toEqual({
-      contentEnter: { duration: 0.12, delay: 0 },
-      contentExit: { duration: 0.12, delay: 0 },
-      coverEnterOpacity: { duration: 0.12, delay: 0 },
-      coverExitOpacity: { duration: 0.12, delay: 0 },
+      contentEnter: { duration: 0.1, delay: 0 },
+      contentExit: { duration: 0.1, delay: 0 },
+      coverEnterOpacity: { duration: 0.1, delay: 0 },
+      coverExitOpacity: { duration: 0.1, delay: 0 },
     });
+  });
+
+  it("maps semantic roles to the approved tween durations and easing", () => {
+    expect(MOTION_EASE).toEqual({
+      enter: [0.22, 1, 0.36, 1],
+      exit: [0.4, 0, 1, 1],
+      settle: [0.32, 0.72, 0, 1],
+    });
+
+    expect(getRoleTransition("push-enter", false)).toEqual({
+      type: "tween",
+      duration: 0.28,
+      ease: MOTION_EASE.enter,
+    });
+    expect(getRoleTransition("push-exit", false)).toEqual({
+      type: "tween",
+      duration: 0.2,
+      ease: MOTION_EASE.exit,
+    });
+    expect(getRoleTransition("sheet-enter", false)).toEqual({
+      type: "tween",
+      duration: 0.28,
+      ease: MOTION_EASE.enter,
+    });
+    expect(getRoleTransition("sheet-exit", false)).toEqual({
+      type: "tween",
+      duration: 0.22,
+      ease: MOTION_EASE.exit,
+    });
+    expect(getRoleTransition("popover-enter", false)).toEqual({
+      type: "tween",
+      duration: 0.18,
+      ease: MOTION_EASE.enter,
+    });
+    expect(getRoleTransition("popover-exit", false)).toEqual({
+      type: "tween",
+      duration: 0.12,
+      ease: MOTION_EASE.exit,
+    });
+    expect(getRoleTransition("state-enter", false)).toEqual({
+      type: "tween",
+      duration: 0.16,
+      ease: MOTION_EASE.enter,
+    });
+    expect(getRoleTransition("state-exit", false)).toEqual({
+      type: "tween",
+      duration: 0.12,
+      ease: MOTION_EASE.exit,
+    });
+
+    for (const role of [
+      "push-enter",
+      "push-exit",
+      "sheet-enter",
+      "sheet-exit",
+      "popover-enter",
+      "popover-exit",
+      "state-enter",
+      "state-exit",
+    ] as const) {
+      expect(getRoleTransition(role, true)).toEqual({
+        type: "tween",
+        duration: 0.1,
+        ease: role.endsWith("exit") ? MOTION_EASE.exit : MOTION_EASE.enter,
+      });
+    }
   });
 
   it("uses positive non-oscillating springs", () => {

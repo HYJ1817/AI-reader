@@ -53,10 +53,10 @@ describe("motion CSS", () => {
   });
 
   it("uses one navigation timing and easing protocol", () => {
-    expect(css).toContain("--motion-navigation: 340ms;");
-    expect(css).toContain("--motion-sheet: 300ms;");
+    expect(css).toContain("--motion-navigation: 280ms;");
+    expect(css).toContain("--motion-sheet: 280ms;");
     expect(css).toContain("--motion-sheet-settle: 220ms;");
-    expect(css).toContain("--motion-sheet-exit: 250ms;");
+    expect(css).toContain("--motion-sheet-exit: 220ms;");
     expect(css).toContain(
       "--ease-sheet-settle: cubic-bezier(0.2, 0.86, 0.18, 1);"
     );
