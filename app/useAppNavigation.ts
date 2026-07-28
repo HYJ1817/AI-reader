@@ -293,7 +293,7 @@ export function dismissSheetStackWithHistory(
     type: "dismiss-sheet-stack",
   });
 
-  if (history && hasNavigationHistoryPosition(history.state)) {
+  if (history && decodeNavigationHistory(history.state)) {
     const position = getHistoryPosition(history, currentState);
     const targetCursor = getHistoryTargetCursor(
       currentState,
@@ -301,6 +301,9 @@ export function dismissSheetStackWithHistory(
       position.cursor,
       position.entryCursors
     );
+    if (!hasNavigationHistoryPosition(history.state)) {
+      writeNavigationHistory(history, currentState, position);
+    }
     store.setState(nextState);
     requestHistoryTraversal(history, position.cursor, targetCursor, observer);
     return;
@@ -334,7 +337,7 @@ export function removeInvalidWithHistory(
   });
   if (nextState === currentState) return;
 
-  if (history && hasNavigationHistoryPosition(history.state)) {
+  if (history && decodeNavigationHistory(history.state)) {
     const position = getHistoryPosition(history, currentState);
     const targetCursor = getHistoryTargetCursor(
       currentState,
@@ -401,7 +404,7 @@ export function traverseBackWithHistory(
   const nextState = reduceAppNavigation(currentState, action);
   if (nextState === currentState) return;
 
-  if (history && hasNavigationHistoryPosition(history.state)) {
+  if (history && decodeNavigationHistory(history.state)) {
     const position = getHistoryPosition(history, currentState);
     const targetCursor = getHistoryTargetCursor(
       currentState,
@@ -411,6 +414,9 @@ export function traverseBackWithHistory(
     );
     const delta = targetCursor - position.cursor;
     if (delta < 0) {
+      if (!hasNavigationHistoryPosition(history.state)) {
+        writeNavigationHistory(history, currentState, position);
+      }
       requestHistoryTraversal(history, position.cursor, targetCursor, observer);
       return;
     }

@@ -898,20 +898,115 @@ describe("app navigation store", () => {
     expect(traversal.targetCursor).toBe(1);
   });
 
-  it("synchronously replaces a legacy v1 position without creating pending work", () => {
-    const state = createSheetStackState();
-    const store = createAppNavigationStore(state);
-    const history = createFakeHistory(encodeNavigationHistory(state));
+  it("traverses a legacy v1 single-sheet dismissal and settles at its derived target", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const store = createAppNavigationStore(h2);
+    const history = createMemoryHistory(
+      [h0, h1, h2].map(encodeNavigationHistory),
+      2
+    );
+    const coordinator = createNavigationTraversalCoordinator();
+    const observer = { start: coordinator.request, cancel: coordinator.cancel };
+
+    traverseBackWithHistory(
+      store,
+      { type: "dismiss-sheet" },
+      history.history,
+      observer
+    );
+    coordinator.enqueue(() =>
+      dismissSheetStackWithHistory(store, history.history, observer)
+    );
+
+    expect(history.goCalls).toEqual([-1]);
+    expect(history.cursor()).toBe(1);
+    expect(store.getState()).toBe(h2);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
+    expect(history.goCalls).toEqual([-1, -1]);
+    expect(history.cursor()).toBe(0);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
+    expect(store.getState().sheets).toEqual([]);
+    expect(coordinator.isPending()).toBe(false);
+  });
+
+  it("traverses a legacy v1 sheet stack by its full derived depth", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const store = createAppNavigationStore(h2);
+    const history = createMemoryHistory(
+      [h0, h1, h2].map(encodeNavigationHistory),
+      2
+    );
     const coordinator = createNavigationTraversalCoordinator();
 
     dismissSheetStackWithHistory(store, history.history, {
-      start: coordinator.begin,
+      start: coordinator.request,
       cancel: coordinator.cancel,
     });
 
-    expect(history.goCalls).toEqual([]);
-    expect(history.replaceCalls).toHaveLength(1);
-    expect(coordinator.isPending()).toBe(false);
+    expect(history.goCalls).toEqual([-2]);
+    expect(history.cursor()).toBe(0);
+  });
+
+  it("upgrades a legacy invalid removal to a tombstone before forward redirect", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const h3 = reduceAppNavigation(h2, {
+      type: "present-sheet",
+      entry: { key: "sheet-3", kind: "sheet", route: "book-delete" },
+    });
+    const store = createAppNavigationStore(h3);
+    const history = createMemoryHistory(
+      [h0, h1, h2, h3].map(encodeNavigationHistory),
+      3
+    );
+    const coordinator = createNavigationTraversalCoordinator();
+    const observer = { start: coordinator.request, cancel: coordinator.cancel };
+
+    removeInvalidWithHistory(store, "sheet-3", history.history, observer);
+    expect(history.goCalls).toEqual([-1]);
+    expect(history.cursor()).toBe(2);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
+
+    history.history.go(1);
+    expect(redirectNavigationHistoryTombstone(history.history, observer)).toBe(
+      true
+    );
+    expect(history.goCalls).toEqual([-1, 1, -1]);
   });
 
   it("drains queued commands without replacing an in-flight traversal", () => {
