@@ -27,11 +27,38 @@ import {
   saveCustomBackgroundImage,
   getCustomBackgroundImage,
   deleteCustomBackgroundImage,
+  ensureDefaultBookWorkspace,
+  getReadingWorkspace,
+  listWorkspaceBooks,
+  attachBookToWorkspace,
+  createWorkspaceSession,
+  listWorkspaceSessions,
+  putWorkspaceSession,
+  putWorkspaceMessage,
+  putWorkspaceMessagePair,
+  listWorkspaceMessages,
+  putWorkspaceArtifact,
+  listWorkspaceArtifacts,
+  deleteWorkspaceArtifact,
+  putWorkspaceMemory,
+  listWorkspaceMemories,
+  listAllReadingWorkspaces,
+  listAllWorkspaceBooks,
+  listAllWorkspaceSessions,
+  listAllWorkspaceMessages,
+  listAllWorkspaceArtifacts,
+  listAllWorkspaceMemories,
   type BookRecord,
   type ReadingPosition,
   type AnnotationRecord,
   type BookGroup,
+  type DefaultBookWorkspace,
 } from "./db";
+import type {
+  WorkspaceArtifactRecord,
+  WorkspaceMemoryRecord,
+  WorkspaceMessageRecord,
+} from "./readingWorkspace";
 
 function makeBook(overrides: Partial<BookRecord> = {}): BookRecord {
   return {
@@ -64,6 +91,27 @@ function makeAnnotation(overrides: Partial<AnnotationRecord> = {}): AnnotationRe
     text: "highlighted text",
     color: "yellow",
     createdAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function makeWorkspaceMessage(
+  owner: DefaultBookWorkspace,
+  index: number,
+  overrides: Partial<WorkspaceMessageRecord> = {}
+): WorkspaceMessageRecord {
+  const timestamp = new Date(
+    Date.UTC(2026, 6, 28, 0, 0, 0, index)
+  ).toISOString();
+  return {
+    id: `message-${index.toString().padStart(3, "0")}`,
+    workspaceId: owner.workspace.id,
+    sessionId: owner.session.id,
+    role: index % 2 === 0 ? "user" : "assistant",
+    content: `message-${index}`,
+    state: "complete",
+    createdAt: timestamp,
+    updatedAt: timestamp,
     ...overrides,
   };
 }
@@ -517,6 +565,234 @@ describe("Book storage", () => {
     } finally {
       inspectionDb.close();
     }
+  });
+});
+
+describe("Reading workspace storage", () => {
+  it("creates one stable default workspace and session per book", async () => {
+    await saveBook(
+      makeBook({ id: "b-workspace", title: "Workspace Book" })
+    );
+
+    const [first, second] = await Promise.all([
+      ensureDefaultBookWorkspace("b-workspace"),
+      ensureDefaultBookWorkspace("b-workspace"),
+    ]);
+
+    expect(second).toEqual(first);
+    expect(await listWorkspaceBooks(first.workspace.id)).toEqual([
+      first.bookLink,
+    ]);
+    expect(await listWorkspaceSessions(first.workspace.id)).toEqual([
+      first.session,
+    ]);
+  });
+
+  it("rejects workspace creation for a missing book", async () => {
+    await expect(ensureDefaultBookWorkspace("missing")).rejects.toThrow(
+      "Book not found: missing"
+    );
+  });
+
+  it("creates, updates, and orders sessions by most recent activity", async () => {
+    await saveBook(makeBook({ id: "session-book" }));
+    const owner = await ensureDefaultBookWorkspace("session-book");
+    const second = await createWorkspaceSession(
+      owner.workspace.id,
+      "Second conversation",
+      "2026-07-28T01:00:00.000Z"
+    );
+
+    await putWorkspaceSession({
+      ...owner.session,
+      title: "Updated first conversation",
+      updatedAt: "2026-07-28T02:00:00.000Z",
+    });
+
+    expect(
+      (await listWorkspaceSessions(owner.workspace.id)).map((item) => item.id)
+    ).toEqual([owner.session.id, second.id]);
+  });
+
+  it("stores a message pair atomically and pages with a compound cursor", async () => {
+    await saveBook(makeBook({ id: "message-book" }));
+    const owner = await ensureDefaultBookWorkspace("message-book");
+    const pairUser = makeWorkspaceMessage(owner, 0, {
+      id: "pair-user",
+      role: "user",
+    });
+    const pairAssistant = makeWorkspaceMessage(owner, 1, {
+      id: "pair-assistant",
+      role: "assistant",
+      replyToMessageId: pairUser.id,
+    });
+    await putWorkspaceMessagePair(pairUser, pairAssistant);
+
+    for (let index = 2; index < 132; index += 1) {
+      await putWorkspaceMessage(makeWorkspaceMessage(owner, index));
+    }
+
+    const latest = await listWorkspaceMessages(owner.session.id, {
+      limit: 100,
+    });
+    expect(latest).toHaveLength(100);
+    expect(latest[0].content).toBe("message-32");
+
+    const older = await listWorkspaceMessages(owner.session.id, {
+      limit: 50,
+      before: { createdAt: latest[0].createdAt, id: latest[0].id },
+    });
+    expect(older).toHaveLength(32);
+    expect(older[0].id).toBe("pair-user");
+    expect(older.at(-1)?.content).toBe("message-31");
+  });
+
+  it("stores materials in most-recent order and deletes one artifact", async () => {
+    await saveBook(makeBook({ id: "materials-book" }));
+    const owner = await ensureDefaultBookWorkspace("materials-book");
+    const artifact: WorkspaceArtifactRecord = {
+      id: "artifact-old",
+      workspaceId: owner.workspace.id,
+      sourceMessageIds: [],
+      kind: "summary",
+      title: "Old summary",
+      content: "Old",
+      mediaType: "text/markdown",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    };
+    await putWorkspaceArtifact(artifact);
+    await putWorkspaceArtifact({
+      ...artifact,
+      id: "artifact-new",
+      title: "New summary",
+      createdAt: "2026-07-28T01:00:00.000Z",
+      updatedAt: "2026-07-28T01:00:00.000Z",
+    });
+
+    const memory: WorkspaceMemoryRecord = {
+      id: "memory-old",
+      workspaceId: owner.workspace.id,
+      content: "Old memory",
+      state: "active",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    };
+    await putWorkspaceMemory(memory);
+    await putWorkspaceMemory({
+      ...memory,
+      id: "memory-new",
+      content: "New memory",
+      createdAt: "2026-07-28T01:00:00.000Z",
+      updatedAt: "2026-07-28T01:00:00.000Z",
+    });
+
+    expect(
+      (await listWorkspaceArtifacts(owner.workspace.id)).map((item) => item.id)
+    ).toEqual(["artifact-new", "artifact-old"]);
+    expect(
+      (await listWorkspaceMemories(owner.workspace.id)).map((item) => item.id)
+    ).toEqual(["memory-new", "memory-old"]);
+
+    await deleteWorkspaceArtifact("artifact-old");
+    expect(
+      (await listWorkspaceArtifacts(owner.workspace.id)).map((item) => item.id)
+    ).toEqual(["artifact-new"]);
+  });
+
+  it("deletes an orphaned one-book workspace with all descendants", async () => {
+    await saveBook(
+      makeBook({ id: "b-workspace", title: "Workspace Book" })
+    );
+    const owner = await ensureDefaultBookWorkspace("b-workspace");
+    await putWorkspaceMessage(makeWorkspaceMessage(owner, 0));
+    await putWorkspaceArtifact({
+      id: "artifact-1",
+      workspaceId: owner.workspace.id,
+      sourceMessageIds: [],
+      kind: "note",
+      title: "Note",
+      content: "Content",
+      mediaType: "text/markdown",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+    await putWorkspaceMemory({
+      id: "memory-1",
+      workspaceId: owner.workspace.id,
+      content: "Memory",
+      state: "active",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+
+    await deleteBook("b-workspace");
+
+    expect(await getReadingWorkspace(owner.workspace.id)).toBeUndefined();
+    expect(
+      await listWorkspaceMessages(owner.session.id, { limit: 100 })
+    ).toEqual([]);
+    expect(await listWorkspaceArtifacts(owner.workspace.id)).toEqual([]);
+    expect(await listWorkspaceMemories(owner.workspace.id)).toEqual([]);
+  });
+
+  it("preserves a workspace while another associated book remains", async () => {
+    await saveBook(makeBook({ id: "book-a", title: "Book A" }));
+    await saveBook(makeBook({ id: "book-b", title: "Book B" }));
+    const owner = await ensureDefaultBookWorkspace("book-a");
+    const reference = await attachBookToWorkspace(
+      owner.workspace.id,
+      "book-b",
+      "reference"
+    );
+
+    expect(
+      await attachBookToWorkspace(
+        owner.workspace.id,
+        "book-b",
+        "reference"
+      )
+    ).toEqual(reference);
+
+    await deleteBook("book-a");
+
+    expect(await getReadingWorkspace(owner.workspace.id)).toBeDefined();
+    expect(await listWorkspaceBooks(owner.workspace.id)).toEqual([reference]);
+  });
+
+  it("clears every workspace table with reader data", async () => {
+    await saveBook(makeBook({ id: "clear-workspace" }));
+    const owner = await ensureDefaultBookWorkspace("clear-workspace");
+    await putWorkspaceMessage(makeWorkspaceMessage(owner, 0));
+    await putWorkspaceArtifact({
+      id: "clear-artifact",
+      workspaceId: owner.workspace.id,
+      sourceMessageIds: [],
+      kind: "note",
+      title: "Note",
+      content: "Content",
+      mediaType: "text/markdown",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+    await putWorkspaceMemory({
+      id: "clear-memory",
+      workspaceId: owner.workspace.id,
+      content: "Memory",
+      state: "active",
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    });
+
+    const { clearAllReaderData: clearAll } = await import("./db");
+    await clearAll();
+
+    expect(await listAllReadingWorkspaces()).toEqual([]);
+    expect(await listAllWorkspaceBooks()).toEqual([]);
+    expect(await listAllWorkspaceSessions()).toEqual([]);
+    expect(await listAllWorkspaceMessages()).toEqual([]);
+    expect(await listAllWorkspaceArtifacts()).toEqual([]);
+    expect(await listAllWorkspaceMemories()).toEqual([]);
   });
 });
 

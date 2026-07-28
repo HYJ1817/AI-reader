@@ -1,5 +1,15 @@
 import Dexie, { type EntityTable } from "dexie";
+import { createLocalId } from "./localId";
 import type { ReaderMode } from "./readerMode";
+import {
+  createBookWorkspaceRecords,
+  type ReadingWorkspaceRecord,
+  type WorkspaceArtifactRecord,
+  type WorkspaceBookRecord,
+  type WorkspaceMemoryRecord,
+  type WorkspaceMessageRecord,
+  type WorkspaceSessionRecord,
+} from "./readingWorkspace";
 
 export type BookMetadata = {
   id: string;
@@ -103,6 +113,12 @@ type AiReaderDb = Dexie & {
   dailyReadingStats: EntityTable<DailyReadingStat, "date">;
   bookGroups: EntityTable<BookGroup, "id">;
   customBackgrounds: EntityTable<CustomBackgroundRecord, "id">;
+  readingWorkspaces: EntityTable<ReadingWorkspaceRecord, "id">;
+  workspaceBooks: EntityTable<WorkspaceBookRecord, "id">;
+  workspaceSessions: EntityTable<WorkspaceSessionRecord, "id">;
+  workspaceMessages: EntityTable<WorkspaceMessageRecord, "id">;
+  workspaceArtifacts: EntityTable<WorkspaceArtifactRecord, "id">;
+  workspaceMemories: EntityTable<WorkspaceMemoryRecord, "id">;
 };
 
 function createDb(): AiReaderDb {
@@ -132,6 +148,16 @@ function createDb(): AiReaderDb {
 
   db.version(6).stores({
     bookCovers: "bookId",
+  });
+
+  db.version(7).stores({
+    readingWorkspaces: "id, updatedAt, lastOpenedAt",
+    workspaceBooks: "id, workspaceId, bookId, [workspaceId+bookId]",
+    workspaceSessions: "id, workspaceId, updatedAt, [workspaceId+updatedAt]",
+    workspaceMessages:
+      "id, sessionId, workspaceId, createdAt, [sessionId+createdAt+id]",
+    workspaceArtifacts: "id, workspaceId, kind, updatedAt, [workspaceId+updatedAt]",
+    workspaceMemories: "id, workspaceId, state, updatedAt, [workspaceId+updatedAt]",
   });
 
   return db;
@@ -373,15 +399,355 @@ export async function getBook(id: string): Promise<BookRecord | undefined> {
   return legacyBook;
 }
 
+export type DefaultBookWorkspace = {
+  workspace: ReadingWorkspaceRecord;
+  bookLink: WorkspaceBookRecord;
+  session: WorkspaceSessionRecord;
+};
+
+function compareUpdatedAtDescending<T extends { id: string; updatedAt: string }>(
+  a: T,
+  b: T
+): number {
+  if (a.updatedAt !== b.updatedAt) return b.updatedAt.localeCompare(a.updatedAt);
+  return b.id.localeCompare(a.id);
+}
+
+export async function ensureDefaultBookWorkspace(
+  bookId: string
+): Promise<DefaultBookWorkspace> {
+  const db = getDb();
+  return db.transaction(
+    "rw",
+    [db.books, db.readingWorkspaces, db.workspaceBooks, db.workspaceSessions],
+    async () => {
+      const book = await db.books.get(bookId);
+      if (!book) throw new Error(`Book not found: ${bookId}`);
+
+      const links = await db.workspaceBooks.where("bookId").equals(bookId).toArray();
+      const primaryLinks = links
+        .filter((link) => link.role === "primary")
+        .sort((a, b) => a.addedAt.localeCompare(b.addedAt) || a.id.localeCompare(b.id));
+
+      for (const bookLink of primaryLinks) {
+        const workspace = await db.readingWorkspaces.get(bookLink.workspaceId);
+        if (!workspace) {
+          await db.workspaceBooks.delete(bookLink.id);
+          continue;
+        }
+
+        const sessions = (
+          await db.workspaceSessions
+            .where("workspaceId")
+            .equals(workspace.id)
+            .toArray()
+        ).sort(compareUpdatedAtDescending);
+        let session = sessions[0];
+        if (!session) {
+          const now = new Date().toISOString();
+          session = {
+            id: createLocalId(),
+            workspaceId: workspace.id,
+            title: "新对话",
+            status: "idle",
+            createdAt: now,
+            updatedAt: now,
+          };
+          await db.workspaceSessions.add(session);
+        }
+        return { workspace, bookLink, session };
+      }
+
+      const records = createBookWorkspaceRecords({
+        bookId,
+        bookTitle: book.title,
+      });
+      await db.readingWorkspaces.add(records.workspace);
+      await db.workspaceBooks.add(records.bookLink);
+      await db.workspaceSessions.add(records.session);
+      return records;
+    }
+  );
+}
+
+export async function getReadingWorkspace(
+  id: string
+): Promise<ReadingWorkspaceRecord | undefined> {
+  return getDb().readingWorkspaces.get(id);
+}
+
+export async function listWorkspaceBooks(
+  workspaceId: string
+): Promise<WorkspaceBookRecord[]> {
+  const records = await getDb().workspaceBooks
+    .where("workspaceId")
+    .equals(workspaceId)
+    .toArray();
+  return records.sort(
+    (a, b) => a.addedAt.localeCompare(b.addedAt) || a.id.localeCompare(b.id)
+  );
+}
+
+export async function attachBookToWorkspace(
+  workspaceId: string,
+  bookId: string,
+  role: WorkspaceBookRecord["role"] = "reference"
+): Promise<WorkspaceBookRecord> {
+  const db = getDb();
+  return db.transaction(
+    "rw",
+    [db.books, db.readingWorkspaces, db.workspaceBooks],
+    async () => {
+      const [workspace, book] = await Promise.all([
+        db.readingWorkspaces.get(workspaceId),
+        db.books.get(bookId),
+      ]);
+      if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`);
+      if (!book) throw new Error(`Book not found: ${bookId}`);
+
+      const existing = await db.workspaceBooks
+        .where("[workspaceId+bookId]")
+        .equals([workspaceId, bookId])
+        .first();
+      if (existing) {
+        if (existing.role === role) return existing;
+        const updated = { ...existing, role };
+        await db.workspaceBooks.put(updated);
+        return updated;
+      }
+
+      const record: WorkspaceBookRecord = {
+        id: createLocalId(),
+        workspaceId,
+        bookId,
+        role,
+        addedAt: new Date().toISOString(),
+      };
+      await db.workspaceBooks.add(record);
+      return record;
+    }
+  );
+}
+
+export async function createWorkspaceSession(
+  workspaceId: string,
+  title = "新对话",
+  now = new Date().toISOString()
+): Promise<WorkspaceSessionRecord> {
+  const db = getDb();
+  return db.transaction(
+    "rw",
+    [db.readingWorkspaces, db.workspaceSessions],
+    async () => {
+      const workspace = await db.readingWorkspaces.get(workspaceId);
+      if (!workspace) throw new Error(`Workspace not found: ${workspaceId}`);
+      const session: WorkspaceSessionRecord = {
+        id: createLocalId(),
+        workspaceId,
+        title,
+        status: "idle",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await db.workspaceSessions.add(session);
+      await db.readingWorkspaces.update(workspaceId, { updatedAt: now });
+      return session;
+    }
+  );
+}
+
+export async function listWorkspaceSessions(
+  workspaceId: string
+): Promise<WorkspaceSessionRecord[]> {
+  const records = await getDb().workspaceSessions
+    .where("workspaceId")
+    .equals(workspaceId)
+    .toArray();
+  return records.sort(compareUpdatedAtDescending);
+}
+
+export async function putWorkspaceSession(
+  session: WorkspaceSessionRecord
+): Promise<void> {
+  await getDb().workspaceSessions.put(session);
+}
+
+export async function putWorkspaceMessage(
+  message: WorkspaceMessageRecord
+): Promise<void> {
+  await getDb().workspaceMessages.put(message);
+}
+
+export async function putWorkspaceMessagePair(
+  userMessage: WorkspaceMessageRecord,
+  assistantMessage: WorkspaceMessageRecord
+): Promise<void> {
+  const db = getDb();
+  await db.transaction("rw", [db.workspaceMessages], async () => {
+    await db.workspaceMessages.bulkPut([userMessage, assistantMessage]);
+  });
+}
+
+export type WorkspaceMessageCursor = {
+  createdAt: string;
+  id: string;
+};
+
+export async function listWorkspaceMessages(
+  sessionId: string,
+  {
+    limit,
+    before,
+  }: {
+    limit: number;
+    before?: WorkspaceMessageCursor;
+  }
+): Promise<WorkspaceMessageRecord[]> {
+  const safeLimit = Math.max(0, Math.floor(limit));
+  if (safeLimit === 0) return [];
+
+  const lowerBound: [string, string, string] = [sessionId, "", ""];
+  const upperBound: [string, string, string] = before
+    ? [sessionId, before.createdAt, before.id]
+    : [sessionId, "\uffff", "\uffff"];
+  const records = await getDb().workspaceMessages
+    .where("[sessionId+createdAt+id]")
+    .between(lowerBound, upperBound, true, !before)
+    .reverse()
+    .limit(safeLimit)
+    .toArray();
+  return records.reverse();
+}
+
+export async function putWorkspaceArtifact(
+  artifact: WorkspaceArtifactRecord
+): Promise<void> {
+  await getDb().workspaceArtifacts.put(artifact);
+}
+
+export async function listWorkspaceArtifacts(
+  workspaceId: string
+): Promise<WorkspaceArtifactRecord[]> {
+  const records = await getDb().workspaceArtifacts
+    .where("workspaceId")
+    .equals(workspaceId)
+    .toArray();
+  return records.sort(compareUpdatedAtDescending);
+}
+
+export async function deleteWorkspaceArtifact(id: string): Promise<void> {
+  await getDb().workspaceArtifacts.delete(id);
+}
+
+export async function putWorkspaceMemory(
+  memory: WorkspaceMemoryRecord
+): Promise<void> {
+  await getDb().workspaceMemories.put(memory);
+}
+
+export async function listWorkspaceMemories(
+  workspaceId: string
+): Promise<WorkspaceMemoryRecord[]> {
+  const records = await getDb().workspaceMemories
+    .where("workspaceId")
+    .equals(workspaceId)
+    .toArray();
+  return records.sort(compareUpdatedAtDescending);
+}
+
+export async function listAllReadingWorkspaces(): Promise<
+  ReadingWorkspaceRecord[]
+> {
+  return getDb().readingWorkspaces.toArray();
+}
+
+export async function listAllWorkspaceBooks(): Promise<WorkspaceBookRecord[]> {
+  return getDb().workspaceBooks.toArray();
+}
+
+export async function listAllWorkspaceSessions(): Promise<
+  WorkspaceSessionRecord[]
+> {
+  return getDb().workspaceSessions.toArray();
+}
+
+export async function listAllWorkspaceMessages(): Promise<
+  WorkspaceMessageRecord[]
+> {
+  return getDb().workspaceMessages.toArray();
+}
+
+export async function listAllWorkspaceArtifacts(): Promise<
+  WorkspaceArtifactRecord[]
+> {
+  return getDb().workspaceArtifacts.toArray();
+}
+
+export async function listAllWorkspaceMemories(): Promise<
+  WorkspaceMemoryRecord[]
+> {
+  return getDb().workspaceMemories.toArray();
+}
+
 export async function deleteBook(id: string): Promise<void> {
   const db = getDb();
-  await db.transaction("rw", [db.books, db.bookFiles, db.bookCovers, db.readingPositions, db.annotations], async () => {
-    await db.books.delete(id);
-    await db.bookFiles.delete(id);
-    await db.bookCovers.delete(id);
-    await db.readingPositions.delete(id);
-    await db.annotations.where("bookId").equals(id).delete();
-  });
+  await db.transaction(
+    "rw",
+    [
+      db.books,
+      db.bookFiles,
+      db.bookCovers,
+      db.readingPositions,
+      db.annotations,
+      db.readingWorkspaces,
+      db.workspaceBooks,
+      db.workspaceSessions,
+      db.workspaceMessages,
+      db.workspaceArtifacts,
+      db.workspaceMemories,
+    ],
+    async () => {
+      const affectedLinks = await db.workspaceBooks
+        .where("bookId")
+        .equals(id)
+        .toArray();
+
+      await db.books.delete(id);
+      await db.bookFiles.delete(id);
+      await db.bookCovers.delete(id);
+      await db.readingPositions.delete(id);
+      await db.annotations.where("bookId").equals(id).delete();
+      await db.workspaceBooks.where("bookId").equals(id).delete();
+
+      for (const workspaceId of new Set(
+        affectedLinks.map((link) => link.workspaceId)
+      )) {
+        const remainingLinks = await db.workspaceBooks
+          .where("workspaceId")
+          .equals(workspaceId)
+          .count();
+        if (remainingLinks > 0) continue;
+
+        await db.workspaceMessages
+          .where("workspaceId")
+          .equals(workspaceId)
+          .delete();
+        await db.workspaceArtifacts
+          .where("workspaceId")
+          .equals(workspaceId)
+          .delete();
+        await db.workspaceMemories
+          .where("workspaceId")
+          .equals(workspaceId)
+          .delete();
+        await db.workspaceSessions
+          .where("workspaceId")
+          .equals(workspaceId)
+          .delete();
+        await db.readingWorkspaces.delete(workspaceId);
+      }
+    }
+  );
 }
 
 export async function saveReadingPosition(position: ReadingPosition): Promise<void> {
@@ -500,16 +866,41 @@ export async function deleteCustomBackgroundImage(): Promise<void> {
 
 export async function clearAllReaderData(): Promise<void> {
   const db = getDb();
-  await db.transaction("rw", [db.books, db.bookFiles, db.bookCovers, db.readingPositions, db.annotations, db.dailyReadingStats, db.bookGroups, db.customBackgrounds], async () => {
-    await db.books.clear();
-    await db.bookFiles.clear();
-    await db.bookCovers.clear();
-    await db.readingPositions.clear();
-    await db.annotations.clear();
-    await db.dailyReadingStats.clear();
-    await db.bookGroups.clear();
-    await db.customBackgrounds.clear();
-  });
+  await db.transaction(
+    "rw",
+    [
+      db.books,
+      db.bookFiles,
+      db.bookCovers,
+      db.readingPositions,
+      db.annotations,
+      db.dailyReadingStats,
+      db.bookGroups,
+      db.customBackgrounds,
+      db.readingWorkspaces,
+      db.workspaceBooks,
+      db.workspaceSessions,
+      db.workspaceMessages,
+      db.workspaceArtifacts,
+      db.workspaceMemories,
+    ],
+    async () => {
+      await db.books.clear();
+      await db.bookFiles.clear();
+      await db.bookCovers.clear();
+      await db.readingPositions.clear();
+      await db.annotations.clear();
+      await db.dailyReadingStats.clear();
+      await db.bookGroups.clear();
+      await db.customBackgrounds.clear();
+      await db.readingWorkspaces.clear();
+      await db.workspaceBooks.clear();
+      await db.workspaceSessions.clear();
+      await db.workspaceMessages.clear();
+      await db.workspaceArtifacts.clear();
+      await db.workspaceMemories.clear();
+    }
+  );
 }
 
 export type ReaderDataReplacement = {
@@ -517,6 +908,12 @@ export type ReaderDataReplacement = {
   readingPositions: ReadingPosition[];
   annotations: AnnotationRecord[];
   bookGroups: BookGroup[];
+  readingWorkspaces: ReadingWorkspaceRecord[];
+  workspaceBooks: WorkspaceBookRecord[];
+  workspaceSessions: WorkspaceSessionRecord[];
+  workspaceMessages: WorkspaceMessageRecord[];
+  workspaceArtifacts: WorkspaceArtifactRecord[];
+  workspaceMemories: WorkspaceMemoryRecord[];
   dailyReadingStats?: DailyReadingStat[];
   customBackground?: CustomBackgroundRecord | null;
 };
@@ -551,6 +948,12 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
       db.bookGroups,
       db.dailyReadingStats,
       db.customBackgrounds,
+      db.readingWorkspaces,
+      db.workspaceBooks,
+      db.workspaceSessions,
+      db.workspaceMessages,
+      db.workspaceArtifacts,
+      db.workspaceMemories,
     ],
     async () => {
       await db.books.clear();
@@ -559,6 +962,12 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
       await db.readingPositions.clear();
       await db.annotations.clear();
       await db.bookGroups.clear();
+      await db.readingWorkspaces.clear();
+      await db.workspaceBooks.clear();
+      await db.workspaceSessions.clear();
+      await db.workspaceMessages.clear();
+      await db.workspaceArtifacts.clear();
+      await db.workspaceMemories.clear();
       if (serializedBooks.length > 0) {
         await db.books.bulkPut(serializedBooks.map((book) => book.metadata));
         await db.bookFiles.bulkPut(serializedBooks.map((book) => book.file));
@@ -572,6 +981,24 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
       }
       if (data.annotations.length > 0) await db.annotations.bulkPut(data.annotations);
       if (data.bookGroups.length > 0) await db.bookGroups.bulkPut(data.bookGroups);
+      if (data.readingWorkspaces.length > 0) {
+        await db.readingWorkspaces.bulkPut(data.readingWorkspaces);
+      }
+      if (data.workspaceBooks.length > 0) {
+        await db.workspaceBooks.bulkPut(data.workspaceBooks);
+      }
+      if (data.workspaceSessions.length > 0) {
+        await db.workspaceSessions.bulkPut(data.workspaceSessions);
+      }
+      if (data.workspaceMessages.length > 0) {
+        await db.workspaceMessages.bulkPut(data.workspaceMessages);
+      }
+      if (data.workspaceArtifacts.length > 0) {
+        await db.workspaceArtifacts.bulkPut(data.workspaceArtifacts);
+      }
+      if (data.workspaceMemories.length > 0) {
+        await db.workspaceMemories.bulkPut(data.workspaceMemories);
+      }
 
       if (data.dailyReadingStats !== undefined) {
         await db.dailyReadingStats.clear();

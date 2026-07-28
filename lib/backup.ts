@@ -381,6 +381,12 @@ export async function restoreBackupPayload(data: unknown): Promise<void> {
     readingPositions: payload.readingPositions,
     annotations: payload.annotations,
     bookGroups: payload.bookGroups ?? [],
+    readingWorkspaces: [],
+    workspaceBooks: [],
+    workspaceSessions: [],
+    workspaceMessages: [],
+    workspaceArtifacts: [],
+    workspaceMemories: [],
     dailyReadingStats: payload.version === 2 ? payload.dailyReadingStats : undefined,
     customBackground,
   });
