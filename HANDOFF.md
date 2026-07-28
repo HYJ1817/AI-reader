@@ -2,9 +2,10 @@
 
 ## Reading Workspace Delivery (2026-07-28, Current Authoritative State)
 
-- Checkout for this delivery: `C:\aaa\ai-reader-pwa`, branch `main`, based on
-  `origin/main` commit `ee8881d`. No worktree was created, and no reset, clean,
-  push, merge, deployment, or release was performed.
+- Checkout for this delivery: `C:\aaa\ai-reader-pwa`, branch `main`, initially
+  based on `origin/main` commit `ee8881d`. No worktree was created and no reset
+  or clean was run. The delivery and package-release commits through `8916182`
+  are pushed to `origin/main`.
 - Approved design and implementation plan: `acfe922` and `6f35fca`. Delivery
   commits, in order: `ceb90a2` (domain), `1de9ac0` (Dexie persistence),
   `9e7abe2` (backup v3), `c1e07c6` (book/reader Workspace surface), `302c197`
@@ -12,7 +13,8 @@
   `6b3e59c` (pagination/Markdown/large-content bounds), `ab133bb` (four reading
   Skills and semantic materials), `3d5bd04` (visible opt-in memory and anchored
   compaction), `7a2ad2b` (Workspace browser journeys), and `ee0e683` (related
-  mobile-regression alignment and retained performance probes).
+  mobile-regression alignment and retained performance probes). `8916182`
+  updates the package and lockfile to version **0.2.0**.
 - Storage/backup versions: Dexie schema **v7**; backup schema **v3**, with v1/v2
   import compatibility retained. Deleting the final book association, clearing
   local data, and atomic backup replacement include Workspace descendants.
@@ -53,6 +55,20 @@
 - Final local gate: `npm.cmd audit --omit=dev --audit-level=high` found **0**
   production vulnerabilities; `npm.cmd test` passed **117 files / 1054 tests**;
   `npm.cmd run lint`, `npm.cmd run build`, and `git diff --check` all exited 0.
+- Release publication: lightweight tag `v0.2.0` points to deployed source commit
+  `8916182` and is pushed. GitHub Release **AI Reader v0.2.0** is published at
+  `https://github.com/HYJ1817/AI-reader/releases/tag/v0.2.0`.
+- Production deployment: OpenNext/Wrangler published Worker version
+  `1443bf20-b5ca-4596-b5c0-083f470475a3` to
+  `https://ai-reader-pwa.hyjsb1817.workers.dev` and route `881817.xyz/*`.
+  Deployed BUILD_ID is `hrpYC_MxY6aw-fnrcx5ro`.
+- Production HTTP verification passed for `/`, the discovered hashed JS/CSS,
+  `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`,
+  `/.well-known/assetlinks.json`, and `/downloads/ai-reader-twa.apk`; all returned
+  HTTP 200. `POST /api/models` with `{}` returned the expected validation 400.
+- Focused production Workspace Playwright passed **4/4** on each profile. The
+  production iPhone 14 sample was **59.5ms**, maximum long task **0ms**, CLS
+  **0**; iPhone 15 Pro Max was **66.8ms**, maximum long task **0ms**, CLS **0**.
 - Deterministic Workspace Playwright uses a local `ReadableStream` fixture and
   never contacts a real provider. The focused suite passed **4/4** on iPhone 14
   and **4/4** on iPhone 15 Pro Max. The final combined navigation, annotations,
