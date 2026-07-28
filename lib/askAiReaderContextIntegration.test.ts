@@ -9,6 +9,10 @@ const askPanelSource = readFileSync(
   new URL("../app/AskAiPanel.tsx", import.meta.url),
   "utf8"
 );
+const workspaceConversationSource = readFileSync(
+  new URL("../app/WorkspaceConversation.tsx", import.meta.url),
+  "utf8"
+);
 const overlaysSource = readFileSync(
   new URL("../app/AppOverlays.tsx", import.meta.url),
   "utf8"
@@ -22,7 +26,7 @@ const routeSource = readFileSync(
   "utf8"
 );
 const askHookSource = readFileSync(
-  new URL("../app/useAskAi.ts", import.meta.url),
+  new URL("../app/useWorkspaceChat.ts", import.meta.url),
   "utf8"
 );
 const cssSource = readFileSync(
@@ -44,31 +48,34 @@ describe("Ask AI reader context integration", () => {
     expect(pageSource).toContain("messages: askMessages");
     expect(overlaysSource).toContain("messages: AiConversationMessage[]");
     expect(overlaysSource).toContain("messages={reader.messages}");
-    expect(askPanelSource).toContain("messages.map((message)");
+    expect(workspaceConversationSource).toContain("messages.map((message)");
     expect(askPanelSource).not.toContain("answer: string | null");
   });
 
-  it("mounts each message once by stable ID without replaying streamed text", () => {
-    expect(askPanelSource).toContain("AnimatePresence");
-    expect(askPanelSource).toContain("<m.div");
-    expect(askPanelSource).toContain("key={message.id}");
-    expect(askPanelSource).toContain('layout={reduceMotion ? false : "position"}');
-    expect(askPanelSource).not.toContain("key={message.content}");
+  it("mounts each persistent message once by stable ID", () => {
+    expect(askPanelSource).toContain("WorkspaceConversation");
+    expect(workspaceConversationSource).toContain("key={message.id}");
+    expect(workspaceConversationSource).not.toContain("key={message.content}");
+    expect(askHookSource).not.toContain("crypto.randomUUID");
   });
 
   it("keeps the Ask AI composer fixed below the scrollable conversation", () => {
-    const messagesIndex = askPanelSource.indexOf("styles.askMessages");
-    const inputIndex = askPanelSource.indexOf("styles.askInput");
+    const messagesIndex = workspaceConversationSource.indexOf(
+      "styles.workspaceMessages"
+    );
+    const inputIndex = workspaceConversationSource.indexOf(
+      "styles.workspaceComposer"
+    );
 
-    expect(askPanelSource).not.toContain("UI_TEXT.ASKING_ABOUT");
-    expect(askPanelSource).not.toContain("bookTitle");
+    expect(workspaceConversationSource).not.toContain("UI_TEXT.ASKING_ABOUT");
+    expect(workspaceConversationSource).not.toContain("bookTitle");
     expect(messagesIndex).toBeGreaterThanOrEqual(0);
     expect(inputIndex).toBeGreaterThan(messagesIndex);
     expect(overlaysSource).toContain("className={styles.askBottomSheet}");
     expect(cssSource).toContain(".askBottomSheet .sheetBody");
-    expect(cssSource).toContain(".askThread");
+    expect(cssSource).toContain(".workspaceConversationThread");
     expect(cssSource).toContain("overflow-y: auto");
-    expect(cssSource).toContain(".askComposer");
+    expect(cssSource).toContain(".workspaceComposer");
     expect(cssSource).toContain("flex-shrink: 0");
   });
 
@@ -87,18 +94,20 @@ describe("Ask AI reader context integration", () => {
   });
 
   it("clears submitted input and sends prior messages plus current reader text", () => {
-    expect(pageSource).toContain("useAskAi({");
+    expect(pageSource).toContain("useWorkspaceChat({");
     expect(askHookSource).toContain("setQuestion(\"\")");
-    expect(askHookSource).toContain("messages: messages.map");
-    expect(askHookSource).toContain("nearbyText: getCurrentReadingContextText()");
-    expect(askHookSource).toContain("question: submittedQuestion");
+    expect(askHookSource).toContain("selectInferenceHistory(messagesRef.current)");
+    expect(askHookSource).toContain("collectVisibleReaderText");
+    expect(askHookSource).toContain("question: trimmedQuestion");
   });
 
   it("aborts stale requests and scrolls new conversation content into view", () => {
     expect(askHookSource).toContain("new AbortController()");
     expect(askHookSource).toContain("requestControllerRef.current?.abort()");
     expect(askHookSource).toContain("signal: controller.signal");
-    expect(askPanelSource).toContain("thread.scrollTop = thread.scrollHeight");
+    expect(workspaceConversationSource).toContain(
+      "thread.scrollTop = thread.scrollHeight"
+    );
   });
 
   it("collects visible TXT and EPUB text for AI context", () => {
@@ -112,6 +121,13 @@ describe("Ask AI reader context integration", () => {
   it("passes conversation messages from the API route into chat message building", () => {
     expect(routeSource).toContain("messages?: ChatConversationMessage[]");
     expect(routeSource).toContain("buildChatMessages(question, context ?? {}, messages ?? [])");
+  });
+
+  it("loads and writes persistent workspace records with stale-event guards", () => {
+    expect(askHookSource).toContain("ensureDefaultBookWorkspace");
+    expect(askHookSource).toContain("putWorkspaceMessagePair");
+    expect(askHookSource).toContain("shouldAcceptWorkspaceEvent");
+    expect(askHookSource).toContain("listWorkspaceMessages");
   });
 
   it("discloses the actual nearby text and recent conversation sent to AI", () => {

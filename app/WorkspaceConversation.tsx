@@ -12,9 +12,12 @@ export type WorkspaceConversationProps = {
   loading: boolean;
   error: string | null;
   aiSettingsUsable: boolean;
+  online: boolean;
   compact?: boolean;
   onQuestionChange: (value: string) => void;
   onAsk: () => void;
+  onStop: () => void;
+  onRetry: () => void;
   onClearSelection: () => void;
   onOpenSettings: () => void;
 };
@@ -26,9 +29,12 @@ export default function WorkspaceConversation({
   loading,
   error,
   aiSettingsUsable,
+  online,
   compact = false,
   onQuestionChange,
   onAsk,
+  onStop,
+  onRetry,
   onClearSelection,
   onOpenSettings,
 }: WorkspaceConversationProps) {
@@ -77,6 +83,11 @@ export default function WorkspaceConversation({
             {UI_TEXT.CONFIGURE_AI_PROMPT}
           </button>
         ) : null}
+        {!online ? (
+          <div className={styles.workspaceOffline} role="status">
+            {UI_TEXT.WORKSPACE_OFFLINE}
+          </div>
+        ) : null}
 
         {messages.length === 0 && !loading ? (
           <div className={styles.workspaceEmptyState}>
@@ -95,6 +106,15 @@ export default function WorkspaceConversation({
                 }`}
               >
                 {message.content}
+                {message.state === "error" ? (
+                  <button
+                    type="button"
+                    className={styles.workspaceRetryButton}
+                    onClick={onRetry}
+                  >
+                    {UI_TEXT.RETRY}
+                  </button>
+                ) : null}
               </div>
             ))}
           </div>
@@ -113,40 +133,53 @@ export default function WorkspaceConversation({
       </div>
 
       <div className={styles.workspaceComposer}>
-        <input
-          type="text"
+        <textarea
+          rows={1}
           aria-label={UI_TEXT.ASK_AI}
           placeholder={UI_TEXT.ASK_PLACEHOLDER}
           className={styles.input}
           value={question}
           onChange={(event) => onQuestionChange(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && !event.nativeEvent.isComposing) onAsk();
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
+              onAsk();
+            }
           }}
           disabled={!aiSettingsUsable}
         />
         <button
           type="button"
           className={styles.sendButton}
-          aria-label={UI_TEXT.SEND}
-          onClick={onAsk}
-          disabled={!aiSettingsUsable || loading || !question.trim()}
+          aria-label={loading ? UI_TEXT.STOP : UI_TEXT.SEND}
+          onClick={loading ? onStop : onAsk}
+          disabled={
+            !aiSettingsUsable || !online || (!loading && !question.trim())
+          }
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            aria-hidden="true"
-          >
-            <path
-              d="M3 10l14-7-7 14-2-5z"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
+          {loading ? (
+            <span className={styles.workspaceStopIcon} aria-hidden="true" />
+          ) : (
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              aria-hidden="true"
+            >
+              <path
+                d="M3 10l14-7-7 14-2-5z"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          )}
         </button>
       </div>
     </div>

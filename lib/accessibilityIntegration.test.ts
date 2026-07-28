@@ -14,7 +14,7 @@ const library = readFileSync(
   "utf8"
 );
 const askAi = readFileSync(
-  new URL("../app/AskAiPanel.tsx", import.meta.url),
+  new URL("../app/WorkspaceConversation.tsx", import.meta.url),
   "utf8"
 );
 const settings = readFileSync(
@@ -50,7 +50,10 @@ describe("daily-path accessibility contract", () => {
   it("names Ask AI actions and announces async state", () => {
     expect(askAi).toContain("className={styles.settingsPrompt}");
     expect(askAi).toContain("<button");
-    expect(askAi).toContain('aria-label={UI_TEXT.SEND}');
+    expect(askAi).toContain("loading ? UI_TEXT.STOP : UI_TEXT.SEND");
+    expect(askAi).toContain("<textarea");
+    expect(askAi).toContain("!event.shiftKey");
+    expect(askAi).toContain("!event.nativeEvent.isComposing");
     expect(askAi).toContain('role="status"');
     expect(askAi).toContain('role="alert"');
     expect(askAi).toContain('aria-busy={loading}');

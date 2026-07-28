@@ -6,6 +6,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import styles from "./page.module.css";
 import {
@@ -138,7 +139,7 @@ import {
 import useCustomBackground from "@/app/useCustomBackground";
 import { requestPersistentStorage } from "@/lib/storagePersistence";
 import { createLocalId } from "@/lib/localId";
-import useAskAi from "@/app/useAskAi";
+import useWorkspaceChat from "@/app/useWorkspaceChat";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
 import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
 import useBookCoverBackfill from "@/app/useBookCoverBackfill";
@@ -161,6 +162,8 @@ type NavigatorWithWakeLock = Navigator & {
 export default function Home() {
   const navigation = useAppNavigation();
   const activeTab = navigation.state.activeTab;
+  const navigationSheets = useSyncExternalStore(navigation.subscribe,
+    () => navigation.getState().sheets, () => navigation.getState().sheets);
   const [books, setBooks] = useState<BookMetadata[]>([]);
   const [libraryRenderWindow, setLibraryRenderWindow] = useState({
     key: "",
@@ -625,7 +628,7 @@ export default function Home() {
     if (openBook?.id === book.id) {
       dismissReader();
       clearReaderBook();
-      resetAskAi();
+      await stopWorkspaceRequest();
       navigation.selectTab("library");
     }
   }
@@ -690,7 +693,7 @@ export default function Home() {
     if (openBook && idsToDelete.includes(openBook.id)) {
       dismissReader();
       clearReaderBook();
-      resetAskAi();
+      await stopWorkspaceRequest();
       navigation.selectTab("library");
     }
     exitLibraryEditing();
@@ -781,7 +784,14 @@ export default function Home() {
     [aiProviderSettings]
   );
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
+  const topSheet = navigationSheets.at(-1);
+  const routedWorkspaceBook = topSheet?.route === "reading-workspace" && topSheet.entityId
+    ? books.find((book) => book.id === topSheet.entityId) ?? null : null;
+  const workspaceBook = routedWorkspaceBook ?? openBook;
   const {
+    workspace: readingWorkspace, sessions: workspaceSessions,
+    activeSessionId: activeWorkspaceSessionId, artifacts: workspaceArtifacts,
+    memories: workspaceMemories, workspaceLoading, online: workspaceOnline,
     selectedText,
     setSelectedText,
     question,
@@ -789,15 +799,21 @@ export default function Home() {
     messages: askMessages,
     loading: askLoading,
     error: askError,
-    reset: resetAskAi,
     clearSelection: handleClearSelection,
     ask: handleAsk,
-  } = useAskAi({
-    openBook,
+    stop: stopWorkspaceRequest,
+    retry: retryWorkspaceRequest,
+    selectSession: selectWorkspaceSession,
+    createSession: createWorkspaceSession,
+  } = useWorkspaceChat({
+    book: workspaceBook,
+    readerContextBookId: openBook?.id ?? null,
     activeAiProvider,
     aiProviderUsable,
     textReaderRef: readerRef,
     epubReaderRef,
+    readerLocator: openBook?.format === "txt" ? `txt-${readerMode}` : undefined,
+    progressPercent: readerProgressPercent,
   });
   const annotations = useReaderAnnotationsController({
     openBook, readerMode,
@@ -915,11 +931,11 @@ export default function Home() {
     setBooks(nextBooks);
 
     scrollRestoredRef.current = false;
-    resetAskAi();
+    await stopWorkspaceRequest();
     const contentReady = prepareReaderBook(fullBook, savedPosition);
     navigation.presentReader(book.id, { originId });
     await contentReady;
-  }, [navigation, positionCoordinator, prepareReaderBook, resetAskAi]);
+  }, [navigation, positionCoordinator, prepareReaderBook, stopWorkspaceRequest]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1157,12 +1173,12 @@ export default function Home() {
       assertBackupImportSize(file.size);
       const text = await file.text();
       const data = JSON.parse(text);
+      await stopWorkspaceRequest();
       await runBackupRestoreGuarded({
         coordinator: positionCoordinator,
         stopReader: () => {
           navigation.dismissReader();
           clearReaderBook();
-          resetAskAi();
         },
         restore: async () => {
           await cancelBookCoverBackfillAndDrain();
@@ -1860,6 +1876,12 @@ export default function Home() {
           selectedCountLabel,
           newGroupName,
         }}
+        workspace={{
+          record: readingWorkspace, sessions: workspaceSessions,
+          activeSessionId: activeWorkspaceSessionId, messages: askMessages,
+          artifacts: workspaceArtifacts, memories: workspaceMemories,
+          loading: workspaceLoading, online: workspaceOnline,
+        }}
         group={{
           editingGroupId,
           editingGroupName,
@@ -1874,12 +1896,14 @@ export default function Home() {
           deleteAnnotation: (id) => void annotations.remove(id),
           setQuestion,
           ask: () => void handleAsk(),
+          stopAsk: () => void stopWorkspaceRequest(),
+          retryAsk: () => void retryWorkspaceRequest(),
           clearSelection: handleClearSelection,
           openAiSettingsFromAsk,
           openReadingWorkspace: (bookId) =>
             navigation.presentSheet("reading-workspace", { entityId: bookId }),
-          newWorkspaceSession: () => undefined,
-          selectWorkspaceSession: () => undefined,
+          newWorkspaceSession: () => void createWorkspaceSession(),
+          selectWorkspaceSession: (sessionId) => void selectWorkspaceSession(sessionId),
           setGoalInputValue,
           saveGoal: handleSaveGoal,
           addSelectedBooksToGroup: (groupId) =>

@@ -13,23 +13,28 @@ const settingsSource = readFileSync(
 
 describe("backup restore UI integration", () => {
   it("quiesces and clears stale reader state before replacing the library", () => {
+    const importIndex = pageSource.indexOf("async function handleImportBackup");
+    const stopIndex = pageSource.indexOf(
+      "await stopWorkspaceRequest()",
+      importIndex
+    );
     const guardIndex = pageSource.indexOf("await runBackupRestoreGuarded({");
     const restoreIndex = pageSource.indexOf("await restoreBackupPayload(data)");
     const dismissIndex = pageSource.indexOf("navigation.dismissReader()", guardIndex);
     const clearIndex = pageSource.indexOf("clearReaderBook();", guardIndex);
-    const resetIndex = pageSource.indexOf("resetAskAi();", guardIndex);
     const successIndex = pageSource.indexOf(
       "setBackupStatus(UI_TEXT.BACKUP_RESTORED)",
       restoreIndex
     );
 
+    expect(stopIndex).toBeGreaterThan(importIndex);
+    expect(stopIndex).toBeLessThan(guardIndex);
     expect(guardIndex).toBeGreaterThanOrEqual(0);
     expect(restoreIndex).toBeGreaterThanOrEqual(0);
     expect(dismissIndex).toBeGreaterThan(guardIndex);
     expect(clearIndex).toBeGreaterThan(dismissIndex);
-    expect(resetIndex).toBeGreaterThan(clearIndex);
-    expect(resetIndex).toBeLessThan(successIndex);
-    expect(restoreIndex).toBeGreaterThan(resetIndex);
+    expect(clearIndex).toBeLessThan(successIndex);
+    expect(restoreIndex).toBeGreaterThan(clearIndex);
   });
 
   it("warns that backups contain passages and AI conversations", () => {

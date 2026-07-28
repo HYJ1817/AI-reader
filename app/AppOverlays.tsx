@@ -24,6 +24,12 @@ import { formatBookDate, formatBookSize } from "@/lib/libraryPresentation";
 import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
+import type {
+  ReadingWorkspaceRecord,
+  WorkspaceArtifactRecord,
+  WorkspaceMemoryRecord,
+  WorkspaceSessionRecord,
+} from "@/lib/readingWorkspace";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -56,6 +62,16 @@ export type AppOverlaysProps = {
     selectedCountLabel: string;
     newGroupName: string;
   };
+  workspace: {
+    record: ReadingWorkspaceRecord | null;
+    sessions: WorkspaceSessionRecord[];
+    activeSessionId: string | null;
+    messages: AiConversationMessage[];
+    artifacts: WorkspaceArtifactRecord[];
+    memories: WorkspaceMemoryRecord[];
+    loading: boolean;
+    online: boolean;
+  };
   group: {
     editingGroupId: string | null;
     editingGroupName: string;
@@ -70,6 +86,8 @@ export type AppOverlaysProps = {
     deleteAnnotation: (id: string) => void;
     setQuestion: (question: string) => void;
     ask: () => void;
+    stopAsk: () => void;
+    retryAsk: () => void;
     clearSelection: () => void;
     openAiSettingsFromAsk: () => void;
     openReadingWorkspace: (bookId: string) => void;
@@ -106,6 +124,7 @@ const BOOK_ROUTES = new Set([
 export default function AppOverlays({
   reader,
   library,
+  workspace,
   group,
   actions,
 }: AppOverlaysProps) {
@@ -179,6 +198,7 @@ export default function AppOverlays({
           <AskAiSheet
             reader={reader}
             actions={actions}
+            online={workspace.online}
             onClose={navigation.dismissSheet}
           />
         );
@@ -186,14 +206,18 @@ export default function AppOverlays({
         return sheetBook ? (
           <ReadingWorkspaceSheet
             book={sheetBook}
-            workspace={null}
-            sessions={[]}
-            activeSessionId={null}
-            messages={[]}
-            loading={false}
+            workspace={workspace.record}
+            sessions={workspace.sessions}
+            activeSessionId={workspace.activeSessionId}
+            messages={workspace.messages}
+            loading={workspace.loading}
             error={null}
             onSelectSession={actions.selectWorkspaceSession}
-            onNewSession={() => undefined}
+            onNewSession={() => {
+              if (workspace.record) {
+                actions.newWorkspaceSession(workspace.record.id);
+              }
+            }}
             onClose={navigation.dismissSheet}
             conversation={{
               selectedText:
@@ -202,15 +226,18 @@ export default function AppOverlays({
               loading: reader.askLoading,
               error: reader.askError,
               aiSettingsUsable: reader.aiUsable,
+              online: workspace.online,
               onQuestionChange: actions.setQuestion,
               onAsk: actions.ask,
+              onStop: actions.stopAsk,
+              onRetry: actions.retryAsk,
               onClearSelection: actions.clearSelection,
               onOpenSettings: actions.openAiSettingsFromAsk,
             }}
             materials={{
-              artifacts: [],
-              memories: [],
-              loading: false,
+              artifacts: workspace.artifacts,
+              memories: workspace.memories,
+              loading: workspace.loading,
               error: null,
               onDeleteArtifact: () => undefined,
             }}
@@ -315,10 +342,12 @@ export default function AppOverlays({
 function AskAiSheet({
   reader,
   actions,
+  online,
   onClose,
 }: {
   reader: AppOverlaysProps["reader"];
   actions: AppOverlaysProps["actions"];
+  online: boolean;
   onClose: () => void;
 }) {
   return (
@@ -354,7 +383,10 @@ function AskAiSheet({
                 messages={reader.messages}
                 loading={reader.askLoading}
                 error={reader.askError}
+                online={online}
                 onAsk={actions.ask}
+                onStop={actions.stopAsk}
+                onRetry={actions.retryAsk}
                 onClearSelection={actions.clearSelection}
                 aiSettingsUsable={reader.aiUsable}
                 onOpenSettings={actions.openAiSettingsFromAsk}
