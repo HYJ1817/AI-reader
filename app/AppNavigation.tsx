@@ -53,6 +53,7 @@ export default function AppNavigation({
           <m.span
             className={styles.tabIndicator}
             data-root-tab-indicator="true"
+            data-motion-role="root-indicator"
             layoutId="root-tab-indicator"
             initial={false}
             animate={{ x: `${getNavigationTabIndex(activeTab) * 100}%` }}

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   COMPACT_PUSH_OFFSETS,
+  ROOT_TAB_OFFSETS,
+  getCompactPushOffsets,
+  getPushTransition,
   getPushMotionProfile,
   getRootTabOffsets,
   getNavigationSurfaceState,
@@ -20,14 +23,14 @@ describe("navigation motion", () => {
     expect(getNavigationSurfaceState("settings", "reading")).toBe("after");
   });
 
-  it("uses compact directional offsets for root travel", () => {
+  it("uses short directional offsets for root travel", () => {
     expect(getRootTabOffsets("library", "settings")).toEqual({
-      outgoing: -12,
-      incoming: 22,
+      outgoing: -6,
+      incoming: 10,
     });
     expect(getRootTabOffsets("settings", "library")).toEqual({
-      outgoing: 12,
-      incoming: -22,
+      outgoing: 6,
+      incoming: -10,
     });
     expect(getRootTabOffsets("reading", "reading")).toEqual({
       outgoing: 0,
@@ -43,11 +46,16 @@ describe("navigation motion", () => {
     expect(getPushMotionProfile(undefined)).toBe("depth");
   });
 
-  it("shares root navigation travel distances with compact pushes", () => {
+  it("keeps root travel separate from compact pushed pages", () => {
     expect(COMPACT_PUSH_OFFSETS).toEqual({ incoming: 22, covered: -12 });
-    expect(getRootTabOffsets("library", "settings")).toEqual({
-      outgoing: COMPACT_PUSH_OFFSETS.covered,
-      incoming: COMPACT_PUSH_OFFSETS.incoming,
-    });
+    expect(ROOT_TAB_OFFSETS).toEqual({ incoming: 10, outgoing: 6 });
+    expect(getCompactPushOffsets(1)).toEqual({ incoming: 22, covered: -12 });
+    expect(getCompactPushOffsets(-1)).toEqual({ incoming: -22, covered: 12 });
+  });
+
+  it("uses role timing for push enter, exit, and reduced motion", () => {
+    expect(getPushTransition("enter", false).duration).toBe(0.28);
+    expect(getPushTransition("exit", false).duration).toBe(0.2);
+    expect(getPushTransition("enter", true).duration).toBe(0.1);
   });
 });

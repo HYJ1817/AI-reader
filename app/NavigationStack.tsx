@@ -18,7 +18,10 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react";
-import { useAppReducedMotion } from "./AppMotionRoot";
+import {
+  useAppMotionLifecycle,
+  useAppReducedMotion,
+} from "./AppMotionRoot";
 import { useNavigation } from "./NavigationProvider";
 import type { PushEntry } from "@/lib/appNavigation";
 import {
@@ -27,11 +30,17 @@ import {
 } from "@/lib/navigationGestures";
 import {
   COMPACT_PUSH_OFFSETS,
+  getCompactPushOffsets,
+  getPushTransition,
   getPushMotionProfile,
   getRootTabOffsets,
   type NavigationTab,
 } from "@/lib/navigationMotion";
-import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
+import {
+  MOTION_DURATION,
+  MOTION_SPRING,
+  ROOT_TAB_CONTENT_TRANSITION,
+} from "@/lib/motionSystem";
 import styles from "./page.module.css";
 
 type NavigationStackContextValue = {
@@ -83,6 +92,7 @@ export default function NavigationStack({
   children: ReactNode;
 }) {
   const navigation = useNavigation();
+  const motionLifecycle = useAppMotionLifecycle();
   const [settledTab, setSettledTab] = useState(activeTab);
   const [edgeBackOwnerKey, setEdgeBackOwnerKey] = useState<string | null>(null);
   const [edgeBackSettle, setEdgeBackSettle] =
@@ -94,6 +104,8 @@ export default function NavigationStack({
     return Math.min(1, Math.max(0, offset / width));
   });
   const edgeFinishHandledRef = useRef(false);
+  const edgeBackPointerRef = useRef<EdgeBackPointer | null>(null);
+  const lifecycleEpochRef = useRef(motionLifecycle.epoch);
   const topPushKey = pushes.at(-1)?.key ?? null;
   const edgeBackActive =
     edgeBackOwnerKey !== null && edgeBackOwnerKey === topPushKey;
@@ -151,6 +163,17 @@ export default function NavigationStack({
     edgeBackX.set(0);
   }, [edgeBackX, topPushKey]);
 
+  useEffect(() => {
+    if (lifecycleEpochRef.current === motionLifecycle.epoch) return;
+    lifecycleEpochRef.current = motionLifecycle.epoch;
+    edgeBackPointerRef.current = null;
+    edgeFinishHandledRef.current = true;
+    edgeBackX.stop();
+    edgeBackX.set(0);
+    setEdgeBackSettle(null);
+    setEdgeBackOwnerKey(null);
+  }, [edgeBackX, motionLifecycle.epoch]);
+
   return (
     <NavigationStackContext.Provider
       value={{
@@ -179,6 +202,7 @@ export default function NavigationStack({
             edgeBackSettle={activeEdgeSettle}
             edgeBackX={edgeBackX}
             edgeBackProgress={edgeBackProgress}
+            pointerRef={edgeBackPointerRef}
             onBeginEdgeBack={beginEdgeBack}
             onSettleEdgeBack={settleEdgeBack}
             onCancelEdgeBack={cancelEdgeBack}
@@ -242,8 +266,9 @@ export function NavigationRoot({
     pushDepth === 1;
   const compactCovered =
     pushDepth === 1 && getPushMotionProfile(topPushRoute) === "compact";
+  const compactPushOffsets = getCompactPushOffsets(1);
   const coveredX = compactCovered
-    ? COMPACT_PUSH_OFFSETS.covered
+    ? compactPushOffsets.covered
     : "-30%";
   const coveredOpacity =
     compactCovered && active && !readerPresented
@@ -265,6 +290,7 @@ export function NavigationRoot({
     <m.section
       className={styles.appSurface}
       data-navigation-root={tab}
+      data-motion-role="root-content"
       initial={false}
       animate={{
         opacity: coveredOpacity,
@@ -273,7 +299,7 @@ export function NavigationRoot({
       transition={
         reduceMotion
           ? { duration: MOTION_DURATION.reduced }
-          : MOTION_SPRING.navigation
+          : ROOT_TAB_CONTENT_TRANSITION
       }
       onAnimationComplete={() => {
         if (active) settleTab(tab);
@@ -383,6 +409,7 @@ function PushLayer({
   edgeBackSettle,
   edgeBackX,
   edgeBackProgress,
+  pointerRef,
   onBeginEdgeBack,
   onSettleEdgeBack,
   onCancelEdgeBack,
@@ -398,6 +425,7 @@ function PushLayer({
   edgeBackSettle: EdgeBackSettle | null;
   edgeBackX: MotionValue<number>;
   edgeBackProgress: MotionValue<number>;
+  pointerRef: { current: EdgeBackPointer | null };
   onBeginEdgeBack: () => void;
   onSettleEdgeBack: (velocityX: number, viewportWidth: number) => void;
   onCancelEdgeBack: () => void;
@@ -405,7 +433,6 @@ function PushLayer({
   children: ReactNode;
 }) {
   const reduceMotion = useAppReducedMotion();
-  const pointerRef = useRef<EdgeBackPointer | null>(null);
   const distanceFromTop = count - index - 1;
   const motionProfile = getPushMotionProfile(entry.route);
   const coveringMotionProfile = getPushMotionProfile(coveringRoute);
@@ -534,13 +561,16 @@ function PushLayer({
 
   const settlingTarget = edgeBackSettle?.target ?? 0;
   const settlingComplete = edgeBackSettle?.mode === "complete";
-  const pushExitTarget = reduceMotion
-    ? { opacity: 0, x: 0 }
-    : settlingTop && settlingComplete
-      ? { opacity: 1, x: settlingTarget }
-      : compactPush
-        ? { opacity: 0, x: COMPACT_PUSH_OFFSETS.incoming }
-        : { opacity: 1, x: "100%" };
+  const pushExitTarget = {
+    ...(reduceMotion
+      ? { opacity: 0, x: 0 }
+      : settlingTop && settlingComplete
+        ? { opacity: 1, x: settlingTarget }
+        : compactPush
+          ? { opacity: 0, x: COMPACT_PUSH_OFFSETS.incoming }
+          : { opacity: 1, x: "100%" }),
+    transition: getPushTransition("exit", reduceMotion),
+  };
 
   return (
     <m.section
@@ -589,14 +619,14 @@ function PushLayer({
       }}
       exit={pushExitTarget}
       transition={
-        reduceMotion
-          ? { duration: MOTION_DURATION.reduced }
-          : (settlingTop || settlingPrevious) && settlingComplete
-            ? {
+        settlingTop || settlingPrevious
+          ? reduceMotion
+            ? { duration: MOTION_DURATION.reduced }
+            : {
                 duration: MOTION_DURATION.gestureSettle,
                 ease: [0.32, 0.72, 0, 1],
               }
-            : MOTION_SPRING.navigation
+          : getPushTransition("enter", reduceMotion)
       }
       onUpdate={(latest) => {
         if (settlingTop && typeof latest.x === "number") {
@@ -675,6 +705,7 @@ function PushLayer({
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerCancel}
+          onLostPointerCapture={handlePointerCancel}
         />
       )}
     </m.section>

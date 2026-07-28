@@ -183,6 +183,10 @@
   );
 }
 
+.appSurface[data-motion-role="root-content"] {
+  --motion-role-duration: var(--motion-root);
+}
+
 .pushSurface {
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -1531,6 +1535,10 @@
   height: 60px;
   background: transparent;
   pointer-events: none;
+}
+
+.tabIndicator[data-motion-role="root-indicator"] {
+  --motion-role-duration: var(--motion-tab-indicator);
 }
 
 .tabIndicator::after {
