@@ -6,6 +6,10 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import {
+  attachInteractionMetrics,
+  collectInteractionMetrics,
+} from "./helpers/interactionMetrics";
 
 type PushRoute =
   | "collections"
@@ -1551,93 +1555,17 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
     .first();
   await expect(more).toBeVisible();
   await page.waitForTimeout(600);
-
-  const metricsPromise = page.evaluate(async () => {
-    const intervals: number[] = [];
-    const longTasks: number[] = [];
-    let layoutShift = 0;
-    let clickAt: number | null = null;
-    let mountedAt: number | null = null;
-    let previous = performance.now();
-    const observers: PerformanceObserver[] = [];
-    const mutation = new MutationObserver(() => {
-      if (
-        mountedAt === null &&
-        document.querySelector(
-          '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
-        )
-      ) {
-        mountedAt = performance.now();
-      }
-    });
-    const clickListener = (event: MouseEvent) => {
-      if (
-        event.target instanceof Element &&
-        event.target.closest('[data-library-book-more="true"]')
-      ) {
-        clickAt = performance.now();
-      }
-    };
-    const handleEntries = (entries: PerformanceEntry[]) => {
-      for (const entry of entries) {
-        if (entry.entryType === "longtask") longTasks.push(entry.duration);
-        if (entry.entryType === "layout-shift") {
-          layoutShift += (entry as PerformanceEntry & { value: number }).value;
-        }
-      }
-    };
-    try {
-      for (const type of ["longtask", "layout-shift"] as const) {
-        if (!PerformanceObserver.supportedEntryTypes.includes(type)) {
-          throw new Error(
-            `Required PerformanceObserver entry type is unavailable: ${type}`
-          );
-        }
-      }
-
-      mutation.observe(document.body, { childList: true, subtree: true });
-      document.addEventListener("click", clickListener, true);
-      for (const type of ["longtask", "layout-shift"] as const) {
-        const observer = new PerformanceObserver((list) =>
-          handleEntries(list.getEntries())
-        );
-        observer.observe({ entryTypes: [type] });
-        observers.push(observer);
-      }
-
-      const startedAt = performance.now();
-      await new Promise<void>((resolve) => {
-        const sample = (now: number) => {
-          intervals.push(now - previous);
-          previous = now;
-          if (now - startedAt >= 800) {
-            resolve();
-            return;
-          }
-          requestAnimationFrame(sample);
-        };
-        requestAnimationFrame(sample);
-      });
-
-      for (const observer of observers) {
-        handleEntries(observer.takeRecords());
-      }
-      const sampledIntervals = intervals.slice(2);
-      const sorted = [...sampledIntervals].sort((a, b) => a - b);
-      return {
-        clickToMount:
-          clickAt === null || mountedAt === null ? null : mountedAt - clickAt,
-        frames: sampledIntervals.length,
-        p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-        maxFrame: Math.max(...sampledIntervals),
-        maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-        layoutShift,
-      };
-    } finally {
-      mutation.disconnect();
-      document.removeEventListener("click", clickListener, true);
-      for (const observer of observers) observer.disconnect();
-    }
+  const observerSupport = await page.evaluate(() => ({
+    longtask: PerformanceObserver.supportedEntryTypes.includes("longtask"),
+    layoutShift: PerformanceObserver.supportedEntryTypes.includes("layout-shift"),
+  }));
+  expect(observerSupport.longtask).toBe(true);
+  expect(observerSupport.layoutShift).toBe(true);
+  const metricsPromise = collectInteractionMetrics(page, {
+    durationMs: 800,
+    clickSelector: '[data-library-book-more="true"]',
+    mountSelector:
+      '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]',
   });
 
   await page.waitForTimeout(40);
@@ -1653,18 +1581,12 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
   await expect(panel).toHaveCSS("will-change", "transform");
   const metrics = await metricsPromise;
 
-  console.info(
-    `[book-sheet-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`
-  );
-  await testInfo.attach("book-sheet-performance.json", {
-    body: JSON.stringify({ project: testInfo.project.name, ...metrics }, null, 2),
-    contentType: "application/json",
-  });
+  await attachInteractionMetrics(testInfo, "book-sheet-performance", metrics);
 
   expect(metrics.clickToMount).not.toBeNull();
   expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(34);
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
-  expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.p95Frame).toBeLessThanOrEqual(20);
   expect(metrics.maxFrame).toBeLessThanOrEqual(34);
   expect(metrics.maxLongTask).toBe(0);
   expect(metrics.layoutShift).toBe(0);
@@ -1741,70 +1663,15 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
   page,
 }, testInfo) => {
   await page.waitForTimeout(600);
-
-  const metricsPromise = page.evaluate(async () => {
-    const intervals: number[] = [];
-    const longTasks: number[] = [];
-    let layoutShift = 0;
-    let previous = performance.now();
-    const observers: PerformanceObserver[] = [];
-    const longTaskSupported =
-      PerformanceObserver.supportedEntryTypes.includes("longtask");
-    const layoutShiftSupported =
-      PerformanceObserver.supportedEntryTypes.includes("layout-shift");
-    const handleEntries = (entries: PerformanceEntryList) => {
-      for (const entry of entries) {
-        if (entry.entryType === "longtask") {
-          longTasks.push(entry.duration);
-        } else if (entry.entryType === "layout-shift") {
-          layoutShift += (entry as PerformanceEntry & { value: number }).value;
-        }
-      }
-    };
-
-    if (longTaskSupported) {
-      const observer = new PerformanceObserver((list) => {
-        handleEntries(list.getEntries());
-      });
-      observer.observe({ entryTypes: ["longtask"] });
-      observers.push(observer);
-    }
-    if (layoutShiftSupported) {
-      const observer = new PerformanceObserver((list) => {
-        handleEntries(list.getEntries());
-      });
-      observer.observe({ entryTypes: ["layout-shift"] });
-      observers.push(observer);
-    }
-
-    const startedAt = performance.now();
-    await new Promise<void>((resolve) => {
-      const sample = (now: number) => {
-        intervals.push(now - previous);
-        previous = now;
-        if (now - startedAt >= 700) {
-          resolve();
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    });
-
-    for (const observer of observers) {
-      handleEntries(observer.takeRecords());
-      observer.disconnect();
-    }
-    const sampledIntervals = intervals.slice(2);
-    const sorted = [...sampledIntervals].sort((a, b) => a - b);
-    return {
-      frames: sampledIntervals.length,
-      p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-      layoutShift,
-      longTaskSupported,
-      layoutShiftSupported,
-    };
+  const observerSupport = await page.evaluate(() => ({
+    longtask: PerformanceObserver.supportedEntryTypes.includes("longtask"),
+    layoutShift: PerformanceObserver.supportedEntryTypes.includes("layout-shift"),
+  }));
+  expect(observerSupport.longtask).toBe(true);
+  expect(observerSupport.layoutShift).toBe(true);
+  const metricsPromise = collectInteractionMetrics(page, {
+    durationMs: 700,
+    clickSelector: '[data-navigation-tab="reading"]',
   });
 
   await page.waitForTimeout(40);
@@ -1816,66 +1683,26 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
     type: "root-tab-performance",
     description: JSON.stringify(metrics),
   });
-  console.info(
-    `[root-tab-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`
-  );
-  await testInfo.attach("root-tab-performance.json", {
-    body: JSON.stringify(
-      { project: testInfo.project.name, ...metrics },
-      null,
-      2
-    ),
-    contentType: "application/json",
-  });
+  await attachInteractionMetrics(testInfo, "root-tab-performance", metrics);
 
   expect(metrics.frames).toBeGreaterThanOrEqual(32);
-  expect(metrics.p95).toBeLessThanOrEqual(20);
-  expect(metrics.longTaskSupported).toBe(true);
-  expect(metrics.layoutShiftSupported).toBe(true);
+  expect(metrics.p95Frame).toBeLessThanOrEqual(20);
   expect(metrics.maxLongTask).toBe(0);
   expect(metrics.layoutShift).toBe(0);
 });
 
 test("push transition meets mobile frame cadence and long-task budgets", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.waitForTimeout(600);
-
-  const metricsPromise = page.evaluate(async () => {
-    const intervals: number[] = [];
-    const longTasks: number[] = [];
-    let previous = performance.now();
-    let observer: PerformanceObserver | undefined;
-
-    if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
-      observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          longTasks.push(entry.duration);
-        }
-      });
-      observer.observe({ entryTypes: ["longtask"] });
-    }
-
-    const startedAt = performance.now();
-    await new Promise<void>((resolve) => {
-      const sample = (now: number) => {
-        intervals.push(now - previous);
-        previous = now;
-        if (now - startedAt >= 800) {
-          resolve();
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    });
-
-    observer?.disconnect();
-    return {
-      frames: intervals.length,
-      maxInterval: Math.max(...intervals),
-      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-    };
+  const longTaskSupported = await page.evaluate(() =>
+    PerformanceObserver.supportedEntryTypes.includes("longtask")
+  );
+  expect(longTaskSupported).toBe(true);
+  const metricsPromise = collectInteractionMetrics(page, {
+    durationMs: 800,
+    clickSelector: libraryRootSelector,
+    mountSelector: '[data-push-route="collections"]',
   });
 
   await page.waitForTimeout(40);
@@ -1886,7 +1713,9 @@ test("push transition meets mobile frame cadence and long-task budgets", async (
     .click();
   const metrics = await metricsPromise;
 
+  await attachInteractionMetrics(testInfo, "push-transition-performance", metrics);
+
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
-  expect(metrics.maxInterval).toBeLessThanOrEqual(80);
+  expect(metrics.maxFrame).toBeLessThanOrEqual(80);
   expect(metrics.maxLongTask).toBeLessThanOrEqual(100);
 });
