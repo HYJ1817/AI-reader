@@ -674,12 +674,18 @@ describe("app navigation store", () => {
     expect(history.cursor()).toBe(1);
 
     restoreMemoryHistory(store, history);
-    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
 
     expect(history.goCalls).toEqual([-1, -1]);
     expect(history.cursor()).toBe(0);
     restoreMemoryHistory(store, history);
-    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
     expect(store.getState().sheets).toEqual([]);
     expect(coordinator.isPending()).toBe(false);
   });
@@ -734,7 +740,10 @@ describe("app navigation store", () => {
     expect(pushed).toBe(false);
     expect(history.pushCalls).toEqual([]);
     restoreMemoryHistory(store, history);
-    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
 
     expect(pushed).toBe(true);
     expect(history.cursor()).toBe(2);
@@ -796,7 +805,10 @@ describe("app navigation store", () => {
       "sheet-2",
     ]);
     restoreMemoryHistory(store, history);
-    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
     expect(store.getState().sheets.map((sheet) => sheet.key)).toEqual([
       "sheet-3",
     ]);
@@ -836,7 +848,10 @@ describe("app navigation store", () => {
 
     removeInvalidWithHistory(store, "sheet-3", history.history, observer);
     restoreMemoryHistory(store, history);
-    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
     history.history.go(1);
     expect(redirectNavigationHistoryTombstone(history.history, observer)).toBe(
       true
@@ -849,19 +864,22 @@ describe("app navigation store", () => {
     expect(executed).toBe(false);
     expect(history.cursor()).toBe(2);
     restoreMemoryHistory(store, history);
-    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    coordinator.settle(
+      coordinator.getPending(),
+      decodeNavigationHistoryPosition(history.history.state)?.cursor
+    );
     expect(executed).toBe(true);
   });
 
-  it("clears queued work on cleanup and cancels an explicit go no-op", () => {
+  it("drains queued work on cleanup and cancels an explicit go no-op", () => {
     const coordinator = createNavigationTraversalCoordinator();
     const traversal = coordinator.begin(2, 1);
     let executed = false;
     coordinator.enqueue(() => {
       executed = true;
     });
-    coordinator.clear();
-    coordinator.settle(1);
+    coordinator.drain();
+    coordinator.settle(traversal, 1);
     expect(executed).toBe(false);
 
     const state = createSheetStackState();
@@ -893,6 +911,76 @@ describe("app navigation store", () => {
     expect(history.goCalls).toEqual([]);
     expect(history.replaceCalls).toHaveLength(1);
     expect(coordinator.isPending()).toBe(false);
+  });
+
+  it("drains queued commands without replacing an in-flight traversal", () => {
+    const coordinator = createNavigationTraversalCoordinator();
+    const first = coordinator.begin(2, 1);
+    let dropped = false;
+    let queuedAfterSetup = false;
+    coordinator.enqueue(() => {
+      dropped = true;
+    });
+    coordinator.drain();
+    coordinator.enqueue(() => {
+      queuedAfterSetup = true;
+    });
+
+    expect(coordinator.getPending()).toEqual(first);
+    expect(dropped).toBe(false);
+    expect(queuedAfterSetup).toBe(false);
+    coordinator.settle(first, 1);
+    expect(queuedAfterSetup).toBe(true);
+  });
+
+  it("disposes an old coordinator without letting its late event settle a new one", () => {
+    const oldCoordinator = createNavigationTraversalCoordinator();
+    const oldTraversal = oldCoordinator.begin(2, 1);
+    oldCoordinator.dispose();
+    const newCoordinator = createNavigationTraversalCoordinator();
+    const newTraversal = newCoordinator.begin(2, 1);
+    let executed = false;
+    newCoordinator.enqueue(() => {
+      executed = true;
+    });
+
+    oldCoordinator.settle(oldTraversal, 1);
+    expect(executed).toBe(false);
+    expect(newCoordinator.isPending()).toBe(true);
+    newCoordinator.settle(newTraversal, 1);
+    expect(executed).toBe(true);
+  });
+
+  it("rebases an invalid popstate and flushes queued work from the restored root", () => {
+    const coordinator = createNavigationTraversalCoordinator();
+    coordinator.begin(2, 1);
+    const store = createAppNavigationStore(createSheetStackState());
+    let queuedFromRoot = false;
+    coordinator.enqueue(() => {
+      queuedFromRoot = store.getState().sheets.length === 0;
+    });
+
+    store.setState(createAppNavigationState());
+    coordinator.rebase();
+
+    expect(coordinator.isPending()).toBe(false);
+    expect(queuedFromRoot).toBe(true);
+  });
+
+  it("only settles a tombstone-retargeted transaction at its final target", () => {
+    const coordinator = createNavigationTraversalCoordinator();
+    const firstTarget = coordinator.begin(4, 3);
+    const finalTarget = coordinator.begin(3, 1);
+    let executed = false;
+    coordinator.enqueue(() => {
+      executed = true;
+    });
+
+    coordinator.settle(firstTarget, 3);
+    expect(executed).toBe(false);
+    expect(coordinator.isPending()).toBe(true);
+    coordinator.settle(finalTarget, 1);
+    expect(executed).toBe(true);
   });
 
   it("exposes full navigation state through the navigation provider", () => {

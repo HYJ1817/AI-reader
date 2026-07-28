@@ -58,13 +58,17 @@ export type NavigationTraversal = {
 };
 
 export type NavigationTraversalObserver = {
-  start: (sourceCursor: number, targetCursor: number) => NavigationTraversal;
+  start: (
+    sourceCursor: number,
+    targetCursor: number
+  ) => NavigationTraversal | null;
   cancel: (traversal: NavigationTraversal) => void;
 };
 
 export function createNavigationTraversalCoordinator() {
   let pending: NavigationTraversal | null = null;
   let generation = 0;
+  let disposed = false;
   let flushing = false;
   const queue: Array<() => void> = [];
 
@@ -78,6 +82,7 @@ export function createNavigationTraversalCoordinator() {
   };
 
   const begin = (sourceCursor: number, targetCursor: number) => {
+    if (disposed) return null;
     if (pending) {
       pending = {
         ...pending,
@@ -86,37 +91,67 @@ export function createNavigationTraversalCoordinator() {
       };
       return pending;
     }
+    generation += 1;
     const traversal = {
       sourceCursor,
       targetCursor,
-      generation: generation + 1,
+      generation,
     };
-    generation += 1;
     pending = traversal;
     return traversal;
   };
 
   const cancel = (traversal: NavigationTraversal) => {
-    if (pending?.generation !== traversal.generation) return;
+    if (
+      disposed ||
+      pending?.generation !== traversal.generation ||
+      pending.targetCursor !== traversal.targetCursor
+    ) {
+      return;
+    }
     pending = null;
+    generation += 1;
     flush();
   };
 
   return {
     enqueue(command: () => void) {
+      if (disposed) return;
       queue.push(command);
       flush();
     },
     begin,
     cancel,
-    settle(cursor: number | undefined) {
-      if (cursor === undefined || pending?.targetCursor !== cursor) return;
+    settle(traversal: NavigationTraversal | null, cursor: number | undefined) {
+      if (
+        disposed ||
+        !traversal ||
+        cursor === undefined ||
+        pending?.generation !== traversal.generation ||
+        pending.targetCursor !== traversal.targetCursor ||
+        cursor !== pending.targetCursor
+      ) {
+        return;
+      }
       pending = null;
       flush();
     },
-    clear() {
+    drain() {
+      queue.splice(0);
+    },
+    rebase() {
+      pending = null;
+      generation += 1;
+      flush();
+    },
+    dispose() {
       pending = null;
       queue.splice(0);
+      generation += 1;
+      disposed = true;
+    },
+    getPending() {
+      return pending;
     },
     isPending() {
       return pending !== null;
@@ -174,6 +209,7 @@ function requestHistoryTraversal(
   observer?: NavigationTraversalObserver
 ) {
   const traversal = observer?.start(sourceCursor, targetCursor);
+  if (observer && !traversal) return;
   const result = history.go(targetCursor - sourceCursor);
   if (result === false && traversal) {
     observer?.cancel(traversal);
@@ -417,6 +453,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
         }
         restore(restoredState);
         coordinator.settle(
+          coordinator.getPending(),
           decodeNavigationHistoryPosition(event.state)?.cursor
         );
       } else {
@@ -429,13 +466,16 @@ export default function useAppNavigation(): UseAppNavigationResult {
           ),
           ""
         );
+        // One app-issued go has one destination popstate; a later event is
+        // external browser navigation and is rebased independently.
+        coordinator.rebase();
       }
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      coordinator.clear();
+      coordinator.drain();
     };
   }, [coordinator, restore, store, traversalObserver]);
 

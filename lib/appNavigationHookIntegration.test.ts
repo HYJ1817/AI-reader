@@ -51,7 +51,8 @@ describe("app navigation hook integration", () => {
     expect(hookSource).toContain("createNavigationTraversalCoordinator");
     expect(hookSource).toContain("coordinator.enqueue");
     expect(hookSource).toContain("coordinator.settle");
-    expect(hookSource).toContain("coordinator.clear");
+    expect(hookSource).toContain("coordinator.drain");
+    expect(hookSource).toContain("coordinator.rebase");
     expect(hookSource).not.toContain("window.history.back()");
   });
 
