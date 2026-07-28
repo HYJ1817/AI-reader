@@ -2,6 +2,12 @@ import {
   getCustomBackgroundRecord,
   getBookFile,
   listAllAnnotations,
+  listAllReadingWorkspaces,
+  listAllWorkspaceArtifacts,
+  listAllWorkspaceBooks,
+  listAllWorkspaceMemories,
+  listAllWorkspaceMessages,
+  listAllWorkspaceSessions,
   listBookGroups,
   listBookMetadata,
   listDailyReadingStats,
@@ -22,6 +28,11 @@ import {
   type AiProviderSettings,
 } from "./aiProviders";
 import { DEFAULT_AI_SETTINGS, saveAiSettingsToStorage } from "./aiSettings";
+import {
+  emptyWorkspaceBackupData,
+  validateWorkspaceBackupData,
+  type WorkspaceBackupData,
+} from "./workspaceBackup";
 
 export interface BackupBookMeta {
   id: string;
@@ -47,7 +58,7 @@ export interface LegacyBackupPayload {
   bookGroups?: BookGroup[];
 }
 
-export interface BackupPayload {
+export interface BackupPayloadV2 {
   version: 2;
   exportedAt: string;
   books: BackupBookMeta[];
@@ -63,7 +74,17 @@ export interface BackupPayload {
   aiSettings: { baseUrl: string; model: string };
 }
 
-export type RestorableBackupPayload = BackupPayload | LegacyBackupPayload;
+export interface BackupPayloadV3
+  extends Omit<BackupPayloadV2, "version">,
+    WorkspaceBackupData {
+  version: 3;
+}
+
+export type BackupPayload = BackupPayloadV3;
+export type RestorableBackupPayload =
+  | BackupPayloadV3
+  | BackupPayloadV2
+  | LegacyBackupPayload;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -132,14 +153,32 @@ export async function createBackupPayload(input?: {
   aiSettings?: { baseUrl: string; apiKey: string; model: string };
   aiProviderSettings?: AiProviderSettings;
 }): Promise<BackupPayload> {
-  const [books, positions, annotations, groups, dailyReadingStats, customBackground] =
-    await Promise.all([
+  const [
+    books,
+    positions,
+    annotations,
+    groups,
+    dailyReadingStats,
+    customBackground,
+    readingWorkspaces,
+    workspaceBooks,
+    workspaceSessions,
+    workspaceMessages,
+    workspaceArtifacts,
+    workspaceMemories,
+  ] = await Promise.all([
       listBookMetadata(),
       listReadingPositions(),
       listAllAnnotations(),
       listBookGroups(),
       listDailyReadingStats(),
       getCustomBackgroundRecord(),
+      listAllReadingWorkspaces(),
+      listAllWorkspaceBooks(),
+      listAllWorkspaceSessions(),
+      listAllWorkspaceMessages(),
+      listAllWorkspaceArtifacts(),
+      listAllWorkspaceMemories(),
     ]);
 
   const backupBooks: BackupBookMeta[] = [];
@@ -171,7 +210,7 @@ export async function createBackupPayload(input?: {
   };
 
   return {
-    version: 2,
+    version: 3,
     exportedAt: new Date().toISOString(),
     books: backupBooks,
     readingPositions: positions,
@@ -189,6 +228,12 @@ export async function createBackupPayload(input?: {
       baseUrl: legacyAiSettings.baseUrl,
       model: legacyAiSettings.model,
     },
+    readingWorkspaces,
+    workspaceBooks,
+    workspaceSessions,
+    workspaceMessages,
+    workspaceArtifacts,
+    workspaceMemories,
   };
 }
 
@@ -288,7 +333,7 @@ function validateDailyStat(value: unknown): DailyReadingStat {
 
 export function validateBackupPayload(data: unknown): RestorableBackupPayload {
   if (!isRecord(data)) throw new Error("Invalid backup format");
-  if (data.version !== 1 && data.version !== 2) {
+  if (data.version !== 1 && data.version !== 2 && data.version !== 3) {
     throw new Error("Invalid backup: unsupported version");
   }
   const common = {
@@ -322,8 +367,7 @@ export function validateBackupPayload(data: unknown): RestorableBackupPayload {
   if (customBackground !== null && !isRecord(customBackground)) {
     throw new Error("Invalid backup: custom background");
   }
-  return {
-    version: 2,
+  const modernPayload = {
     ...common,
     dailyReadingStats: validateArray(
       data.dailyReadingStats,
@@ -346,6 +390,22 @@ export function validateBackupPayload(data: unknown): RestorableBackupPayload {
         }
       : { baseUrl: "", model: "" },
   };
+
+  if (data.version === 2) {
+    return {
+      version: 2,
+      ...modernPayload,
+    };
+  }
+
+  return {
+    version: 3,
+    ...modernPayload,
+    ...validateWorkspaceBackupData(
+      data,
+      new Set(common.books.map((book) => book.id))
+    ),
+  };
 }
 
 export async function restoreBackupPayload(data: unknown): Promise<void> {
@@ -366,7 +426,7 @@ export async function restoreBackupPayload(data: unknown): Promise<void> {
   }));
 
   let customBackground: CustomBackgroundRecord | null | undefined;
-  if (payload.version === 2) {
+  if (payload.version === 2 || payload.version === 3) {
     customBackground = payload.customBackground
       ? {
           id: "app-background",
@@ -376,22 +436,28 @@ export async function restoreBackupPayload(data: unknown): Promise<void> {
       : null;
   }
 
+  const workspaceData =
+    payload.version === 3 ? payload : emptyWorkspaceBackupData();
+
   await replaceReaderData({
     books,
     readingPositions: payload.readingPositions,
     annotations: payload.annotations,
     bookGroups: payload.bookGroups ?? [],
-    readingWorkspaces: [],
-    workspaceBooks: [],
-    workspaceSessions: [],
-    workspaceMessages: [],
-    workspaceArtifacts: [],
-    workspaceMemories: [],
-    dailyReadingStats: payload.version === 2 ? payload.dailyReadingStats : undefined,
+    readingWorkspaces: workspaceData.readingWorkspaces,
+    workspaceBooks: workspaceData.workspaceBooks,
+    workspaceSessions: workspaceData.workspaceSessions,
+    workspaceMessages: workspaceData.workspaceMessages,
+    workspaceArtifacts: workspaceData.workspaceArtifacts,
+    workspaceMemories: workspaceData.workspaceMemories,
+    dailyReadingStats:
+      payload.version === 2 || payload.version === 3
+        ? payload.dailyReadingStats
+        : undefined,
     customBackground,
   });
 
-  if (payload.version === 2) {
+  if (payload.version === 2 || payload.version === 3) {
     saveAiProviderSettingsToStorage(payload.aiProviderSettings);
   } else if (payload.aiSettings) {
     saveAiSettingsToStorage({

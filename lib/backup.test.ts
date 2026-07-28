@@ -17,6 +17,16 @@ import {
   getDailyReadingStat,
   saveCustomBackgroundImage,
   getCustomBackgroundImage,
+  ensureDefaultBookWorkspace,
+  putWorkspaceMessage,
+  putWorkspaceArtifact,
+  putWorkspaceMemory,
+  listAllReadingWorkspaces,
+  listAllWorkspaceBooks,
+  listAllWorkspaceSessions,
+  listAllWorkspaceMessages,
+  listAllWorkspaceArtifacts,
+  listAllWorkspaceMemories,
   type BookRecord,
 } from "./db";
 import {
@@ -52,9 +62,9 @@ describe("createBackupPayload", () => {
     expect(backupSource).not.toContain("listBooks");
   });
 
-  it("includes version 2", async () => {
+  it("includes version 3", async () => {
     const payload = await createBackupPayload();
-    expect(payload.version).toBe(2);
+    expect(payload.version).toBe(3);
   });
 
   it("includes reading stats and the custom background", async () => {
@@ -63,7 +73,7 @@ describe("createBackupPayload", () => {
 
     const payload = await createBackupPayload();
 
-    expect(payload.version).toBe(2);
+    expect(payload.version).toBe(3);
     expect(payload.dailyReadingStats).toEqual([
       expect.objectContaining({ date: "2026-07-11", secondsRead: 90 }),
     ]);
@@ -167,7 +177,7 @@ describe("createBackupPayload", () => {
     });
 
     const payload = await createBackupPayload();
-    expect(payload.version).toBe(2);
+    expect(payload.version).toBe(3);
     expect(payload.readingPositions[0].readingMode).toBe("paged");
     expect(JSON.stringify(payload)).not.toContain("secret-key");
   });
@@ -199,6 +209,139 @@ describe("createBackupPayload", () => {
         pageNumber: 8,
       })
     );
+  });
+});
+
+describe("workspace backup round trip", () => {
+  it("preserves conversations, context, artifacts, and revoked memory", async () => {
+    await saveBook(makeBook({ id: "workspace-book", title: "Workspace Book", format: "txt" }));
+    const owner = await ensureDefaultBookWorkspace("workspace-book");
+    const userMessage = {
+      id: "workspace-user",
+      workspaceId: owner.workspace.id,
+      sessionId: owner.session.id,
+      role: "user" as const,
+      content: "Explain this passage",
+      state: "complete" as const,
+      contextSnapshot: {
+        bookId: "workspace-book",
+        bookTitle: "Workspace Book",
+        bookFormat: "txt" as const,
+        selectedText: "A selected passage",
+        locator: "txt:42",
+        progressPercent: 42,
+        capturedAt: "2026-07-28T00:00:00.000Z",
+      },
+      createdAt: "2026-07-28T00:00:00.000Z",
+      updatedAt: "2026-07-28T00:00:00.000Z",
+    };
+    const assistantMessage = {
+      id: "workspace-assistant",
+      workspaceId: owner.workspace.id,
+      sessionId: owner.session.id,
+      role: "assistant" as const,
+      replyToMessageId: userMessage.id,
+      content: "An explanation",
+      state: "complete" as const,
+      createdAt: "2026-07-28T00:00:01.000Z",
+      updatedAt: "2026-07-28T00:00:01.000Z",
+    };
+    await putWorkspaceMessage(userMessage);
+    await putWorkspaceMessage(assistantMessage);
+    await putWorkspaceArtifact({
+      id: "workspace-artifact",
+      workspaceId: owner.workspace.id,
+      sessionId: owner.session.id,
+      sourceMessageIds: [assistantMessage.id],
+      kind: "explanation",
+      title: "Saved explanation",
+      content: "An explanation",
+      mediaType: "text/markdown",
+      createdAt: "2026-07-28T00:00:02.000Z",
+      updatedAt: "2026-07-28T00:00:02.000Z",
+    });
+    await putWorkspaceMemory({
+      id: "workspace-memory",
+      workspaceId: owner.workspace.id,
+      sourceMessageId: assistantMessage.id,
+      content: "Prefers concise explanations",
+      state: "revoked",
+      createdAt: "2026-07-28T00:00:03.000Z",
+      updatedAt: "2026-07-28T00:00:04.000Z",
+      revokedAt: "2026-07-28T00:00:04.000Z",
+    });
+
+    const first = await createBackupPayload({
+      aiProviderSettings: {
+        activeProviderId: "provider-1",
+        providers: [
+          createAiProviderFromPreset("openai", {
+            id: "provider-1",
+            apiKey: "must-not-leak",
+          }),
+        ],
+      },
+    });
+    expect(first.version).toBe(3);
+    expect(JSON.stringify(first)).not.toContain("must-not-leak");
+
+    await clearAllReaderData();
+    await restoreBackupPayload(validateBackupPayload(first));
+    const second = await createBackupPayload();
+
+    expect(second.readingWorkspaces).toEqual(first.readingWorkspaces);
+    expect(second.workspaceBooks).toEqual(first.workspaceBooks);
+    expect(second.workspaceSessions).toEqual(first.workspaceSessions);
+    expect(second.workspaceMessages).toEqual(first.workspaceMessages);
+    expect(second.workspaceArtifacts).toEqual(first.workspaceArtifacts);
+    expect(second.workspaceMemories).toEqual(first.workspaceMemories);
+  });
+
+  it.each([1, 2] as const)(
+    "restores version %s with no workspace records",
+    async (version) => {
+      await saveBook(makeBook({ id: "old-workspace-book" }));
+      await ensureDefaultBookWorkspace("old-workspace-book");
+      const common = {
+        exportedAt: "2026-07-28T00:00:00.000Z",
+        books: [],
+        readingPositions: [],
+        annotations: [],
+        bookGroups: [],
+      };
+      const payload =
+        version === 1
+          ? { version: 1 as const, ...common, aiSettings: {} }
+          : {
+              version: 2 as const,
+              ...common,
+              dailyReadingStats: [],
+              customBackground: null,
+              aiProviderSettings: { activeProviderId: null, providers: [] },
+              aiSettings: { baseUrl: "", model: "" },
+            };
+
+      await restoreBackupPayload(payload);
+
+      expect(await listAllReadingWorkspaces()).toEqual([]);
+      expect(await listAllWorkspaceBooks()).toEqual([]);
+      expect(await listAllWorkspaceSessions()).toEqual([]);
+      expect(await listAllWorkspaceMessages()).toEqual([]);
+      expect(await listAllWorkspaceArtifacts()).toEqual([]);
+      expect(await listAllWorkspaceMemories()).toEqual([]);
+    }
+  );
+
+  it("rejects invalid workspace references before replacing existing data", async () => {
+    await saveBook(makeBook({ id: "existing", title: "Keep me" }));
+    await ensureDefaultBookWorkspace("existing");
+    const payload = await createBackupPayload();
+    payload.workspaceBooks[0].bookId = "missing";
+
+    await expect(restoreBackupPayload(payload)).rejects.toThrow("Invalid backup");
+
+    expect((await listBooks()).map((book) => book.id)).toEqual(["existing"]);
+    expect(await listAllReadingWorkspaces()).toHaveLength(1);
   });
 });
 
@@ -241,7 +384,7 @@ describe("validateBackupPayload", () => {
 
   it("rejects wrong version", () => {
     expect(() =>
-      validateBackupPayload({ version: 3, exportedAt: "2024-01-01T00:00:00Z", books: [], readingPositions: [], annotations: [], aiSettings: {} })
+      validateBackupPayload({ version: 4, exportedAt: "2024-01-01T00:00:00Z", books: [], readingPositions: [], annotations: [], aiSettings: {} })
     ).toThrow("version");
   });
 

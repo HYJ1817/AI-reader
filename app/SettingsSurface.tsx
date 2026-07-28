@@ -224,6 +224,7 @@ export default function SettingsSurface({
           >
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.IMPORT_BACKUP}</strong>
+              <small>{UI_TEXT.BACKUP_PRIVACY_HINT}</small>
             </span>
             <span className={styles.continueChevron}>{"\u203a"}</span>
           </button>

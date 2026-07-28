@@ -1,8 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { UI_TEXT } from "./uiText";
 
 const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
+  "utf8"
+);
+const settingsSource = readFileSync(
+  new URL("../app/SettingsSurface.tsx", import.meta.url),
   "utf8"
 );
 
@@ -25,5 +30,11 @@ describe("backup restore UI integration", () => {
     expect(resetIndex).toBeGreaterThan(clearIndex);
     expect(resetIndex).toBeLessThan(successIndex);
     expect(restoreIndex).toBeGreaterThan(resetIndex);
+  });
+
+  it("warns that backups contain passages and AI conversations", () => {
+    expect(UI_TEXT.BACKUP_PRIVACY_HINT).toContain("选中文段");
+    expect(UI_TEXT.BACKUP_PRIVACY_HINT).toContain("AI 对话");
+    expect(settingsSource).toContain("UI_TEXT.BACKUP_PRIVACY_HINT");
   });
 });
