@@ -26,7 +26,10 @@ import {
   type AppNavigationStore,
 } from "../lib/appNavigationStore";
 import {
+  createNavigationHistoryPosition,
   decodeNavigationHistory,
+  decodeNavigationHistoryPosition,
+  deriveNavigationHistoryPosition,
   mergeNavigationHistory,
 } from "../lib/navigationHistory";
 import type { NavigationTab } from "../lib/navigationMotion";
@@ -46,6 +49,49 @@ export type NavigationHistoryAdapter = {
   go: (delta?: number) => void;
   replaceState: (data: unknown, title: string) => void;
 };
+
+function getNavigationEntryKeys(state: AppNavigationState): string[] {
+  return [
+    ...state.pushes.map((entry) => entry.key),
+    ...(state.reader ? [state.reader.key] : []),
+    ...state.sheets.map((entry) => entry.key),
+  ];
+}
+
+function getHistoryPosition(
+  history: NavigationHistoryAdapter,
+  currentState: AppNavigationState
+) {
+  return (
+    decodeNavigationHistoryPosition(history.state) ??
+    deriveNavigationHistoryPosition(currentState)
+  );
+}
+
+function getHistoryTargetCursor(
+  currentState: AppNavigationState,
+  nextState: AppNavigationState,
+  currentCursor: number,
+  entryCursors: Record<string, number>
+): number {
+  const nextKeys = new Set(getNavigationEntryKeys(nextState));
+  const removedCursors = getNavigationEntryKeys(currentState)
+    .filter((key) => !nextKeys.has(key))
+    .map((key) => entryCursors[key])
+    .filter((cursor): cursor is number => cursor !== undefined);
+
+  return removedCursors.length > 0
+    ? Math.max(0, Math.min(...removedCursors) - 1)
+    : currentCursor;
+}
+
+function writeNavigationHistory(
+  history: NavigationHistoryAdapter,
+  state: AppNavigationState,
+  position = getHistoryPosition(history, state)
+) {
+  history.replaceState(mergeNavigationHistory(history.state, state, position), "");
+}
 
 export type UseAppNavigationResult = {
   state: AppNavigationCoreState;
@@ -76,26 +122,31 @@ export function dismissSheetStackWithHistory(
   });
 
   if (history && decodeNavigationHistory(history.state)) {
+    const position = getHistoryPosition(history, currentState);
+    const targetCursor = getHistoryTargetCursor(
+      currentState,
+      nextState,
+      position.cursor,
+      position.entryCursors
+    );
     store.setState(nextState);
-    history.go(-depth);
+    history.go(targetCursor - position.cursor);
     return;
   }
 
   store.setState(nextState);
   if (history) {
-    history.replaceState(mergeNavigationHistory(history.state, nextState), "");
+    const previousPosition = deriveNavigationHistoryPosition(currentState);
+    writeNavigationHistory(
+      history,
+      nextState,
+      createNavigationHistoryPosition(
+        nextState,
+        previousPosition.cursor,
+        previousPosition
+      )
+    );
   }
-}
-
-function getRemovedNavigationDepth(
-  currentState: AppNavigationState,
-  nextState: AppNavigationState
-): number {
-  return (
-    currentState.pushes.length - nextState.pushes.length +
-    (currentState.reader === nextState.reader ? 0 : 1) +
-    currentState.sheets.length - nextState.sheets.length
-  );
 }
 
 export function removeInvalidWithHistory(
@@ -110,17 +161,89 @@ export function removeInvalidWithHistory(
   });
   if (nextState === currentState) return;
 
-  const removedDepth = getRemovedNavigationDepth(currentState, nextState);
   if (history && decodeNavigationHistory(history.state)) {
+    const position = getHistoryPosition(history, currentState);
+    const targetCursor = getHistoryTargetCursor(
+      currentState,
+      nextState,
+      position.cursor,
+      position.entryCursors
+    );
+    const tombstonePosition = {
+      ...createNavigationHistoryPosition(
+        nextState,
+        position.cursor,
+        position
+      ),
+      redirectTargetCursor: targetCursor,
+    };
     store.setState(nextState);
-    history.replaceState(mergeNavigationHistory(history.state, nextState), "");
-    history.go(-removedDepth);
+    writeNavigationHistory(history, nextState, tombstonePosition);
+    history.go(targetCursor - position.cursor);
     return;
   }
 
   store.setState(nextState);
   if (history) {
-    history.replaceState(mergeNavigationHistory(history.state, nextState), "");
+    const previousPosition = deriveNavigationHistoryPosition(currentState);
+    const position = createNavigationHistoryPosition(
+      nextState,
+      previousPosition.cursor,
+      previousPosition
+    );
+    writeNavigationHistory(history, nextState, position);
+  }
+}
+
+export function redirectNavigationHistoryTombstone(
+  history: NavigationHistoryAdapter
+): boolean {
+  const position = decodeNavigationHistoryPosition(history.state);
+  if (
+    !position ||
+    position.redirectTargetCursor === undefined ||
+    position.redirectTargetCursor >= position.cursor
+  ) {
+    return false;
+  }
+
+  history.go(position.redirectTargetCursor - position.cursor);
+  return true;
+}
+
+function traverseBackWithHistory(
+  store: NavigationCommandStore,
+  action: AppNavigationAction,
+  history?: NavigationHistoryAdapter
+): void {
+  const currentState = store.getState();
+  const nextState = reduceAppNavigation(currentState, action);
+  if (nextState === currentState) return;
+
+  if (history && decodeNavigationHistory(history.state)) {
+    const position = getHistoryPosition(history, currentState);
+    const targetCursor = getHistoryTargetCursor(
+      currentState,
+      nextState,
+      position.cursor,
+      position.entryCursors
+    );
+    const delta = targetCursor - position.cursor;
+    if (delta < 0) {
+      history.go(delta);
+      return;
+    }
+  }
+
+  store.setState(nextState);
+  if (history) {
+    const previousPosition = deriveNavigationHistoryPosition(currentState);
+    const position = createNavigationHistoryPosition(
+      nextState,
+      previousPosition.cursor,
+      previousPosition
+    );
+    writeNavigationHistory(history, nextState, position);
   }
 }
 
@@ -162,11 +285,13 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
       if (restoredState) {
         restore(restoredState);
+        redirectNavigationHistoryTombstone(window.history);
       } else {
         window.history.replaceState(
           mergeNavigationHistory(
             window.history.state,
-            store.getState()
+            store.getState(),
+            deriveNavigationHistoryPosition(store.getState())
           ),
           ""
         );
@@ -177,13 +302,17 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
     const handlePopState = (event: PopStateEvent) => {
       const restoredState = decodeNavigationHistory(event.state);
-      const nextState = restore(
-        restoredState ?? createAppNavigationState()
-      );
+      const nextState = restore(restoredState ?? createAppNavigationState());
 
-      if (!restoredState) {
+      if (restoredState) {
+        redirectNavigationHistoryTombstone(window.history);
+      } else {
         window.history.replaceState(
-          mergeNavigationHistory(window.history.state, nextState),
+          mergeNavigationHistory(
+            window.history.state,
+            nextState,
+            deriveNavigationHistoryPosition(nextState)
+          ),
           ""
         );
       }
@@ -200,9 +329,16 @@ export default function useAppNavigation(): UseAppNavigationResult {
       if (nextState === currentState) return;
 
       if (typeof window !== "undefined") {
+        const currentPosition = getHistoryPosition(window.history, currentState);
+        const nextPosition = createNavigationHistoryPosition(
+          nextState,
+          currentPosition.cursor + (historyWrite === "push" ? 1 : 0),
+          currentPosition
+        );
         const payload = mergeNavigationHistory(
           window.history.state,
-          nextState
+          nextState,
+          nextPosition
         );
         if (historyWrite === "push") {
           window.history.pushState(payload, "");
@@ -216,27 +352,16 @@ export default function useAppNavigation(): UseAppNavigationResult {
     [store]
   );
 
-  const traverseBack = useCallback((action: AppNavigationAction) => {
-    const currentState = store.getState();
-    const nextState = reduceAppNavigation(currentState, action);
-    if (nextState === currentState) return;
-
-    if (
-      typeof window !== "undefined" &&
-      decodeNavigationHistory(window.history.state)
-    ) {
-      window.history.back();
-      return;
-    }
-
-    store.setState(nextState);
-    if (typeof window !== "undefined") {
-      window.history.replaceState(
-        mergeNavigationHistory(window.history.state, nextState),
-        ""
+  const traverseBack = useCallback(
+    (action: AppNavigationAction) => {
+      traverseBackWithHistory(
+        store,
+        action,
+        typeof window === "undefined" ? undefined : window.history
       );
-    }
-  }, [store]);
+    },
+    [store]
+  );
 
   const selectTab = useCallback(
     (tab: NavigationTab) => {
