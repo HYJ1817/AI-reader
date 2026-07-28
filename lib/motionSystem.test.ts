@@ -200,9 +200,23 @@ describe("motion runtime root", () => {
     expect(appMotionRootSource).toContain("useSyncExternalStore");
     expect(appMotionRootSource).toContain("useAppMotionPolicy");
     expect(appMotionRootSource).toContain("useAppReducedMotion");
+    expect(appMotionRootSource).toContain("useAppMotionLifecycle");
     expect(appMotionRootSource).toContain('"always" : "never"');
     expect(appMotionRootSource).not.toContain("domAnimation");
-    expect(appMotionRootSource).not.toMatch(/<(?:MotionConfig|LayoutGroup) key=/);
+
+    for (const eventName of [
+      "pagehide",
+      "pageshow",
+      "visibilitychange",
+      "orientationchange",
+    ]) {
+      expect(appMotionRootSource).toContain(`"${eventName}"`);
+    }
+
+    const rootMotionTags =
+      appMotionRootSource.match(/<(?:MotionConfig|LayoutGroup)\b[^>]*>/g) ?? [];
+    expect(rootMotionTags).toHaveLength(2);
+    expect(rootMotionTags).not.toContainEqual(expect.stringMatching(/\bkey\s*=/));
   });
 });
 
