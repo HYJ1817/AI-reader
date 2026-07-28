@@ -145,6 +145,8 @@ export default function WorkspaceConversation({
             {messages.map((message) => (
               <div
                 key={message.id}
+                data-workspace-message-id={message.id}
+                data-workspace-message-state={message.state}
                 className={`${styles.workspaceMessage} ${
                   message.role === "user"
                     ? styles.workspaceMessageUser

@@ -63,6 +63,7 @@ export type AppNavigationAction =
   | { type: "present-reader"; entry: ReaderEntry }
   | { type: "dismiss-reader" }
   | { type: "present-sheet"; entry: SheetEntry }
+  | { type: "replace-sheet"; entry: SheetEntry }
   | { type: "dismiss-sheet" }
   | { type: "restore"; state: AppNavigationState }
   | { type: "remove-invalid"; key: string };
@@ -148,6 +149,16 @@ export function reduceAppNavigation(
         state,
         { sheets: [...state.sheets, action.entry] },
         "forward"
+      );
+    case "replace-sheet":
+      return next(
+        state,
+        {
+          sheets: state.sheets.length > 0
+            ? [...state.sheets.slice(0, -1), action.entry]
+            : [action.entry],
+        },
+        "replace"
       );
     case "dismiss-sheet":
       if (state.sheets.length === 0) return state;

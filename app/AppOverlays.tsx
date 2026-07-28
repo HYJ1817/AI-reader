@@ -401,7 +401,7 @@ function AskAiSheet({
                     onClick: () => {
                       const bookId = reader.bookId;
                       if (!bookId) return;
-                      close(() => actions.openReadingWorkspace(bookId));
+                      actions.openReadingWorkspace(bookId);
                     },
                   }
                 : undefined
@@ -606,9 +606,7 @@ function BookActionSheet({
               <ActionRow
                 label={UI_TEXT.READING_WORKSPACE}
                 icon="workspace"
-                onClick={() =>
-                  close(() => actions.openReadingWorkspace(book.id))
-                }
+                onClick={() => actions.openReadingWorkspace(book.id)}
               />
               <ActionRow
                 label={UI_TEXT.RENAME_BOOK}

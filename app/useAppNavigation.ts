@@ -46,6 +46,7 @@ export type UseAppNavigationResult = {
   presentReader: (bookId: string, options?: ReaderOptions) => void;
   dismissReader: () => void;
   presentSheet: (route: SheetRoute, options?: SheetOptions) => void;
+  replaceSheet: (route: SheetRoute, options?: SheetOptions) => void;
   dismissSheet: () => void;
   removeInvalid: (key: string) => void;
 };
@@ -239,6 +240,24 @@ export default function useAppNavigation(): UseAppNavigationResult {
     traverseBack({ type: "dismiss-sheet" });
   }, [traverseBack]);
 
+  const replaceSheet = useCallback(
+    (route: SheetRoute, options?: SheetOptions) => {
+      commit(
+        {
+          type: "replace-sheet",
+          entry: {
+            ...(options ?? {}),
+            key: nextKey("sheet"),
+            kind: "sheet",
+            route,
+          },
+        },
+        "replace"
+      );
+    },
+    [commit, nextKey]
+  );
+
   const removeInvalid = useCallback(
     (key: string) => {
       commit({ type: "remove-invalid", key }, "replace");
@@ -257,6 +276,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
       presentReader,
       dismissReader,
       presentSheet,
+      replaceSheet,
       dismissSheet,
       removeInvalid,
     }),
@@ -266,6 +286,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
       pop,
       presentReader,
       presentSheet,
+      replaceSheet,
       push,
       removeInvalid,
       selectTab,

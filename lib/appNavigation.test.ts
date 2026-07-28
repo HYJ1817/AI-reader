@@ -77,6 +77,20 @@ describe("app navigation", () => {
     });
   });
 
+  it("replaces the current sheet without retaining a stale transition source", () => {
+    const bookActions = reduceAppNavigation(createAppNavigationState(), {
+      type: "present-sheet",
+      entry: { key: "actions", kind: "sheet", route: "book-actions", entityId: "book-1" },
+    });
+    const workspace = reduceAppNavigation(bookActions, {
+      type: "replace-sheet",
+      entry: { key: "workspace", kind: "sheet", route: "reading-workspace", entityId: "book-1" },
+    });
+    expect(workspace.sheets).toHaveLength(1);
+    expect(workspace.sheets[0]).toMatchObject({ route: "reading-workspace", entityId: "book-1" });
+    expect(workspace.direction).toBe("replace");
+  });
+
   it("pops sheets before readers and readers before pushed pages", () => {
     const layered: AppNavigationState = {
       activeTab: "library",

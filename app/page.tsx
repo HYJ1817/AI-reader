@@ -1901,7 +1901,7 @@ export default function Home() {
           clearSelection: handleClearSelection,
           openAiSettingsFromAsk,
           openReadingWorkspace: (bookId) =>
-            navigation.presentSheet("reading-workspace", { entityId: bookId }),
+            navigation.replaceSheet("reading-workspace", { entityId: bookId }),
           newWorkspaceSession: () => void createWorkspaceSession(),
           selectWorkspaceSession: (sessionId) => void selectWorkspaceSession(sessionId), loadOlderWorkspaceMessages: loadOlderMessages, runReadingSkill, saveMessageToMaterials, rememberWorkspaceMessage: rememberMessage,
           renameWorkspaceArtifact: renameArtifact, deleteWorkspaceArtifact: deleteArtifact, revokeWorkspaceMemory: revokeMemory, deleteRevokedWorkspaceMemory: deleteRevokedMemory, compactWorkspaceConversation: compactConversation, setGoalInputValue,
