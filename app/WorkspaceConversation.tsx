@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
+import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import { UI_TEXT } from "@/lib/uiText";
 import WorkspaceMessageBody from "./WorkspaceMessageBody";
 import styles from "./page.module.css";
@@ -15,6 +16,7 @@ export type WorkspaceConversationProps = {
   aiSettingsUsable: boolean;
   online: boolean;
   hasOlderMessages: boolean;
+  eligibleSkills: ReadingSkill[];
   compact?: boolean;
   onQuestionChange: (value: string) => void;
   onAsk: () => void;
@@ -23,6 +25,8 @@ export type WorkspaceConversationProps = {
   onClearSelection: () => void;
   onOpenSettings: () => void;
   onLoadOlder: () => Promise<void> | void;
+  onRunSkill: (skillId: ReadingSkillId) => Promise<void> | void;
+  onSaveToMaterials: (messageId: string) => Promise<void> | void;
 };
 
 export default function WorkspaceConversation({
@@ -34,6 +38,7 @@ export default function WorkspaceConversation({
   aiSettingsUsable,
   online,
   hasOlderMessages,
+  eligibleSkills,
   compact = false,
   onQuestionChange,
   onAsk,
@@ -42,6 +47,8 @@ export default function WorkspaceConversation({
   onClearSelection,
   onOpenSettings,
   onLoadOlder,
+  onRunSkill,
+  onSaveToMaterials,
 }: WorkspaceConversationProps) {
   const threadRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
@@ -139,6 +146,15 @@ export default function WorkspaceConversation({
                 }`}
               >
                 <WorkspaceMessageBody message={message} />
+                {message.role === "assistant" && message.state === "complete" ? (
+                  <button
+                    type="button"
+                    className={styles.workspaceMessageAction}
+                    onClick={() => void onSaveToMaterials(message.id)}
+                  >
+                    {UI_TEXT.SAVE_TO_MATERIALS}
+                  </button>
+                ) : null}
                 {message.state === "error" ? (
                   <button
                     type="button"
@@ -164,6 +180,22 @@ export default function WorkspaceConversation({
           </div>
         ) : null}
       </div>
+
+      {eligibleSkills.length > 0 && (messages.length === 0 || selectedText) ? (
+        <div className={styles.workspaceSkills} aria-label={UI_TEXT.READING_SKILLS}>
+          {eligibleSkills.map((skill) => (
+            <button
+              key={skill.id}
+              type="button"
+              title={skill.description}
+              disabled={loading || !online || !aiSettingsUsable}
+              onClick={() => void onRunSkill(skill.id)}
+            >
+              {skill.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className={styles.workspaceComposer}>
         <textarea

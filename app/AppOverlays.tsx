@@ -24,6 +24,7 @@ import { formatBookDate, formatBookSize } from "@/lib/libraryPresentation";
 import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPageInfo } from "@/lib/readerPageInfo";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
+import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import type {
   ReadingWorkspaceRecord,
   WorkspaceArtifactRecord,
@@ -72,6 +73,7 @@ export type AppOverlaysProps = {
     loading: boolean;
     online: boolean;
     hasOlderMessages: boolean;
+    eligibleSkills: ReadingSkill[];
   };
   group: {
     editingGroupId: string | null;
@@ -95,6 +97,10 @@ export type AppOverlaysProps = {
     newWorkspaceSession: (workspaceId: string) => void;
     selectWorkspaceSession: (sessionId: string) => void;
     loadOlderWorkspaceMessages: () => Promise<void> | void;
+    runReadingSkill: (skillId: ReadingSkillId) => Promise<void> | void;
+    saveMessageToMaterials: (messageId: string) => Promise<void> | void;
+    renameWorkspaceArtifact: (id: string, title: string) => Promise<void> | void;
+    deleteWorkspaceArtifact: (id: string) => Promise<void> | void;
     setGoalInputValue: (value: number) => void;
     saveGoal: () => void;
     addSelectedBooksToGroup: (groupId: string) => void;
@@ -202,6 +208,7 @@ export default function AppOverlays({
             actions={actions}
             online={workspace.online}
             hasOlderMessages={workspace.hasOlderMessages}
+            eligibleSkills={workspace.eligibleSkills}
             onClose={navigation.dismissSheet}
           />
         );
@@ -231,6 +238,7 @@ export default function AppOverlays({
               aiSettingsUsable: reader.aiUsable,
               online: workspace.online,
               hasOlderMessages: workspace.hasOlderMessages,
+              eligibleSkills: workspace.eligibleSkills,
               onQuestionChange: actions.setQuestion,
               onAsk: actions.ask,
               onStop: actions.stopAsk,
@@ -238,13 +246,19 @@ export default function AppOverlays({
               onClearSelection: actions.clearSelection,
               onOpenSettings: actions.openAiSettingsFromAsk,
               onLoadOlder: actions.loadOlderWorkspaceMessages,
+              onRunSkill: actions.runReadingSkill,
+              onSaveToMaterials: actions.saveMessageToMaterials,
             }}
             materials={{
               artifacts: workspace.artifacts,
               memories: workspace.memories,
+              annotations: reader.bookId === sheetBook.id
+                ? [...reader.bookmarks, ...reader.highlights]
+                : [],
               loading: workspace.loading,
               error: null,
-              onDeleteArtifact: () => undefined,
+              onDeleteArtifact: actions.deleteWorkspaceArtifact,
+              onRenameArtifact: actions.renameWorkspaceArtifact,
             }}
           />
         ) : null;
@@ -349,12 +363,14 @@ function AskAiSheet({
   actions,
   online,
   hasOlderMessages,
+  eligibleSkills,
   onClose,
 }: {
   reader: AppOverlaysProps["reader"];
   actions: AppOverlaysProps["actions"];
   online: boolean;
   hasOlderMessages: boolean;
+  eligibleSkills: ReadingSkill[];
   onClose: () => void;
 }) {
   return (
@@ -392,6 +408,7 @@ function AskAiSheet({
                 error={reader.askError}
                 online={online}
                 hasOlderMessages={hasOlderMessages}
+                eligibleSkills={eligibleSkills}
                 onAsk={actions.ask}
                 onStop={actions.stopAsk}
                 onRetry={actions.retryAsk}
@@ -399,6 +416,8 @@ function AskAiSheet({
                 aiSettingsUsable={reader.aiUsable}
                 onOpenSettings={actions.openAiSettingsFromAsk}
                 onLoadOlder={actions.loadOlderWorkspaceMessages}
+                onRunSkill={actions.runReadingSkill}
+                onSaveToMaterials={actions.saveMessageToMaterials}
               />
             </div>
           </div>

@@ -32,6 +32,10 @@ const workspaceHook = readFileSync(
   new URL("../app/useWorkspaceChat.ts", import.meta.url),
   "utf8"
 );
+const artifactPreview = readFileSync(
+  new URL("../app/WorkspaceArtifactPreview.tsx", import.meta.url),
+  "utf8"
+);
 
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -82,6 +86,17 @@ describe("daily-path accessibility contract", () => {
       "thread.scrollHeight - previousScrollHeight + previousScrollTop"
     );
     expect(workspaceHook).toContain("WORKSPACE_MESSAGE_PAGE_SIZE");
+  });
+
+  it("exposes bounded Skills and explicit local material actions", () => {
+    expect(askAi).toContain("eligibleSkills.map");
+    expect(askAi).toContain("UI_TEXT.SAVE_TO_MATERIALS");
+    expect(rule(css, ".workspaceSkills button")).toContain("min-height: 44px");
+    expect(artifactPreview).toContain("ReactMarkdown");
+    expect(artifactPreview).toContain("UI_TEXT.COPY");
+    expect(artifactPreview).toContain("UI_TEXT.EXPORT");
+    expect(artifactPreview).toContain("UI_TEXT.RENAME");
+    expect(artifactPreview).toContain("window.confirm");
   });
 
   it("uses scalable tokens on the stabilized daily path", () => {

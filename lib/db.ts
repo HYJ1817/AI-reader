@@ -635,6 +635,19 @@ export async function listWorkspaceArtifacts(
   return records.sort(compareUpdatedAtDescending);
 }
 
+export async function findWorkspaceArtifactBySourceMessageId(
+  workspaceId: string,
+  sourceMessageId: string
+): Promise<WorkspaceArtifactRecord | undefined> {
+  const records = await getDb().workspaceArtifacts
+    .where("workspaceId")
+    .equals(workspaceId)
+    .toArray();
+  return records.find((record) =>
+    record.sourceMessageIds.includes(sourceMessageId)
+  );
+}
+
 export async function deleteWorkspaceArtifact(id: string): Promise<void> {
   await getDb().workspaceArtifacts.delete(id);
 }

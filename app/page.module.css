@@ -3800,6 +3800,27 @@
   border-top: 0.5px solid var(--separator);
 }
 
+.workspaceSkills {
+  display: flex;
+  flex-shrink: 0;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0 2px;
+  scrollbar-width: none;
+}
+
+.workspaceSkills button {
+  min-height: 44px;
+  flex: 0 0 auto;
+  padding: 0 14px;
+  border: 0.5px solid var(--separator);
+  border-radius: 999px;
+  color: var(--text-primary);
+  background: var(--surface-primary);
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .workspaceComposer .input {
   flex: 1;
   min-width: 0;
@@ -3902,6 +3923,13 @@
   font-size: 14px;
 }
 
+.workspaceMaterialRow span {
+  display: block;
+  margin-top: 3px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
 .workspaceMaterialRow p {
   display: -webkit-box;
   margin: 4px 0 0;
@@ -3921,6 +3949,54 @@
   color: var(--tint);
   background: transparent;
   font-size: 13px;
+}
+
+.workspaceArtifactPreview {
+  margin-bottom: 22px;
+  padding: 14px;
+  border: 0.5px solid var(--separator);
+  border-radius: 14px;
+  background: var(--surface-primary);
+}
+
+.workspaceArtifactPreview > header {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.workspaceArtifactPreview input {
+  min-width: 0;
+  min-height: 44px;
+  flex: 1;
+  padding: 0 10px;
+  border: 0.5px solid var(--separator);
+  border-radius: 9px;
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  font: inherit;
+}
+
+.workspaceArtifactPreview button,
+.workspaceArtifactActions button {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
+  color: var(--tint);
+  background: transparent;
+  font-weight: 650;
+}
+
+.workspaceArtifactActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 14px;
+  border-top: 0.5px solid var(--separator);
+}
+
+.workspaceArtifactActions .workspaceDestructiveAction {
+  color: var(--destructive);
 }
 
 @media (prefers-reduced-motion: reduce) {

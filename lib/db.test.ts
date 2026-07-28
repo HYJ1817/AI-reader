@@ -39,6 +39,7 @@ import {
   listWorkspaceMessages,
   putWorkspaceArtifact,
   listWorkspaceArtifacts,
+  findWorkspaceArtifactBySourceMessageId,
   deleteWorkspaceArtifact,
   putWorkspaceMemory,
   listWorkspaceMemories,
@@ -670,6 +671,13 @@ describe("Reading workspace storage", () => {
       updatedAt: "2026-07-28T01:00:00.000Z",
     });
 
+    await putWorkspaceArtifact({
+      ...artifact,
+      id: "artifact-source",
+      sourceMessageIds: ["assistant-1"],
+      updatedAt: "2026-07-28T02:00:00.000Z",
+    });
+
     const memory: WorkspaceMemoryRecord = {
       id: "memory-old",
       workspaceId: owner.workspace.id,
@@ -689,7 +697,13 @@ describe("Reading workspace storage", () => {
 
     expect(
       (await listWorkspaceArtifacts(owner.workspace.id)).map((item) => item.id)
-    ).toEqual(["artifact-new", "artifact-old"]);
+    ).toEqual(["artifact-source", "artifact-new", "artifact-old"]);
+    expect(
+      await findWorkspaceArtifactBySourceMessageId(
+        owner.workspace.id,
+        "assistant-1"
+      )
+    ).toMatchObject({ id: "artifact-source" });
     expect(
       (await listWorkspaceMemories(owner.workspace.id)).map((item) => item.id)
     ).toEqual(["memory-new", "memory-old"]);
@@ -697,7 +711,7 @@ describe("Reading workspace storage", () => {
     await deleteWorkspaceArtifact("artifact-old");
     expect(
       (await listWorkspaceArtifacts(owner.workspace.id)).map((item) => item.id)
-    ).toEqual(["artifact-new"]);
+    ).toEqual(["artifact-source", "artifact-new"]);
   });
 
   it("deletes an orphaned one-book workspace with all descendants", async () => {

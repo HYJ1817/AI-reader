@@ -13,7 +13,9 @@ import type { AiProviderConfig } from "@/lib/aiProviders";
 import { readWorkspaceEventStream } from "@/lib/aiStream";
 import {
   createWorkspaceSession,
+  deleteWorkspaceArtifact,
   ensureDefaultBookWorkspace,
+  findWorkspaceArtifactBySourceMessageId,
   listWorkspaceArtifacts,
   listWorkspaceMemories,
   listWorkspaceMessages,
@@ -21,6 +23,7 @@ import {
   putWorkspaceMessage,
   putWorkspaceMessagePair,
   putWorkspaceSession,
+  putWorkspaceArtifact,
   type BookMetadata,
 } from "@/lib/db";
 import {
@@ -35,6 +38,13 @@ import {
   type WorkspaceSessionRecord,
 } from "@/lib/readingWorkspace";
 import { createLocalId } from "@/lib/localId";
+import {
+  READING_SKILLS,
+  buildReadingSkillQuestion,
+  createArtifactTitle,
+  listEligibleReadingSkills,
+  type ReadingSkillId,
+} from "@/lib/readingSkills";
 import {
   buildWorkspaceMessagePair,
   selectInferenceHistory,
@@ -128,6 +138,7 @@ export default function useWorkspaceChat({
   const generationRef = useRef(0);
   const streamingContentRef = useRef("");
   const streamingFrameRef = useRef<number | null>(null);
+  const artifactsRef = useRef<WorkspaceArtifactRecord[]>([]);
 
   const publishMessages = useCallback((next: WorkspaceMessageRecord[]) => {
     messagesRef.current = next;
@@ -137,6 +148,11 @@ export default function useWorkspaceChat({
   const publishSessions = useCallback((next: WorkspaceSessionRecord[]) => {
     sessionsRef.current = next;
     setSessions(next);
+  }, []);
+
+  const publishArtifacts = useCallback((next: WorkspaceArtifactRecord[]) => {
+    artifactsRef.current = next;
+    setArtifacts(next);
   }, []);
 
   useEffect(() => {
@@ -198,7 +214,7 @@ export default function useWorkspaceChat({
       setSessions([]);
       setActiveSessionId(null);
       setMessages([]);
-      setArtifacts([]);
+      publishArtifacts([]);
       setMemories([]);
       setSelectedText(null);
       setQuestion("");
@@ -264,7 +280,7 @@ export default function useWorkspaceChat({
           setHasOlderMessages(
             nextMessages.length === WORKSPACE_MESSAGE_INITIAL_LIMIT
           );
-          setArtifacts(nextArtifacts);
+          publishArtifacts(nextArtifacts);
           setMemories(nextMemories);
         } catch (loadError) {
           if (!cancelled && generationRef.current === generation) {
@@ -286,7 +302,7 @@ export default function useWorkspaceChat({
       cancelled = true;
       window.clearTimeout(resetTimer);
     };
-  }, [publishMessages, publishSessions, workspaceBookId]);
+  }, [publishArtifacts, publishMessages, publishSessions, workspaceBookId]);
 
   useEffect(() => {
     return () => requestControllerRef.current?.abort();
@@ -304,9 +320,9 @@ export default function useWorkspaceChat({
       listWorkspaceArtifacts(currentWorkspace.id),
       listWorkspaceMemories(currentWorkspace.id),
     ]);
-    setArtifacts(nextArtifacts);
+    publishArtifacts(nextArtifacts);
     setMemories(nextMemories);
-  }, []);
+  }, [publishArtifacts]);
 
   const markRequestCancelled = useCallback(async () => {
     const identity = requestIdentityRef.current;
@@ -431,11 +447,49 @@ export default function useWorkspaceChat({
     setHasOlderMessages(older.length === WORKSPACE_MESSAGE_PAGE_SIZE);
   }, [hasOlderMessages, publishMessages]);
 
+  const captureCurrentContext = useCallback((): WorkspaceContextSnapshot | null => {
+    if (!book) return null;
+    const contextSnapshot: WorkspaceContextSnapshot = {
+      bookId: book.id,
+      bookTitle: book.title,
+      bookFormat: book.format,
+      capturedAt: new Date().toISOString(),
+    };
+    if (readerContextBookId === book.id) {
+      const nearbyText = limitContextText(
+        book.format === "epub"
+          ? epubReaderRef.current?.getVisibleText()
+          : collectVisibleReaderText(textReaderRef.current),
+        WORKSPACE_CONTEXT_CHARS
+      );
+      const selected = limitContextText(
+        selectedText ?? undefined,
+        WORKSPACE_CONTEXT_CHARS
+      );
+      if (nearbyText) contextSnapshot.nearbyText = nearbyText;
+      if (selected) contextSnapshot.selectedText = selected;
+      if (readerLocator) contextSnapshot.locator = readerLocator;
+      if (typeof progressPercent === "number" && Number.isFinite(progressPercent)) {
+        contextSnapshot.progressPercent = progressPercent;
+      }
+    }
+    return contextSnapshot;
+  }, [
+    book,
+    epubReaderRef,
+    progressPercent,
+    readerContextBookId,
+    readerLocator,
+    selectedText,
+    textReaderRef,
+  ]);
+
   const sendQuestion = useCallback(
     async (
       submittedQuestion: string,
       contextOverride?: WorkspaceContextSnapshot,
-      retryUser?: WorkspaceMessageRecord
+      retryUser?: WorkspaceMessageRecord,
+      skillId?: ReadingSkillId
     ) => {
       const currentWorkspace = workspaceRef.current;
       const sessionId = activeSessionIdRef.current;
@@ -457,33 +511,8 @@ export default function useWorkspaceChat({
       setError(null);
 
       const capturedAt = new Date().toISOString();
-      let contextSnapshot = contextOverride;
-      if (!contextSnapshot) {
-        contextSnapshot = {
-          bookId: targetBook.id,
-          bookTitle: targetBook.title,
-          bookFormat: targetBook.format,
-          capturedAt,
-        };
-        if (readerContextBookId === targetBook.id) {
-          const nearbyText = limitContextText(
-            targetBook.format === "epub"
-              ? epubReaderRef.current?.getVisibleText()
-              : collectVisibleReaderText(textReaderRef.current),
-            WORKSPACE_CONTEXT_CHARS
-          );
-          const selected = limitContextText(
-            selectedText ?? undefined,
-            WORKSPACE_CONTEXT_CHARS
-          );
-          if (nearbyText) contextSnapshot.nearbyText = nearbyText;
-          if (selected) contextSnapshot.selectedText = selected;
-          if (readerLocator) contextSnapshot.locator = readerLocator;
-          if (typeof progressPercent === "number" && Number.isFinite(progressPercent)) {
-            contextSnapshot.progressPercent = progressPercent;
-          }
-        }
-      }
+      const contextSnapshot = contextOverride ?? captureCurrentContext();
+      if (!contextSnapshot) return;
 
       const history = selectInferenceHistory(messagesRef.current);
       const pair = retryUser
@@ -497,6 +526,7 @@ export default function useWorkspaceChat({
               replyToMessageId: retryUser.id,
               content: "",
               state: "streaming" as const,
+              ...(retryUser.skillId ? { skillId: retryUser.skillId } : {}),
               createdAt: capturedAt,
               updatedAt: capturedAt,
             },
@@ -506,6 +536,7 @@ export default function useWorkspaceChat({
             sessionId,
             question: trimmedQuestion,
             contextSnapshot,
+            skillId,
             now: capturedAt,
           });
       const currentSession = sessionsRef.current.find(
@@ -739,22 +770,102 @@ export default function useWorkspaceChat({
       activeAiProvider,
       aiProviderUsable,
       book,
-      epubReaderRef,
+      captureCurrentContext,
       markRequestCancelled,
       online,
-      progressPercent,
       publishMessages,
       publishSessions,
-      readerContextBookId,
-      readerLocator,
-      selectedText,
-      textReaderRef,
     ]
   );
 
   const ask = useCallback(
     () => sendQuestion(question),
     [question, sendQuestion]
+  );
+
+  const eligibleSkills = listEligibleReadingSkills({
+    selectedText: selectedText ?? "",
+    nearbyText: readerContextBookId === book?.id ? "available" : "",
+  });
+
+  const runSkill = useCallback(
+    async (skillId: ReadingSkillId) => {
+      const contextSnapshot = captureCurrentContext();
+      if (!contextSnapshot) return;
+      try {
+        const instruction = buildReadingSkillQuestion(skillId, {
+          selectedText: contextSnapshot.selectedText,
+          nearbyText: contextSnapshot.nearbyText,
+          locale: navigator.language || "zh-CN",
+        });
+        setQuestion(instruction);
+        await sendQuestion(instruction, contextSnapshot, undefined, skillId);
+      } catch (skillError) {
+        setError(
+          skillError instanceof Error ? skillError.message : UI_TEXT.REQUEST_FAILED
+        );
+      }
+    },
+    [captureCurrentContext, sendQuestion]
+  );
+
+  const saveMessageToMaterials = useCallback(
+    async (messageId: string) => {
+      const currentWorkspace = workspaceRef.current;
+      const message = messagesRef.current.find(
+        (item) =>
+          item.id === messageId &&
+          item.role === "assistant" &&
+          item.state === "complete"
+      );
+      if (!currentWorkspace || !message || !book) return;
+      const existing = await findWorkspaceArtifactBySourceMessageId(
+        currentWorkspace.id,
+        message.id
+      );
+      if (existing) return;
+      const now = new Date().toISOString();
+      const skill = READING_SKILLS.find((item) => item.id === message.skillId);
+      const artifact: WorkspaceArtifactRecord = {
+        id: createLocalId(),
+        workspaceId: currentWorkspace.id,
+        sessionId: message.sessionId,
+        sourceMessageIds: [message.id],
+        kind: skill?.artifactKind ?? "note",
+        title: createArtifactTitle(message.content, book.title),
+        content: message.content,
+        mediaType: "text/markdown",
+        createdAt: now,
+        updatedAt: now,
+      };
+      await putWorkspaceArtifact(artifact);
+      await refreshMaterials();
+    },
+    [book, refreshMaterials]
+  );
+
+  const renameArtifact = useCallback(
+    async (artifactId: string, title: string) => {
+      const trimmedTitle = title.trim();
+      if (!trimmedTitle) throw new Error(UI_TEXT.WORKSPACE_ARTIFACT_TITLE_REQUIRED);
+      const artifact = artifactsRef.current.find((item) => item.id === artifactId);
+      if (!artifact) return;
+      await putWorkspaceArtifact({
+        ...artifact,
+        title: trimmedTitle.slice(0, 120),
+        updatedAt: new Date().toISOString(),
+      });
+      await refreshMaterials();
+    },
+    [refreshMaterials]
+  );
+
+  const deleteArtifact = useCallback(
+    async (artifactId: string) => {
+      await deleteWorkspaceArtifact(artifactId);
+      await refreshMaterials();
+    },
+    [refreshMaterials]
   );
 
   const retry = useCallback(async (assistantMessageId?: string) => {
@@ -792,6 +903,7 @@ export default function useWorkspaceChat({
     memories,
     workspaceLoading,
     hasOlderMessages,
+    eligibleSkills,
     selectedText,
     setSelectedText,
     clearSelection,
@@ -801,11 +913,15 @@ export default function useWorkspaceChat({
     error,
     online,
     ask,
+    runSkill,
+    saveMessageToMaterials,
     stop: markRequestCancelled,
     retry,
     selectSession,
     createSession,
     loadOlderMessages,
+    renameArtifact,
+    deleteArtifact,
     refreshMaterials,
   };
 }
