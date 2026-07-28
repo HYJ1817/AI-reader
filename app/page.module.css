@@ -4295,6 +4295,29 @@
   display: contents;
 }
 
+.sheetPageViewport {
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sheetPage {
+  width: 100%;
+  min-height: 0;
+  transform: translateZ(0);
+}
+
+.sheetPage[data-sheet-page-active="false"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sheetPage[data-sheet-page-active="true"] {
+  position: relative;
+}
+
 .motionSheetBackdrop {
   position: absolute;
   inset: 0;
