@@ -45,7 +45,7 @@ test("interaction probe records root retargeting without layout shift", async ({
   expect(existsSync(evidencePath)).toBe(true);
   expect(JSON.parse(readFileSync(evidencePath, "utf8"))).toEqual({
     project: testInfo.project.name,
-    metrics,
+    ...metrics,
   });
 
   expect(metrics.frames).toBeGreaterThan(20);

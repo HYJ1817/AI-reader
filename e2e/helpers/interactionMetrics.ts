@@ -148,7 +148,7 @@ export async function attachInteractionMetrics(
   await mkdir(path.dirname(evidencePath), { recursive: true });
   await writeFile(
     evidencePath,
-    JSON.stringify({ project: testInfo.project.name, metrics }, null, 2),
+    JSON.stringify({ project: testInfo.project.name, ...metrics }, null, 2),
     "utf8"
   );
   await testInfo.attach(`${name}.json`, {
