@@ -1,6 +1,80 @@
 ﻿# AI Reader Agent Handoff
 
-## Current Checkout
+## Reading Workspace Delivery (2026-07-28, Current Authoritative State)
+
+- Checkout for this delivery: `C:\aaa\ai-reader-pwa`, branch `main`, based on
+  `origin/main` commit `ee8881d`. No worktree was created, and no reset, clean,
+  push, merge, deployment, or release was performed.
+- Approved design and implementation plan: `acfe922` and `6f35fca`. Delivery
+  commits, in order: `ceb90a2` (domain), `1de9ac0` (Dexie persistence),
+  `9e7abe2` (backup v3), `c1e07c6` (book/reader Workspace surface), `302c197`
+  (persistent sessions/messages), `754475f` (normalized provider streaming),
+  `6b3e59c` (pagination/Markdown/large-content bounds), `ab133bb` (four reading
+  Skills and semantic materials), `3d5bd04` (visible opt-in memory and anchored
+  compaction), `7a2ad2b` (Workspace browser journeys), and `ee0e683` (related
+  mobile-regression alignment and retained performance probes).
+- Storage/backup versions: Dexie schema **v7**; backup schema **v3**, with v1/v2
+  import compatibility retained. Deleting the final book association, clearing
+  local data, and atomic backup replacement include Workspace descendants.
+- Workspace is book-owned and remains an existing routed Sheet, not a fourth
+  root tab. Ask AI and the full Workspace share persisted message IDs. Sessions,
+  messages, artifacts, and memory remain isolated by Workspace/book identity.
+- Streaming is normalized for OpenAI-compatible, Anthropic-compatible, and
+  Gemini SSE. Stop/error/retry state is persisted; stale events are rejected by
+  workspace, session, assistant-message, and generation identity. Live updates
+  publish at most once per animation frame and checkpoint no more often than one
+  second or 4,000 new characters.
+- Rendering limits are explicit: live Markdown parsing is disabled; live output
+  tail-degrades after 8,000 characters to the newest 4,000; frozen content over
+  32,000 characters shows an 8,000-character preview with explicit Expand and
+  full-content Export. Initial history is 100 messages, older pages are 50, and
+  scroll anchoring is browser-tested within 1px.
+- The bundled Skills are exactly Explain selection, Translate selection,
+  Summarize nearby content, and Extract key points. They are metadata-first,
+  context-gated, reuse the existing bounded request path, and do not execute
+  arbitrary `SKILL.md` files or start a tool loop. Saved artifacts are local
+  Markdown records, deduplicated by source message, with preview/copy/export/
+  rename/confirmed-delete actions.
+- Memory is opt-in and editable before save. Only active records are injected,
+  newest first, with limits of 20 items and 4,000 total characters plus an
+  explicit precedence warning. Revoked memory remains visible and is excluded
+  from inference; permanent deletion is allowed only after revocation.
+  Conversation compaction stores a summary and real message anchor without
+  deleting or rewriting any message row.
+- TDD evidence included expected RED failures before each implementation. Main
+  focused GREEN commands included:
+  `npm.cmd run test -- lib/readingWorkspace.test.ts`,
+  `npm.cmd run test -- lib/db.test.ts`,
+  `npm.cmd run test -- lib/backup.test.ts lib/backupImport.test.ts`,
+  `npm.cmd run test -- lib/workspaceChat.test.ts lib/aiChat.test.ts`,
+  `npm.cmd run test -- lib/aiStream.test.ts lib/aiChat.test.ts`, and
+  `npm.cmd run test -- lib/readingSkills.test.ts lib/db.test.ts
+  lib/accessibilityIntegration.test.ts lib/askAiReaderContextIntegration.test.ts`.
+- Final local gate: `npm.cmd audit --omit=dev --audit-level=high` found **0**
+  production vulnerabilities; `npm.cmd test` passed **117 files / 1054 tests**;
+  `npm.cmd run lint`, `npm.cmd run build`, and `git diff --check` all exited 0.
+- Deterministic Workspace Playwright uses a local `ReadableStream` fixture and
+  never contacts a real provider. The focused suite passed **4/4** on iPhone 14
+  and **4/4** on iPhone 15 Pro Max. The final combined navigation, annotations,
+  accessibility, and Workspace command passed **36/36** on each profile with
+  one worker, zero retries, and `--trace=off`.
+- Retained cold Workspace-open samples: iPhone 14 **61.9ms**, maximum long task
+  **0ms**, CLS **0**; iPhone 15 Pro Max **71.8ms**, maximum long task **0ms**, CLS
+  **0**. Both satisfy the 100ms/50ms/zero-CLS architecture budgets. Chromium
+  evidence does not prove physical 120Hz behavior.
+- Physical iPhone Safari/home-screen PWA verification was not available and
+  remains unrun. Required follow-up: keyboard avoidance, selection -> Ask AI ->
+  Workspace, background/foreground interruption, large-content export, offline
+  reload, VoiceOver labels, reduced motion, and repeated cold/warm opening on a
+  recorded iPhone/iOS version.
+- Deferred scope remains arbitrary/community Skills, browser or shell tools,
+  Linux sandboxing, a global Workspace index/root tab, cloud sync, and physical
+  device acceptance. These are not partially implemented.
+- OpenMinis was used only as behavioral/architectural research. This repository
+  contains independently written MIT-compatible TypeScript/React code; no GPL
+  OpenMinis source was copied or adapted.
+
+## Historical Checkout (superseded by the authoritative section above)
 
 - Repository: `C:\aaa\ai-reader-pwa`
 - Active worktree:
