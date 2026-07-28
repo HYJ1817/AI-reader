@@ -57,11 +57,16 @@ export type NavigationTraversal = {
   generation: number;
 };
 
+export type NavigationTraversalRequest = {
+  traversal: NavigationTraversal;
+  shouldNavigate: boolean;
+};
+
 export type NavigationTraversalObserver = {
   start: (
     sourceCursor: number,
     targetCursor: number
-  ) => NavigationTraversal | null;
+  ) => NavigationTraversal | NavigationTraversalRequest | null;
   cancel: (traversal: NavigationTraversal) => void;
 };
 
@@ -81,15 +86,25 @@ export function createNavigationTraversalCoordinator() {
     flushing = false;
   };
 
-  const begin = (sourceCursor: number, targetCursor: number) => {
+  const request = (
+    sourceCursor: number,
+    targetCursor: number
+  ): NavigationTraversalRequest | null => {
     if (disposed) return null;
     if (pending) {
+      if (
+        pending.sourceCursor === sourceCursor &&
+        pending.targetCursor === targetCursor
+      ) {
+        return { traversal: pending, shouldNavigate: false };
+      }
+      if (pending.targetCursor !== sourceCursor) return null;
       pending = {
         ...pending,
         sourceCursor,
         targetCursor,
       };
-      return pending;
+      return { traversal: pending, shouldNavigate: true };
     }
     generation += 1;
     const traversal = {
@@ -98,8 +113,11 @@ export function createNavigationTraversalCoordinator() {
       generation,
     };
     pending = traversal;
-    return traversal;
+    return { traversal, shouldNavigate: true };
   };
+
+  const begin = (sourceCursor: number, targetCursor: number) =>
+    request(sourceCursor, targetCursor)?.traversal ?? null;
 
   const cancel = (traversal: NavigationTraversal) => {
     if (
@@ -121,6 +139,7 @@ export function createNavigationTraversalCoordinator() {
       flush();
     },
     begin,
+    request,
     cancel,
     settle(traversal: NavigationTraversal | null, cursor: number | undefined) {
       if (
@@ -157,6 +176,22 @@ export function createNavigationTraversalCoordinator() {
       return pending !== null;
     },
   };
+}
+
+const historyTraversalCoordinators = new WeakMap<
+  object,
+  ReturnType<typeof createNavigationTraversalCoordinator>
+>();
+
+export function getNavigationTraversalCoordinator(
+  history: NavigationHistoryAdapter
+) {
+  const existing = historyTraversalCoordinators.get(history);
+  if (existing) return existing;
+
+  const coordinator = createNavigationTraversalCoordinator();
+  historyTraversalCoordinators.set(history, coordinator);
+  return coordinator;
 }
 
 function getNavigationEntryKeys(state: AppNavigationState): string[] {
@@ -208,11 +243,24 @@ function requestHistoryTraversal(
   targetCursor: number,
   observer?: NavigationTraversalObserver
 ) {
+  if (!observer) {
+    history.go(targetCursor - sourceCursor);
+    return;
+  }
+
   const traversal = observer?.start(sourceCursor, targetCursor);
-  if (observer && !traversal) return;
+  if (!traversal) return;
+  const request =
+    traversal && "shouldNavigate" in traversal
+      ? traversal
+      : traversal
+        ? { traversal, shouldNavigate: true }
+        : null;
+  if (!request || !request.shouldNavigate) return;
+
   const result = history.go(targetCursor - sourceCursor);
-  if (result === false && traversal) {
-    observer?.cancel(traversal);
+  if (result === false) {
+    observer?.cancel(request.traversal);
   }
 }
 
@@ -384,7 +432,11 @@ export default function useAppNavigation(): UseAppNavigationResult {
   const [store] = useState(() =>
     createAppNavigationStore(createAppNavigationState())
   );
-  const [coordinator] = useState(createNavigationTraversalCoordinator);
+  const [coordinator] = useState(() =>
+    typeof window === "undefined"
+      ? createNavigationTraversalCoordinator()
+      : getNavigationTraversalCoordinator(window.history)
+  );
   const state = useSyncExternalStore(
     store.subscribeCore,
     store.getCoreSnapshot,
@@ -394,7 +446,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
   const keyCounterRef = useRef(0);
   const keyPrefix = useId();
   const traversalObserver = useMemo(
-    () => ({ start: coordinator.begin, cancel: coordinator.cancel }),
+    () => ({ start: coordinator.request, cancel: coordinator.cancel }),
     [coordinator]
   );
   const scheduleNavigation = useCallback(
@@ -429,7 +481,12 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
       if (restoredState) {
         restore(restoredState);
-        redirectNavigationHistoryTombstone(window.history, traversalObserver);
+        if (!redirectNavigationHistoryTombstone(window.history, traversalObserver)) {
+          coordinator.settle(
+            coordinator.getPending(),
+            decodeNavigationHistoryPosition(window.history.state)?.cursor
+          );
+        }
       } else {
         window.history.replaceState(
           mergeNavigationHistory(

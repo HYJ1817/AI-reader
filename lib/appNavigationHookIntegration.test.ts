@@ -49,6 +49,8 @@ describe("app navigation hook integration", () => {
     expect(hookSource).toContain("traverseBackWithHistory");
     expect(hookSource).toContain("history.go(");
     expect(hookSource).toContain("createNavigationTraversalCoordinator");
+    expect(hookSource).toContain("getNavigationTraversalCoordinator");
+    expect(hookSource).toContain("shouldNavigate");
     expect(hookSource).toContain("coordinator.enqueue");
     expect(hookSource).toContain("coordinator.settle");
     expect(hookSource).toContain("coordinator.drain");

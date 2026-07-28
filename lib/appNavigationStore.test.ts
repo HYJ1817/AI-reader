@@ -9,6 +9,7 @@ import { createAppNavigationStore } from "./appNavigationStore";
 import {
   createNavigationTraversalCoordinator,
   dismissSheetStackWithHistory,
+  getNavigationTraversalCoordinator,
   redirectNavigationHistoryTombstone,
   removeInvalidWithHistory,
   traverseBackWithHistory,
@@ -981,6 +982,53 @@ describe("app navigation store", () => {
     expect(coordinator.isPending()).toBe(true);
     coordinator.settle(finalTarget, 1);
     expect(executed).toBe(true);
+  });
+
+  it("shares a pending tombstone traversal across remounts without a second go", () => {
+    const history = createFakeHistory({});
+    const oldCoordinator = getNavigationTraversalCoordinator(history.history);
+    const first = oldCoordinator.request(3, 2);
+    if (!first) throw new Error("expected an initial traversal request");
+    if (first.shouldNavigate) history.history.go(-1);
+    oldCoordinator.drain();
+
+    const newCoordinator = getNavigationTraversalCoordinator(history.history);
+    const duplicate = newCoordinator.request(3, 2);
+    if (!duplicate) throw new Error("expected a duplicate traversal request");
+    if (duplicate.shouldNavigate) history.history.go(-1);
+
+    expect(newCoordinator).toBe(oldCoordinator);
+    expect(first.shouldNavigate).toBe(true);
+    expect(duplicate.shouldNavigate).toBe(false);
+    expect(history.goCalls).toEqual([-1]);
+    newCoordinator.settle(duplicate.traversal, 2);
+    expect(newCoordinator.isPending()).toBe(false);
+  });
+
+  it("keeps intermediate tombstone retargets in one generation but isolates histories", () => {
+    const firstHistory = createFakeHistory({});
+    const secondHistory = createFakeHistory({});
+    const firstCoordinator = getNavigationTraversalCoordinator(
+      firstHistory.history
+    );
+    const initial = firstCoordinator.request(4, 3);
+    const retarget = firstCoordinator.request(3, 1);
+    const secondCoordinator = getNavigationTraversalCoordinator(
+      secondHistory.history
+    );
+
+    if (!initial || !retarget) throw new Error("expected traversal requests");
+    expect(initial.shouldNavigate).toBe(true);
+    expect(retarget.shouldNavigate).toBe(true);
+    expect(retarget.traversal.generation).toBe(initial.traversal.generation);
+    expect(secondCoordinator).not.toBe(firstCoordinator);
+  });
+
+  it("keeps SSR-local coordinators isolated without shared history ownership", () => {
+    const first = createNavigationTraversalCoordinator();
+    const second = createNavigationTraversalCoordinator();
+
+    expect(first).not.toBe(second);
   });
 
   it("exposes full navigation state through the navigation provider", () => {
