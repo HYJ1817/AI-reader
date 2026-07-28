@@ -1897,7 +1897,7 @@ export default function Home() {
           setQuestion,
           ask: () => void handleAsk(),
           stopAsk: () => void stopWorkspaceRequest(),
-          retryAsk: () => void retryWorkspaceRequest(),
+          retryAsk: (assistantMessageId) => void retryWorkspaceRequest(assistantMessageId),
           clearSelection: handleClearSelection,
           openAiSettingsFromAsk,
           openReadingWorkspace: (bookId) =>

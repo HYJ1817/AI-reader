@@ -158,7 +158,8 @@ function splitSystemAndMessages(messages: ChatMessage[]): {
 
 export function buildAiProviderRequest(
   provider: AiProviderConfig,
-  messages: ChatMessage[]
+  messages: ChatMessage[],
+  options: { stream?: boolean } = {}
 ): AiProviderRequest {
   const baseUrl = resolveAiProviderBaseUrl(provider);
   if (provider.protocol === "anthropic-compatible") {
@@ -178,6 +179,7 @@ export function buildAiProviderRequest(
           messages: split.messages,
           max_tokens: 1024,
           temperature: 0.2,
+          stream: options.stream === true,
         }),
       },
     };
@@ -187,7 +189,11 @@ export function buildAiProviderRequest(
     const split = splitSystemAndMessages(messages);
     const model = provider.model.replace(/^models\//, "");
     return {
-      url: `${baseUrl}/models/${encodeURIComponent(model)}:generateContent`,
+      url: `${baseUrl}/models/${encodeURIComponent(model)}:${
+        options.stream === true
+          ? "streamGenerateContent?alt=sse"
+          : "generateContent"
+      }`,
       init: {
         method: "POST",
         headers: headersOf({
@@ -218,7 +224,12 @@ export function buildAiProviderRequest(
         "Content-Type": "application/json",
         Authorization: `Bearer ${provider.apiKey}`,
       }),
-      body: bodyOf({ model: provider.model, messages, temperature: 0.2 }),
+      body: bodyOf({
+        model: provider.model,
+        messages,
+        temperature: 0.2,
+        stream: options.stream === true,
+      }),
     },
   };
 }

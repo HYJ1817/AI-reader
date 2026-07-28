@@ -101,10 +101,43 @@ describe("AI request security", () => {
     ).rejects.toMatchObject({ status: 502 });
   });
 
+  it("enforces the upstream limit while streaming without buffering first", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream<Uint8Array>({
+              start(controller) {
+                controller.enqueue(new Uint8Array(80));
+                controller.enqueue(new Uint8Array(80));
+                controller.close();
+              },
+            })
+          )
+      )
+    );
+
+    const response = await fetchAiUpstream(
+      "https://api.example.com/v1",
+      {},
+      { maxResponseBytes: 100, streamResponse: true }
+    );
+    await expect(response.arrayBuffer()).rejects.toMatchObject({ status: 502 });
+  });
+
   it("passes safe validation errors through both API routes", () => {
     for (const source of [chatRouteSource, modelsRouteSource]) {
       expect(source).toContain("error instanceof AiRequestError ? error.message");
       expect(source).toContain("fetchAiUpstream(");
     }
+  });
+
+  it("streams normalized provider events with anti-buffering headers", () => {
+    expect(chatRouteSource).toContain("normalizeAiProviderStream");
+    expect(chatRouteSource).toContain("streamResponse: true");
+    expect(chatRouteSource).toContain('"Content-Type": "text/event-stream; charset=utf-8"');
+    expect(chatRouteSource).toContain('"X-Accel-Buffering": "no"');
+    expect(chatRouteSource).not.toContain("await upstream.json()");
   });
 });

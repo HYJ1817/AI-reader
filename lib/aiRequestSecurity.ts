@@ -151,11 +151,13 @@ export async function fetchAiUpstream(
   options: SafeUrlOptions & {
     timeoutMs?: number;
     maxResponseBytes?: number;
+    streamResponse?: boolean;
   } = {}
 ) {
   const url = assertSafeAiUpstreamUrl(input, options);
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 30_000);
+  let timeoutOwnedByStream = false;
 
   try {
     const response = await fetch(url, {
@@ -166,6 +168,48 @@ export async function fetchAiUpstream(
     if (!response.body) return response;
 
     const maxResponseBytes = options.maxResponseBytes ?? 2_000_000;
+    if (options.streamResponse) {
+      timeoutOwnedByStream = true;
+      const reader = response.body.getReader();
+      let bytesRead = 0;
+      const limitedBody = new ReadableStream<Uint8Array>({
+        async pull(streamController) {
+          try {
+            const { value, done } = await reader.read();
+            if (done) {
+              clearTimeout(timeout);
+              reader.releaseLock();
+              streamController.close();
+              return;
+            }
+            bytesRead += value.byteLength;
+            if (bytesRead > maxResponseBytes) {
+              clearTimeout(timeout);
+              controller.abort();
+              await reader.cancel().catch(() => undefined);
+              streamController.error(
+                new AiRequestError("AI response too large", 502)
+              );
+              return;
+            }
+            streamController.enqueue(value);
+          } catch (error) {
+            clearTimeout(timeout);
+            streamController.error(error);
+          }
+        },
+        async cancel(reason) {
+          clearTimeout(timeout);
+          controller.abort();
+          await reader.cancel(reason).catch(() => undefined);
+        },
+      });
+      return new Response(limitedBody, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+      });
+    }
     const text = await readStreamWithLimit(
       response.body,
       maxResponseBytes,
@@ -184,6 +228,6 @@ export async function fetchAiUpstream(
       },
     });
   } finally {
-    clearTimeout(timeout);
+    if (!timeoutOwnedByStream) clearTimeout(timeout);
   }
 }

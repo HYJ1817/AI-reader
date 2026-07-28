@@ -225,6 +225,7 @@ describe("buildAiProviderRequest", () => {
     expect(JSON.parse(String(request.init.body))).toMatchObject({
       model: "deepseek-chat",
       temperature: 0.2,
+      stream: false,
     });
   });
 
@@ -247,6 +248,7 @@ describe("buildAiProviderRequest", () => {
     expect(body.model).toBe("claude-3-5-haiku-latest");
     expect(body.system).toContain("reading assistant");
     expect(body.messages[0].role).toBe("user");
+    expect(body.stream).toBe(false);
   });
 
   it("builds a Gemini generateContent request", () => {
@@ -269,6 +271,35 @@ describe("buildAiProviderRequest", () => {
     expect(request.url).not.toContain("gemini-secret");
     expect(body.systemInstruction.parts[0].text).toContain("reading assistant");
     expect(body.contents[0].parts[0].text).toContain("hello");
+  });
+
+  it("enables provider-specific streaming requests", () => {
+    const openAi = createAiProviderFromPreset("openai", {
+      apiKey: "key",
+      model: "gpt-4o-mini",
+    });
+    const anthropic = createAiProviderFromPreset("anthropic", {
+      apiKey: "key",
+      model: "claude-3-5-haiku-latest",
+    });
+    const gemini = createAiProviderFromPreset("gemini", {
+      apiKey: "key",
+      model: "gemini-1.5-flash",
+    });
+    const messages = buildChatMessages("hello", {});
+
+    expect(
+      JSON.parse(String(buildAiProviderRequest(openAi, messages, { stream: true }).init.body))
+        .stream
+    ).toBe(true);
+    expect(
+      JSON.parse(
+        String(buildAiProviderRequest(anthropic, messages, { stream: true }).init.body)
+      ).stream
+    ).toBe(true);
+    expect(buildAiProviderRequest(gemini, messages, { stream: true }).url).toContain(
+      ":streamGenerateContent?alt=sse"
+    );
   });
 });
 

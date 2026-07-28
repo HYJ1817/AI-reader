@@ -1,10 +1,10 @@
 import {
   buildChatMessages,
   buildAiProviderRequest,
-  extractAiProviderAnswer,
   type AiContext,
   type ChatConversationMessage,
 } from "@/lib/aiChat";
+import { normalizeAiProviderStream } from "@/lib/aiStream";
 import {
   createAiProviderFromPreset,
   hasUsableAiProvider,
@@ -72,7 +72,8 @@ export async function POST(request: Request) {
   try {
     aiRequest = buildAiProviderRequest(
       resolvedProvider,
-      buildChatMessages(question, context ?? {}, messages ?? [])
+      buildChatMessages(question, context ?? {}, messages ?? []),
+      { stream: true }
     );
   } catch {
     return Response.json({ error: "Invalid baseUrl" }, { status: 400 });
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
   try {
     upstream = await fetchAiUpstream(aiRequest.url, aiRequest.init, {
       allowLocalDevelopment: process.env.NODE_ENV !== "production",
+      streamResponse: true,
     });
   } catch (error) {
     const status = error instanceof AiRequestError ? error.status : 502;
@@ -97,25 +99,21 @@ export async function POST(request: Request) {
     return Response.json({ error: "AI request failed" }, { status });
   }
 
-  let data: unknown;
-  try {
-    data = await upstream.json();
-  } catch {
+  if (!upstream.body) {
     return Response.json(
-      { error: "AI request failed: invalid response" },
+      { error: "AI request failed: missing response stream" },
       { status: 502 }
     );
   }
 
-  let answer: string;
-  try {
-    answer = extractAiProviderAnswer(resolvedProvider, data);
-  } catch {
-    return Response.json(
-      { error: "AI request failed: unexpected response format" },
-      { status: 502 }
-    );
-  }
-
-  return Response.json({ answer });
+  return new Response(
+    normalizeAiProviderStream(resolvedProvider.protocol, upstream.body),
+    {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        "X-Accel-Buffering": "no",
+      },
+    }
+  );
 }

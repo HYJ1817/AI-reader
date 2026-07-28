@@ -17,7 +17,7 @@ export type WorkspaceConversationProps = {
   onQuestionChange: (value: string) => void;
   onAsk: () => void;
   onStop: () => void;
-  onRetry: () => void;
+  onRetry: (assistantMessageId?: string) => void;
   onClearSelection: () => void;
   onOpenSettings: () => void;
 };
@@ -110,7 +110,7 @@ export default function WorkspaceConversation({
                   <button
                     type="button"
                     className={styles.workspaceRetryButton}
-                    onClick={onRetry}
+                    onClick={() => onRetry(message.id)}
                   >
                     {UI_TEXT.RETRY}
                   </button>

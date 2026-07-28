@@ -10,6 +10,7 @@ import {
 import type { EpubReaderHandle } from "@/app/EpubReader";
 import { limitContextText, type AiContext } from "@/lib/aiChat";
 import type { AiProviderConfig } from "@/lib/aiProviders";
+import { readWorkspaceEventStream } from "@/lib/aiStream";
 import {
   createWorkspaceSession,
   ensureDefaultBookWorkspace,
@@ -33,6 +34,7 @@ import {
   type WorkspaceMessageRecord,
   type WorkspaceSessionRecord,
 } from "@/lib/readingWorkspace";
+import { createLocalId } from "@/lib/localId";
 import {
   buildWorkspaceMessagePair,
   selectInferenceHistory,
@@ -124,6 +126,8 @@ export default function useWorkspaceChat({
   const requestControllerRef = useRef<AbortController | null>(null);
   const requestIdentityRef = useRef<WorkspaceRequestIdentity | null>(null);
   const generationRef = useRef(0);
+  const streamingContentRef = useRef("");
+  const streamingFrameRef = useRef<number | null>(null);
 
   const publishMessages = useCallback((next: WorkspaceMessageRecord[]) => {
     messagesRef.current = next;
@@ -158,6 +162,7 @@ export default function useWorkspaceChat({
       if (pendingAssistant?.state === "streaming") {
         void putWorkspaceMessage({
           ...pendingAssistant,
+          content: streamingContentRef.current || pendingAssistant.content,
           state: "cancelled",
           updatedAt: now,
         }).catch(() => undefined);
@@ -175,8 +180,13 @@ export default function useWorkspaceChat({
     }
     generationRef.current += 1;
     requestControllerRef.current?.abort();
+    if (streamingFrameRef.current !== null) {
+      window.cancelAnimationFrame(streamingFrameRef.current);
+      streamingFrameRef.current = null;
+    }
     requestControllerRef.current = null;
     requestIdentityRef.current = null;
+    streamingContentRef.current = "";
     workspaceRef.current = null;
     activeSessionIdRef.current = null;
     messagesRef.current = [];
@@ -206,21 +216,48 @@ export default function useWorkspaceChat({
         try {
           const owner = await ensureDefaultBookWorkspace(workspaceBookId);
           const nextSessions = await listWorkspaceSessions(owner.workspace.id);
-          const activeSession = nextSessions[0] ?? owner.session;
-          const [nextMessages, nextArtifacts, nextMemories] = await Promise.all([
+          let activeSession = nextSessions[0] ?? owner.session;
+          const [loadedMessages, nextArtifacts, nextMemories] = await Promise.all([
             listWorkspaceMessages(activeSession.id, {
               limit: WORKSPACE_MESSAGE_INITIAL_LIMIT,
             }),
             listWorkspaceArtifacts(owner.workspace.id),
             listWorkspaceMemories(owner.workspace.id),
           ]);
+          const interruptedAt = new Date().toISOString();
+          const interruptedMessages = loadedMessages.filter(
+            (message) => message.state === "streaming"
+          );
+          const nextMessages = loadedMessages.map((message) =>
+            message.state === "streaming"
+              ? { ...message, state: "cancelled" as const, updatedAt: interruptedAt }
+              : message
+          );
+          if (interruptedMessages.length > 0) {
+            activeSession = {
+              ...activeSession,
+              status: "paused",
+              updatedAt: interruptedAt,
+            };
+            await Promise.all([
+              ...nextMessages
+                .filter((message) =>
+                  interruptedMessages.some((item) => item.id === message.id)
+                )
+                .map((message) => putWorkspaceMessage(message)),
+              putWorkspaceSession(activeSession),
+            ]);
+          }
           if (cancelled || generationRef.current !== generation) return;
 
           workspaceRef.current = owner.workspace;
           activeSessionIdRef.current = activeSession.id;
           setWorkspace(owner.workspace);
           publishSessions(
-            nextSessions.length > 0 ? nextSessions : [activeSession]
+            (nextSessions.length > 0 ? nextSessions : [activeSession]).map(
+              (session) =>
+                session.id === activeSession.id ? activeSession : session
+            )
           );
           setActiveSessionId(activeSession.id);
           publishMessages(nextMessages);
@@ -275,6 +312,10 @@ export default function useWorkspaceChat({
     const identity = requestIdentityRef.current;
     if (!identity) return;
     requestControllerRef.current?.abort();
+    if (streamingFrameRef.current !== null) {
+      window.cancelAnimationFrame(streamingFrameRef.current);
+      streamingFrameRef.current = null;
+    }
     requestControllerRef.current = null;
     requestIdentityRef.current = null;
     generationRef.current += 1;
@@ -286,6 +327,7 @@ export default function useWorkspaceChat({
     if (assistant && assistant.state === "streaming") {
       const cancelledMessage: WorkspaceMessageRecord = {
         ...assistant,
+        content: streamingContentRef.current || assistant.content,
         state: "cancelled",
         updatedAt: now,
       };
@@ -296,6 +338,7 @@ export default function useWorkspaceChat({
         )
       );
     }
+    streamingContentRef.current = "";
 
     const session = sessionsRef.current.find(
       (item) => item.id === identity.sessionId
@@ -391,7 +434,8 @@ export default function useWorkspaceChat({
   const sendQuestion = useCallback(
     async (
       submittedQuestion: string,
-      contextOverride?: WorkspaceContextSnapshot
+      contextOverride?: WorkspaceContextSnapshot,
+      retryUser?: WorkspaceMessageRecord
     ) => {
       const currentWorkspace = workspaceRef.current;
       const sessionId = activeSessionIdRef.current;
@@ -442,13 +486,28 @@ export default function useWorkspaceChat({
       }
 
       const history = selectInferenceHistory(messagesRef.current);
-      const pair = buildWorkspaceMessagePair({
-        workspaceId: currentWorkspace.id,
-        sessionId,
-        question: trimmedQuestion,
-        contextSnapshot,
-        now: capturedAt,
-      });
+      const pair = retryUser
+        ? {
+            user: retryUser,
+            assistant: {
+              id: createLocalId(),
+              workspaceId: currentWorkspace.id,
+              sessionId,
+              role: "assistant" as const,
+              replyToMessageId: retryUser.id,
+              content: "",
+              state: "streaming" as const,
+              createdAt: capturedAt,
+              updatedAt: capturedAt,
+            },
+          }
+        : buildWorkspaceMessagePair({
+            workspaceId: currentWorkspace.id,
+            sessionId,
+            question: trimmedQuestion,
+            contextSnapshot,
+            now: capturedAt,
+          });
       const currentSession = sessionsRef.current.find(
         (session) => session.id === sessionId
       );
@@ -457,7 +516,11 @@ export default function useWorkspaceChat({
         : null;
 
       try {
-        await putWorkspaceMessagePair(pair.user, pair.assistant);
+        if (retryUser) {
+          await putWorkspaceMessage(pair.assistant);
+        } else {
+          await putWorkspaceMessagePair(pair.user, pair.assistant);
+        }
         if (streamingSession) await putWorkspaceSession(streamingSession);
       } catch (persistenceError) {
         setError(
@@ -468,7 +531,11 @@ export default function useWorkspaceChat({
         return;
       }
 
-      publishMessages([...messagesRef.current, pair.user, pair.assistant]);
+      publishMessages(
+        retryUser
+          ? [...messagesRef.current, pair.assistant]
+          : [...messagesRef.current, pair.user, pair.assistant]
+      );
       if (streamingSession) {
         publishSessions(
           sessionsRef.current.map((session) =>
@@ -476,8 +543,9 @@ export default function useWorkspaceChat({
           )
         );
       }
-      setQuestion("");
+      if (!retryUser) setQuestion("");
       setLoading(true);
+      streamingContentRef.current = "";
 
       const controller = new AbortController();
       const identity: WorkspaceRequestIdentity = {
@@ -515,19 +583,78 @@ export default function useWorkspaceChat({
             data?.error || `${UI_TEXT.REQUEST_FAILED} (${response.status})`
           );
         }
-        const data = await response.json();
-        const currentIdentity = requestIdentityRef.current;
-        if (
-          !currentIdentity ||
-          !shouldAcceptWorkspaceEvent(currentIdentity, identity)
-        ) {
-          return;
+        if (!response.body) {
+          throw new Error(UI_TEXT.WORKSPACE_STREAM_MISSING);
+        }
+
+        let sawDone = false;
+        let lastCheckpointAt = Date.now();
+        let checkpointLength = 0;
+        const publishStreamingContent = () => {
+          streamingFrameRef.current = null;
+          const currentIdentity = requestIdentityRef.current;
+          if (
+            !currentIdentity ||
+            !shouldAcceptWorkspaceEvent(currentIdentity, identity)
+          ) {
+            return;
+          }
+          const content = streamingContentRef.current;
+          publishMessages(
+            messagesRef.current.map((message) =>
+              message.id === pair.assistant.id
+                ? { ...message, content, updatedAt: new Date().toISOString() }
+                : message
+            )
+          );
+        };
+
+        for await (const event of readWorkspaceEventStream(response.body)) {
+          const currentIdentity = requestIdentityRef.current;
+          if (
+            !currentIdentity ||
+            !shouldAcceptWorkspaceEvent(currentIdentity, identity)
+          ) {
+            return;
+          }
+          if (event.type === "error") throw new Error(event.message);
+          if (event.type === "done") {
+            sawDone = true;
+            break;
+          }
+
+          streamingContentRef.current += event.text;
+          if (streamingFrameRef.current === null) {
+            streamingFrameRef.current = window.requestAnimationFrame(
+              publishStreamingContent
+            );
+          }
+          const nowMs = Date.now();
+          if (
+            nowMs - lastCheckpointAt >= 1_000 ||
+            streamingContentRef.current.length - checkpointLength >= 4_000
+          ) {
+            const checkpoint: WorkspaceMessageRecord = {
+              ...pair.assistant,
+              content: streamingContentRef.current,
+              updatedAt: new Date(nowMs).toISOString(),
+            };
+            await putWorkspaceMessage(checkpoint);
+            lastCheckpointAt = nowMs;
+            checkpointLength = checkpoint.content.length;
+          }
+        }
+        if (!sawDone) throw new Error(UI_TEXT.WORKSPACE_STREAM_INTERRUPTED);
+
+        if (streamingFrameRef.current !== null) {
+          window.cancelAnimationFrame(streamingFrameRef.current);
+          streamingFrameRef.current = null;
         }
 
         const now = new Date().toISOString();
         const completedAssistant: WorkspaceMessageRecord = {
           ...pair.assistant,
-          content: typeof data.answer === "string" ? data.answer : "",
+          content: streamingContentRef.current,
           state: "complete",
           updatedAt: now,
         };
@@ -566,6 +693,7 @@ export default function useWorkspaceChat({
         const now = new Date().toISOString();
         const failedAssistant: WorkspaceMessageRecord = {
           ...pair.assistant,
+          content: streamingContentRef.current,
           state: "error",
           error: message,
           updatedAt: now,
@@ -598,6 +726,11 @@ export default function useWorkspaceChat({
         ) {
           requestIdentityRef.current = null;
           requestControllerRef.current = null;
+          if (streamingFrameRef.current !== null) {
+            window.cancelAnimationFrame(streamingFrameRef.current);
+            streamingFrameRef.current = null;
+          }
+          streamingContentRef.current = "";
           setLoading(false);
         }
       }
@@ -624,16 +757,30 @@ export default function useWorkspaceChat({
     [question, sendQuestion]
   );
 
-  const retry = useCallback(async () => {
-    const failedAssistant = [...messagesRef.current]
-      .reverse()
-      .find((message) => message.role === "assistant" && message.state === "error");
+  const retry = useCallback(async (assistantMessageId?: string) => {
+    const failedAssistant = assistantMessageId
+      ? messagesRef.current.find(
+          (message) =>
+            message.id === assistantMessageId &&
+            message.role === "assistant" &&
+            message.state === "error"
+        )
+      : [...messagesRef.current]
+          .reverse()
+          .find(
+            (message) =>
+              message.role === "assistant" && message.state === "error"
+          );
     if (!failedAssistant?.replyToMessageId) return;
     const userMessage = messagesRef.current.find(
       (message) => message.id === failedAssistant.replyToMessageId
     );
     if (!userMessage?.contextSnapshot) return;
-    await sendQuestion(userMessage.content, userMessage.contextSnapshot);
+    await sendQuestion(
+      userMessage.content,
+      userMessage.contextSnapshot,
+      userMessage
+    );
   }, [sendQuestion]);
 
   return {

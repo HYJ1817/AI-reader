@@ -15,7 +15,7 @@ type Props = {
   online: boolean;
   onAsk: () => void;
   onStop: () => void;
-  onRetry: () => void;
+  onRetry: (assistantMessageId?: string) => void;
   onClearSelection: () => void;
   aiSettingsUsable: boolean;
   onOpenSettings: () => void;
