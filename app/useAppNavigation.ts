@@ -19,22 +19,33 @@ import {
   type ReaderEntry,
   type SheetEntry,
   type SheetRoute,
-} from "@/lib/appNavigation";
+} from "../lib/appNavigation";
 import {
   createAppNavigationStore,
   type AppNavigationCoreState,
   type AppNavigationStore,
-} from "@/lib/appNavigationStore";
+} from "../lib/appNavigationStore";
 import {
   decodeNavigationHistory,
   mergeNavigationHistory,
-} from "@/lib/navigationHistory";
-import type { NavigationTab } from "@/lib/navigationMotion";
+} from "../lib/navigationHistory";
+import type { NavigationTab } from "../lib/navigationMotion";
 
 type PushOptions = Omit<PushEntry, "key" | "kind" | "route">;
 type ReaderOptions = Omit<ReaderEntry, "key" | "kind" | "bookId">;
 type SheetOptions = Omit<SheetEntry, "key" | "kind" | "route">;
 type HistoryWrite = "push" | "replace";
+
+type SheetStackNavigationStore = Pick<
+  AppNavigationStore,
+  "getState" | "setState"
+>;
+
+type NavigationHistoryAdapter = {
+  readonly state: unknown;
+  go: (delta?: number) => void;
+  replaceState: (data: unknown, title: string) => void;
+};
 
 export type UseAppNavigationResult = {
   state: AppNavigationCoreState;
@@ -51,6 +62,30 @@ export type UseAppNavigationResult = {
   dismissSheetStack: () => void;
   removeInvalid: (key: string) => void;
 };
+
+export function dismissSheetStackWithHistory(
+  store: SheetStackNavigationStore,
+  history?: NavigationHistoryAdapter
+): void {
+  const currentState = store.getState();
+  const depth = currentState.sheets.length;
+  if (depth === 0) return;
+
+  const nextState = reduceAppNavigation(currentState, {
+    type: "dismiss-sheet-stack",
+  });
+
+  if (history && decodeNavigationHistory(history.state)) {
+    store.setState(nextState);
+    history.go(-depth);
+    return;
+  }
+
+  store.setState(nextState);
+  if (history) {
+    history.replaceState(mergeNavigationHistory(history.state, nextState), "");
+  }
+}
 
 export default function useAppNavigation(): UseAppNavigationResult {
   const [store] = useState(() =>
@@ -242,30 +277,10 @@ export default function useAppNavigation(): UseAppNavigationResult {
   }, [traverseBack]);
 
   const dismissSheetStack = useCallback(() => {
-    const currentState = store.getState();
-    const depth = currentState.sheets.length;
-    if (depth === 0) return;
-
-    const nextState = reduceAppNavigation(currentState, {
-      type: "dismiss-sheet-stack",
-    });
-
-    if (
-      typeof window !== "undefined" &&
-      decodeNavigationHistory(window.history.state)
-    ) {
-      store.setState(nextState);
-      window.history.go(-depth);
-      return;
-    }
-
-    store.setState(nextState);
-    if (typeof window !== "undefined") {
-      window.history.replaceState(
-        mergeNavigationHistory(window.history.state, nextState),
-        ""
-      );
-    }
+    dismissSheetStackWithHistory(
+      store,
+      typeof window === "undefined" ? undefined : window.history
+    );
   }, [store]);
 
   const replaceSheet = useCallback(

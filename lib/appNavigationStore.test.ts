@@ -6,10 +6,13 @@ import {
   type AppNavigationAction,
 } from "./appNavigation";
 import { createAppNavigationStore } from "./appNavigationStore";
+import { dismissSheetStackWithHistory } from "../app/useAppNavigation";
+import {
+  decodeNavigationHistory,
+  encodeNavigationHistory,
+} from "./navigationHistory";
 
-const hookUrl = new URL("../app/useAppNavigation.ts", import.meta.url);
 const providerUrl = new URL("../app/NavigationProvider.tsx", import.meta.url);
-const hookSource = existsSync(hookUrl) ? readFileSync(hookUrl, "utf8") : "";
 const providerSource = existsSync(providerUrl)
   ? readFileSync(providerUrl, "utf8")
   : "";
@@ -35,6 +38,51 @@ function createPushAndReaderState() {
       originId: "book-card-1",
     },
   });
+}
+
+function createSheetStackState() {
+  return reduceAppNavigation(
+    reduceAppNavigation(createAppNavigationState(), {
+      type: "present-sheet",
+      entry: {
+        key: "sheet-1",
+        kind: "sheet",
+        route: "book-actions",
+      },
+    }),
+    {
+      type: "present-sheet",
+      entry: {
+        key: "sheet-2",
+        kind: "sheet",
+        route: "book-rename",
+      },
+    }
+  );
+}
+
+function createFakeHistory(state: unknown) {
+  let currentState = state;
+  const goCalls: number[] = [];
+  const replaceCalls: Array<[unknown, string]> = [];
+
+  return {
+    history: {
+      get state() {
+        return currentState;
+      },
+      go(delta?: number) {
+        goCalls.push(delta ?? 0);
+      },
+      replaceState(nextState: unknown, title: string) {
+        currentState = nextState;
+        replaceCalls.push([nextState, title]);
+      },
+    },
+    getState: () => currentState,
+    goCalls,
+    replaceCalls,
+  };
 }
 
 describe("app navigation store", () => {
@@ -235,14 +283,72 @@ describe("app navigation store", () => {
     }
   );
 
-  it("exposes sheet-stack dismissal with history-depth traversal", () => {
-    expect(hookSource).toContain("dismissSheetStack");
-    expect(hookSource).toContain('type: "dismiss-sheet-stack"');
-    expect(hookSource).toContain("const depth = currentState.sheets.length");
-    expect(hookSource).toContain("if (depth === 0) return");
-    expect(hookSource).toContain("window.history.go(-depth)");
-    expect(hookSource).toContain("store.setState(nextState)");
-    expect(hookSource).toContain("window.history.replaceState");
+  it("dismisses a valid two-sheet history stack by its exact depth", () => {
+    const initialState = createSheetStackState();
+    const store = createAppNavigationStore(initialState);
+    const history = createFakeHistory(encodeNavigationHistory(initialState));
+
+    dismissSheetStackWithHistory(store, history.history);
+
+    expect(store.getState()).toMatchObject({
+      sheets: [],
+      direction: "backward",
+    });
+    expect(history.goCalls).toEqual([-2]);
+    expect(history.replaceCalls).toEqual([]);
+  });
+
+  it("replaces invalid history with the dismissed stack while retaining history fields", () => {
+    const store = createAppNavigationStore(createSheetStackState());
+    const history = createFakeHistory({
+      __NA: true,
+      retained: { scroll: 120 },
+    });
+
+    dismissSheetStackWithHistory(store, history.history);
+
+    expect(store.getState()).toMatchObject({
+      sheets: [],
+      direction: "backward",
+    });
+    expect(history.goCalls).toEqual([]);
+    expect(history.replaceCalls).toHaveLength(1);
+    expect(history.replaceCalls[0]?.[1]).toBe("");
+    expect(history.getState()).toMatchObject({
+      __NA: true,
+      retained: { scroll: 120 },
+      version: 1,
+    });
+    expect(decodeNavigationHistory(history.getState())).toMatchObject({
+      sheets: [],
+    });
+  });
+
+  it("does nothing when there are no sheets to dismiss", () => {
+    const store = createAppNavigationStore(createAppNavigationState());
+    const initialState = store.getState();
+    const history = createFakeHistory(encodeNavigationHistory(initialState));
+    let notifications = 0;
+    store.subscribe(() => {
+      notifications += 1;
+    });
+
+    dismissSheetStackWithHistory(store, history.history);
+
+    expect(store.getState()).toBe(initialState);
+    expect(notifications).toBe(0);
+    expect(history.goCalls).toEqual([]);
+    expect(history.replaceCalls).toEqual([]);
+  });
+
+  it("dismisses sheets without history effects during SSR", () => {
+    const store = createAppNavigationStore(createSheetStackState());
+
+    expect(() => dismissSheetStackWithHistory(store)).not.toThrow();
+    expect(store.getState()).toMatchObject({
+      sheets: [],
+      direction: "backward",
+    });
   });
 
   it("exposes full navigation state through the navigation provider", () => {
