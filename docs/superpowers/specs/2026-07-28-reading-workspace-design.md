@@ -214,6 +214,8 @@ export type WorkspaceMessageRecord = {
   workspaceId: string;
   sessionId: string;
   role: "user" | "assistant";
+  replyToMessageId?: string;
+  skillId?: string;
   content: string;
   state: "complete" | "streaming" | "error" | "cancelled";
   error?: string;
@@ -255,7 +257,8 @@ Indexes support:
 
 - workspace-book lookup by `bookId` and `[workspaceId+bookId]`;
 - session ordering by `[workspaceId+updatedAt]`;
-- message pagination by `[sessionId+createdAt]`;
+- message pagination by `[sessionId+createdAt+id]` so equal timestamps do not
+  skip records at a page boundary;
 - materials ordering by `[workspaceId+updatedAt]`;
 - active-memory lookup by workspace and state.
 
@@ -302,8 +305,8 @@ backup can contain selected book passages and AI conversations.
 6. Stop aborts the request, preserves partial text, and marks the message
    `cancelled`. A network/provider failure preserves the error and retry action
    across reloads.
-7. Retry creates a new assistant attempt from the same user turn rather than
-   mutating history invisibly.
+7. Retry creates a new assistant attempt whose `replyToMessageId` points to the
+   same user turn rather than mutating history invisibly.
 8. Switching book or session aborts only the view-owned request and rejects
    stale events by workspace/session/message ID.
 
