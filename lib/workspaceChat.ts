@@ -6,9 +6,30 @@ import { createLocalId } from "./localId";
 import {
   WORKSPACE_HISTORY_MESSAGE_CHARS,
   WORKSPACE_HISTORY_MESSAGE_LIMIT,
+  WORKSPACE_LARGE_MESSAGE_CHARS,
+  WORKSPACE_LIVE_DEGRADE_CHARS,
   type WorkspaceContextSnapshot,
   type WorkspaceMessageRecord,
 } from "./readingWorkspace";
+
+export type WorkspaceMessageRenderMode =
+  | "live"
+  | "live-tail"
+  | "markdown"
+  | "collapsed";
+
+export function getWorkspaceMessageRenderMode({
+  length,
+  streaming,
+}: {
+  length: number;
+  streaming: boolean;
+}): WorkspaceMessageRenderMode {
+  if (streaming && length > WORKSPACE_LIVE_DEGRADE_CHARS) return "live-tail";
+  if (streaming) return "live";
+  if (length > WORKSPACE_LARGE_MESSAGE_CHARS) return "collapsed";
+  return "markdown";
+}
 
 export type WorkspaceRequestIdentity = {
   workspaceId: string;

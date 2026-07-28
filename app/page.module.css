@@ -3694,6 +3694,17 @@
   gap: 10px;
 }
 
+.workspaceLoadOlderButton {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  color: var(--tint);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 650;
+}
+
 .workspaceMessage {
   max-width: 88%;
   padding: 10px 12px;
@@ -3715,6 +3726,69 @@
   border: 0.5px solid var(--separator);
   border-bottom-left-radius: 4px;
   background: var(--surface-primary);
+}
+
+.workspaceMessageBody {
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.workspaceMessageLive {
+  white-space: pre-wrap;
+}
+
+.workspaceMessageNotice {
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.workspaceMessageMarkdown > :first-child {
+  margin-top: 0;
+}
+
+.workspaceMessageMarkdown > :last-child {
+  margin-bottom: 0;
+}
+
+.workspaceMessageMarkdown pre {
+  max-width: 100%;
+  padding: 10px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--surface-secondary);
+  white-space: pre;
+}
+
+.workspaceMessageMarkdown :not(pre) > code {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--surface-secondary);
+}
+
+.workspaceMessageMarkdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.workspaceMessageMarkdown th,
+.workspaceMessageMarkdown td {
+  padding: 5px 8px;
+  border: 0.5px solid var(--separator);
+}
+
+.workspaceMessageAction {
+  min-height: 32px;
+  margin: 7px 12px 0 0;
+  padding: 0;
+  border: 0;
+  color: var(--tint);
+  background: transparent;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .workspaceComposer {

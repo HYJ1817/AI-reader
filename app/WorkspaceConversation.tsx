@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
 import { UI_TEXT } from "@/lib/uiText";
+import WorkspaceMessageBody from "./WorkspaceMessageBody";
 import styles from "./page.module.css";
 
 export type WorkspaceConversationProps = {
@@ -13,6 +14,7 @@ export type WorkspaceConversationProps = {
   error: string | null;
   aiSettingsUsable: boolean;
   online: boolean;
+  hasOlderMessages: boolean;
   compact?: boolean;
   onQuestionChange: (value: string) => void;
   onAsk: () => void;
@@ -20,6 +22,7 @@ export type WorkspaceConversationProps = {
   onRetry: (assistantMessageId?: string) => void;
   onClearSelection: () => void;
   onOpenSettings: () => void;
+  onLoadOlder: () => Promise<void> | void;
 };
 
 export default function WorkspaceConversation({
@@ -30,6 +33,7 @@ export default function WorkspaceConversation({
   error,
   aiSettingsUsable,
   online,
+  hasOlderMessages,
   compact = false,
   onQuestionChange,
   onAsk,
@@ -37,13 +41,28 @@ export default function WorkspaceConversation({
   onRetry,
   onClearSelection,
   onOpenSettings,
+  onLoadOlder,
 }: WorkspaceConversationProps) {
   const threadRef = useRef<HTMLDivElement>(null);
+  const nearBottomRef = useRef(true);
 
   useEffect(() => {
     const thread = threadRef.current;
-    if (thread) thread.scrollTop = thread.scrollHeight;
-  }, [loading, messages.length]);
+    if (thread && nearBottomRef.current) thread.scrollTop = thread.scrollHeight;
+  }, [loading, messages]);
+
+  const handleLoadOlder = async () => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const previousScrollHeight = thread.scrollHeight;
+    const previousScrollTop = thread.scrollTop;
+    await onLoadOlder();
+    requestAnimationFrame(() => {
+      if (!threadRef.current) return;
+      const thread = threadRef.current;
+      thread.scrollTop = thread.scrollHeight - previousScrollHeight + previousScrollTop;
+    });
+  };
 
   return (
     <div
@@ -55,7 +74,21 @@ export default function WorkspaceConversation({
         ref={threadRef}
         className={styles.workspaceConversationThread}
         aria-busy={loading}
+        onScroll={(event) => {
+          const thread = event.currentTarget;
+          nearBottomRef.current =
+            thread.scrollHeight - thread.scrollTop - thread.clientHeight <= 48;
+        }}
       >
+        {hasOlderMessages ? (
+          <button
+            type="button"
+            className={styles.workspaceLoadOlderButton}
+            onClick={() => void handleLoadOlder()}
+          >
+            {UI_TEXT.LOAD_OLDER}
+          </button>
+        ) : null}
         {selectedText ? (
           <div className={styles.selectedTextPreview}>
             <button
@@ -105,7 +138,7 @@ export default function WorkspaceConversation({
                     : styles.workspaceMessageAssistant
                 }`}
               >
-                {message.content}
+                <WorkspaceMessageBody message={message} />
                 {message.state === "error" ? (
                   <button
                     type="button"

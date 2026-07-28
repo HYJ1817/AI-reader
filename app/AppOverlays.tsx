@@ -71,6 +71,7 @@ export type AppOverlaysProps = {
     memories: WorkspaceMemoryRecord[];
     loading: boolean;
     online: boolean;
+    hasOlderMessages: boolean;
   };
   group: {
     editingGroupId: string | null;
@@ -93,6 +94,7 @@ export type AppOverlaysProps = {
     openReadingWorkspace: (bookId: string) => void;
     newWorkspaceSession: (workspaceId: string) => void;
     selectWorkspaceSession: (sessionId: string) => void;
+    loadOlderWorkspaceMessages: () => Promise<void> | void;
     setGoalInputValue: (value: number) => void;
     saveGoal: () => void;
     addSelectedBooksToGroup: (groupId: string) => void;
@@ -199,6 +201,7 @@ export default function AppOverlays({
             reader={reader}
             actions={actions}
             online={workspace.online}
+            hasOlderMessages={workspace.hasOlderMessages}
             onClose={navigation.dismissSheet}
           />
         );
@@ -227,12 +230,14 @@ export default function AppOverlays({
               error: reader.askError,
               aiSettingsUsable: reader.aiUsable,
               online: workspace.online,
+              hasOlderMessages: workspace.hasOlderMessages,
               onQuestionChange: actions.setQuestion,
               onAsk: actions.ask,
               onStop: actions.stopAsk,
               onRetry: actions.retryAsk,
               onClearSelection: actions.clearSelection,
               onOpenSettings: actions.openAiSettingsFromAsk,
+              onLoadOlder: actions.loadOlderWorkspaceMessages,
             }}
             materials={{
               artifacts: workspace.artifacts,
@@ -343,11 +348,13 @@ function AskAiSheet({
   reader,
   actions,
   online,
+  hasOlderMessages,
   onClose,
 }: {
   reader: AppOverlaysProps["reader"];
   actions: AppOverlaysProps["actions"];
   online: boolean;
+  hasOlderMessages: boolean;
   onClose: () => void;
 }) {
   return (
@@ -384,12 +391,14 @@ function AskAiSheet({
                 loading={reader.askLoading}
                 error={reader.askError}
                 online={online}
+                hasOlderMessages={hasOlderMessages}
                 onAsk={actions.ask}
                 onStop={actions.stopAsk}
                 onRetry={actions.retryAsk}
                 onClearSelection={actions.clearSelection}
                 aiSettingsUsable={reader.aiUsable}
                 onOpenSettings={actions.openAiSettingsFromAsk}
+                onLoadOlder={actions.loadOlderWorkspaceMessages}
               />
             </div>
           </div>

@@ -791,7 +791,7 @@ export default function Home() {
   const {
     workspace: readingWorkspace, sessions: workspaceSessions,
     activeSessionId: activeWorkspaceSessionId, artifacts: workspaceArtifacts,
-    memories: workspaceMemories, workspaceLoading, online: workspaceOnline,
+    memories: workspaceMemories, workspaceLoading, online: workspaceOnline, hasOlderMessages,
     selectedText,
     setSelectedText,
     question,
@@ -804,7 +804,7 @@ export default function Home() {
     stop: stopWorkspaceRequest,
     retry: retryWorkspaceRequest,
     selectSession: selectWorkspaceSession,
-    createSession: createWorkspaceSession,
+    createSession: createWorkspaceSession, loadOlderMessages,
   } = useWorkspaceChat({
     book: workspaceBook,
     readerContextBookId: openBook?.id ?? null,
@@ -1880,7 +1880,7 @@ export default function Home() {
           record: readingWorkspace, sessions: workspaceSessions,
           activeSessionId: activeWorkspaceSessionId, messages: askMessages,
           artifacts: workspaceArtifacts, memories: workspaceMemories,
-          loading: workspaceLoading, online: workspaceOnline,
+          loading: workspaceLoading, online: workspaceOnline, hasOlderMessages,
         }}
         group={{
           editingGroupId,
@@ -1903,7 +1903,7 @@ export default function Home() {
           openReadingWorkspace: (bookId) =>
             navigation.presentSheet("reading-workspace", { entityId: bookId }),
           newWorkspaceSession: () => void createWorkspaceSession(),
-          selectWorkspaceSession: (sessionId) => void selectWorkspaceSession(sessionId),
+          selectWorkspaceSession: (sessionId) => void selectWorkspaceSession(sessionId), loadOlderWorkspaceMessages: loadOlderMessages,
           setGoalInputValue,
           saveGoal: handleSaveGoal,
           addSelectedBooksToGroup: (groupId) =>

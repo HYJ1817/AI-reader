@@ -13,12 +13,14 @@ type Props = {
   loading: boolean;
   error: string | null;
   online: boolean;
+  hasOlderMessages: boolean;
   onAsk: () => void;
   onStop: () => void;
   onRetry: (assistantMessageId?: string) => void;
   onClearSelection: () => void;
   aiSettingsUsable: boolean;
   onOpenSettings: () => void;
+  onLoadOlder: () => Promise<void> | void;
 };
 
 export default function AskAiPanel(props: Props) {

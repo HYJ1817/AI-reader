@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWorkspaceMessagePair,
+  getWorkspaceMessageRenderMode,
   selectInferenceHistory,
   shouldAcceptWorkspaceEvent,
   type WorkspaceRequestIdentity,
@@ -47,6 +48,21 @@ function makeHistory(
 }
 
 describe("workspace chat policy", () => {
+  it("selects bounded live and completed render modes at exact thresholds", () => {
+    expect(
+      getWorkspaceMessageRenderMode({ length: 7_999, streaming: true })
+    ).toBe("live");
+    expect(
+      getWorkspaceMessageRenderMode({ length: 8_001, streaming: true })
+    ).toBe("live-tail");
+    expect(
+      getWorkspaceMessageRenderMode({ length: 32_001, streaming: false })
+    ).toBe("collapsed");
+    expect(
+      getWorkspaceMessageRenderMode({ length: 32_000, streaming: false })
+    ).toBe("markdown");
+  });
+
   it("creates a complete user turn and streaming assistant record", () => {
     const ids = ["u1", "a1"];
     const pair = buildWorkspaceMessagePair({

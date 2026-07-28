@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const globals = readFileSync(
@@ -19,6 +19,17 @@ const askAi = readFileSync(
 );
 const settings = readFileSync(
   new URL("../app/SettingsSurface.tsx", import.meta.url),
+  "utf8"
+);
+const messageBodyUrl = new URL(
+  "../app/WorkspaceMessageBody.tsx",
+  import.meta.url
+);
+const messageBody = existsSync(messageBodyUrl)
+  ? readFileSync(messageBodyUrl, "utf8")
+  : "";
+const workspaceHook = readFileSync(
+  new URL("../app/useWorkspaceChat.ts", import.meta.url),
   "utf8"
 );
 
@@ -59,6 +70,18 @@ describe("daily-path accessibility contract", () => {
     expect(askAi).toContain('aria-busy={loading}');
     expect(settings).toContain('role="status"');
     expect(settings).toContain('role="alert"');
+  });
+
+  it("exposes explicit long-content and history controls", () => {
+    expect(askAi).toContain("UI_TEXT.LOAD_OLDER");
+    expect(messageBody).toContain("ReactMarkdown");
+    expect(messageBody).toContain("remarkGfm");
+    expect(messageBody).toContain("UI_TEXT.EXPAND");
+    expect(messageBody).toContain("UI_TEXT.EXPORT");
+    expect(askAi).toContain(
+      "thread.scrollHeight - previousScrollHeight + previousScrollTop"
+    );
+    expect(workspaceHook).toContain("WORKSPACE_MESSAGE_PAGE_SIZE");
   });
 
   it("uses scalable tokens on the stabilized daily path", () => {
