@@ -30,6 +30,7 @@ const SHEET_ROUTES = [
   "book-rename",
   "book-delete",
   "book-groups",
+  "reading-workspace",
   "batch-groups",
   "batch-delete",
   "collection-create",

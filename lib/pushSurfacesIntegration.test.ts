@@ -14,6 +14,12 @@ const globalsSource = optionalSource("../app/globals.css");
 const sheetSource = optionalSource("../app/MotionSheet.tsx");
 const readerSource = optionalSource("../app/ReadingSession.tsx");
 const epubSource = optionalSource("../app/EpubReader.tsx");
+const appNavigationSource = optionalSource("./appNavigation.ts");
+const navigationHistorySource = optionalSource("./navigationHistory.ts");
+const overlaysSource = optionalSource("../app/AppOverlays.tsx");
+const bookActionSource = overlaysSource;
+const navigationTabsSource = optionalSource("./navigationMotion.ts");
+const rootNavigationSource = optionalSource("../app/AppNavigation.tsx");
 
 describe("pushed application surfaces", () => {
   it.each([
@@ -77,5 +83,22 @@ describe("pushed application surfaces", () => {
     expect(stylesSource).toMatch(
       /\.providerChoiceText small\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s
     );
+  });
+
+  it("registers the reading workspace as a book-owned sheet", () => {
+    expect(appNavigationSource).toContain('"reading-workspace"');
+    expect(navigationHistorySource).toContain('"reading-workspace"');
+    expect(overlaysSource).toContain("ReadingWorkspaceSheet");
+    expect(overlaysSource).toContain('case "reading-workspace"');
+    expect(bookActionSource).toContain("UI_TEXT.READING_WORKSPACE");
+    expect(bookActionSource).toContain("openReadingWorkspace");
+  });
+
+  it("keeps the workspace out of the three root tabs", () => {
+    expect(navigationTabsSource).toMatch(
+      /"library",\s*"reading",\s*"settings",/
+    );
+    expect(navigationTabsSource).not.toContain('"workspace"');
+    expect(rootNavigationSource.match(/data-navigation-tab=/g)).toHaveLength(3);
   });
 });

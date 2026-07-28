@@ -1841,6 +1841,7 @@ export default function Home() {
           askLoading,
           askError,
           aiUsable: aiProviderUsable,
+          bookId: openBook?.id ?? null,
           bookTitle: openBook?.title ?? null,
           mode: readerMode,
           pageInfo: readerPageInfo,
@@ -1875,6 +1876,10 @@ export default function Home() {
           ask: () => void handleAsk(),
           clearSelection: handleClearSelection,
           openAiSettingsFromAsk,
+          openReadingWorkspace: (bookId) =>
+            navigation.presentSheet("reading-workspace", { entityId: bookId }),
+          newWorkspaceSession: () => undefined,
+          selectWorkspaceSession: () => undefined,
           setGoalInputValue,
           saveGoal: handleSaveGoal,
           addSelectedBooksToGroup: (groupId) =>

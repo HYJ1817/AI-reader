@@ -60,6 +60,23 @@ describe("app navigation", () => {
     expect(sheet.sheets.at(-1)?.route).toBe("ask-ai");
   });
 
+  it("presents a book-owned reading workspace as a routed sheet", () => {
+    const state = reduceAppNavigation(createAppNavigationState(), {
+      type: "present-sheet",
+      entry: {
+        key: "workspace-sheet",
+        kind: "sheet",
+        route: "reading-workspace",
+        entityId: "book-1",
+      },
+    });
+
+    expect(state.sheets.at(-1)).toMatchObject({
+      route: "reading-workspace",
+      entityId: "book-1",
+    });
+  });
+
   it("pops sheets before readers and readers before pushed pages", () => {
     const layered: AppNavigationState = {
       activeTab: "library",

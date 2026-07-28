@@ -7,6 +7,7 @@ import BottomSheet, { type CloseSheet } from "@/app/BottomSheet";
 import ReaderCustomSettingsPanel from "@/app/ReaderCustomSettingsPanel";
 import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
 import ReadingGoalSheet from "@/app/ReadingGoalSheet";
+import ReadingWorkspaceSheet from "@/app/ReadingWorkspaceSheet";
 import TocDrawer from "@/app/TocDrawer";
 import {
   useNavigation,
@@ -36,6 +37,7 @@ export type AppOverlaysProps = {
     askLoading: boolean;
     askError: string | null;
     aiUsable: boolean;
+    bookId: string | null;
     bookTitle: string | null;
     mode: ReaderMode;
     pageInfo: ReaderPageInfo;
@@ -70,6 +72,9 @@ export type AppOverlaysProps = {
     ask: () => void;
     clearSelection: () => void;
     openAiSettingsFromAsk: () => void;
+    openReadingWorkspace: (bookId: string) => void;
+    newWorkspaceSession: (workspaceId: string) => void;
+    selectWorkspaceSession: (sessionId: string) => void;
     setGoalInputValue: (value: number) => void;
     saveGoal: () => void;
     addSelectedBooksToGroup: (groupId: string) => void;
@@ -95,6 +100,7 @@ const BOOK_ROUTES = new Set([
   "book-rename",
   "book-delete",
   "book-groups",
+  "reading-workspace",
 ]);
 
 export default function AppOverlays({
@@ -176,6 +182,40 @@ export default function AppOverlays({
             onClose={navigation.dismissSheet}
           />
         );
+      case "reading-workspace":
+        return sheetBook ? (
+          <ReadingWorkspaceSheet
+            book={sheetBook}
+            workspace={null}
+            sessions={[]}
+            activeSessionId={null}
+            messages={[]}
+            loading={false}
+            error={null}
+            onSelectSession={actions.selectWorkspaceSession}
+            onNewSession={() => undefined}
+            onClose={navigation.dismissSheet}
+            conversation={{
+              selectedText:
+                reader.bookId === sheetBook.id ? reader.selectedText : null,
+              question: reader.question,
+              loading: reader.askLoading,
+              error: reader.askError,
+              aiSettingsUsable: reader.aiUsable,
+              onQuestionChange: actions.setQuestion,
+              onAsk: actions.ask,
+              onClearSelection: actions.clearSelection,
+              onOpenSettings: actions.openAiSettingsFromAsk,
+            }}
+            materials={{
+              artifacts: [],
+              memories: [],
+              loading: false,
+              error: null,
+              onDeleteArtifact: () => undefined,
+            }}
+          />
+        ) : null;
       case "reading-goal":
         return (
           <ReadingGoalSheet
@@ -289,7 +329,22 @@ function AskAiSheet({
     >
       {(close) => (
         <>
-          <SheetHeader title={UI_TEXT.ASK_AI} close={close} />
+          <SheetHeader
+            title={UI_TEXT.ASK_AI}
+            close={close}
+            action={
+              reader.bookId
+                ? {
+                    label: UI_TEXT.READING_WORKSPACE,
+                    onClick: () => {
+                      const bookId = reader.bookId;
+                      if (!bookId) return;
+                      close(() => actions.openReadingWorkspace(bookId));
+                    },
+                  }
+                : undefined
+            }
+          />
           <div className={styles.sheetBody}>
             <div className={styles.askSheetInner}>
               <AskAiPanel
@@ -476,6 +531,13 @@ function BookActionSheet({
                 label={UI_TEXT.OPEN_BOOK}
                 icon="book"
                 onClick={() => actions.openBook(book)}
+              />
+              <ActionRow
+                label={UI_TEXT.READING_WORKSPACE}
+                icon="workspace"
+                onClick={() =>
+                  close(() => actions.openReadingWorkspace(book.id))
+                }
               />
               <ActionRow
                 label={UI_TEXT.RENAME_BOOK}
@@ -802,18 +864,37 @@ function GroupCreateRow({
   );
 }
 
-function SheetHeader({ title, close }: { title: string; close: CloseSheet }) {
+function SheetHeader({
+  title,
+  close,
+  action,
+}: {
+  title: string;
+  close: CloseSheet;
+  action?: { label: string; onClick: () => void };
+}) {
   return (
     <div className={styles.sheetHeader}>
       <h2 className={styles.sheetTitle}>{title}</h2>
-      <button
-        className={styles.iconButton}
-        onClick={() => close()}
-        title={UI_TEXT.CLOSE}
-        aria-label={UI_TEXT.CLOSE}
-      >
-        <CloseIcon width={20} height={20} />
-      </button>
+      <div className={styles.sheetHeaderActions}>
+        {action ? (
+          <button
+            type="button"
+            className={styles.sheetHeaderTextButton}
+            onClick={action.onClick}
+          >
+            {action.label}
+          </button>
+        ) : null}
+        <button
+          className={styles.iconButton}
+          onClick={() => close()}
+          title={UI_TEXT.CLOSE}
+          aria-label={UI_TEXT.CLOSE}
+        >
+          <CloseIcon width={20} height={20} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -833,7 +914,7 @@ function ActionRow({
   onClick,
 }: {
   label: string;
-  icon: "book" | "edit" | "list" | "export";
+  icon: "book" | "workspace" | "edit" | "list" | "export";
   onClick: () => void;
 }) {
   return (
@@ -844,6 +925,11 @@ function ActionRow({
             <>
               <path d="M5 4.5c2-.2 3.6.2 5 1.4v10.6c-1.7-1.1-3.4-1.5-5-1.2V4.5Z" />
               <path d="M10 5.9c1.4-1.2 3-1.6 5-1.4v10.8c-1.6-.3-3.3.1-5 1.2V5.9Z" />
+            </>
+          ) : icon === "workspace" ? (
+            <>
+              <path d="M4 4.5h12v9H9l-3.5 2.5v-2.5H4v-9Z" strokeLinejoin="round" />
+              <path d="M7 8h6M7 10.5h4" strokeLinecap="round" />
             </>
           ) : icon === "edit" ? (
             <path d="M13.6 3.6a2 2 0 0 1 2.8 2.8l-8.5 8.5-3.5 1 1-3.5 8.2-8.8Z" strokeLinecap="round" strokeLinejoin="round" />
