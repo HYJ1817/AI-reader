@@ -48,6 +48,7 @@ export type UseAppNavigationResult = {
   presentSheet: (route: SheetRoute, options?: SheetOptions) => void;
   replaceSheet: (route: SheetRoute, options?: SheetOptions) => void;
   dismissSheet: () => void;
+  dismissSheetStack: () => void;
   removeInvalid: (key: string) => void;
 };
 
@@ -240,6 +241,33 @@ export default function useAppNavigation(): UseAppNavigationResult {
     traverseBack({ type: "dismiss-sheet" });
   }, [traverseBack]);
 
+  const dismissSheetStack = useCallback(() => {
+    const currentState = store.getState();
+    const depth = currentState.sheets.length;
+    if (depth === 0) return;
+
+    const nextState = reduceAppNavigation(currentState, {
+      type: "dismiss-sheet-stack",
+    });
+
+    if (
+      typeof window !== "undefined" &&
+      decodeNavigationHistory(window.history.state)
+    ) {
+      store.setState(nextState);
+      window.history.go(-depth);
+      return;
+    }
+
+    store.setState(nextState);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(
+        mergeNavigationHistory(window.history.state, nextState),
+        ""
+      );
+    }
+  }, [store]);
+
   const replaceSheet = useCallback(
     (route: SheetRoute, options?: SheetOptions) => {
       commit(
@@ -278,11 +306,13 @@ export default function useAppNavigation(): UseAppNavigationResult {
       presentSheet,
       replaceSheet,
       dismissSheet,
+      dismissSheetStack,
       removeInvalid,
     }),
     [
       dismissReader,
       dismissSheet,
+      dismissSheetStack,
       pop,
       presentReader,
       presentSheet,

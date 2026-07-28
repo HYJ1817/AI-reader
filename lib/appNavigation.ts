@@ -65,6 +65,7 @@ export type AppNavigationAction =
   | { type: "present-sheet"; entry: SheetEntry }
   | { type: "replace-sheet"; entry: SheetEntry }
   | { type: "dismiss-sheet" }
+  | { type: "dismiss-sheet-stack" }
   | { type: "restore"; state: AppNavigationState }
   | { type: "remove-invalid"; key: string };
 
@@ -167,6 +168,9 @@ export function reduceAppNavigation(
         { sheets: state.sheets.slice(0, -1) },
         "backward"
       );
+    case "dismiss-sheet-stack":
+      if (state.sheets.length === 0) return state;
+      return next(state, { sheets: [] }, "backward");
     case "restore":
       return {
         ...action.state,
@@ -174,14 +178,22 @@ export function reduceAppNavigation(
         revision: state.revision + 1,
       };
     case "remove-invalid": {
-      const pushes = state.pushes.filter(
-        (entry) => entry.key !== action.key
+      const invalidPushIndex = state.pushes.findIndex(
+        (entry) => entry.key === action.key
       );
+      const pushes =
+        invalidPushIndex === -1
+          ? state.pushes
+          : state.pushes.slice(0, invalidPushIndex);
       const reader =
         state.reader?.key === action.key ? null : state.reader;
-      const sheets = state.sheets.filter(
-        (entry) => entry.key !== action.key
+      const invalidSheetIndex = state.sheets.findIndex(
+        (entry) => entry.key === action.key
       );
+      const sheets =
+        invalidSheetIndex === -1
+          ? state.sheets
+          : state.sheets.slice(0, invalidSheetIndex);
 
       if (
         pushes.length === state.pushes.length &&

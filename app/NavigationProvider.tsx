@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
-import type { SheetEntry } from "@/lib/appNavigation";
+import type { AppNavigationState, SheetEntry } from "@/lib/appNavigation";
 import type { UseAppNavigationResult } from "./useAppNavigation";
 
 const NavigationContext = createContext<UseAppNavigationResult | null>(null);
@@ -31,6 +31,15 @@ export function useNavigation(): UseAppNavigationResult {
     throw new Error("useNavigation requires NavigationProvider");
   }
   return value;
+}
+
+export function useNavigationState(): AppNavigationState {
+  const value = useNavigation();
+  return useSyncExternalStore(
+    value.subscribe,
+    value.getState,
+    value.getState
+  );
 }
 
 export function useNavigationSheets(): SheetEntry[] {

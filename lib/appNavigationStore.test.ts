@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   createAppNavigationState,
@@ -5,6 +6,13 @@ import {
   type AppNavigationAction,
 } from "./appNavigation";
 import { createAppNavigationStore } from "./appNavigationStore";
+
+const hookUrl = new URL("../app/useAppNavigation.ts", import.meta.url);
+const providerUrl = new URL("../app/NavigationProvider.tsx", import.meta.url);
+const hookSource = existsSync(hookUrl) ? readFileSync(hookUrl, "utf8") : "";
+const providerSource = existsSync(providerUrl)
+  ? readFileSync(providerUrl, "utf8")
+  : "";
 
 function createPushAndReaderState() {
   const pushedState = reduceAppNavigation(createAppNavigationState(), {
@@ -54,6 +62,28 @@ describe("app navigation store", () => {
         },
       }),
       { type: "dismiss-sheet" } satisfies AppNavigationAction,
+    ],
+    [
+      "dismiss-sheet-stack",
+      reduceAppNavigation(
+        reduceAppNavigation(createAppNavigationState(), {
+          type: "present-sheet",
+          entry: {
+            key: "sheet-1",
+            kind: "sheet",
+            route: "reading-goal",
+          },
+        }),
+        {
+          type: "present-sheet",
+          entry: {
+            key: "sheet-2",
+            kind: "sheet",
+            route: "book-actions",
+          },
+        }
+      ),
+      { type: "dismiss-sheet-stack" } satisfies AppNavigationAction,
     ],
     [
       "sheet-only remove-invalid",
@@ -204,4 +234,21 @@ describe("app navigation store", () => {
       expect(store.getCoreSnapshot()).not.toBe(initialCoreSnapshot);
     }
   );
+
+  it("exposes sheet-stack dismissal with history-depth traversal", () => {
+    expect(hookSource).toContain("dismissSheetStack");
+    expect(hookSource).toContain('type: "dismiss-sheet-stack"');
+    expect(hookSource).toContain("const depth = currentState.sheets.length");
+    expect(hookSource).toContain("if (depth === 0) return");
+    expect(hookSource).toContain("window.history.go(-depth)");
+    expect(hookSource).toContain("store.setState(nextState)");
+    expect(hookSource).toContain("window.history.replaceState");
+  });
+
+  it("exposes full navigation state through the navigation provider", () => {
+    expect(providerSource).toContain("export function useNavigationState");
+    expect(providerSource).toContain("const value = useNavigation()");
+    expect(providerSource).toContain("value.subscribe");
+    expect(providerSource).toContain("value.getState");
+  });
 });
