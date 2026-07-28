@@ -25,6 +25,7 @@ type Props = {
   onLoadOlder: () => Promise<void> | void;
   onRunSkill: (skillId: ReadingSkillId) => Promise<void> | void;
   onSaveToMaterials: (messageId: string) => Promise<void> | void;
+  onRemember: (messageId: string, content: string) => Promise<void> | void;
 };
 
 export default function AskAiPanel(props: Props) {

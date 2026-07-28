@@ -96,7 +96,7 @@ describe("Ask AI reader context integration", () => {
   it("clears submitted input and sends prior messages plus current reader text", () => {
     expect(pageSource).toContain("useWorkspaceChat({");
     expect(askHookSource).toContain("setQuestion(\"\")");
-    expect(askHookSource).toContain("selectInferenceHistory(messagesRef.current)");
+    expect(askHookSource).toContain("selectInferenceHistory(compactedHistory.messages)");
     expect(askHookSource).toContain("collectVisibleReaderText");
     expect(askHookSource).toContain("question: trimmedQuestion");
   });
@@ -120,7 +120,7 @@ describe("Ask AI reader context integration", () => {
 
   it("passes conversation messages from the API route into chat message building", () => {
     expect(routeSource).toContain("messages?: ChatConversationMessage[]");
-    expect(routeSource).toContain("buildChatMessages(question, context ?? {}, messages ?? [])");
+    expect(routeSource).toContain("buildChatMessages(question, context ?? {}, messages ?? [], { memory, summary })");
   });
 
   it("loads and writes persistent workspace records with stale-event guards", () => {

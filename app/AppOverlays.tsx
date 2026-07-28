@@ -74,6 +74,7 @@ export type AppOverlaysProps = {
     online: boolean;
     hasOlderMessages: boolean;
     eligibleSkills: ReadingSkill[];
+    canCompactConversation: boolean;
   };
   group: {
     editingGroupId: string | null;
@@ -101,6 +102,10 @@ export type AppOverlaysProps = {
     saveMessageToMaterials: (messageId: string) => Promise<void> | void;
     renameWorkspaceArtifact: (id: string, title: string) => Promise<void> | void;
     deleteWorkspaceArtifact: (id: string) => Promise<void> | void;
+    rememberWorkspaceMessage: (id: string, content: string) => Promise<void> | void;
+    revokeWorkspaceMemory: (id: string) => Promise<void> | void;
+    deleteRevokedWorkspaceMemory: (id: string) => Promise<void> | void;
+    compactWorkspaceConversation: () => Promise<void> | void;
     setGoalInputValue: (value: number) => void;
     saveGoal: () => void;
     addSelectedBooksToGroup: (groupId: string) => void;
@@ -222,6 +227,8 @@ export default function AppOverlays({
             messages={workspace.messages}
             loading={workspace.loading}
             error={null}
+            canCompactConversation={workspace.canCompactConversation}
+            onCompactConversation={actions.compactWorkspaceConversation}
             onSelectSession={actions.selectWorkspaceSession}
             onNewSession={() => {
               if (workspace.record) {
@@ -248,6 +255,7 @@ export default function AppOverlays({
               onLoadOlder: actions.loadOlderWorkspaceMessages,
               onRunSkill: actions.runReadingSkill,
               onSaveToMaterials: actions.saveMessageToMaterials,
+              onRemember: actions.rememberWorkspaceMessage,
             }}
             materials={{
               artifacts: workspace.artifacts,
@@ -259,6 +267,8 @@ export default function AppOverlays({
               error: null,
               onDeleteArtifact: actions.deleteWorkspaceArtifact,
               onRenameArtifact: actions.renameWorkspaceArtifact,
+              onRevokeMemory: actions.revokeWorkspaceMemory,
+              onDeleteRevokedMemory: actions.deleteRevokedWorkspaceMemory,
             }}
           />
         ) : null;
@@ -418,6 +428,7 @@ function AskAiSheet({
                 onLoadOlder={actions.loadOlderWorkspaceMessages}
                 onRunSkill={actions.runReadingSkill}
                 onSaveToMaterials={actions.saveMessageToMaterials}
+                onRemember={actions.rememberWorkspaceMessage}
               />
             </div>
           </div>

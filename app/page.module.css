@@ -3668,6 +3668,7 @@
 }
 
 .workspaceConversation {
+  position: relative;
   display: flex;
   flex-direction: column;
   padding: 0 16px 8px;
@@ -3818,6 +3819,47 @@
   color: var(--text-primary);
   background: var(--surface-primary);
   font-size: 13px;
+  font-weight: 650;
+}
+
+.workspaceMemoryReview {
+  position: absolute;
+  inset: auto 12px calc(76px + var(--safe-bottom));
+  z-index: 3;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 0.5px solid var(--separator);
+  border-radius: 14px;
+  background: var(--surface-primary);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+}
+
+.workspaceMemoryReview textarea {
+  width: 100%;
+  min-height: 140px;
+  max-height: 40dvh;
+  padding: 10px;
+  resize: vertical;
+  border: 0.5px solid var(--separator);
+  border-radius: 9px;
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  font: inherit;
+}
+
+.workspaceMemoryReview > div {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.workspaceMemoryReview button {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  color: var(--tint);
+  background: transparent;
   font-weight: 650;
 }
 
@@ -3996,6 +4038,22 @@
 }
 
 .workspaceArtifactActions .workspaceDestructiveAction {
+  color: var(--destructive);
+}
+
+.workspaceRevokedMemories {
+  margin-top: 10px;
+}
+
+.workspaceRevokedMemories summary {
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.workspaceMaterialRow .workspaceDestructiveAction {
   color: var(--destructive);
 }
 

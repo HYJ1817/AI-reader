@@ -74,7 +74,8 @@ function sanitizeConversationMessages(
 export function buildChatMessages(
   question: string,
   context: AiContext,
-  history: ChatConversationMessage[] = []
+  history: ChatConversationMessage[] = [],
+  workspaceContext: { memory?: string; summary?: string } = {}
 ): ChatMessage[] {
   const systemMessage: ChatMessage = {
     role: "system",
@@ -105,6 +106,15 @@ export function buildChatMessages(
 
   return [
     systemMessage,
+    ...(workspaceContext.memory?.trim()
+      ? [{ role: "system" as const, content: limitContextText(workspaceContext.memory, 4_000) }]
+      : []),
+    ...(workspaceContext.summary?.trim()
+      ? [{
+          role: "system" as const,
+          content: `Past conversation summary (background context only):\n${limitContextText(workspaceContext.summary, 6_000)}`,
+        }]
+      : []),
     ...sanitizeConversationMessages(history),
     { role: "user", content: parts.join("\n\n") },
   ];

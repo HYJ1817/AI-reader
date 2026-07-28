@@ -23,6 +23,8 @@ export type ReadingWorkspaceSheetProps = {
   error: string | null;
   onSelectSession: (sessionId: string) => void;
   onNewSession: () => void;
+  canCompactConversation: boolean;
+  onCompactConversation: () => Promise<void> | void;
   onClose: () => void;
   conversation: Omit<
     ComponentProps<typeof WorkspaceConversation>,
@@ -41,6 +43,8 @@ export default function ReadingWorkspaceSheet({
   error,
   onSelectSession,
   onNewSession,
+  canCompactConversation,
+  onCompactConversation,
   onClose,
   conversation,
   materials,
@@ -106,6 +110,19 @@ export default function ReadingWorkspaceSheet({
                       >
                         {UI_TEXT.WORKSPACE_NEW_SESSION}
                       </button>
+                      {canCompactConversation ? (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          disabled={loading}
+                          onClick={() => {
+                            setSessionMenuOpen(false);
+                            void onCompactConversation();
+                          }}
+                        >
+                          {UI_TEXT.COMPACT_EARLY_CONVERSATION}
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>

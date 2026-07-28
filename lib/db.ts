@@ -668,6 +668,16 @@ export async function listWorkspaceMemories(
   return records.sort(compareUpdatedAtDescending);
 }
 
+export async function deleteRevokedWorkspaceMemory(id: string): Promise<boolean> {
+  const db = getDb();
+  return db.transaction("rw", db.workspaceMemories, async () => {
+    const memory = await db.workspaceMemories.get(id);
+    if (!memory || memory.state !== "revoked") return false;
+    await db.workspaceMemories.delete(id);
+    return true;
+  });
+}
+
 export async function listAllReadingWorkspaces(): Promise<
   ReadingWorkspaceRecord[]
 > {

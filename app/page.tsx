@@ -791,7 +791,7 @@ export default function Home() {
   const {
     workspace: readingWorkspace, sessions: workspaceSessions,
     activeSessionId: activeWorkspaceSessionId, artifacts: workspaceArtifacts,
-    memories: workspaceMemories, workspaceLoading, online: workspaceOnline, hasOlderMessages, eligibleSkills,
+    memories: workspaceMemories, workspaceLoading, online: workspaceOnline, hasOlderMessages, eligibleSkills, canCompactConversation,
     selectedText,
     setSelectedText,
     question,
@@ -800,11 +800,11 @@ export default function Home() {
     loading: askLoading,
     error: askError,
     clearSelection: handleClearSelection,
-    ask: handleAsk, runSkill: runReadingSkill, saveMessageToMaterials,
+    ask: handleAsk, runSkill: runReadingSkill, saveMessageToMaterials, rememberMessage,
     stop: stopWorkspaceRequest,
     retry: retryWorkspaceRequest,
     selectSession: selectWorkspaceSession,
-    createSession: createWorkspaceSession, loadOlderMessages, renameArtifact, deleteArtifact,
+    createSession: createWorkspaceSession, loadOlderMessages, renameArtifact, deleteArtifact, revokeMemory, deleteRevokedMemory, compactConversation,
   } = useWorkspaceChat({
     book: workspaceBook,
     readerContextBookId: openBook?.id ?? null,
@@ -1880,7 +1880,7 @@ export default function Home() {
           record: readingWorkspace, sessions: workspaceSessions,
           activeSessionId: activeWorkspaceSessionId, messages: askMessages,
           artifacts: workspaceArtifacts, memories: workspaceMemories,
-          loading: workspaceLoading, online: workspaceOnline, hasOlderMessages, eligibleSkills,
+          loading: workspaceLoading, online: workspaceOnline, hasOlderMessages, eligibleSkills, canCompactConversation,
         }}
         group={{
           editingGroupId,
@@ -1903,8 +1903,8 @@ export default function Home() {
           openReadingWorkspace: (bookId) =>
             navigation.presentSheet("reading-workspace", { entityId: bookId }),
           newWorkspaceSession: () => void createWorkspaceSession(),
-          selectWorkspaceSession: (sessionId) => void selectWorkspaceSession(sessionId), loadOlderWorkspaceMessages: loadOlderMessages, runReadingSkill, saveMessageToMaterials,
-          renameWorkspaceArtifact: renameArtifact, deleteWorkspaceArtifact: deleteArtifact, setGoalInputValue,
+          selectWorkspaceSession: (sessionId) => void selectWorkspaceSession(sessionId), loadOlderWorkspaceMessages: loadOlderMessages, runReadingSkill, saveMessageToMaterials, rememberWorkspaceMessage: rememberMessage,
+          renameWorkspaceArtifact: renameArtifact, deleteWorkspaceArtifact: deleteArtifact, revokeWorkspaceMemory: revokeMemory, deleteRevokedWorkspaceMemory: deleteRevokedMemory, compactWorkspaceConversation: compactConversation, setGoalInputValue,
           saveGoal: handleSaveGoal,
           addSelectedBooksToGroup: (groupId) =>
             void handleAddSelectedBooksToGroup(groupId),

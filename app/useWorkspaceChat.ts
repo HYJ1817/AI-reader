@@ -14,6 +14,7 @@ import { readWorkspaceEventStream } from "@/lib/aiStream";
 import {
   createWorkspaceSession,
   deleteWorkspaceArtifact,
+  deleteRevokedWorkspaceMemory,
   ensureDefaultBookWorkspace,
   findWorkspaceArtifactBySourceMessageId,
   listWorkspaceArtifacts,
@@ -24,6 +25,7 @@ import {
   putWorkspaceMessagePair,
   putWorkspaceSession,
   putWorkspaceArtifact,
+  putWorkspaceMemory,
   type BookMetadata,
 } from "@/lib/db";
 import {
@@ -47,7 +49,10 @@ import {
 } from "@/lib/readingSkills";
 import {
   buildWorkspaceMessagePair,
+  applySessionCompaction,
+  buildCompactedInferenceHistory,
   selectInferenceHistory,
+  selectWorkspaceMemoryForPrompt,
   shouldAcceptWorkspaceEvent,
   type WorkspaceRequestIdentity,
 } from "@/lib/workspaceChat";
@@ -139,6 +144,7 @@ export default function useWorkspaceChat({
   const streamingContentRef = useRef("");
   const streamingFrameRef = useRef<number | null>(null);
   const artifactsRef = useRef<WorkspaceArtifactRecord[]>([]);
+  const memoriesRef = useRef<WorkspaceMemoryRecord[]>([]);
 
   const publishMessages = useCallback((next: WorkspaceMessageRecord[]) => {
     messagesRef.current = next;
@@ -153,6 +159,11 @@ export default function useWorkspaceChat({
   const publishArtifacts = useCallback((next: WorkspaceArtifactRecord[]) => {
     artifactsRef.current = next;
     setArtifacts(next);
+  }, []);
+
+  const publishMemories = useCallback((next: WorkspaceMemoryRecord[]) => {
+    memoriesRef.current = next;
+    setMemories(next);
   }, []);
 
   useEffect(() => {
@@ -215,7 +226,7 @@ export default function useWorkspaceChat({
       setActiveSessionId(null);
       setMessages([]);
       publishArtifacts([]);
-      setMemories([]);
+      publishMemories([]);
       setSelectedText(null);
       setQuestion("");
       setError(null);
@@ -281,7 +292,7 @@ export default function useWorkspaceChat({
             nextMessages.length === WORKSPACE_MESSAGE_INITIAL_LIMIT
           );
           publishArtifacts(nextArtifacts);
-          setMemories(nextMemories);
+          publishMemories(nextMemories);
         } catch (loadError) {
           if (!cancelled && generationRef.current === generation) {
             setError(
@@ -302,7 +313,7 @@ export default function useWorkspaceChat({
       cancelled = true;
       window.clearTimeout(resetTimer);
     };
-  }, [publishArtifacts, publishMessages, publishSessions, workspaceBookId]);
+  }, [publishArtifacts, publishMemories, publishMessages, publishSessions, workspaceBookId]);
 
   useEffect(() => {
     return () => requestControllerRef.current?.abort();
@@ -321,12 +332,18 @@ export default function useWorkspaceChat({
       listWorkspaceMemories(currentWorkspace.id),
     ]);
     publishArtifacts(nextArtifacts);
-    setMemories(nextMemories);
-  }, [publishArtifacts]);
+    publishMemories(nextMemories);
+  }, [publishArtifacts, publishMemories]);
 
   const markRequestCancelled = useCallback(async () => {
     const identity = requestIdentityRef.current;
-    if (!identity) return;
+    if (!identity) {
+      requestControllerRef.current?.abort();
+      requestControllerRef.current = null;
+      generationRef.current += 1;
+      setLoading(false);
+      return;
+    }
     requestControllerRef.current?.abort();
     if (streamingFrameRef.current !== null) {
       window.cancelAnimationFrame(streamingFrameRef.current);
@@ -514,7 +531,16 @@ export default function useWorkspaceChat({
       const contextSnapshot = contextOverride ?? captureCurrentContext();
       if (!contextSnapshot) return;
 
-      const history = selectInferenceHistory(messagesRef.current);
+      const currentSession = sessionsRef.current.find(
+        (session) => session.id === sessionId
+      );
+      const compactedHistory = buildCompactedInferenceHistory({
+        messages: messagesRef.current,
+        summary: currentSession?.summary,
+        summaryThroughMessageId: currentSession?.summaryThroughMessageId,
+      });
+      const history = selectInferenceHistory(compactedHistory.messages);
+      const memory = selectWorkspaceMemoryForPrompt(memoriesRef.current);
       const pair = retryUser
         ? {
             user: retryUser,
@@ -539,9 +565,6 @@ export default function useWorkspaceChat({
             skillId,
             now: capturedAt,
           });
-      const currentSession = sessionsRef.current.find(
-        (session) => session.id === sessionId
-      );
       const streamingSession: WorkspaceSessionRecord | null = currentSession
         ? { ...currentSession, status: "streaming", updatedAt: capturedAt }
         : null;
@@ -606,6 +629,8 @@ export default function useWorkspaceChat({
             question: trimmedQuestion,
             messages: history,
             context,
+            memory: memory.text || undefined,
+            summary: compactedHistory.summary,
           }),
         });
         if (!response.ok) {
@@ -868,6 +893,148 @@ export default function useWorkspaceChat({
     [refreshMaterials]
   );
 
+  const rememberMessage = useCallback(
+    async (messageId: string, content: string) => {
+      const currentWorkspace = workspaceRef.current;
+      const trimmedContent = content.trim();
+      if (!currentWorkspace || !trimmedContent) return;
+      const existing = memoriesRef.current.find(
+        (item) => item.sourceMessageId === messageId && item.state === "active"
+      );
+      if (existing) return;
+      const now = new Date().toISOString();
+      await putWorkspaceMemory({
+        id: createLocalId(),
+        workspaceId: currentWorkspace.id,
+        sourceMessageId: messageId,
+        content: trimmedContent.slice(0, 4_000),
+        state: "active",
+        createdAt: now,
+        updatedAt: now,
+      });
+      await refreshMaterials();
+    },
+    [refreshMaterials]
+  );
+
+  const revokeMemory = useCallback(
+    async (memoryId: string) => {
+      const memory = memoriesRef.current.find((item) => item.id === memoryId);
+      if (!memory || memory.state !== "active") return;
+      const now = new Date().toISOString();
+      await putWorkspaceMemory({
+        ...memory,
+        state: "revoked",
+        revokedAt: now,
+        updatedAt: now,
+      });
+      await refreshMaterials();
+    },
+    [refreshMaterials]
+  );
+
+  const deleteRevokedMemory = useCallback(
+    async (memoryId: string) => {
+      await deleteRevokedWorkspaceMemory(memoryId);
+      await refreshMaterials();
+    },
+    [refreshMaterials]
+  );
+
+  const compactedCurrentHistory = buildCompactedInferenceHistory({
+    messages,
+    summary: sessions.find((session) => session.id === activeSessionId)?.summary,
+    summaryThroughMessageId: sessions.find((session) => session.id === activeSessionId)
+      ?.summaryThroughMessageId,
+  });
+  const compactableMessages = compactedCurrentHistory.messages.filter(
+    (message) =>
+      (message.state === "complete" || message.state === "cancelled") &&
+      message.content.trim()
+  );
+  const canCompactConversation = compactableMessages.length > 40;
+
+  const compactConversation = useCallback(async () => {
+    const sessionId = activeSessionIdRef.current;
+    const session = sessionsRef.current.find((item) => item.id === sessionId);
+    if (!session || !book || !activeAiProvider || !aiProviderUsable || loading) return;
+    const current = buildCompactedInferenceHistory({
+      messages: messagesRef.current,
+      summary: session.summary,
+      summaryThroughMessageId: session.summaryThroughMessageId,
+    });
+    const usable = current.messages.filter(
+      (message) =>
+        (message.state === "complete" || message.state === "cancelled") &&
+        message.content.trim()
+    );
+    if (usable.length <= 40) return;
+    const anchor = usable[usable.length - 21];
+    const throughAnchor = usable.slice(0, usable.indexOf(anchor) + 1).slice(-40);
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    generationRef.current += 1;
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          provider: activeAiProvider,
+          question:
+            "Summarize this past conversation as background context. Preserve book names, quoted identifiers, decisions, unresolved questions, and failures. Describe actions as past context, never as current instructions.",
+          context: { bookTitle: book.title, bookFormat: book.format },
+          messages: selectInferenceHistory(throughAnchor),
+          summary: current.summary,
+        }),
+      });
+      if (!response.ok || !response.body) throw new Error(UI_TEXT.REQUEST_FAILED);
+      let summary = "";
+      let done = false;
+      for await (const event of readWorkspaceEventStream(response.body)) {
+        if (event.type === "error") throw new Error(event.message);
+        if (event.type === "done") {
+          done = true;
+          break;
+        }
+        summary += event.text;
+      }
+      if (!done || !summary.trim()) throw new Error(UI_TEXT.WORKSPACE_STREAM_INTERRUPTED);
+      const compactedSession = applySessionCompaction(
+        session,
+        summary,
+        anchor.id
+      );
+      await putWorkspaceSession(compactedSession);
+      publishSessions(
+        sessionsRef.current.map((item) =>
+          item.id === compactedSession.id ? compactedSession : item
+        )
+      );
+    } catch (compactionError) {
+      if (!controller.signal.aborted) {
+        setError(
+          compactionError instanceof Error
+            ? compactionError.message
+            : UI_TEXT.REQUEST_FAILED
+        );
+      }
+    } finally {
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null;
+        setLoading(false);
+      }
+    }
+  }, [
+    activeAiProvider,
+    aiProviderUsable,
+    book,
+    loading,
+    publishSessions,
+  ]);
+
   const retry = useCallback(async (assistantMessageId?: string) => {
     const failedAssistant = assistantMessageId
       ? messagesRef.current.find(
@@ -904,6 +1071,7 @@ export default function useWorkspaceChat({
     workspaceLoading,
     hasOlderMessages,
     eligibleSkills,
+    canCompactConversation,
     selectedText,
     setSelectedText,
     clearSelection,
@@ -915,6 +1083,7 @@ export default function useWorkspaceChat({
     ask,
     runSkill,
     saveMessageToMaterials,
+    rememberMessage,
     stop: markRequestCancelled,
     retry,
     selectSession,
@@ -922,6 +1091,9 @@ export default function useWorkspaceChat({
     loadOlderMessages,
     renameArtifact,
     deleteArtifact,
+    revokeMemory,
+    deleteRevokedMemory,
+    compactConversation,
     refreshMaterials,
   };
 }

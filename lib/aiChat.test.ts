@@ -273,6 +273,23 @@ describe("buildAiProviderRequest", () => {
     expect(body.contents[0].parts[0].text).toContain("hello");
   });
 
+  it("places bounded memory and past summary before history and current context", () => {
+    const messages = buildChatMessages(
+      "current question",
+      { nearbyText: "current passage" },
+      [{ role: "assistant", content: "recent answer" }],
+      { memory: "memory block", summary: "past summary" }
+    );
+    expect(messages.map((message) => message.content)).toEqual([
+      expect.stringContaining("reading context"),
+      "memory block",
+      expect.stringContaining("past summary"),
+      "recent answer",
+      expect.stringContaining("current question"),
+    ]);
+    expect(messages.at(-1)?.content).toContain("current passage");
+  });
+
   it("enables provider-specific streaming requests", () => {
     const openAi = createAiProviderFromPreset("openai", {
       apiKey: "key",

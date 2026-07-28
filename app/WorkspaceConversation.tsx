@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
 import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import { UI_TEXT } from "@/lib/uiText";
@@ -27,6 +27,7 @@ export type WorkspaceConversationProps = {
   onLoadOlder: () => Promise<void> | void;
   onRunSkill: (skillId: ReadingSkillId) => Promise<void> | void;
   onSaveToMaterials: (messageId: string) => Promise<void> | void;
+  onRemember: (messageId: string, content: string) => Promise<void> | void;
 };
 
 export default function WorkspaceConversation({
@@ -49,9 +50,14 @@ export default function WorkspaceConversation({
   onLoadOlder,
   onRunSkill,
   onSaveToMaterials,
+  onRemember,
 }: WorkspaceConversationProps) {
   const threadRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
+  const [memoryReview, setMemoryReview] = useState<{
+    messageId: string;
+    content: string;
+  } | null>(null);
 
   useEffect(() => {
     const thread = threadRef.current;
@@ -155,6 +161,17 @@ export default function WorkspaceConversation({
                     {UI_TEXT.SAVE_TO_MATERIALS}
                   </button>
                 ) : null}
+                {message.role === "assistant" && message.state === "complete" ? (
+                  <button
+                    type="button"
+                    className={styles.workspaceMessageAction}
+                    onClick={() =>
+                      setMemoryReview({ messageId: message.id, content: message.content })
+                    }
+                  >
+                    {UI_TEXT.REMEMBER}
+                  </button>
+                ) : null}
                 {message.state === "error" ? (
                   <button
                     type="button"
@@ -180,6 +197,34 @@ export default function WorkspaceConversation({
           </div>
         ) : null}
       </div>
+
+      {memoryReview ? (
+        <div className={styles.workspaceMemoryReview} role="dialog" aria-modal="true">
+          <strong>{UI_TEXT.REVIEW_MEMORY}</strong>
+          <textarea
+            aria-label={UI_TEXT.WORKSPACE_MEMORY}
+            value={memoryReview.content}
+            onChange={(event) =>
+              setMemoryReview({ ...memoryReview, content: event.target.value })
+            }
+          />
+          <div>
+            <button type="button" onClick={() => setMemoryReview(null)}>
+              {UI_TEXT.CANCEL}
+            </button>
+            <button
+              type="button"
+              disabled={!memoryReview.content.trim()}
+              onClick={async () => {
+                await onRemember(memoryReview.messageId, memoryReview.content);
+                setMemoryReview(null);
+              }}
+            >
+              {UI_TEXT.SAVE}
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {eligibleSkills.length > 0 && (messages.length === 0 || selectedText) ? (
         <div className={styles.workspaceSkills} aria-label={UI_TEXT.READING_SKILLS}>

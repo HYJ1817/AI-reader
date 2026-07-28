@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   buildWorkspaceMessagePair,
+  applySessionCompaction,
+  buildCompactedInferenceHistory,
   getWorkspaceMessageRenderMode,
   selectInferenceHistory,
+  selectWorkspaceMemoryForPrompt,
   shouldAcceptWorkspaceEvent,
   type WorkspaceRequestIdentity,
 } from "./workspaceChat";
 import type {
   WorkspaceContextSnapshot,
+  WorkspaceMemoryRecord,
   WorkspaceMessageRecord,
+  WorkspaceSessionRecord,
 } from "./readingWorkspace";
 
 const SNAPSHOT: WorkspaceContextSnapshot = {
@@ -45,6 +50,29 @@ function makeHistory(
     createdAt: new Date(Date.UTC(2026, 6, 28, 0, 0, 0, index)).toISOString(),
     updatedAt: new Date(Date.UTC(2026, 6, 28, 0, 0, 0, index)).toISOString(),
   }));
+}
+
+function makeMemory(index: number): WorkspaceMemoryRecord {
+  const timestamp = new Date(Date.UTC(2026, 6, 28, 0, 0, 0, index)).toISOString();
+  return {
+    id: `memory-${index}`,
+    workspaceId: "w1",
+    content: `memory ${index}`,
+    state: "active",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
+}
+
+function makeSession(): WorkspaceSessionRecord {
+  return {
+    id: "s1",
+    workspaceId: "w1",
+    title: "Conversation",
+    status: "idle",
+    createdAt: "2026-07-28T00:00:00.000Z",
+    updatedAt: "2026-07-28T00:00:00.000Z",
+  };
 }
 
 describe("workspace chat policy", () => {
@@ -144,5 +172,33 @@ describe("workspace chat policy", () => {
     expect(
       shouldAcceptWorkspaceEvent(CURRENT, { ...CURRENT, generation: 0 })
     ).toBe(false);
+  });
+
+  it("injects only active memory within item and character budgets", () => {
+    const items = Array.from({ length: 25 }, (_, index) => makeMemory(index));
+    items[2] = { ...items[2], state: "revoked" };
+    const result = selectWorkspaceMemoryForPrompt(items);
+    expect(result.items).toHaveLength(20);
+    expect(result.items.some((item) => item.state === "revoked")).toBe(false);
+    expect(result.text.length).toBeLessThanOrEqual(4_000);
+  });
+
+  it("uses only messages after the persisted summary anchor", () => {
+    const messages = makeHistory(40);
+    const result = buildCompactedInferenceHistory({
+      messages,
+      summary: "Earlier discussion summary",
+      summaryThroughMessageId: messages[19].id,
+    });
+    expect(result.summary).toBe("Earlier discussion summary");
+    expect(result.messages[0].id).toBe(messages[20].id);
+  });
+
+  it("keeps full stored messages after compaction", () => {
+    const session = applySessionCompaction(makeSession(), "summary", "m20");
+    expect(session).toMatchObject({
+      summary: "summary",
+      summaryThroughMessageId: "m20",
+    });
   });
 });

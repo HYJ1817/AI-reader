@@ -43,6 +43,7 @@ import {
   deleteWorkspaceArtifact,
   putWorkspaceMemory,
   listWorkspaceMemories,
+  deleteRevokedWorkspaceMemory,
   listAllReadingWorkspaces,
   listAllWorkspaceBooks,
   listAllWorkspaceSessions,
@@ -707,6 +708,17 @@ describe("Reading workspace storage", () => {
     expect(
       (await listWorkspaceMemories(owner.workspace.id)).map((item) => item.id)
     ).toEqual(["memory-new", "memory-old"]);
+    await expect(deleteRevokedWorkspaceMemory("memory-old")).resolves.toBe(false);
+    await putWorkspaceMemory({
+      ...memory,
+      state: "revoked",
+      revokedAt: "2026-07-28T02:00:00.000Z",
+      updatedAt: "2026-07-28T02:00:00.000Z",
+    });
+    await expect(deleteRevokedWorkspaceMemory("memory-old")).resolves.toBe(true);
+    expect(
+      (await listWorkspaceMemories(owner.workspace.id)).map((item) => item.id)
+    ).toEqual(["memory-new"]);
 
     await deleteWorkspaceArtifact("artifact-old");
     expect(

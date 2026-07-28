@@ -18,6 +18,8 @@ export type WorkspaceMaterialsProps = {
   error: string | null;
   onDeleteArtifact: (id: string) => void;
   onRenameArtifact: (id: string, title: string) => Promise<void> | void;
+  onRevokeMemory: (id: string) => Promise<void> | void;
+  onDeleteRevokedMemory: (id: string) => Promise<void> | void;
 };
 
 export default function WorkspaceMaterials({
@@ -28,9 +30,13 @@ export default function WorkspaceMaterials({
   error,
   onDeleteArtifact,
   onRenameArtifact,
+  onRevokeMemory,
+  onDeleteRevokedMemory,
 }: WorkspaceMaterialsProps) {
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | null>(null);
   const selectedArtifact = artifacts.find((item) => item.id === selectedArtifactId);
+  const activeMemories = memories.filter((memory) => memory.state === "active");
+  const revokedMemories = memories.filter((memory) => memory.state === "revoked");
   if (loading) {
     return <div className={styles.workspaceStatus}>{UI_TEXT.LOADING}</div>;
   }
@@ -99,18 +105,40 @@ export default function WorkspaceMaterials({
       {memories.length > 0 ? (
         <section className={styles.workspaceMaterialSection}>
           <h3>{UI_TEXT.WORKSPACE_MEMORY}</h3>
-          {memories.map((memory) => (
+          {activeMemories.map((memory) => (
             <article key={memory.id} className={styles.workspaceMaterialRow}>
               <div>
-                <strong>
-                  {memory.state === "active"
-                    ? UI_TEXT.WORKSPACE_MEMORY_ACTIVE
-                    : UI_TEXT.WORKSPACE_MEMORY_REVOKED}
-                </strong>
+                <strong>{UI_TEXT.WORKSPACE_MEMORY_ACTIVE}</strong>
                 <p>{memory.content}</p>
               </div>
+              <button type="button" onClick={() => void onRevokeMemory(memory.id)}>
+                {UI_TEXT.REVOKE}
+              </button>
             </article>
           ))}
+          {revokedMemories.length > 0 ? (
+            <details className={styles.workspaceRevokedMemories}>
+              <summary>{UI_TEXT.WORKSPACE_REVOKED_HISTORY}</summary>
+              {revokedMemories.map((memory) => (
+                <article key={memory.id} className={styles.workspaceMaterialRow}>
+                  <div>
+                    <strong>{UI_TEXT.WORKSPACE_MEMORY_REVOKED}</strong>
+                    <p>{memory.content}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.workspaceDestructiveAction}
+                    onClick={() => {
+                      if (!window.confirm(UI_TEXT.WORKSPACE_DELETE_MEMORY_CONFIRM)) return;
+                      void onDeleteRevokedMemory(memory.id);
+                    }}
+                  >
+                    {UI_TEXT.DELETE}
+                  </button>
+                </article>
+              ))}
+            </details>
+          ) : null}
         </section>
       ) : null}
     </div>

@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { provider, baseUrl, apiKey, model, question, context, messages } =
+  const { provider, baseUrl, apiKey, model, question, context, messages, memory, summary } =
     body as {
       provider?: unknown;
       baseUrl?: string;
@@ -40,6 +40,8 @@ export async function POST(request: Request) {
       question?: string;
       context?: AiContext;
       messages?: ChatConversationMessage[];
+      memory?: string;
+      summary?: string;
     };
 
   const resolvedProvider: AiProviderConfig | null = provider
@@ -60,7 +62,9 @@ export async function POST(request: Request) {
     typeof question !== "string" ||
     !question.trim() ||
     question.length > 8_000 ||
-    (messages !== undefined && (!Array.isArray(messages) || messages.length > 40))
+    (messages !== undefined && (!Array.isArray(messages) || messages.length > 40)) ||
+    (memory !== undefined && (typeof memory !== "string" || memory.length > 4_000)) ||
+    (summary !== undefined && (typeof summary !== "string" || summary.length > 6_000))
   ) {
     return Response.json(
       { error: "Missing required fields: provider, question" },
@@ -72,7 +76,7 @@ export async function POST(request: Request) {
   try {
     aiRequest = buildAiProviderRequest(
       resolvedProvider,
-      buildChatMessages(question, context ?? {}, messages ?? []),
+      buildChatMessages(question, context ?? {}, messages ?? [], { memory, summary }),
       { stream: true }
     );
   } catch {
