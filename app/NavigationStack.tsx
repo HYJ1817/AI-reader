@@ -69,6 +69,7 @@ type EdgeBackSettleMode = "complete" | "cancel";
 
 type EdgeBackSettle = {
   ownerKey: string;
+  generation: number;
   mode: EdgeBackSettleMode;
   target: number;
 };
@@ -105,6 +106,8 @@ export default function NavigationStack({
   });
   const edgeFinishHandledRef = useRef(false);
   const edgeBackPointerRef = useRef<EdgeBackPointer | null>(null);
+  const edgeGestureGenerationRef = useRef(0);
+  const activeEdgeSettleGenerationRef = useRef<number | null>(null);
   const lifecycleEpochRef = useRef(motionLifecycle.epoch);
   const topPushKey = pushes.at(-1)?.key ?? null;
   const edgeBackActive =
@@ -120,6 +123,8 @@ export default function NavigationStack({
 
   const beginEdgeBack = useCallback(() => {
     if (!topPushKey) return;
+    edgeGestureGenerationRef.current += 1;
+    activeEdgeSettleGenerationRef.current = null;
     edgeFinishHandledRef.current = false;
     setEdgeBackSettle(null);
     setEdgeBackOwnerKey(topPushKey);
@@ -132,9 +137,12 @@ export default function NavigationStack({
       const complete =
         !forceCancel &&
         shouldCompleteEdgeBack(offsetX, velocityX, viewportWidth);
+      const generation = edgeGestureGenerationRef.current;
+      activeEdgeSettleGenerationRef.current = generation;
       edgeFinishHandledRef.current = false;
       setEdgeBackSettle({
         ownerKey: topPushKey,
+        generation,
         mode: complete ? "complete" : "cancel",
         target: complete ? Math.max(1, viewportWidth) : 0,
       });
@@ -142,24 +150,30 @@ export default function NavigationStack({
     [edgeBackX, topPushKey]
   );
 
-  const finishEdgeBack = useCallback(() => {
-    if (!activeEdgeSettle || edgeFinishHandledRef.current) return;
+  const finishEdgeBack = useCallback((settlement: EdgeBackSettle) => {
+    if (
+      edgeFinishHandledRef.current ||
+      activeEdgeSettleGenerationRef.current !== settlement.generation
+    ) {
+      return;
+    }
     edgeFinishHandledRef.current = true;
-    if (activeEdgeSettle.mode === "complete") {
+    activeEdgeSettleGenerationRef.current = null;
+    if (settlement.mode === "complete") {
       navigation.pop();
       return;
     }
     edgeBackX.set(0);
     setEdgeBackSettle(null);
     setEdgeBackOwnerKey(null);
-  }, [activeEdgeSettle, edgeBackX, navigation]);
+  }, [edgeBackX, navigation]);
 
   const cancelEdgeBack = useCallback(() => {
     settleEdgeBack(0, Math.max(1, window.innerWidth), true);
   }, [settleEdgeBack]);
 
   useEffect(() => {
-    edgeFinishHandledRef.current = false;
+    activeEdgeSettleGenerationRef.current = null;
     edgeBackX.set(0);
   }, [edgeBackX, topPushKey]);
 
@@ -168,6 +182,7 @@ export default function NavigationStack({
     lifecycleEpochRef.current = motionLifecycle.epoch;
     edgeBackPointerRef.current = null;
     edgeFinishHandledRef.current = true;
+    activeEdgeSettleGenerationRef.current = null;
     edgeBackX.stop();
     edgeBackX.set(0);
     setEdgeBackSettle(null);
@@ -429,7 +444,7 @@ function PushLayer({
   onBeginEdgeBack: () => void;
   onSettleEdgeBack: (velocityX: number, viewportWidth: number) => void;
   onCancelEdgeBack: () => void;
-  onFinishEdgeBack: () => void;
+  onFinishEdgeBack: (settlement: EdgeBackSettle) => void;
   children: ReactNode;
 }) {
   const reduceMotion = useAppReducedMotion();
@@ -634,8 +649,8 @@ function PushLayer({
         }
       }}
       onAnimationComplete={() => {
-        if (settlingTop) {
-          onFinishEdgeBack();
+        if (settlingTop && edgeBackSettle) {
+          onFinishEdgeBack(edgeBackSettle);
         }
       }}
       aria-hidden={!interactive}
