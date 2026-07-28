@@ -7,13 +7,17 @@ import {
 } from "./appNavigation";
 import { createAppNavigationStore } from "./appNavigationStore";
 import {
+  createNavigationTraversalCoordinator,
   dismissSheetStackWithHistory,
   redirectNavigationHistoryTombstone,
   removeInvalidWithHistory,
+  traverseBackWithHistory,
 } from "../app/useAppNavigation";
 import {
   createNavigationHistoryPosition,
   decodeNavigationHistory,
+  decodeNavigationHistoryPosition,
+  deriveNavigationHistoryPosition,
   encodeNavigationHistory,
 } from "./navigationHistory";
 
@@ -94,6 +98,7 @@ function createMemoryHistory(entries: unknown[], initialCursor: number) {
   let cursor = initialCursor;
   let ignoredGoCalls = 0;
   const goCalls: number[] = [];
+  const pushCalls: unknown[] = [];
   const replaceCalls: Array<[unknown, string]> = [];
 
   return {
@@ -114,12 +119,19 @@ function createMemoryHistory(entries: unknown[], initialCursor: number) {
         entries[cursor] = nextState;
         replaceCalls.push([nextState, title]);
       },
+      pushState(nextState: unknown) {
+        entries.splice(cursor + 1);
+        entries.push(nextState);
+        cursor += 1;
+        pushCalls.push(nextState);
+      },
     },
     cursor: () => cursor,
     ignoreNextGo: () => {
       ignoredGoCalls += 1;
     },
     goCalls,
+    pushCalls,
     replaceCalls,
   };
 }
@@ -342,7 +354,12 @@ describe("app navigation store", () => {
   it("dismisses a valid two-sheet history stack by its exact depth", () => {
     const initialState = createSheetStackState();
     const store = createAppNavigationStore(initialState);
-    const history = createFakeHistory(encodeNavigationHistory(initialState));
+    const history = createFakeHistory(
+      encodeNavigationHistory(
+        initialState,
+        deriveNavigationHistoryPosition(initialState)
+      )
+    );
 
     dismissSheetStackWithHistory(store, history.history);
 
@@ -616,6 +633,266 @@ describe("app navigation store", () => {
     expect(history.cursor()).toBe(0);
     restoreMemoryHistory(store, history);
     expect(store.getState().sheets).toEqual([]);
+  });
+
+  it("serializes two back intents until each asynchronous target popstate settles", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const p0 = createNavigationHistoryPosition(h0, 0);
+    const p1 = createNavigationHistoryPosition(h1, 1, p0);
+    const p2 = createNavigationHistoryPosition(h2, 2, p1);
+    const store = createAppNavigationStore(h2);
+    const history = createMemoryHistory(
+      [
+        encodeNavigationHistory(h0, p0),
+        encodeNavigationHistory(h1, p1),
+        encodeNavigationHistory(h2, p2),
+      ],
+      2
+    );
+    const coordinator = createNavigationTraversalCoordinator();
+    const observer = {
+      start: coordinator.begin,
+      cancel: coordinator.cancel,
+    };
+
+    coordinator.enqueue(() =>
+      traverseBackWithHistory(store, { type: "pop" }, history.history, observer)
+    );
+    coordinator.enqueue(() =>
+      traverseBackWithHistory(store, { type: "pop" }, history.history, observer)
+    );
+
+    expect(history.goCalls).toEqual([-1]);
+    expect(history.cursor()).toBe(1);
+
+    restoreMemoryHistory(store, history);
+    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+
+    expect(history.goCalls).toEqual([-1, -1]);
+    expect(history.cursor()).toBe(0);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    expect(store.getState().sheets).toEqual([]);
+    expect(coordinator.isPending()).toBe(false);
+  });
+
+  it("queues a push until the preceding back popstate restores its source", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const p0 = createNavigationHistoryPosition(h0, 0);
+    const p1 = createNavigationHistoryPosition(h1, 1, p0);
+    const p2 = createNavigationHistoryPosition(h2, 2, p1);
+    const store = createAppNavigationStore(h2);
+    const history = createMemoryHistory(
+      [
+        encodeNavigationHistory(h0, p0),
+        encodeNavigationHistory(h1, p1),
+        encodeNavigationHistory(h2, p2),
+      ],
+      2
+    );
+    const coordinator = createNavigationTraversalCoordinator();
+    const observer = {
+      start: coordinator.begin,
+      cancel: coordinator.cancel,
+    };
+    let pushed = false;
+
+    coordinator.enqueue(() =>
+      traverseBackWithHistory(store, { type: "pop" }, history.history, observer)
+    );
+    coordinator.enqueue(() => {
+      const next = reduceAppNavigation(store.getState(), {
+        type: "present-sheet",
+        entry: { key: "sheet-3", kind: "sheet", route: "book-delete" },
+      });
+      const position = createNavigationHistoryPosition(
+        next,
+        2,
+        decodeNavigationHistoryPosition(history.history.state) ?? undefined
+      );
+      store.setState(next);
+      history.history.pushState(encodeNavigationHistory(next, position));
+      pushed = true;
+    });
+
+    expect(pushed).toBe(false);
+    expect(history.pushCalls).toEqual([]);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+
+    expect(pushed).toBe(true);
+    expect(history.cursor()).toBe(2);
+    expect(store.getState().sheets.map((sheet) => sheet.key)).toEqual([
+      "sheet-1",
+      "sheet-3",
+    ]);
+  });
+
+  it("queues a replace until the preceding back popstate restores its source", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const p0 = createNavigationHistoryPosition(h0, 0);
+    const p1 = createNavigationHistoryPosition(h1, 1, p0);
+    const p2 = createNavigationHistoryPosition(h2, 2, p1);
+    const store = createAppNavigationStore(h2);
+    const history = createMemoryHistory(
+      [
+        encodeNavigationHistory(h0, p0),
+        encodeNavigationHistory(h1, p1),
+        encodeNavigationHistory(h2, p2),
+      ],
+      2
+    );
+    const coordinator = createNavigationTraversalCoordinator();
+    const observer = { start: coordinator.begin, cancel: coordinator.cancel };
+
+    coordinator.enqueue(() =>
+      traverseBackWithHistory(store, { type: "pop" }, history.history, observer)
+    );
+    coordinator.enqueue(() => {
+      const next = reduceAppNavigation(store.getState(), {
+        type: "replace-sheet",
+        entry: { key: "sheet-3", kind: "sheet", route: "book-delete" },
+      });
+      store.setState(next);
+      history.history.replaceState(
+        encodeNavigationHistory(
+          next,
+          createNavigationHistoryPosition(
+            next,
+            1,
+            decodeNavigationHistoryPosition(history.history.state) ?? undefined
+          )
+        ),
+        ""
+      );
+    });
+
+    expect(store.getState().sheets.map((sheet) => sheet.key)).toEqual([
+      "sheet-1",
+      "sheet-2",
+    ]);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    expect(store.getState().sheets.map((sheet) => sheet.key)).toEqual([
+      "sheet-3",
+    ]);
+    expect(history.cursor()).toBe(1);
+  });
+
+  it("holds queued commands while a forward tombstone redirects to safety", () => {
+    const h0 = createAppNavigationState();
+    const h1 = reduceAppNavigation(h0, {
+      type: "present-sheet",
+      entry: { key: "sheet-1", kind: "sheet", route: "book-actions" },
+    });
+    const h2 = reduceAppNavigation(h1, {
+      type: "present-sheet",
+      entry: { key: "sheet-2", kind: "sheet", route: "book-rename" },
+    });
+    const h3 = reduceAppNavigation(h2, {
+      type: "present-sheet",
+      entry: { key: "sheet-3", kind: "sheet", route: "book-delete" },
+    });
+    const p0 = createNavigationHistoryPosition(h0, 0);
+    const p1 = createNavigationHistoryPosition(h1, 1, p0);
+    const p2 = createNavigationHistoryPosition(h2, 2, p1);
+    const p3 = createNavigationHistoryPosition(h3, 3, p2);
+    const store = createAppNavigationStore(h3);
+    const history = createMemoryHistory(
+      [
+        encodeNavigationHistory(h0, p0),
+        encodeNavigationHistory(h1, p1),
+        encodeNavigationHistory(h2, p2),
+        encodeNavigationHistory(h3, p3),
+      ],
+      3
+    );
+    const coordinator = createNavigationTraversalCoordinator();
+    const observer = { start: coordinator.begin, cancel: coordinator.cancel };
+
+    removeInvalidWithHistory(store, "sheet-3", history.history, observer);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    history.history.go(1);
+    expect(redirectNavigationHistoryTombstone(history.history, observer)).toBe(
+      true
+    );
+    let executed = false;
+    coordinator.enqueue(() => {
+      executed = true;
+    });
+
+    expect(executed).toBe(false);
+    expect(history.cursor()).toBe(2);
+    restoreMemoryHistory(store, history);
+    coordinator.settle(decodeNavigationHistoryPosition(history.history.state)?.cursor);
+    expect(executed).toBe(true);
+  });
+
+  it("clears queued work on cleanup and cancels an explicit go no-op", () => {
+    const coordinator = createNavigationTraversalCoordinator();
+    const traversal = coordinator.begin(2, 1);
+    let executed = false;
+    coordinator.enqueue(() => {
+      executed = true;
+    });
+    coordinator.clear();
+    coordinator.settle(1);
+    expect(executed).toBe(false);
+
+    const state = createSheetStackState();
+    const store = createAppNavigationStore(state);
+    const history = createFakeHistory(
+      encodeNavigationHistory(state, deriveNavigationHistoryPosition(state))
+    );
+    history.history.go = () => false;
+    const noOpCoordinator = createNavigationTraversalCoordinator();
+    dismissSheetStackWithHistory(store, history.history, {
+      start: noOpCoordinator.begin,
+      cancel: noOpCoordinator.cancel,
+    });
+    expect(noOpCoordinator.isPending()).toBe(false);
+    expect(traversal.targetCursor).toBe(1);
+  });
+
+  it("synchronously replaces a legacy v1 position without creating pending work", () => {
+    const state = createSheetStackState();
+    const store = createAppNavigationStore(state);
+    const history = createFakeHistory(encodeNavigationHistory(state));
+    const coordinator = createNavigationTraversalCoordinator();
+
+    dismissSheetStackWithHistory(store, history.history, {
+      start: coordinator.begin,
+      cancel: coordinator.cancel,
+    });
+
+    expect(history.goCalls).toEqual([]);
+    expect(history.replaceCalls).toHaveLength(1);
+    expect(coordinator.isPending()).toBe(false);
   });
 
   it("exposes full navigation state through the navigation provider", () => {

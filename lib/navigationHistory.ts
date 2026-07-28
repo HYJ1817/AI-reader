@@ -244,9 +244,20 @@ export function decodeNavigationHistoryPosition(
   const state = decodeNavigationHistory(value);
   if (!state) return null;
 
-  if (isRecord(value) && isNavigationHistoryPosition(value.position, state)) {
+  if (hasNavigationHistoryPosition(value)) {
     return value.position;
   }
 
   return deriveNavigationHistoryPosition(state);
+}
+
+export function hasNavigationHistoryPosition(
+  value: unknown
+): value is Record<string, unknown> & { position: NavigationHistoryPosition } {
+  const state = decodeNavigationHistory(value);
+  return (
+    state !== null &&
+    isRecord(value) &&
+    isNavigationHistoryPosition(value.position, state)
+  );
 }

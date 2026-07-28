@@ -30,6 +30,7 @@ import {
   decodeNavigationHistory,
   decodeNavigationHistoryPosition,
   deriveNavigationHistoryPosition,
+  hasNavigationHistoryPosition,
   mergeNavigationHistory,
 } from "../lib/navigationHistory";
 import type { NavigationTab } from "../lib/navigationMotion";
@@ -46,9 +47,82 @@ export type NavigationCommandStore = Pick<
 
 export type NavigationHistoryAdapter = {
   readonly state: unknown;
-  go: (delta?: number) => void;
+  go: (delta?: number) => void | boolean;
   replaceState: (data: unknown, title: string) => void;
 };
+
+export type NavigationTraversal = {
+  sourceCursor: number;
+  targetCursor: number;
+  generation: number;
+};
+
+export type NavigationTraversalObserver = {
+  start: (sourceCursor: number, targetCursor: number) => NavigationTraversal;
+  cancel: (traversal: NavigationTraversal) => void;
+};
+
+export function createNavigationTraversalCoordinator() {
+  let pending: NavigationTraversal | null = null;
+  let generation = 0;
+  let flushing = false;
+  const queue: Array<() => void> = [];
+
+  const flush = () => {
+    if (flushing || pending) return;
+    flushing = true;
+    while (!pending && queue.length > 0) {
+      queue.shift()?.();
+    }
+    flushing = false;
+  };
+
+  const begin = (sourceCursor: number, targetCursor: number) => {
+    if (pending) {
+      pending = {
+        ...pending,
+        sourceCursor,
+        targetCursor,
+      };
+      return pending;
+    }
+    const traversal = {
+      sourceCursor,
+      targetCursor,
+      generation: generation + 1,
+    };
+    generation += 1;
+    pending = traversal;
+    return traversal;
+  };
+
+  const cancel = (traversal: NavigationTraversal) => {
+    if (pending?.generation !== traversal.generation) return;
+    pending = null;
+    flush();
+  };
+
+  return {
+    enqueue(command: () => void) {
+      queue.push(command);
+      flush();
+    },
+    begin,
+    cancel,
+    settle(cursor: number | undefined) {
+      if (cursor === undefined || pending?.targetCursor !== cursor) return;
+      pending = null;
+      flush();
+    },
+    clear() {
+      pending = null;
+      queue.splice(0);
+    },
+    isPending() {
+      return pending !== null;
+    },
+  };
+}
 
 function getNavigationEntryKeys(state: AppNavigationState): string[] {
   return [
@@ -93,6 +167,19 @@ function writeNavigationHistory(
   history.replaceState(mergeNavigationHistory(history.state, state, position), "");
 }
 
+function requestHistoryTraversal(
+  history: NavigationHistoryAdapter,
+  sourceCursor: number,
+  targetCursor: number,
+  observer?: NavigationTraversalObserver
+) {
+  const traversal = observer?.start(sourceCursor, targetCursor);
+  const result = history.go(targetCursor - sourceCursor);
+  if (result === false && traversal) {
+    observer?.cancel(traversal);
+  }
+}
+
 export type UseAppNavigationResult = {
   state: AppNavigationCoreState;
   getState: AppNavigationStore["getState"];
@@ -111,7 +198,8 @@ export type UseAppNavigationResult = {
 
 export function dismissSheetStackWithHistory(
   store: NavigationCommandStore,
-  history?: NavigationHistoryAdapter
+  history?: NavigationHistoryAdapter,
+  observer?: NavigationTraversalObserver
 ): void {
   const currentState = store.getState();
   const depth = currentState.sheets.length;
@@ -121,7 +209,7 @@ export function dismissSheetStackWithHistory(
     type: "dismiss-sheet-stack",
   });
 
-  if (history && decodeNavigationHistory(history.state)) {
+  if (history && hasNavigationHistoryPosition(history.state)) {
     const position = getHistoryPosition(history, currentState);
     const targetCursor = getHistoryTargetCursor(
       currentState,
@@ -130,7 +218,7 @@ export function dismissSheetStackWithHistory(
       position.entryCursors
     );
     store.setState(nextState);
-    history.go(targetCursor - position.cursor);
+    requestHistoryTraversal(history, position.cursor, targetCursor, observer);
     return;
   }
 
@@ -152,7 +240,8 @@ export function dismissSheetStackWithHistory(
 export function removeInvalidWithHistory(
   store: NavigationCommandStore,
   key: string,
-  history?: NavigationHistoryAdapter
+  history?: NavigationHistoryAdapter,
+  observer?: NavigationTraversalObserver
 ): void {
   const currentState = store.getState();
   const nextState = reduceAppNavigation(currentState, {
@@ -161,7 +250,7 @@ export function removeInvalidWithHistory(
   });
   if (nextState === currentState) return;
 
-  if (history && decodeNavigationHistory(history.state)) {
+  if (history && hasNavigationHistoryPosition(history.state)) {
     const position = getHistoryPosition(history, currentState);
     const targetCursor = getHistoryTargetCursor(
       currentState,
@@ -179,7 +268,7 @@ export function removeInvalidWithHistory(
     };
     store.setState(nextState);
     writeNavigationHistory(history, nextState, tombstonePosition);
-    history.go(targetCursor - position.cursor);
+    requestHistoryTraversal(history, position.cursor, targetCursor, observer);
     return;
   }
 
@@ -196,10 +285,12 @@ export function removeInvalidWithHistory(
 }
 
 export function redirectNavigationHistoryTombstone(
-  history: NavigationHistoryAdapter
+  history: NavigationHistoryAdapter,
+  observer?: NavigationTraversalObserver
 ): boolean {
   const position = decodeNavigationHistoryPosition(history.state);
   if (
+    !hasNavigationHistoryPosition(history.state) ||
     !position ||
     position.redirectTargetCursor === undefined ||
     position.redirectTargetCursor >= position.cursor
@@ -207,20 +298,26 @@ export function redirectNavigationHistoryTombstone(
     return false;
   }
 
-  history.go(position.redirectTargetCursor - position.cursor);
+  requestHistoryTraversal(
+    history,
+    position.cursor,
+    position.redirectTargetCursor,
+    observer
+  );
   return true;
 }
 
-function traverseBackWithHistory(
+export function traverseBackWithHistory(
   store: NavigationCommandStore,
   action: AppNavigationAction,
-  history?: NavigationHistoryAdapter
+  history?: NavigationHistoryAdapter,
+  observer?: NavigationTraversalObserver
 ): void {
   const currentState = store.getState();
   const nextState = reduceAppNavigation(currentState, action);
   if (nextState === currentState) return;
 
-  if (history && decodeNavigationHistory(history.state)) {
+  if (history && hasNavigationHistoryPosition(history.state)) {
     const position = getHistoryPosition(history, currentState);
     const targetCursor = getHistoryTargetCursor(
       currentState,
@@ -230,7 +327,7 @@ function traverseBackWithHistory(
     );
     const delta = targetCursor - position.cursor;
     if (delta < 0) {
-      history.go(delta);
+      requestHistoryTraversal(history, position.cursor, targetCursor, observer);
       return;
     }
   }
@@ -251,6 +348,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
   const [store] = useState(() =>
     createAppNavigationStore(createAppNavigationState())
   );
+  const [coordinator] = useState(createNavigationTraversalCoordinator);
   const state = useSyncExternalStore(
     store.subscribeCore,
     store.getCoreSnapshot,
@@ -259,6 +357,16 @@ export default function useAppNavigation(): UseAppNavigationResult {
   const historyInitializedRef = useRef(false);
   const keyCounterRef = useRef(0);
   const keyPrefix = useId();
+  const traversalObserver = useMemo(
+    () => ({ start: coordinator.begin, cancel: coordinator.cancel }),
+    [coordinator]
+  );
+  const scheduleNavigation = useCallback(
+    (command: () => void) => {
+      coordinator.enqueue(command);
+    },
+    [coordinator]
+  );
 
   const nextKey = useCallback((kind: "push" | "reader" | "sheet") => {
     keyCounterRef.current =
@@ -285,7 +393,7 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
       if (restoredState) {
         restore(restoredState);
-        redirectNavigationHistoryTombstone(window.history);
+        redirectNavigationHistoryTombstone(window.history, traversalObserver);
       } else {
         window.history.replaceState(
           mergeNavigationHistory(
@@ -302,11 +410,17 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
     const handlePopState = (event: PopStateEvent) => {
       const restoredState = decodeNavigationHistory(event.state);
-      const nextState = restore(restoredState ?? createAppNavigationState());
 
       if (restoredState) {
-        redirectNavigationHistoryTombstone(window.history);
+        if (redirectNavigationHistoryTombstone(window.history, traversalObserver)) {
+          return;
+        }
+        restore(restoredState);
+        coordinator.settle(
+          decodeNavigationHistoryPosition(event.state)?.cursor
+        );
       } else {
+        const nextState = restore(createAppNavigationState());
         window.history.replaceState(
           mergeNavigationHistory(
             window.history.state,
@@ -319,8 +433,11 @@ export default function useAppNavigation(): UseAppNavigationResult {
     };
 
     window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [restore, store]);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      coordinator.clear();
+    };
+  }, [coordinator, restore, store, traversalObserver]);
 
   const commit = useCallback(
     (action: AppNavigationAction, historyWrite: HistoryWrite) => {
@@ -354,38 +471,43 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
   const traverseBack = useCallback(
     (action: AppNavigationAction) => {
-      traverseBackWithHistory(
-        store,
-        action,
-        typeof window === "undefined" ? undefined : window.history
+      scheduleNavigation(() =>
+        traverseBackWithHistory(
+          store,
+          action,
+          typeof window === "undefined" ? undefined : window.history,
+          traversalObserver
+        )
       );
     },
-    [store]
+    [scheduleNavigation, store, traversalObserver]
   );
 
   const selectTab = useCallback(
     (tab: NavigationTab) => {
-      commit({ type: "select-tab", tab }, "replace");
+      scheduleNavigation(() => commit({ type: "select-tab", tab }, "replace"));
     },
-    [commit]
+    [commit, scheduleNavigation]
   );
 
   const push = useCallback(
     (route: PushRoute, options?: PushOptions) => {
-      commit(
-        {
-          type: "push",
-          entry: {
-            ...(options ?? {}),
-            key: nextKey("push"),
-            kind: "push",
-            route,
+      scheduleNavigation(() =>
+        commit(
+          {
+            type: "push",
+            entry: {
+              ...(options ?? {}),
+              key: nextKey("push"),
+              kind: "push",
+              route,
+            },
           },
-        },
-        "push"
+          "push"
+        )
       );
     },
-    [commit, nextKey]
+    [commit, nextKey, scheduleNavigation]
   );
 
   const pop = useCallback(() => {
@@ -394,22 +516,24 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
   const presentReader = useCallback(
     (bookId: string, options?: ReaderOptions) => {
-      const historyWrite: HistoryWrite =
-        store.getState().sheets.length > 0 ? "replace" : "push";
-      commit(
-        {
-          type: "present-reader",
-          entry: {
-            ...(options ?? {}),
-            key: nextKey("reader"),
-            kind: "reader",
-            bookId,
+      scheduleNavigation(() => {
+        const historyWrite: HistoryWrite =
+          store.getState().sheets.length > 0 ? "replace" : "push";
+        commit(
+          {
+            type: "present-reader",
+            entry: {
+              ...(options ?? {}),
+              key: nextKey("reader"),
+              kind: "reader",
+              bookId,
+            },
           },
-        },
-        historyWrite
-      );
+          historyWrite
+        );
+      });
     },
-    [commit, nextKey, store]
+    [commit, nextKey, scheduleNavigation, store]
   );
 
   const dismissReader = useCallback(() => {
@@ -418,20 +542,22 @@ export default function useAppNavigation(): UseAppNavigationResult {
 
   const presentSheet = useCallback(
     (route: SheetRoute, options?: SheetOptions) => {
-      commit(
-        {
-          type: "present-sheet",
-          entry: {
-            ...(options ?? {}),
-            key: nextKey("sheet"),
-            kind: "sheet",
-            route,
+      scheduleNavigation(() =>
+        commit(
+          {
+            type: "present-sheet",
+            entry: {
+              ...(options ?? {}),
+              key: nextKey("sheet"),
+              kind: "sheet",
+              route,
+            },
           },
-        },
-        "push"
+          "push"
+        )
       );
     },
-    [commit, nextKey]
+    [commit, nextKey, scheduleNavigation]
   );
 
   const dismissSheet = useCallback(() => {
@@ -439,39 +565,47 @@ export default function useAppNavigation(): UseAppNavigationResult {
   }, [traverseBack]);
 
   const dismissSheetStack = useCallback(() => {
-    dismissSheetStackWithHistory(
-      store,
-      typeof window === "undefined" ? undefined : window.history
+    scheduleNavigation(() =>
+      dismissSheetStackWithHistory(
+        store,
+        typeof window === "undefined" ? undefined : window.history,
+        traversalObserver
+      )
     );
-  }, [store]);
+  }, [scheduleNavigation, store, traversalObserver]);
 
   const replaceSheet = useCallback(
     (route: SheetRoute, options?: SheetOptions) => {
-      commit(
-        {
-          type: "replace-sheet",
-          entry: {
-            ...(options ?? {}),
-            key: nextKey("sheet"),
-            kind: "sheet",
-            route,
+      scheduleNavigation(() =>
+        commit(
+          {
+            type: "replace-sheet",
+            entry: {
+              ...(options ?? {}),
+              key: nextKey("sheet"),
+              kind: "sheet",
+              route,
+            },
           },
-        },
-        "replace"
+          "replace"
+        )
       );
     },
-    [commit, nextKey]
+    [commit, nextKey, scheduleNavigation]
   );
 
   const removeInvalid = useCallback(
     (key: string) => {
-      removeInvalidWithHistory(
-        store,
-        key,
-        typeof window === "undefined" ? undefined : window.history
+      scheduleNavigation(() =>
+        removeInvalidWithHistory(
+          store,
+          key,
+          typeof window === "undefined" ? undefined : window.history,
+          traversalObserver
+        )
       );
     },
-    [store]
+    [scheduleNavigation, store, traversalObserver]
   );
 
   return useMemo(
