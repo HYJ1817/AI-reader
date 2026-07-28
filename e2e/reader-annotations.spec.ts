@@ -235,7 +235,7 @@ test("contents tab clicks keep 60fps under CPU pressure and native swipes keep p
   await expect(page.locator("#toc-panel-chapters li")).toHaveCount(60);
   await expect(
     page.locator('[data-sheet-route="toc"] [data-motion-sheet="panel"]')
-  ).toContainText(/第 \d+ 页（共 \d+ 页）/, { timeout: 30_000 });
+  ).toContainText(/位置 \d+（共 \d+ 个）/, { timeout: 30_000 });
   await page.waitForTimeout(500);
 
   const session = await page.context().newCDPSession(page);

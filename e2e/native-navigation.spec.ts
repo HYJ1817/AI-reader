@@ -1396,7 +1396,7 @@ test("Ask AI composer remains visible in a keyboard-sized viewport", async ({
     page,
     '[data-sheet-route="ask-ai"] [data-motion-sheet="panel"]'
   );
-  const input = page.locator('[data-sheet-route="ask-ai"] input[type="text"]');
+  const input = page.locator('[data-sheet-route="ask-ai"] textarea');
   await expect(input).toBeEnabled();
   await input.fill("Keep the composer anchored");
   await expect(input).toBeFocused();

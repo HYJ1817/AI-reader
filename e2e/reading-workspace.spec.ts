@@ -217,20 +217,59 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
   await page.locator(`${libraryRoot} [data-library-book-more="true"]`).first().click();
   const workspaceButton = page.locator('[data-sheet-route="book-actions"]').getByRole("button", { name: "\u9605\u8bfb\u7a7a\u95f4" });
   await workspaceButton.evaluate((button) => {
+    const state = {
+      clickAt: 0,
+      longTasks: [] as number[],
+      layoutShift: 0,
+      observers: [] as PerformanceObserver[],
+    };
+    for (const type of ["longtask", "layout-shift"]) {
+      try {
+        const observer = new PerformanceObserver((list) => {
+          for (const entry of list.getEntries()) {
+            if (entry.startTime < state.clickAt || state.clickAt === 0) continue;
+            if (type === "longtask") state.longTasks.push(entry.duration);
+            else if (!(entry as PerformanceEntry & { hadRecentInput?: boolean }).hadRecentInput) {
+              state.layoutShift += (entry as PerformanceEntry & { value?: number }).value ?? 0;
+            }
+          }
+        });
+        observer.observe({ type, buffered: true });
+        state.observers.push(observer);
+      } catch {}
+    }
+    (window as typeof window & { __workspacePerf?: typeof state }).__workspacePerf = state;
     button.addEventListener("click", () => {
-      (window as typeof window & { __workspaceClickAt?: number }).__workspaceClickAt = performance.now();
+      state.clickAt = performance.now();
     }, { once: true });
   });
   await workspaceButton.click();
   await expect(page.locator('[data-sheet-route="reading-workspace"]')).toBeVisible();
-  const clickToVisible = await page.evaluate(() =>
-    performance.now() - (window as typeof window & { __workspaceClickAt: number }).__workspaceClickAt
-  );
+  const metrics = await page.evaluate(async () => {
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const state = (window as typeof window & {
+      __workspacePerf: {
+        clickAt: number;
+        longTasks: number[];
+        layoutShift: number;
+        observers: PerformanceObserver[];
+      };
+    }).__workspacePerf;
+    state.observers.forEach((observer) => observer.disconnect());
+    return {
+      clickToVisible: performance.now() - state.clickAt,
+      maxLongTask: state.longTasks.length ? Math.max(...state.longTasks) : 0,
+      layoutShift: state.layoutShift,
+    };
+  });
+  console.log(`[workspace-open-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`);
   await testInfo.attach("workspace-open-metrics.json", {
-    body: JSON.stringify({ clickToVisible }),
+    body: JSON.stringify(metrics),
     contentType: "application/json",
   });
-  expect(clickToVisible).toBeLessThanOrEqual(100);
+  expect(metrics.clickToVisible).toBeLessThanOrEqual(100);
+  expect(metrics.maxLongTask).toBeLessThan(50);
+  expect(metrics.layoutShift).toBe(0);
 });
 
 test.afterEach(async ({ context }) => {
