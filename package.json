@@ -1,6 +1,6 @@
 {
   "name": "ai-reader-pwa",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Local-first AI-assisted EPUB/TXT reader PWA for iPhone Safari.",
   "private": true,
   "license": "MIT",
