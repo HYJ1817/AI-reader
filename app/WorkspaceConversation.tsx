@@ -69,6 +69,8 @@ export default function WorkspaceConversation({
     showReturnToBottom,
     onScroll,
     onUserInteractionStart,
+    onUserInteractionEnd,
+    onWheel,
     preservePrependAnchor,
     returnToBottom,
   } = useWorkspaceViewportFollow({
@@ -108,12 +110,17 @@ export default function WorkspaceConversation({
         inert={memoryReview ? true : undefined}
         onScroll={onScroll}
         onPointerDown={onUserInteractionStart}
+        onPointerUp={onUserInteractionEnd}
+        onPointerCancel={onUserInteractionEnd}
         onTouchStart={onUserInteractionStart}
-        onWheel={onUserInteractionStart}
+        onTouchEnd={onUserInteractionEnd}
+        onTouchCancel={onUserInteractionEnd}
+        onWheel={onWheel}
       >
         {hasOlderMessages ? (
           <button
             type="button"
+            data-workspace-prepend-anchor="true"
             className={styles.workspaceLoadOlderButton}
             onClick={() => void handleLoadOlder()}
           >

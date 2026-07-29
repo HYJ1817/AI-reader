@@ -15,10 +15,10 @@ export function shouldFollowWorkspaceViewport(input: {
   return input.nearBottom && !input.userInteracting && input.visible;
 }
 
-export function getAnchoredPrependScrollTop(
-  previousScrollTop: number,
-  previousScrollHeight: number,
-  nextScrollHeight: number
-): number {
-  return previousScrollTop + Math.max(0, nextScrollHeight - previousScrollHeight);
+export function getAnchoredPrependScrollTop(input: {
+  currentScrollTop: number;
+  previousAnchorTop: number;
+  nextAnchorTop: number;
+}): number {
+  return input.currentScrollTop + input.nextAnchorTop - input.previousAnchorTop;
 }

@@ -22,6 +22,22 @@ describe("workspace viewport following", () => {
   });
 
   it("preserves the visible anchor when older rows prepend", () => {
-    expect(getAnchoredPrependScrollTop(800, 1200, 1800)).toBe(1400);
+    expect(
+      getAnchoredPrependScrollTop({
+        currentScrollTop: 800,
+        previousAnchorTop: 120,
+        nextAnchorTop: 720,
+      })
+    ).toBe(1400);
+  });
+
+  it("uses anchor movement instead of total height during concurrent tail growth", () => {
+    expect(
+      getAnchoredPrependScrollTop({
+        currentScrollTop: 800,
+        previousAnchorTop: 120,
+        nextAnchorTop: 420,
+      })
+    ).toBe(1100);
   });
 });

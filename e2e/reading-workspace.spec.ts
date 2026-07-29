@@ -39,11 +39,13 @@ async function installLocalAiFixture(page: Page) {
       const signal = init?.signal;
       const mode = (window as typeof window & { __workspaceStreamMode?: string })
         .__workspaceStreamMode;
-      const events = mode === "long"
+      const events = mode === "long" || mode === "prepend"
         ? [
-            ...Array.from({ length: 24 }, (_, index) => ({
+            ...Array.from({ length: mode === "prepend" ? 60 : 24 }, (_, index) => ({
               type: "delta",
-              text: `chunk-${index}${"\n".repeat(index + 1)}${String(index % 10).repeat(1_200)}\n`,
+              text: mode === "long"
+                ? "x".repeat(1_200)
+                : `chunk-${index}${"\n".repeat(index < 14 ? 4 : index - 9)}${String(index % 10).repeat(1_200)}\n`,
             })),
             { type: "done" },
           ]
@@ -64,7 +66,7 @@ async function installLocalAiFixture(page: Page) {
           }, { once: true });
           const publish = () => {
             if (signal?.aborted) return;
-            if (mode === "long" && events[index].type === "delta") {
+            if ((mode === "long" || mode === "prepend") && events[index].type === "delta") {
               const fixtureWindow = window as typeof window & {
                 __workspacePublishedChunks?: number;
               };
@@ -76,7 +78,10 @@ async function installLocalAiFixture(page: Page) {
             if (index === events.length) {
               closed = true;
               controller.close();
-            } else timer = window.setTimeout(publish, mode === "long" ? 300 : 30);
+            } else timer = window.setTimeout(
+              publish,
+              mode === "prepend" ? 16 : mode === "long" ? 300 : 30
+            );
           };
           publish();
         },
@@ -202,17 +207,59 @@ test("long history pages without scroll jumps and long content is explicit", asy
   await openWorkspaceFromLibrary(page);
   const reopened = page.locator('[data-sheet-route="reading-workspace"]');
   await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(100);
+  await page.evaluate(() => {
+    const fixtureWindow = window as typeof window & {
+      __workspaceStreamMode?: string;
+      __workspacePublishedChunks?: number;
+    };
+    fixtureWindow.__workspaceStreamMode = "prepend";
+    fixtureWindow.__workspacePublishedChunks = 0;
+  });
+  const composer = reopened.getByRole("textbox", { name: "\u95ee AI" });
+  await composer.fill("Keep streaming while older messages load");
+  await reopened.getByRole("button", { name: "\u53d1\u9001" }).click();
+  await expect(reopened.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(3);
   const loadOlder = reopened.getByRole("button", { name: "\u52a0\u8f7d\u66f4\u65e9\u6d88\u606f" });
   await loadOlder.scrollIntoViewIfNeeded();
+  const thread = reopened.locator('[data-workspace-thread="true"]');
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await thread.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await thread.dispatchEvent("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await expect(
+    reopened.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
+  ).toBeVisible();
   const oldFirst = reopened.locator('[data-workspace-message-id]').first();
   const firstId = await oldFirst.getAttribute("data-workspace-message-id");
   const before = await oldFirst.boundingBox();
+  const chunksBeforePrepend = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
   await loadOlder.click();
-  await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(150);
+  await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(152);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(
+    chunksBeforePrepend + 2
+  );
   const after = await reopened.locator(`[data-workspace-message-id="${firstId}"]`).boundingBox();
   expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(1);
-  await expect(reopened.getByText("\u5185\u5bb9\u8f83\u957f\uff0c\u5df2\u6298\u53e0\u9884\u89c8\u3002")).toBeVisible();
-  await reopened.getByRole("button", { name: "\u5c55\u5f00\u5168\u6587" }).click();
+  await reopened.getByRole("button", { name: "\u505c\u6b62" }).click();
+  await expect(reopened.getByText("\u5185\u5bb9\u8f83\u957f\uff0c\u5df2\u6298\u53e0\u9884\u89c8\u3002").first()).toBeVisible();
+  await reopened.getByRole("button", { name: "\u5c55\u5f00\u5168\u6587" }).first().click();
   await expect(reopened.getByRole("button", { name: "\u5bfc\u51fa" }).last()).toBeVisible();
   const overflow = await page.evaluate(() =>
     document.documentElement.scrollWidth - document.documentElement.clientWidth
@@ -233,13 +280,16 @@ test("workspace streaming preserves user scroll and keeps the composer responsiv
   const workspace = page.locator('[data-sheet-route="reading-workspace"]');
   const composer = workspace.getByRole("textbox", { name: "\u95ee AI" });
   const thread = workspace.locator('[data-workspace-thread="true"]');
+  await expect.poll(() => thread.evaluate((element) =>
+    getComputedStyle(element).overflowAnchor
+  )).toBe("none");
 
   await composer.fill("Stream a long answer");
   await workspace.getByRole("button", { name: "\u53d1\u9001" }).click();
   await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
   await expect.poll(() => page.evaluate(() => (
     window as typeof window & { __workspacePublishedChunks?: number }
-  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(4);
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(9);
   await expect.poll(() => thread.evaluate((element) =>
     element.scrollHeight - element.clientHeight
   )).toBeGreaterThan(500);
@@ -247,17 +297,32 @@ test("workspace streaming preserves user scroll and keeps the composer responsiv
     element.scrollHeight - element.clientHeight - element.scrollTop
   )).toBeLessThanOrEqual(48);
 
+  const chunksBeforeLongPress = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await page.waitForTimeout(180);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(
+    chunksBeforeLongPress + 1
+  );
   const scrollTop = await thread.evaluate((element) => {
-    element.dispatchEvent(new WheelEvent("wheel", {
-      bubbles: true,
-      deltaY: -300,
-    }));
     element.scrollTop = Math.max(
       0,
       element.scrollHeight - element.clientHeight - 300
     );
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
     return element.scrollTop;
+  });
+  await thread.dispatchEvent("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
   });
   await expect(
     workspace.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })

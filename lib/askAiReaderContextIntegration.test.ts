@@ -80,8 +80,12 @@ describe("Ask AI reader context integration", () => {
     );
     expect(overlaysSource).toContain("className: styles.askBottomSheet");
     expect(cssSource).toContain(".askBottomSheet .sheetBody");
-    expect(cssSource).toContain(".workspaceConversationThread");
-    expect(cssSource).toContain("overflow-y: auto");
+    const threadRuleStart = cssSource.indexOf(".workspaceConversationThread {");
+    const threadRuleEnd = cssSource.indexOf("}", threadRuleStart);
+    const threadRule = cssSource.slice(threadRuleStart, threadRuleEnd);
+    expect(threadRuleStart).toBeGreaterThanOrEqual(0);
+    expect(threadRule).toContain("overflow-y: auto");
+    expect(threadRule).toContain("overflow-anchor: none");
     expect(cssSource).toContain(".workspaceComposer");
     expect(cssSource).toContain("flex-shrink: 0");
     expect(cssSource).toContain("--sheet-page-viewport-flex: 1");
@@ -119,8 +123,12 @@ describe("Ask AI reader context integration", () => {
     expect(workspaceConversationSource).toContain("useWorkspaceViewportFollow");
     expect(workspaceConversationSource).toContain("contentRevision");
     expect(workspaceConversationSource).toContain("onPointerDown={onUserInteractionStart}");
+    expect(workspaceConversationSource).toContain("onPointerUp={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onPointerCancel={onUserInteractionEnd}");
     expect(workspaceConversationSource).toContain("onTouchStart={onUserInteractionStart}");
-    expect(workspaceConversationSource).toContain("onWheel={onUserInteractionStart}");
+    expect(workspaceConversationSource).toContain("onTouchEnd={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onTouchCancel={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onWheel={onWheel}");
     expect(workspaceConversationSource).not.toContain(
       "thread.scrollTop = thread.scrollHeight"
     );
@@ -130,15 +138,26 @@ describe("Ask AI reader context integration", () => {
     expect(viewportFollowHookSource).toContain("isThreadActuallyVisible");
     expect(viewportFollowHookSource).toContain("new MutationObserver");
     expect(viewportFollowHookSource).toContain("preservingPrependRef.current");
+    expect(viewportFollowHookSource).toContain("findVisiblePrependAnchor");
   });
 
   it("publishes stream frames as transitions and serializes checkpoint persistence", () => {
     expect(askHookSource).toContain("startTransition(() =>");
-    expect(askHookSource).toContain("checkpointQueueRef");
-    expect(askHookSource).toContain(".then(() => putWorkspaceMessage(checkpoint))");
-    expect(askHookSource).toContain(
-      "await checkpointQueueRef.current.catch(() => undefined)"
-    );
+    expect(askHookSource).toContain("WorkspacePersistenceCoordinator");
+    expect(askHookSource).toContain("enqueueCheckpoint");
+    expect(askHookSource).toContain("commitOwned");
+    expect(askHookSource).toContain("cancel(async () =>");
+  });
+
+  it("keeps the return control in layout instead of overlaying workspace actions", () => {
+    const start = cssSource.indexOf(".workspaceReturnToLatest {");
+    const end = cssSource.indexOf("}", start);
+    const rule = cssSource.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(rule).toContain("align-self: center");
+    expect(rule).toContain("flex-shrink: 0");
+    expect(rule).not.toContain("position: absolute");
+    expect(rule).not.toContain("bottom:");
   });
 
   it("collects visible TXT and EPUB text for AI context", () => {

@@ -3705,6 +3705,7 @@
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 4px 0 12px;
   -webkit-overflow-scrolling: touch;
 }
@@ -3727,11 +3728,10 @@
 }
 
 .workspaceReturnToLatest {
-  position: absolute;
-  z-index: 2;
-  right: 24px;
-  bottom: 68px;
+  align-self: center;
+  flex-shrink: 0;
   min-height: 44px;
+  margin: 0 0 8px;
   padding: 0 14px;
   border: 0.5px solid color-mix(in srgb, var(--separator) 75%, transparent);
   border-radius: 999px;
