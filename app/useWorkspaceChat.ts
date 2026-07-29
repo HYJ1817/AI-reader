@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  startTransition,
   useCallback,
   useEffect,
   useRef,
@@ -143,6 +144,7 @@ export default function useWorkspaceChat({
   const generationRef = useRef(0);
   const streamingContentRef = useRef("");
   const streamingFrameRef = useRef<number | null>(null);
+  const checkpointQueueRef = useRef<Promise<void>>(Promise.resolve());
   const artifactsRef = useRef<WorkspaceArtifactRecord[]>([]);
   const memoriesRef = useRef<WorkspaceMemoryRecord[]>([]);
 
@@ -187,12 +189,15 @@ export default function useWorkspaceChat({
         (message) => message.id === pendingIdentity.assistantMessageId
       );
       if (pendingAssistant?.state === "streaming") {
-        void putWorkspaceMessage({
+        const cancelledMessage: WorkspaceMessageRecord = {
           ...pendingAssistant,
           content: streamingContentRef.current || pendingAssistant.content,
           state: "cancelled",
           updatedAt: now,
-        }).catch(() => undefined);
+        };
+        checkpointQueueRef.current = checkpointQueueRef.current
+          .catch(() => undefined)
+          .then(() => putWorkspaceMessage(cancelledMessage));
       }
       const pendingSession = sessionsRef.current.find(
         (session) => session.id === pendingIdentity.sessionId
@@ -341,6 +346,8 @@ export default function useWorkspaceChat({
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
       generationRef.current += 1;
+      await checkpointQueueRef.current.catch(() => undefined);
+      checkpointQueueRef.current = Promise.resolve();
       setLoading(false);
       return;
     }
@@ -364,6 +371,7 @@ export default function useWorkspaceChat({
         state: "cancelled",
         updatedAt: now,
       };
+      await checkpointQueueRef.current.catch(() => undefined);
       await putWorkspaceMessage(cancelledMessage).catch(() => undefined);
       publishMessages(
         messagesRef.current.map((message) =>
@@ -389,6 +397,7 @@ export default function useWorkspaceChat({
         )
       );
     }
+    checkpointQueueRef.current = Promise.resolve();
     setLoading(false);
   }, [publishMessages, publishSessions]);
 
@@ -656,13 +665,15 @@ export default function useWorkspaceChat({
             return;
           }
           const content = streamingContentRef.current;
-          publishMessages(
-            messagesRef.current.map((message) =>
-              message.id === pair.assistant.id
-                ? { ...message, content, updatedAt: new Date().toISOString() }
-                : message
-            )
-          );
+          startTransition(() => {
+            publishMessages(
+              messagesRef.current.map((message) =>
+                message.id === pair.assistant.id
+                  ? { ...message, content, updatedAt: new Date().toISOString() }
+                  : message
+              )
+            );
+          });
         };
 
         for await (const event of readWorkspaceEventStream(response.body)) {
@@ -695,7 +706,9 @@ export default function useWorkspaceChat({
               content: streamingContentRef.current,
               updatedAt: new Date(nowMs).toISOString(),
             };
-            await putWorkspaceMessage(checkpoint);
+            checkpointQueueRef.current = checkpointQueueRef.current
+              .catch(() => undefined)
+              .then(() => putWorkspaceMessage(checkpoint));
             lastCheckpointAt = nowMs;
             checkpointLength = checkpoint.content.length;
           }
@@ -714,6 +727,7 @@ export default function useWorkspaceChat({
           state: "complete",
           updatedAt: now,
         };
+        await checkpointQueueRef.current.catch(() => undefined);
         await putWorkspaceMessage(completedAssistant);
         publishMessages(
           messagesRef.current.map((message) =>
@@ -754,6 +768,7 @@ export default function useWorkspaceChat({
           error: message,
           updatedAt: now,
         };
+        await checkpointQueueRef.current.catch(() => undefined);
         await putWorkspaceMessage(failedAssistant).catch(() => undefined);
         publishMessages(
           messagesRef.current.map((item) =>
@@ -787,6 +802,7 @@ export default function useWorkspaceChat({
             streamingFrameRef.current = null;
           }
           streamingContentRef.current = "";
+          checkpointQueueRef.current = Promise.resolve();
           setLoading(false);
         }
       }

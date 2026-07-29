@@ -29,6 +29,10 @@ const askHookSource = readFileSync(
   new URL("../app/useWorkspaceChat.ts", import.meta.url),
   "utf8"
 );
+const viewportFollowHookSource = readFileSync(
+  new URL("../app/useWorkspaceViewportFollow.ts", import.meta.url),
+  "utf8"
+);
 const cssSource = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -80,6 +84,8 @@ describe("Ask AI reader context integration", () => {
     expect(cssSource).toContain("overflow-y: auto");
     expect(cssSource).toContain(".workspaceComposer");
     expect(cssSource).toContain("flex-shrink: 0");
+    expect(cssSource).toContain("--sheet-page-viewport-flex: 1");
+    expect(cssSource).toContain("height: var(--sheet-page-viewport-height) !important");
   });
 
   it("opens Ask AI through the navigation sheet route", () => {
@@ -106,12 +112,32 @@ describe("Ask AI reader context integration", () => {
     expect(askHookSource).toContain("question: trimmedQuestion");
   });
 
-  it("aborts stale requests and scrolls new conversation content into view", () => {
+  it("aborts stale requests and follows conversation content without stealing user scroll", () => {
     expect(askHookSource).toContain("new AbortController()");
     expect(askHookSource).toContain("requestControllerRef.current?.abort()");
     expect(askHookSource).toContain("signal: controller.signal");
-    expect(workspaceConversationSource).toContain(
+    expect(workspaceConversationSource).toContain("useWorkspaceViewportFollow");
+    expect(workspaceConversationSource).toContain("contentRevision");
+    expect(workspaceConversationSource).toContain("onPointerDown={onUserInteractionStart}");
+    expect(workspaceConversationSource).toContain("onTouchStart={onUserInteractionStart}");
+    expect(workspaceConversationSource).toContain("onWheel={onUserInteractionStart}");
+    expect(workspaceConversationSource).not.toContain(
       "thread.scrollTop = thread.scrollHeight"
+    );
+    expect(viewportFollowHookSource).toContain("activeAnimationRef.current?.stop()");
+    expect(viewportFollowHookSource).toContain("MOTION_DURATION.pushExit");
+    expect(viewportFollowHookSource).toContain("MOTION_EASE.enter");
+    expect(viewportFollowHookSource).toContain("isThreadActuallyVisible");
+    expect(viewportFollowHookSource).toContain("new MutationObserver");
+    expect(viewportFollowHookSource).toContain("preservingPrependRef.current");
+  });
+
+  it("publishes stream frames as transitions and serializes checkpoint persistence", () => {
+    expect(askHookSource).toContain("startTransition(() =>");
+    expect(askHookSource).toContain("checkpointQueueRef");
+    expect(askHookSource).toContain(".then(() => putWorkspaceMessage(checkpoint))");
+    expect(askHookSource).toContain(
+      "await checkpointQueueRef.current.catch(() => undefined)"
     );
   });
 

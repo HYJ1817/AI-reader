@@ -41,9 +41,10 @@ async function installLocalAiFixture(page: Page) {
         .__workspaceStreamMode;
       const events = mode === "long"
         ? [
-            { type: "delta", text: "A".repeat(3_000) },
-            { type: "delta", text: "B".repeat(3_000) },
-            { type: "delta", text: "C".repeat(3_000) },
+            ...Array.from({ length: 24 }, (_, index) => ({
+              type: "delta",
+              text: `chunk-${index}${"\n".repeat(index + 1)}${String(index % 10).repeat(1_200)}\n`,
+            })),
             { type: "done" },
           ]
         : [
@@ -63,12 +64,19 @@ async function installLocalAiFixture(page: Page) {
           }, { once: true });
           const publish = () => {
             if (signal?.aborted) return;
+            if (mode === "long" && events[index].type === "delta") {
+              const fixtureWindow = window as typeof window & {
+                __workspacePublishedChunks?: number;
+              };
+              fixtureWindow.__workspacePublishedChunks =
+                (fixtureWindow.__workspacePublishedChunks ?? 0) + 1;
+            }
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(events[index])}\n\n`));
             index += 1;
             if (index === events.length) {
               closed = true;
               controller.close();
-            } else timer = window.setTimeout(publish, 30);
+            } else timer = window.setTimeout(publish, mode === "long" ? 300 : 30);
           };
           publish();
         },
@@ -210,6 +218,78 @@ test("long history pages without scroll jumps and long content is explicit", asy
     document.documentElement.scrollWidth - document.documentElement.clientWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("workspace streaming preserves user scroll and keeps the composer responsive", async ({ page }) => {
+  await page.evaluate(() => {
+    const fixtureWindow = window as typeof window & {
+      __workspaceStreamMode?: string;
+      __workspacePublishedChunks?: number;
+    };
+    fixtureWindow.__workspaceStreamMode = "long";
+    fixtureWindow.__workspacePublishedChunks = 0;
+  });
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const composer = workspace.getByRole("textbox", { name: "\u95ee AI" });
+  const thread = workspace.locator('[data-workspace-thread="true"]');
+
+  await composer.fill("Stream a long answer");
+  await workspace.getByRole("button", { name: "\u53d1\u9001" }).click();
+  await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(4);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight
+  )).toBeGreaterThan(500);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight - element.scrollTop
+  )).toBeLessThanOrEqual(48);
+
+  const scrollTop = await thread.evaluate((element) => {
+    element.dispatchEvent(new WheelEvent("wheel", {
+      bubbles: true,
+      deltaY: -300,
+    }));
+    element.scrollTop = Math.max(
+      0,
+      element.scrollHeight - element.clientHeight - 300
+    );
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return element.scrollTop;
+  });
+  await expect(
+    workspace.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
+  ).toBeVisible();
+
+  const chunksBeforeTyping = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await composer.pressSequentially("draft stays responsive", { delay: 12 });
+  await expect(composer).toHaveValue("draft stays responsive");
+  await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksBeforeTyping + 3);
+  expect(Math.abs((await thread.evaluate((element) => element.scrollTop)) - scrollTop))
+    .toBeLessThanOrEqual(1);
+
+  await workspace.getByRole("button", {
+    name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
+  }).click();
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight - element.scrollTop
+  )).toBeLessThanOrEqual(1);
+  const chunksAfterReturn = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksAfterReturn + 2);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight - element.scrollTop
+  )).toBeLessThanOrEqual(48);
 });
 
 test("workspace opens within the architecture budget", async ({ page }, testInfo) => {

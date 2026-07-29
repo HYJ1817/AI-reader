@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
 import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import { UI_TEXT } from "@/lib/uiText";
+import useWorkspaceViewportFollow from "./useWorkspaceViewportFollow";
 import WorkspaceMessageBody from "./WorkspaceMessageBody";
 import styles from "./page.module.css";
 
@@ -52,8 +53,6 @@ export default function WorkspaceConversation({
   onSaveToMaterials,
   onRemember,
 }: WorkspaceConversationProps) {
-  const threadRef = useRef<HTMLDivElement>(null);
-  const nearBottomRef = useRef(true);
   const memoryReviewTextareaRef = useRef<HTMLTextAreaElement>(null);
   const memoryReviewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [memoryReview, setMemoryReview] = useState<{
@@ -61,6 +60,21 @@ export default function WorkspaceConversation({
     content: string;
   } | null>(null);
   const memoryReviewOpen = memoryReview !== null;
+  const lastMessage = messages.at(-1);
+  const contentRevision = lastMessage
+    ? `${lastMessage.id}:${lastMessage.state}:${lastMessage.content.length}`
+    : `empty:${loading}`;
+  const {
+    threadRef,
+    showReturnToBottom,
+    onScroll,
+    onUserInteractionStart,
+    preservePrependAnchor,
+    returnToBottom,
+  } = useWorkspaceViewportFollow({
+    contentRevision,
+    visible: !memoryReviewOpen,
+  });
 
   useLayoutEffect(() => {
     if (memoryReviewOpen) {
@@ -75,22 +89,8 @@ export default function WorkspaceConversation({
     }
   }, [memoryReviewOpen]);
 
-  useEffect(() => {
-    const thread = threadRef.current;
-    if (thread && nearBottomRef.current) thread.scrollTop = thread.scrollHeight;
-  }, [loading, messages]);
-
   const handleLoadOlder = async () => {
-    const thread = threadRef.current;
-    if (!thread) return;
-    const previousScrollHeight = thread.scrollHeight;
-    const previousScrollTop = thread.scrollTop;
-    await onLoadOlder();
-    requestAnimationFrame(() => {
-      if (!threadRef.current) return;
-      const thread = threadRef.current;
-      thread.scrollTop = thread.scrollHeight - previousScrollHeight + previousScrollTop;
-    });
+    await preservePrependAnchor(onLoadOlder);
   };
 
   return (
@@ -101,15 +101,15 @@ export default function WorkspaceConversation({
     >
       <div
         ref={threadRef}
+        data-workspace-thread="true"
         className={styles.workspaceConversationThread}
         aria-busy={loading}
         aria-hidden={memoryReview ? true : undefined}
         inert={memoryReview ? true : undefined}
-        onScroll={(event) => {
-          const thread = event.currentTarget;
-          nearBottomRef.current =
-            thread.scrollHeight - thread.scrollTop - thread.clientHeight <= 48;
-        }}
+        onScroll={onScroll}
+        onPointerDown={onUserInteractionStart}
+        onTouchStart={onUserInteractionStart}
+        onWheel={onUserInteractionStart}
       >
         {hasOlderMessages ? (
           <button
@@ -221,6 +221,16 @@ export default function WorkspaceConversation({
           </div>
         ) : null}
       </div>
+
+      {showReturnToBottom && !memoryReview ? (
+        <button
+          type="button"
+          className={styles.workspaceReturnToLatest}
+          onClick={returnToBottom}
+        >
+          {UI_TEXT.WORKSPACE_RETURN_TO_LATEST}
+        </button>
+      ) : null}
 
       {memoryReview ? (
         <div

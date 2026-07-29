@@ -32,6 +32,10 @@ const workspaceHook = readFileSync(
   new URL("../app/useWorkspaceChat.ts", import.meta.url),
   "utf8"
 );
+const workspaceViewportHook = readFileSync(
+  new URL("../app/useWorkspaceViewportFollow.ts", import.meta.url),
+  "utf8"
+);
 const artifactPreview = readFileSync(
   new URL("../app/WorkspaceArtifactPreview.tsx", import.meta.url),
   "utf8"
@@ -98,9 +102,8 @@ describe("daily-path accessibility contract", () => {
     expect(messageBody).toContain("remarkGfm");
     expect(messageBody).toContain("UI_TEXT.EXPAND");
     expect(messageBody).toContain("UI_TEXT.EXPORT");
-    expect(askAi).toContain(
-      "thread.scrollHeight - previousScrollHeight + previousScrollTop"
-    );
+    expect(askAi).toContain("preservePrependAnchor(onLoadOlder)");
+    expect(workspaceViewportHook).toContain("getAnchoredPrependScrollTop");
     expect(workspaceHook).toContain("WORKSPACE_MESSAGE_PAGE_SIZE");
   });
 

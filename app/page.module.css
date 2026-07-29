@@ -3528,6 +3528,9 @@
 .bottomSheet.readingWorkspaceSheet {
   height: min(94dvh, 920px);
   max-height: calc(100dvh - max(12px, env(safe-area-inset-top)));
+  --sheet-page-viewport-flex: 1;
+  --sheet-page-viewport-height: auto;
+  --sheet-page-height: 100%;
 }
 
 .workspaceShell {
@@ -3721,6 +3724,24 @@
   background: transparent;
   font-size: 13px;
   font-weight: 650;
+}
+
+.workspaceReturnToLatest {
+  position: absolute;
+  z-index: 2;
+  right: 24px;
+  bottom: 68px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0.5px solid color-mix(in srgb, var(--separator) 75%, transparent);
+  border-radius: 999px;
+  color: var(--tint);
+  background: color-mix(in srgb, var(--surface-primary) 94%, transparent);
+  box-shadow: 0 5px 18px rgba(0, 0, 0, 0.14);
+  font-size: 13px;
+  font-weight: 650;
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
 }
 
 .workspaceMessage {
@@ -4302,11 +4323,14 @@
   width: 100%;
   min-height: 0;
   overflow: hidden;
+  flex: var(--sheet-page-viewport-flex);
+  height: var(--sheet-page-viewport-height) !important;
 }
 
 .sheetPage {
   width: 100%;
   min-height: 0;
+  height: var(--sheet-page-height);
   transform: translateZ(0);
 }
 

@@ -115,6 +115,7 @@ export const UI_TEXT = {
   STOP: "\u505c\u6b62",
   RETRY: "\u91cd\u8bd5",
   LOAD_OLDER: "\u52a0\u8f7d\u66f4\u65e9\u6d88\u606f",
+  WORKSPACE_RETURN_TO_LATEST: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
   EXPAND: "\u5c55\u5f00\u5168\u6587",
   EXPORT: "\u5bfc\u51fa",
   WORKSPACE_LIVE_TAIL_NOTICE: "\u56de\u7b54\u8f83\u957f\uff0c\u6d41\u5f0f\u751f\u6210\u65f6\u4ec5\u663e\u793a\u6700\u65b0\u5185\u5bb9\u3002",
