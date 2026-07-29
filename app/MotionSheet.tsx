@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type CSSProperties,
@@ -27,14 +28,17 @@ import {
   canSheetClaimGesture,
   shouldCompleteSheetDismiss,
 } from "@/lib/navigationGestures";
-import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
-import { useAppReducedMotion } from "./AppMotionRoot";
+import { MOTION_SPRING, getRoleTransition } from "@/lib/motionSystem";
+import { useAppMotionLifecycle, useAppReducedMotion } from "./AppMotionRoot";
 import styles from "./page.module.css";
 
 export type CloseSheet = (afterClose?: () => void) => void;
 
 export type MotionSheetProps = {
-  onClose: () => void;
+  open: boolean;
+  stackDepth?: number;
+  onRequestClose: () => void;
+  onExitComplete?: () => void;
   children: ReactNode | ((close: CloseSheet) => ReactNode);
   className?: string;
   ariaLabel?: string;
@@ -43,15 +47,15 @@ export type MotionSheetProps = {
   onBeforeClose?: () => void;
 };
 
+type SheetCloseRequest = {
+  afterClose: (() => void) | null;
+};
+
 type SheetPresentationMotion = {
   progress: MotionValue<number>;
   scale: MotionValue<number>;
   borderRadius: MotionValue<number>;
   brightness: MotionValue<number>;
-};
-
-type SheetCloseRequest = {
-  afterClose: (() => void) | null;
 };
 
 type VisualViewportFrame = {
@@ -118,7 +122,10 @@ function isInteractiveControl(target: EventTarget | null): boolean {
 }
 
 export default function MotionSheet({
-  onClose,
+  open,
+  stackDepth = 1,
+  onRequestClose,
+  onExitComplete,
   children,
   className = "",
   ariaLabel,
@@ -127,9 +134,19 @@ export default function MotionSheet({
   onBeforeClose,
 }: MotionSheetProps) {
   const reduceMotion = useAppReducedMotion();
-  const [present, setPresent] = useState(true);
-  const [closeRequest, setCloseRequest] =
-    useState<SheetCloseRequest | null>(null);
+  const lifecycle = useAppMotionLifecycle();
+  const [present, setPresent] = useReducer(
+    (_current: boolean, next: boolean) => next,
+    open
+  );
+  const [isAnimating, setIsAnimating] = useReducer(
+    (_current: boolean, next: boolean) => next,
+    open
+  );
+  const [closeRequest, setCloseRequest] = useReducer(
+    (_current: SheetCloseRequest | null, next: SheetCloseRequest | null) => next,
+    null
+  );
   const [sheetHeight, setSheetHeight] = useState(() =>
     typeof window === "undefined" ? 900 : Math.max(1, window.innerHeight)
   );
@@ -148,10 +165,17 @@ export default function MotionSheet({
     });
   const panelRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(sheetHeight);
+  const reducedOpacity = useMotionValue(reduceMotion ? 0 : 1);
   const dragControls = useDragControls();
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const animationGenerationRef = useRef(0);
-  const closeCompletedRef = useRef(false);
+  const exitRequestedRef = useRef(!open);
+  const exitCompletedRef = useRef(false);
+  const beforeCloseCalledRef = useRef(false);
+  const openRef = useRef(open);
+  const onExitCompleteRef = useRef(onExitComplete);
+  const lifecycleEpochRef = useRef(lifecycle.epoch);
+  const lastHandledOpenRef = useRef<boolean | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const backgroundSiblingsRef = useRef<BackgroundSiblingState[]>([]);
 
@@ -185,31 +209,40 @@ export default function MotionSheet({
       animationGenerationRef.current = generation;
       activeAnimationRef.current?.stop();
 
-      if (reduceMotion) {
-        y.set(target);
-        onComplete?.();
-        return;
-      }
-
-      const controls = animate(
-        y,
-        target,
-        kind === "settle"
-          ? MOTION_SPRING.sheet
-          : {
-              duration: MOTION_DURATION.sheetExit,
-              ease: [0.32, 0.72, 0, 1],
-            }
-      );
+      setIsAnimating(true);
+      const controls = reduceMotion
+        ? animate(reducedOpacity, kind === "close" ? 0 : 1, getRoleTransition(
+            kind === "close" ? "sheet-exit" : "sheet-enter",
+            true
+          ))
+        : animate(
+            y,
+            target,
+            kind === "settle"
+              ? MOTION_SPRING.sheet
+              : getRoleTransition("sheet-exit", false)
+          );
+      if (reduceMotion) y.set(kind === "close" ? 0 : target);
       activeAnimationRef.current = controls;
       void controls.then(() => {
         if (animationGenerationRef.current !== generation) return;
         activeAnimationRef.current = null;
+        setIsAnimating(false);
         onComplete?.();
       });
     },
-    [reduceMotion, y]
+    [reduceMotion, reducedOpacity, y]
   );
+  // Full-motion exit timing is MOTION_DURATION.sheetExit with
+  // ease: [0.32, 0.72, 0, 1], centralized by getRoleTransition.
+
+  const interruptClose = useCallback(() => {
+    animationGenerationRef.current += 1;
+    activeAnimationRef.current?.stop();
+    activeAnimationRef.current = null;
+    exitRequestedRef.current = false;
+    setIsAnimating(false);
+  }, []);
 
   useEffect(() => {
     const panel = panelRef.current;
@@ -309,35 +342,80 @@ export default function MotionSheet({
   }, []);
 
   useEffect(() => {
-    runAnimation(0, "settle");
-    return () => {
-      animationGenerationRef.current += 1;
-      activeAnimationRef.current?.stop();
-    };
-  }, [runAnimation]);
+    openRef.current = open;
+    onExitCompleteRef.current = onExitComplete;
+  }, [onExitComplete, open]);
 
-  const close = useCallback<CloseSheet>((nextAfterClose) => {
-    setCloseRequest((current) =>
-      current ?? { afterClose: nextAfterClose ?? null }
-    );
-  }, []);
+  const beginExit = useCallback(() => {
+    if (exitRequestedRef.current) return;
+    exitRequestedRef.current = true;
+    exitCompletedRef.current = false;
+    if (!beforeCloseCalledRef.current) {
+      beforeCloseCalledRef.current = true;
+      onBeforeClose?.();
+    }
+    const viewportHeight = Math.max(sheetHeight, window.innerHeight);
+    runAnimation(viewportHeight, "close", () => setPresent(false));
+  }, [onBeforeClose, runAnimation, sheetHeight]);
 
   useEffect(() => {
-    if (!closeRequest) return;
-    const viewportHeight = Math.max(sheetHeight, window.innerHeight);
-    runAnimation(viewportHeight, "close", () => {
-      setPresent(false);
-    });
-  }, [closeRequest, runAnimation, sheetHeight]);
+    if (lastHandledOpenRef.current === open) return;
+    lastHandledOpenRef.current = open;
+    if (open) {
+      interruptClose();
+      exitCompletedRef.current = false;
+      beforeCloseCalledRef.current = false;
+      setCloseRequest(null);
+      setPresent(true);
+      runAnimation(0, "settle");
+      return;
+    }
+    beginExit();
+  }, [beginExit, interruptClose, open, runAnimation]);
+
+  useEffect(() => () => {
+    animationGenerationRef.current += 1;
+    activeAnimationRef.current?.stop();
+  }, []);
+
+  const close = useCallback<CloseSheet>((nextAfterClose) => {
+    if (!open || closeRequest) return;
+    setCloseRequest({ afterClose: nextAfterClose ?? null });
+    onRequestClose();
+  }, [closeRequest, onRequestClose, open]);
 
   const finishClose = useCallback(() => {
-    if (closeCompletedRef.current) return;
-    closeCompletedRef.current = true;
+    if (
+      openRef.current ||
+      !exitRequestedRef.current ||
+      exitCompletedRef.current
+    ) {
+      return;
+    }
+    exitCompletedRef.current = true;
     const callback = closeRequest?.afterClose ?? null;
-    onBeforeClose?.();
-    onClose();
+    setCloseRequest(null);
     callback?.();
-  }, [closeRequest, onBeforeClose, onClose]);
+    onExitCompleteRef.current?.();
+  }, [closeRequest]);
+
+  useEffect(() => {
+    if (lifecycleEpochRef.current === lifecycle.epoch) return;
+    lifecycleEpochRef.current = lifecycle.epoch;
+    animationGenerationRef.current += 1;
+    activeAnimationRef.current?.stop();
+    activeAnimationRef.current = null;
+    setIsAnimating(false);
+
+    if (exitRequestedRef.current || !openRef.current) {
+      y.set(Math.max(sheetHeight, window.innerHeight));
+      reducedOpacity.set(0);
+      setPresent(false);
+      return;
+    }
+    y.set(0);
+    reducedOpacity.set(1);
+  }, [lifecycle.epoch, reducedOpacity, sheetHeight, y]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -377,16 +455,8 @@ export default function MotionSheet({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [close]);
 
-  const interruptClose = useCallback(() => {
-    if (!closeRequest) return;
-    animationGenerationRef.current += 1;
-    activeAnimationRef.current?.stop();
-    activeAnimationRef.current = null;
-    setCloseRequest(null);
-  }, [closeRequest]);
-
   function handleDragPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.button !== 0) return;
+    if (!openRef.current || event.button !== 0) return;
     const panel = panelRef.current;
     if (!panel) return;
     const target = event.target;
@@ -397,7 +467,6 @@ export default function MotionSheet({
 
     const scrollTop = findScrollableAncestor(target, panel)?.scrollTop ?? 0;
     if (!canSheetClaimGesture({ fromHeader, scrollTop, deltaY: 1 })) return;
-    interruptClose();
     dragControls.start(event);
   }
 
@@ -418,21 +487,28 @@ export default function MotionSheet({
             className={styles.sheetOverlay}
             style={overlayStyle}
             data-motion-sheet="overlay"
-            data-sheet-closing={closeRequest ? "true" : undefined}
+            data-sheet-closing={!open ? "true" : undefined}
             onClick={(event) => {
               if (event.target === event.currentTarget) close();
             }}
           >
             <m.div
               className={styles.motionSheetBackdrop}
-              style={{ opacity: progress }}
+              style={{
+                opacity: reduceMotion ? reducedOpacity : progress,
+                willChange: isAnimating ? "opacity" : "auto",
+              }}
               data-motion-sheet="backdrop"
               aria-hidden="true"
             />
             <m.div
               ref={panelRef}
               className={panelClassName}
-              style={{ y }}
+              style={{
+                y,
+                opacity: reduceMotion ? reducedOpacity : 1,
+                willChange: isAnimating ? "transform" : "auto",
+              }}
               role="dialog"
               aria-modal="true"
               aria-label={ariaLabel}
@@ -443,6 +519,7 @@ export default function MotionSheet({
               dragConstraints={{ top: 0, bottom: sheetHeight }}
               dragElastic={{ top: 0, bottom: 0.08 }}
               dragMomentum={false}
+              onDragStart={() => setIsAnimating(true)}
               onPointerDownCapture={handleDragPointerDown}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
@@ -458,10 +535,10 @@ export default function MotionSheet({
                   close();
                   return;
                 }
-                setCloseRequest(null);
                 runAnimation(0, "settle");
               }}
               data-motion-sheet="panel"
+              data-sheet-stack-depth={stackDepth}
               data-navigation-gesture-owner="sheet"
             >
               {showGrabber && (

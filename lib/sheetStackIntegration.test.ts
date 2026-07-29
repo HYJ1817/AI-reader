@@ -7,6 +7,7 @@ function optionalSource(path: string): string {
 }
 
 const stackSource = optionalSource("../app/SheetPageStack.tsx");
+const overlaysSource = optionalSource("../app/AppOverlays.tsx");
 const stylesSource = optionalSource("../app/page.module.css");
 
 describe("measured internal sheet page stack", () => {
@@ -117,5 +118,18 @@ describe("measured internal sheet page stack", () => {
     const stackRules = stylesSource.match(/\.sheetPage(?:Viewport|\[[^\n]+)?\s*\{[^}]*\}/g) ?? [];
     expect(stackRules).toHaveLength(4);
     expect(stackRules.join("\n")).not.toContain("will-change");
+  });
+
+  it("binds each page to its own entry and chooses root dismiss versus nested back", () => {
+    const renderPageSource = overlaysSource.slice(
+      overlaysSource.indexOf("const renderSheetPage"),
+      overlaysSource.indexOf("const topBook")
+    );
+    expect(overlaysSource).toContain("renderPage={renderSheetPage}");
+    expect(renderPageSource).toContain("const closePage = controls.isRoot");
+    expect(renderPageSource).toContain("? controls.dismiss");
+    expect(renderPageSource).toContain(": controls.back");
+    expect(renderPageSource).toContain("entry.entityId");
+    expect(renderPageSource).not.toContain("topSheet.entityId");
   });
 });

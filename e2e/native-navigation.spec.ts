@@ -1353,6 +1353,87 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
   }
 });
 
+test("nested sheet stack preserves one panel through history and visible back", async ({
+  page,
+}) => {
+  await useLibraryListMode(page);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+
+  const panel = page.locator('[data-motion-sheet="panel"]');
+  const backdrop = page.locator('[data-motion-sheet="backdrop"]');
+  await expect(panel).toHaveCount(1);
+  await expect(backdrop).toHaveCount(1);
+  await panel.evaluate((element) => {
+    (element as HTMLElement).dataset.e2eIdentity = "persistent-panel";
+  });
+  await backdrop.evaluate((element) => {
+    (element as HTMLElement).dataset.e2eIdentity = "persistent-backdrop";
+  });
+
+  await page.getByRole("button", { name: "重命名书籍" }).click();
+  await expect(page.locator('[data-sheet-route="book-rename"]')).toHaveCount(1);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
+  await expect(panel).toHaveAttribute("data-e2e-identity", "persistent-panel");
+  await expect(backdrop).toHaveAttribute("data-e2e-identity", "persistent-backdrop");
+  await expect(backdrop).not.toHaveCSS("opacity", "0");
+
+  await page.evaluate(() => window.history.back());
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(1);
+  await expect(panel).toHaveAttribute("data-e2e-identity", "persistent-panel");
+
+  await page.evaluate(() => window.history.back());
+  await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+
+  await page.getByRole("button", { name: "重命名书籍" }).click();
+  await page.getByRole("button", { name: "关闭" }).click();
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(1);
+  await expect(panel).toHaveCount(1);
+  await expect(backdrop).toHaveCount(1);
+
+  await page.getByRole("button", { name: "重命名书籍" }).click();
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
+  await page.waitForTimeout(350);
+  const handle = page.locator('[data-sheet-drag-handle="true"]');
+  const handleBox = await handle.boundingBox();
+  const viewport = page.viewportSize();
+  if (!handleBox || !viewport) throw new Error("Nested sheet drag geometry is unavailable");
+  const x = handleBox.x + handleBox.width / 2;
+  const y = handleBox.y + handleBox.height / 2;
+  await dragTouch(page, { x, y }, { x, y: viewport.height - 4 }, 16);
+  await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(0);
+});
+
+test("invalid nested sheet removal removes its descendants without an empty frame", async ({
+  page,
+}) => {
+  await useLibraryListMode(page);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+  await page.getByRole("button", { name: "删除这本书" }).click();
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
+
+  await page
+    .locator('[data-sheet-route="book-delete"]')
+    .getByRole("button", { name: "删除这本书", exact: true })
+    .click();
+  await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(0);
+  await expect(page.locator("[data-sheet-route]")).toHaveCount(0);
+});
+
 test("renames a book from its action sheet and validates blank titles", async ({
   page,
 }) => {

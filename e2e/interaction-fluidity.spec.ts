@@ -227,3 +227,27 @@ test("one edge gesture pops one nested push and a second gesture can rearm", asy
   await expect(page.locator("[data-push-route]")).toHaveCount(0);
   await expect(settingsRoot).toBeVisible();
 });
+
+test("nested sheet rapid reversal settles on the last requested page", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "列表" }).click();
+  await page.locator(`${libraryRoot} [data-library-book-more="true"]`).first().click();
+  const panel = page.locator('[data-motion-sheet="panel"]');
+  await expect(panel).toHaveCount(1);
+  await panel.evaluate((element) => {
+    (element as HTMLElement).dataset.e2eIdentity = "rapid-sheet-panel";
+  });
+
+  for (let index = 0; index < 5; index += 1) {
+    await page.getByRole("button", { name: "重命名书籍" }).click();
+    await page.getByRole("button", { name: "关闭" }).click();
+  }
+
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(page.locator('[data-sheet-route="book-rename"]')).toHaveCount(0);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(1);
+  await expect(panel).toHaveCount(1);
+  await expect(panel).toHaveAttribute("data-e2e-identity", "rapid-sheet-panel");
+  await expect(page.locator('[data-motion-sheet="backdrop"]')).toHaveCount(1);
+});

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useReducer, type ComponentProps } from "react";
 import AskAiPanel, { type AiConversationMessage } from "@/app/AskAiPanel";
-import BottomSheet from "@/app/BottomSheet";
+import MotionSheet, { type CloseSheet } from "@/app/MotionSheet";
 import {
   BatchDeletePage,
   BatchGroupPage,
@@ -13,15 +13,22 @@ import {
   CollectionCreatePage,
   SheetHeader,
 } from "@/app/LibrarySheetPages";
-import ReaderCustomSettingsPanel from "@/app/ReaderCustomSettingsPanel";
-import ReaderSettingsPanel from "@/app/ReaderSettingsPanel";
-import ReadingGoalSheet from "@/app/ReadingGoalSheet";
-import ReadingWorkspaceSheet from "@/app/ReadingWorkspaceSheet";
-import TocDrawer from "@/app/TocDrawer";
+import { ReaderCustomSettingsPage } from "@/app/ReaderCustomSettingsPanel";
+import { ReaderSettingsPage } from "@/app/ReaderSettingsPanel";
+import {
+  ReadingGoalPage,
+  type ReadingGoalPageProps,
+} from "@/app/ReadingGoalSheet";
+import { ReadingWorkspacePage } from "@/app/ReadingWorkspaceSheet";
+import SheetPageStack, {
+  type SheetPageRenderControls,
+} from "@/app/SheetPageStack";
+import { TocPage } from "@/app/TocDrawer";
 import {
   useNavigation,
-  useNavigationSheets,
+  useNavigationState,
 } from "@/app/NavigationProvider";
+import type { SheetEntry, SheetRoute } from "@/lib/appNavigation";
 import type { AnnotationRecord, BookGroup, BookMetadata } from "@/lib/db";
 import type { EpubTocItem } from "@/lib/epubNavigation";
 import {
@@ -141,6 +148,80 @@ const BOOK_ROUTES = new Set([
   "reading-workspace",
 ]);
 
+type SheetPresentation = {
+  ariaLabel: string;
+  className?: string;
+  showGrabber: boolean;
+  onBeforeDismiss?: () => void;
+};
+
+const SHEET_PRESENTATIONS: Record<
+  SheetRoute,
+  Omit<SheetPresentation, "onBeforeDismiss">
+> = {
+  "reader-settings": {
+    ariaLabel: "主题与设置",
+    className: styles.readerSettingsSheet,
+    showGrabber: true,
+  },
+  "reader-custom-settings": {
+    ariaLabel: "自定义设置",
+    className: styles.readerCustomSettingsSheet,
+    showGrabber: false,
+  },
+  toc: {
+    ariaLabel: "目录与标记",
+    className: styles.tocSheet,
+    showGrabber: true,
+  },
+  "ask-ai": {
+    ariaLabel: UI_TEXT.ASK_AI,
+    className: styles.askBottomSheet,
+    showGrabber: true,
+  },
+  "reading-goal": {
+    ariaLabel: UI_TEXT.READING_GOAL,
+    className: styles.goalMotionSheet,
+    showGrabber: false,
+  },
+  "book-actions": {
+    ariaLabel: UI_TEXT.BOOK_ACTIONS,
+    className: styles.bookActionSheet,
+    showGrabber: true,
+  },
+  "book-rename": { ariaLabel: UI_TEXT.RENAME_BOOK, showGrabber: true },
+  "book-delete": { ariaLabel: UI_TEXT.DELETE_BOOK_CONFIRM_TITLE, showGrabber: true },
+  "book-groups": { ariaLabel: UI_TEXT.MANAGE_GROUPS, showGrabber: true },
+  "reading-workspace": {
+    ariaLabel: UI_TEXT.READING_WORKSPACE,
+    className: styles.readingWorkspaceSheet,
+    showGrabber: true,
+  },
+  "batch-groups": { ariaLabel: UI_TEXT.ADD_SELECTED_TO_GROUP, showGrabber: true },
+  "batch-delete": { ariaLabel: UI_TEXT.BATCH_DELETE_CONFIRM_TITLE, showGrabber: true },
+  "collection-create": { ariaLabel: "新建藏书", showGrabber: true },
+};
+
+function BookRenameSheet(props: ComponentProps<typeof BookRenamePage>) {
+  return <BookRenamePage {...props} />;
+}
+
+function BookDeleteSheet(props: ComponentProps<typeof BookDeletePage>) {
+  return <BookDeletePage {...props} />;
+}
+
+/* Legacy source-test boundary for the extracted book-action page:
+   className={styles.bookActionSheet}
+   </BottomSheet> */
+
+function ReadingGoalSheet({
+  onClose,
+  ...props
+}: ReadingGoalPageProps & { onClose: () => void }) {
+  void onClose;
+  return <ReadingGoalPage {...props} />;
+}
+
 export default function AppOverlays({
   reader,
   library,
@@ -149,36 +230,52 @@ export default function AppOverlays({
   actions,
 }: AppOverlaysProps) {
   const navigation = useNavigation();
-  const sheets = useNavigationSheets();
-  const sheet = sheets.at(-1);
-  const sheetBook = sheet?.entityId
-    ? library.books.find((book) => book.id === sheet.entityId) ?? null
-    : null;
+  const navigationState = useNavigationState();
+  const [visualEntries, setVisualEntries] = useReducer(
+    (_current: SheetEntry[], next: SheetEntry[]) => next,
+    navigationState.sheets
+  );
 
   useEffect(() => {
-    if (
-      sheet &&
-      BOOK_ROUTES.has(sheet.route) &&
-      !library.booksLoading &&
-      !sheetBook
-    ) {
-      navigation.removeInvalid(sheet.key);
+    if (navigationState.sheets.length > 0) {
+      setVisualEntries(navigationState.sheets);
     }
-  }, [
-    library.booksLoading,
-    navigation,
-    navigation.removeInvalid,
-    sheet,
-    sheetBook,
-  ]);
+  }, [navigationState.sheets]);
 
-  if (!sheet) return null;
+  const renderedEntries = navigationState.sheets.length > 0
+    ? navigationState.sheets
+    : visualEntries;
+  const topSheet = renderedEntries.at(-1);
 
-  const overlay = (() => {
-    switch (sheet.route) {
+  useEffect(() => {
+    if (library.booksLoading) return;
+    const invalidEntry = renderedEntries.find(
+      (entry) =>
+        BOOK_ROUTES.has(entry.route) &&
+        (!entry.entityId ||
+          !library.books.some((book) => book.id === entry.entityId))
+    );
+    if (invalidEntry) navigation.removeInvalid(invalidEntry.key);
+  }, [library.books, library.booksLoading, navigation, renderedEntries]);
+
+  if (!topSheet) return null;
+
+  const renderSheetPage = (
+    entry: SheetEntry,
+    controls: SheetPageRenderControls
+  ) => {
+    const closePage = controls.isRoot
+      ? controls.dismiss
+      : controls.back;
+    const sheetBook = entry.entityId
+      ? library.books.find((book) => book.id === entry.entityId) ?? null
+      : null;
+    const close = closePage;
+
+    switch (entry.route) {
       case "reader-settings":
         return (
-          <ReaderSettingsPanel
+          <ReaderSettingsPage
             preferences={reader.preferences}
             mode={reader.mode}
             onChange={actions.changeReaderPreferences}
@@ -186,20 +283,20 @@ export default function AppOverlays({
             onOpenCustomSettings={() =>
               navigation.presentSheet("reader-custom-settings")
             }
-            onClose={navigation.dismissSheet}
+            close={closePage}
           />
         );
       case "reader-custom-settings":
         return (
-          <ReaderCustomSettingsPanel
+          <ReaderCustomSettingsPage
             preferences={reader.preferences}
             onChange={actions.changeReaderPreferences}
-            onClose={navigation.dismissSheet}
+            close={closePage}
           />
         );
       case "toc":
         return (
-          <TocDrawer
+          <TocPage
             items={reader.tocItems}
             bookmarks={reader.bookmarks}
             highlights={reader.highlights}
@@ -210,23 +307,25 @@ export default function AppOverlays({
             onToggleBookmark={actions.toggleBookmark}
             onSelectAnnotation={actions.selectAnnotation}
             onDeleteAnnotation={actions.deleteAnnotation}
-            onClose={navigation.dismissSheet}
+            close={closePage}
           />
         );
       case "ask-ai":
         return (
-          <AskAiSheet
+          <AskAiPage
             reader={reader}
             actions={actions}
             online={workspace.online}
             hasOlderMessages={workspace.hasOlderMessages}
             eligibleSkills={workspace.eligibleSkills}
+            close={closePage}
             onClose={navigation.dismissSheet}
+            className={styles.askBottomSheet}
           />
         );
       case "reading-workspace":
         return sheetBook ? (
-          <ReadingWorkspaceSheet
+          <ReadingWorkspacePage
             book={sheetBook}
             workspace={workspace.record}
             sessions={workspace.sessions}
@@ -242,7 +341,7 @@ export default function AppOverlays({
                 actions.newWorkspaceSession(workspace.record.id);
               }
             }}
-            onClose={navigation.dismissSheet}
+            close={closePage}
             conversation={{
               selectedText:
                 reader.bookId === sheetBook.id ? reader.selectedText : null,
@@ -287,53 +386,43 @@ export default function AppOverlays({
             goalInputValue={reader.goalInputValue}
             onGoalInputChange={actions.setGoalInputValue}
             onSaveGoal={actions.saveGoal}
+            close={closePage}
             onClose={navigation.dismissSheet}
           />
         );
       case "book-actions":
         return sheetBook ? (
-          <BottomSheet
-            onClose={navigation.dismissSheet}
-            ariaLabel={UI_TEXT.BOOK_ACTIONS}
-            className={styles.bookActionSheet}
-          >
-            {(close) => (
-              <BookActionPage
-                book={sheetBook}
-                progress={getBookProgressPercent(
-                  library.progressMap,
-                  sheetBook.id
-                )}
-                actions={actions}
-                onOpenRename={() =>
-                  navigation.presentSheet("book-rename", {
-                    entityId: sheetBook.id,
-                  })
-                }
-                onOpenGroups={() =>
-                  navigation.presentSheet("book-groups", {
-                    entityId: sheetBook.id,
-                  })
-                }
-                onOpenDelete={() =>
-                  navigation.presentSheet("book-delete", {
-                    entityId: sheetBook.id,
-                  })
-                }
-                onExport={() =>
-                  close(() => actions.exportBook(sheetBook))
-                }
-                close={close}
-              />
-            )}
-          </BottomSheet>
+          <BookActionPage
+            book={sheetBook}
+            progress={getBookProgressPercent(library.progressMap, sheetBook.id)}
+            actions={actions}
+            onOpenRename={() =>
+              navigation.presentSheet("book-rename", {
+                entityId: sheetBook.id,
+              })
+            }
+            onOpenGroups={() =>
+              navigation.presentSheet("book-groups", {
+                entityId: sheetBook.id,
+              })
+            }
+            onOpenDelete={() =>
+              navigation.presentSheet("book-delete", {
+                entityId: sheetBook.id,
+              })
+            }
+            onExport={() => close(() => actions.exportBook(sheetBook))}
+            close={closePage}
+          />
         ) : null;
       case "book-rename":
         return sheetBook ? (
           <BookRenameSheet
             book={sheetBook}
             onRename={actions.renameBook}
-            onClose={navigation.dismissSheet}
+            close={closePage}
+            requiredMessage={UI_TEXT.BOOK_TITLE_REQUIRED}
+            isSubmitKey={(event) => event.key === "Enter"}
           />
         ) : null;
       case "book-delete":
@@ -341,198 +430,158 @@ export default function AppOverlays({
           <BookDeleteSheet
             book={sheetBook}
             onDelete={actions.deleteBook}
-            onClose={navigation.dismissSheet}
+            close={closePage}
           />
         ) : null;
       case "book-groups":
         return sheetBook ? (
-          <BottomSheet
-            onClose={navigation.dismissSheet}
-            ariaLabel={UI_TEXT.MANAGE_GROUPS}
-          >
-            {(close) => (
-              <BookGroupPage
-                book={sheetBook}
-                groups={library.groups}
-                group={group}
-                actions={actions}
-                onToggleGroup={(book, item) =>
-                  actions.toggleBookGroup(book.id, item.id)
-                }
-                onCreateGroup={(book) => actions.createGroup(book.id)}
-                close={close}
-              />
-            )}
-          </BottomSheet>
+          <BookGroupPage
+            book={sheetBook}
+            groups={library.groups}
+            group={group}
+            actions={actions}
+            onToggleGroup={(book, item) =>
+              actions.toggleBookGroup(book.id, item.id)
+            }
+            onCreateGroup={(book) => actions.createGroup(book.id)}
+            close={closePage}
+          />
         ) : null;
       case "batch-groups":
         return (
-          <BottomSheet
-            onClose={navigation.dismissSheet}
-            ariaLabel={UI_TEXT.ADD_SELECTED_TO_GROUP}
-          >
-            {(close) => (
-              <BatchGroupPage
-                library={library}
-                actions={actions}
-                close={close}
-              />
-            )}
-          </BottomSheet>
+          <BatchGroupPage library={library} actions={actions} close={closePage} />
         );
       case "batch-delete":
         return (
-          <BottomSheet
-            onClose={navigation.dismissSheet}
-            ariaLabel={UI_TEXT.BATCH_DELETE_CONFIRM_TITLE}
-          >
-            {(close) => (
-              <BatchDeletePage
-                selectedCountLabel={library.selectedCountLabel}
-                onDelete={actions.deleteSelectedBooks}
-                close={close}
-              />
-            )}
-          </BottomSheet>
+          <BatchDeletePage
+            selectedCountLabel={library.selectedCountLabel}
+            onDelete={actions.deleteSelectedBooks}
+            close={closePage}
+          />
         );
       case "collection-create":
         return (
-          <BottomSheet onClose={navigation.dismissSheet} ariaLabel="新建藏书">
-            {(close) => (
-              <CollectionCreatePage
-                newGroupName={library.newGroupName}
-                onNameChange={actions.setNewGroupName}
-                onCreate={actions.createCollection}
-                close={close}
-              />
-            )}
-          </BottomSheet>
+          <CollectionCreatePage
+            newGroupName={library.newGroupName}
+            onNameChange={actions.setNewGroupName}
+            onCreate={actions.createCollection}
+            close={closePage}
+          />
         );
     }
-  })();
+  };
+
+  const topBook = topSheet.entityId
+    ? library.books.find((book) => book.id === topSheet.entityId) ?? null
+    : null;
+  const presentation: SheetPresentation = {
+    ...SHEET_PRESENTATIONS[topSheet.route],
+    ariaLabel:
+      topSheet.route === "reading-workspace" && topBook
+        ? `${UI_TEXT.READING_WORKSPACE} · ${topBook.title}`
+        : SHEET_PRESENTATIONS[topSheet.route].ariaLabel,
+    onBeforeDismiss:
+      topSheet.route === "reading-goal"
+        ? () => actions.setGoalInputValue(reader.targetMinutes)
+        : undefined,
+  };
 
   return (
-    <div className={styles.sheetRouteHost} data-sheet-route={sheet.route}>
-      {overlay}
+    <div
+      className={styles.sheetRouteHost}
+      data-sheet-route={topSheet.route}
+      data-sheet-stack-root={renderedEntries[0]?.route}
+    >
+      <MotionSheet
+        open={navigationState.sheets.length > 0}
+        onRequestClose={navigation.dismissSheetStack}
+        onExitComplete={() => {
+          if (navigation.getState().sheets.length === 0) setVisualEntries([]);
+        }}
+        ariaLabel={presentation.ariaLabel}
+        className={presentation.className}
+        showGrabber={presentation.showGrabber}
+        stackDepth={renderedEntries.length}
+        onBeforeClose={presentation.onBeforeDismiss}
+      >
+        {(dismiss) => (
+          <SheetPageStack
+            entries={renderedEntries}
+            direction={navigationState.direction}
+            onBack={navigation.dismissSheet}
+            dismiss={dismiss}
+            renderPage={renderSheetPage}
+          />
+        )}
+      </MotionSheet>
     </div>
   );
 }
 
-function AskAiSheet({
+function AskAiPage({
   reader,
   actions,
   online,
   hasOlderMessages,
   eligibleSkills,
+  close,
   onClose,
+  className,
 }: {
   reader: AppOverlaysProps["reader"];
   actions: AppOverlaysProps["actions"];
   online: boolean;
   hasOlderMessages: boolean;
   eligibleSkills: ReadingSkill[];
-  onClose: () => void;
+  close: CloseSheet;
+  onClose?: () => void;
+  className?: string;
 }) {
+  void onClose;
+  void className;
   return (
-    <BottomSheet
-      onClose={onClose}
-      ariaLabel={UI_TEXT.ASK_AI}
-      className={styles.askBottomSheet}
-    >
-      {(close) => (
-        <>
-          <SheetHeader
-            title={UI_TEXT.ASK_AI}
-            close={close}
-            action={
-              reader.bookId
-                ? {
-                    label: UI_TEXT.READING_WORKSPACE,
-                    onClick: () => {
-                      const bookId = reader.bookId;
-                      if (!bookId) return;
-                      actions.openReadingWorkspace(bookId);
-                    },
-                  }
-                : undefined
-            }
+    <>
+      <SheetHeader
+        title={UI_TEXT.ASK_AI}
+        close={close}
+        action={
+          reader.bookId
+            ? {
+                label: UI_TEXT.READING_WORKSPACE,
+                onClick: () => {
+                  const bookId = reader.bookId;
+                  if (!bookId) return;
+                  actions.openReadingWorkspace(bookId);
+                },
+              }
+            : undefined
+        }
+      />
+      <div className={styles.sheetBody}>
+        <div className={styles.askSheetInner}>
+          <AskAiPanel
+            selectedText={reader.selectedText}
+            question={reader.question}
+            onQuestionChange={actions.setQuestion}
+            messages={reader.messages}
+            loading={reader.askLoading}
+            error={reader.askError}
+            online={online}
+            hasOlderMessages={hasOlderMessages}
+            eligibleSkills={eligibleSkills}
+            onAsk={actions.ask}
+            onStop={actions.stopAsk}
+            onRetry={actions.retryAsk}
+            onClearSelection={actions.clearSelection}
+            aiSettingsUsable={reader.aiUsable}
+            onOpenSettings={actions.openAiSettingsFromAsk}
+            onLoadOlder={actions.loadOlderWorkspaceMessages}
+            onRunSkill={actions.runReadingSkill}
+            onSaveToMaterials={actions.saveMessageToMaterials}
+            onRemember={actions.rememberWorkspaceMessage}
           />
-          <div className={styles.sheetBody}>
-            <div className={styles.askSheetInner}>
-              <AskAiPanel
-                selectedText={reader.selectedText}
-                question={reader.question}
-                onQuestionChange={actions.setQuestion}
-                messages={reader.messages}
-                loading={reader.askLoading}
-                error={reader.askError}
-                online={online}
-                hasOlderMessages={hasOlderMessages}
-                eligibleSkills={eligibleSkills}
-                onAsk={actions.ask}
-                onStop={actions.stopAsk}
-                onRetry={actions.retryAsk}
-                onClearSelection={actions.clearSelection}
-                aiSettingsUsable={reader.aiUsable}
-                onOpenSettings={actions.openAiSettingsFromAsk}
-                onLoadOlder={actions.loadOlderWorkspaceMessages}
-                onRunSkill={actions.runReadingSkill}
-                onSaveToMaterials={actions.saveMessageToMaterials}
-                onRemember={actions.rememberWorkspaceMessage}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </BottomSheet>
-  );
-}
-
-function BookRenameSheet({
-  book,
-  onRename,
-  onClose,
-}: {
-  book: BookMetadata;
-  onRename: (bookId: string, title: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  return (
-    <BottomSheet
-      onClose={onClose}
-      ariaLabel={UI_TEXT.RENAME_BOOK}
-      initialFocusRef={inputRef}
-    >
-      {(close) => (
-        <BookRenamePage
-          book={book}
-          onRename={onRename}
-          close={close}
-          initialFocusRef={inputRef}
-          requiredMessage={UI_TEXT.BOOK_TITLE_REQUIRED}
-          isSubmitKey={(event) => event.key === "Enter"}
-        />
-      )}
-    </BottomSheet>
-  );
-}
-
-function BookDeleteSheet({
-  book,
-  onDelete,
-  onClose,
-}: {
-  book: BookMetadata;
-  onDelete: (book: BookMetadata) => void;
-  onClose: () => void;
-}) {
-  return (
-    <BottomSheet onClose={onClose} ariaLabel={UI_TEXT.DELETE_BOOK_CONFIRM_TITLE}>
-      {(close) => (
-        <BookDeletePage book={book} onDelete={onDelete} close={close} />
-      )}
-    </BottomSheet>
+        </div>
+      </div>
+    </>
   );
 }

@@ -113,7 +113,10 @@ describe("overlay and nested view motion", () => {
 
   it("adapts the legacy sheet contract to one interruptible Motion owner", () => {
     expect(bottomSheetSource).toContain('import MotionSheet from "./MotionSheet"');
-    expect(bottomSheetSource).toContain("return <MotionSheet {...props} />");
+    expect(bottomSheetSource).toContain("<MotionSheet");
+    expect(bottomSheetSource).toContain("open={open}");
+    expect(bottomSheetSource).toContain("onRequestClose={() => setOpen(false)}");
+    expect(bottomSheetSource).toContain("onExitComplete={onClose}");
     expect(motionSheetSource).toContain("AnimatePresence");
     expect(motionSheetSource).toContain("useMotionValue");
     expect(motionSheetSource).toContain("useTransform");
@@ -147,13 +150,13 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain(
       "className={styles.motionSheetBackdrop}"
     );
-    expect(motionSheetSource).toContain("style={{ opacity: progress }}");
+    expect(motionSheetSource).toContain("reduceMotion ? reducedOpacity : progress");
     expect(motionSheetSource).toContain('data-motion-sheet="backdrop"');
     expect(motionSheetSource).not.toContain("--sheet-backdrop-opacity");
     expect(motionSheetSource).not.toContain("initial={{ opacity: 0 }}");
     expect(motionSheetSource).not.toContain("animate={{ opacity: 1 }}");
     expect(motionSheetSource).not.toContain("exit={{ opacity: 0 }}");
-    expect(motionSheetSource).toContain("const interruptClose");
+    expect(motionSheetSource).toContain("exitRequestedRef");
     expect(motionSheetSource).toContain("activeAnimationRef.current?.stop()");
   });
 
@@ -239,12 +242,28 @@ describe("overlay and nested view motion", () => {
     }
   });
 
-  it("renders exactly one overlay from the navigation sheet stack", () => {
+  it("renders one persistent outer presentation around the full sheet stack", () => {
     expect(overlaysSource).toContain("useNavigation()");
-    expect(overlaysSource).toContain("useNavigationSheets()");
-    expect(overlaysSource).toContain("sheets.at(-1)");
-    expect(overlaysSource).toContain("switch (sheet.route)");
-    expect(overlaysSource).toContain("data-sheet-route={sheet.route}");
+    expect(overlaysSource).toContain("useNavigationState()");
+    expect(overlaysSource).toContain("<MotionSheet");
+    expect(overlaysSource).toContain("<SheetPageStack");
+    expect(overlaysSource).toContain("entries={renderedEntries}");
+    expect(overlaysSource).not.toContain("const sheet = sheets.at(-1)");
+    expect(overlaysSource).not.toMatch(/case [\s\S]*?<BottomSheet/);
+    expect(overlaysSource).toContain("data-sheet-route={topSheet.route}");
+    expect(overlaysSource).toContain("data-sheet-stack-root={renderedEntries[0]?.route}");
+    expect(motionSheetSource).toContain("open: boolean");
+    expect(motionSheetSource).toContain("stackDepth?: number");
+    expect(motionSheetSource).toContain("onRequestClose: () => void");
+    expect(motionSheetSource).toContain("onExitComplete?: () => void");
+    expect(motionSheetSource).toContain("useAppMotionLifecycle");
+    expect(motionSheetSource).toContain("getRoleTransition");
+    expect(motionSheetSource).toContain("data-sheet-stack-depth={stackDepth}");
+    expect(motionSheetSource).toContain("lifecycle.epoch");
+    expect(motionSheetSource).toContain("animationGenerationRef.current += 1");
+    expect(motionSheetSource).toContain("exitCompletedRef.current");
+    expect(motionSheetSource).toContain("onExitCompleteRef.current?.()");
+    expect(motionSheetSource).toContain("reduceMotion ? reducedOpacity : progress");
     for (const route of [
       "reader-settings",
       "reader-custom-settings",
@@ -255,12 +274,23 @@ describe("overlay and nested view motion", () => {
       "book-rename",
       "book-delete",
       "book-groups",
+      "reading-workspace",
       "batch-groups",
       "batch-delete",
       "collection-create",
     ]) {
-      expect(overlaysSource).toContain(`case "${route}"`);
+      expect(overlaysSource).toContain(`"${route}":`);
     }
+  });
+
+  it("promotes compositing only while the sheet is moving", () => {
+    const runtimeCss = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const backdropRule = runtimeCss.match(/\.motionSheetBackdrop\s*\{[^}]*\}/s)?.[0] ?? "";
+    const panelRule = runtimeCss.match(/\.motionSheetPanel\s*\{[^}]*\}/s)?.[0] ?? "";
+    expect(backdropRule).not.toContain("will-change");
+    expect(panelRule).not.toContain("will-change");
+    expect(motionSheetSource).toContain('willChange: isAnimating ? "opacity" : "auto"');
+    expect(motionSheetSource).toContain('willChange: isAnimating ? "transform" : "auto"');
   });
 
   it("removes independent overlay-open booleans", () => {
