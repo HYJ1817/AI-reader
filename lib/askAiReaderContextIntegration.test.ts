@@ -140,6 +140,11 @@ describe("Ask AI reader context integration", () => {
     expect(viewportFollowHookSource).toContain("preservingPrependRef.current");
     expect(viewportFollowHookSource).toContain("findVisiblePrependAnchor");
     expect(viewportFollowHookSource).toContain("interactionGenerationRef");
+    expect(
+      viewportFollowHookSource.match(
+        /interactionGenerationRef\.current \+= 1/g
+      )
+    ).toHaveLength(1);
     expect(viewportFollowHookSource).toContain("returnLayoutFrameRef");
   });
 

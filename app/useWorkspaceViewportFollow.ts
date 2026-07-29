@@ -217,7 +217,6 @@ export default function useWorkspaceViewportFollow({
     }
 
     if (manualAwayRef.current) {
-      interactionGenerationRef.current += 1;
       manualAwayRef.current = ownership.manualAway;
       ownedScrollTopRef.current = ownership.ownedScrollTop;
       nearBottomRef.current = ownership.nearBottom;
