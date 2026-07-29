@@ -79,6 +79,16 @@ describe("measured internal sheet page stack", () => {
     expect(stackSource).toContain('typeof document !== "undefined"');
     expect(stackSource).toContain("activePage.contains(document.activeElement)");
     expect(stackSource).toContain("heights.get(entryKey) === height");
+    expect(stackSource).toContain("activeMeasurementRef");
+    expect(stackSource).toContain(
+      "onHeightChange(entryKey, height, activeMeasurementRef.current)"
+    );
+    expect(stackSource).toContain(
+      "lastMeasuredActiveHeightRef.current === height"
+    );
+    expect(stackSource).not.toContain(
+      "activeEntryKeyRef.current === entryKey && height > 0"
+    );
   });
 
   it("lets only the active page completion assign focus", () => {
@@ -91,7 +101,7 @@ describe("measured internal sheet page stack", () => {
     expect(viewportSource).not.toContain("onAnimationComplete");
     expect(stackSource).toContain('if (definition === "exit")');
     expect(stackSource).toContain("if (isActive)");
-    expect(stackSource).toContain("activeEntryKeyRef.current === entryKey");
+    expect(stackSource).toContain("activeEntryKeyRef.current !== entryKey");
   });
 
   it("defines four isolated page-stack rules without permanent compositing hints", () => {

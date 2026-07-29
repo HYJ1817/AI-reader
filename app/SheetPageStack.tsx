@@ -68,7 +68,11 @@ type MeasuredSheetPageProps = {
   onAnimationComplete: (entryKey: string, didExit: boolean) => void;
   onBackRequest: (entryKey: string, afterBack?: () => void) => void;
   onElementChange: (entryKey: string, element: HTMLDivElement | null) => void;
-  onHeightChange: (entryKey: string, height: number | null) => void;
+  onHeightChange: (
+    entryKey: string,
+    height: number | null,
+    measuredActivePage: boolean
+  ) => void;
 };
 
 type HeightSnapshot = {
@@ -121,7 +125,20 @@ function MeasuredSheetPage({
   const pageRef = useRef<HTMLDivElement>(null);
   const isPresent = useIsPresent();
   const isActive = active && isPresent;
+  const activeMeasurementRef = useRef(isActive);
   const { reduceMotion } = presenceContext;
+
+  useLayoutEffect(() => {
+    activeMeasurementRef.current = isActive;
+    const element = pageRef.current;
+    if (isActive && element) {
+      onHeightChange(
+        entryKey,
+        element.getBoundingClientRect().height,
+        true
+      );
+    }
+  }, [entryKey, isActive, onHeightChange]);
 
   useLayoutEffect(() => {
     const element = pageRef.current;
@@ -131,7 +148,7 @@ function MeasuredSheetPage({
 
     const reportHeight = (height: number) => {
       if (Number.isFinite(height) && height >= 0) {
-        onHeightChange(entryKey, height);
+        onHeightChange(entryKey, height, activeMeasurementRef.current);
       }
     };
 
@@ -149,7 +166,7 @@ function MeasuredSheetPage({
     return () => {
       observer?.disconnect();
       onElementChange(entryKey, null);
-      onHeightChange(entryKey, null);
+      onHeightChange(entryKey, null, false);
     };
   }, [entryKey, onElementChange, onHeightChange]);
 
@@ -214,6 +231,7 @@ export default function SheetPageStack({
   const intentGenerationRef = useRef(0);
   const pendingBackRef = useRef<PendingBack | null>(null);
   const mountedRef = useRef(true);
+  const lastMeasuredActiveHeightRef = useRef<number | undefined>(undefined);
   const activeEntryKeyRef = useRef<string | undefined>(entries[entries.length - 1]?.key);
   const currentEntryKeysRef = useRef(new Set(entries.map((entry) => entry.key)));
   const focusGuardRef = useRef({
@@ -289,7 +307,11 @@ export default function SheetPageStack({
   );
 
   const handleHeightChange = useCallback(
-    (entryKey: string, height: number | null) => {
+    (
+      entryKey: string,
+      height: number | null,
+      measuredActivePage: boolean
+    ) => {
       if (!mountedRef.current) return;
       const heights = heightsRef.current;
       if (height === null) {
@@ -298,15 +320,23 @@ export default function SheetPageStack({
         }
         return;
       }
-      if (heights.get(entryKey) === height) return;
+      if (
+        heights.get(entryKey) === height &&
+        (!measuredActivePage ||
+          lastMeasuredActiveHeightRef.current === height)
+      ) {
+        return;
+      }
       heights.set(entryKey, height);
-      const measuredActivePage =
-        activeEntryKeyRef.current === entryKey && height > 0;
+      const shouldRememberActiveHeight = measuredActivePage && height > 0;
+      if (shouldRememberActiveHeight) {
+        lastMeasuredActiveHeightRef.current = height;
+      }
       bumpHeightVersion({
         values: heights,
-        lastActiveHeight: measuredActivePage ? height : undefined,
+        lastActiveHeight: shouldRememberActiveHeight ? height : undefined,
       });
-      if (measuredActivePage) {
+      if (shouldRememberActiveHeight) {
         markEmptyExitComplete(false);
       }
     },
