@@ -12,7 +12,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AnimatePresence, m } from "motion/react";
+import { AnimatePresence, m, useIsPresent } from "motion/react";
 import type { ReaderEntry } from "@/lib/appNavigation";
 import type { BookRecord } from "@/lib/db";
 import {
@@ -21,7 +21,8 @@ import {
 } from "@/lib/sharedBookTransition";
 import {
   getReaderTransitionTiming,
-  MOTION_SPRING,
+  MOTION_DURATION,
+  MOTION_EASE,
 } from "@/lib/motionSystem";
 import BookCover from "./BookCover";
 import {
@@ -43,7 +44,29 @@ type SharedBookSourceContextValue = {
     element: HTMLElement
   ) => () => void;
   setSourceVisibility: (originId: string, visible: boolean) => void;
+  sourceLayoutTransition: ReaderSpatialTransition;
 };
+
+type ReaderSpatialTransition = {
+  type: "tween";
+  duration: number;
+  ease: typeof MOTION_EASE.enter | typeof MOTION_EASE.exit;
+};
+
+function getReaderSpatialTransition(
+  phase: "enter" | "exit",
+  reduceMotion: boolean
+): ReaderSpatialTransition {
+  return {
+    type: "tween",
+    duration: reduceMotion
+      ? MOTION_DURATION.reduced
+      : phase === "enter"
+        ? MOTION_DURATION.readerEnter
+        : MOTION_DURATION.readerExit,
+    ease: phase === "enter" ? MOTION_EASE.enter : MOTION_EASE.exit,
+  };
+}
 
 const SharedBookSourceContext =
   createContext<SharedBookSourceContextValue | null>(null);
@@ -82,6 +105,7 @@ type ReaderPresentationProps = {
   readerContent: ReactNode;
   mode: "shared" | "fallback";
   sharedLayoutId: string | undefined;
+  sourceElement: HTMLElement | null;
   reduceMotion: boolean;
 };
 
@@ -98,10 +122,20 @@ function ReaderPresentation({
   readerContent,
   mode,
   sharedLayoutId,
+  sourceElement,
   reduceMotion,
 }: ReaderPresentationProps) {
+  const isPresent = useIsPresent();
   const { epoch, suspended } = useAppMotionLifecycle();
   const timing = getReaderTransitionTiming(reduceMotion);
+  const spatialEnter = useMemo(
+    () => getReaderSpatialTransition("enter", reduceMotion),
+    [reduceMotion]
+  );
+  const spatialExit = useMemo(
+    () => getReaderSpatialTransition("exit", reduceMotion),
+    [reduceMotion]
+  );
   const [projectionState, invalidateProjection] = useReducer(
     (_current: ProjectionState, next: ProjectionState) => next,
     { epoch, invalidatedKey: null }
@@ -110,7 +144,17 @@ function ReaderPresentation({
     projectionState.epoch !== epoch ||
     projectionState.invalidatedKey === readerEntry.key;
   const settleImmediately = suspended || lifecycleInvalidated;
-  const effectiveMode = lifecycleInvalidated ? "fallback" : mode;
+  const exitSourceVisible =
+    !isPresent && mode === "shared"
+      ? Boolean(sourceElement && isSourceVisible(sourceElement))
+      : null;
+  const effectiveMode =
+    lifecycleInvalidated ||
+    (!isPresent && mode === "shared" && !exitSourceVisible)
+      ? "fallback"
+      : mode;
+  const projectionActive =
+    effectiveMode === "shared" && !settleImmediately && !reduceMotion;
 
   useLayoutEffect(() => {
     if (projectionState.epoch === epoch) return;
@@ -123,6 +167,11 @@ function ReaderPresentation({
       className={styles.readerPresentation}
       data-reader-presented="true"
       data-reader-transition-mode={effectiveMode}
+      data-reader-exit-mode={isPresent ? "present" : effectiveMode}
+      data-reader-projection-active={projectionActive ? "true" : "false"}
+      data-reader-spatial-duration-ms={
+        (isPresent ? spatialEnter.duration : spatialExit.duration) * 1000
+      }
       data-reader-lifecycle-settled={
         lifecycleInvalidated && !suspended ? "true" : "false"
       }
@@ -138,9 +187,8 @@ function ReaderPresentation({
     >
       <m.div
         className={styles.readerTransitionCover}
-        layoutId={
-          settleImmediately || reduceMotion ? undefined : sharedLayoutId
-        }
+        data-reader-transition-cover="true"
+        layoutId={projectionActive ? sharedLayoutId : undefined}
         initial={
           settleImmediately || reduceMotion
             ? { opacity: 0, scale: 1 }
@@ -171,8 +219,8 @@ function ReaderPresentation({
                     opacity: 1,
                     scale: 1,
                     transition: {
-                      layout: MOTION_SPRING.sharedBook,
-                      scale: MOTION_SPRING.sharedBook,
+                      layout: spatialExit,
+                      scale: spatialExit,
                       opacity: timing.coverExitOpacity,
                     },
                   }
@@ -180,7 +228,7 @@ function ReaderPresentation({
                     opacity: 0,
                     scale: 0.88,
                     transition: {
-                      scale: MOTION_SPRING.sharedBook,
+                      scale: spatialExit,
                       opacity: timing.coverExitOpacity,
                     },
                   }
@@ -191,8 +239,8 @@ function ReaderPresentation({
             : reduceMotion
               ? timing.coverEnterOpacity
               : {
-                  layout: MOTION_SPRING.sharedBook,
-                  scale: MOTION_SPRING.sharedBook,
+                  layout: spatialEnter,
+                  scale: spatialEnter,
                   opacity: timing.coverEnterOpacity,
                 }
         }
@@ -206,6 +254,7 @@ function ReaderPresentation({
       </m.div>
       <m.div
         className={styles.readerPresentationContent}
+        data-reader-presentation-content="true"
         initial={{ opacity: settleImmediately ? 1 : 0 }}
         animate={{
           opacity: 1,
@@ -233,6 +282,15 @@ export default function SharedBookTransition({
   children,
 }: SharedBookTransitionProps) {
   const reduceMotion = useAppReducedMotion();
+  const readerActive = readerEntry !== null;
+  const sourceLayoutTransition = useMemo(
+    () =>
+      getReaderSpatialTransition(
+        readerActive ? "enter" : "exit",
+        reduceMotion
+      ),
+    [readerActive, reduceMotion]
+  );
   const [sources, setSources] = useState(() => new Map<string, BookSource>());
   const lastOriginRef = useRef<string | null>(null);
   const readerEntryRef = useRef(readerEntry);
@@ -283,19 +341,15 @@ export default function SharedBookTransition({
   );
 
   const contextValue = useMemo(
-    () => ({ registerSource, setSourceVisibility }),
-    [registerSource, setSourceVisibility]
+    () => ({ registerSource, setSourceVisibility, sourceLayoutTransition }),
+    [registerSource, setSourceVisibility, sourceLayoutTransition]
   );
 
   const source = readerEntry?.originId
     ? sources.get(readerEntry.originId)
     : undefined;
-  const sourceVisible = useMemo(
-    () =>
-      Boolean(
-        readerEntry && source?.visible && isSourceVisible(source.element)
-      ),
-    [readerEntry, source]
+  const sourceVisible = Boolean(
+    readerEntry && source?.visible && source.element.isConnected
   );
   const mode =
     readerEntry && book
@@ -345,6 +399,7 @@ export default function SharedBookTransition({
             readerContent={readerContent}
             mode={mode}
             sharedLayoutId={sharedLayoutId}
+            sourceElement={source?.element ?? null}
             reduceMotion={reduceMotion}
           />
         )}

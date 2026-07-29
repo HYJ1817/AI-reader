@@ -6,6 +6,7 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import JSZip from "jszip";
 import {
   attachInteractionMetrics,
   collectInteractionMetrics,
@@ -71,6 +72,55 @@ const sampleText = readFileSync(
   path.resolve(process.cwd(), "e2e/fixtures/sample.txt"),
   "utf8"
 );
+
+async function buildReaderGestureEpub(): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+  zip.file(
+    "META-INF/container.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+      <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+        <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+      </container>`
+  );
+  const chapters = [1, 2, 3].map((chapter) => {
+    const paragraphs = Array.from(
+      { length: 36 },
+      (_, index) =>
+        `<p>Reader gesture chapter ${chapter}, paragraph ${index + 1}. Horizontal input belongs to EPUB pagination.</p>`
+    ).join("");
+    zip.file(
+      `OEBPS/chapter-${chapter}.xhtml`,
+      `<?xml version="1.0" encoding="utf-8"?>
+        <html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter ${chapter}</title></head>
+        <body><h1>Chapter ${chapter}</h1>${paragraphs}</body></html>`
+    );
+    return chapter;
+  });
+  zip.file(
+    "OEBPS/content.opf",
+    `<?xml version="1.0" encoding="utf-8"?>
+      <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+        <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:identifier id="book-id">reader-gesture-epub</dc:identifier>
+          <dc:title>Reader Gesture EPUB</dc:title><dc:language>en</dc:language>
+        </metadata>
+        <manifest>
+          <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+          ${chapters.map((chapter) => `<item id="chapter-${chapter}" href="chapter-${chapter}.xhtml" media-type="application/xhtml+xml"/>`).join("")}
+        </manifest>
+        <spine>${chapters.map((chapter) => `<itemref idref="chapter-${chapter}"/>`).join("")}</spine>
+      </package>`
+  );
+  zip.file(
+    "OEBPS/nav.xhtml",
+    `<?xml version="1.0" encoding="utf-8"?>
+      <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+        <body><nav epub:type="toc"><ol>${chapters.map((chapter) => `<li><a href="chapter-${chapter}.xhtml">Chapter ${chapter}</a></li>`).join("")}</ol></nav></body>
+      </html>`
+  );
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
 const libraryRootSelector =
   '[data-navigation-root="library"][aria-hidden="false"]';
 const settingsRootSelector =
@@ -1356,32 +1406,140 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
 test("reader presentation captures a meaningful 70 ms midpoint and opaque settlement", async ({
   page,
 }, testInfo) => {
+  const midpointPath = testInfo.outputPath(
+    "reader-presentation-midpoint-70ms.png"
+  );
+  const settledPath = testInfo.outputPath("reader-presentation-settled.png");
   await capture(page, testInfo, "reader-presentation-start");
-  await firstLibraryCover(page).click();
+  await firstLibraryCover(page).evaluate((cover) => {
+    const trigger = cover.closest<HTMLButtonElement>("button");
+    if (!trigger) throw new Error("Reader trigger is missing");
+    const measuredWindow = window as typeof window & {
+      __readerMidpoint?: {
+        clickedAt: number;
+        sampledAt?: number;
+        contentOpacity?: number;
+        contentBackground?: string;
+        presentationBackground?: string;
+        readableLayers?: number;
+        durations?: number[];
+        spatialDurationMs?: number;
+        ready: boolean;
+      };
+    };
+    const clickedAt = performance.now();
+    measuredWindow.__readerMidpoint = { clickedAt, ready: false };
+    trigger.click();
+
+    const sample = (now: number) => {
+      if (now - clickedAt < 70) {
+        requestAnimationFrame(sample);
+        return;
+      }
+      const presentation = document.querySelector<HTMLElement>(
+        '[data-reader-presented="true"]'
+      );
+      const content = presentation?.querySelector<HTMLElement>(
+        '[data-reader-presentation-content="true"]'
+      );
+      if (!presentation || !content) {
+        if (now - clickedAt < 500) {
+          requestAnimationFrame(sample);
+        } else {
+          measuredWindow.__readerMidpoint = {
+            clickedAt,
+            sampledAt: now,
+            ready: true,
+          };
+        }
+        return;
+      }
+      const animations = presentation.getAnimations({ subtree: true });
+      for (const animation of animations) animation.pause();
+      measuredWindow.__readerMidpoint = {
+        clickedAt,
+        sampledAt: now,
+        contentOpacity: Number(getComputedStyle(content).opacity),
+        contentBackground: getComputedStyle(content).backgroundColor,
+        presentationBackground: getComputedStyle(presentation).backgroundColor,
+        readableLayers: document.querySelectorAll(
+          '[data-reader-content-ready="true"]'
+        ).length,
+        durations: animations.map((animation) =>
+          Number(animation.effect?.getTiming().duration ?? 0)
+        ),
+        spatialDurationMs: Number(
+          presentation.dataset.readerSpatialDurationMs ?? 0
+        ),
+        ready: true,
+      };
+    };
+    requestAnimationFrame(sample);
+  });
   const presentation = page.locator('[data-reader-presented="true"]');
-  await expect(presentation).toHaveCount(1);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const measuredWindow = window as typeof window & {
+          __readerMidpoint?: { ready: boolean };
+        };
+        return measuredWindow.__readerMidpoint?.ready ?? false;
+      })
+    )
+    .toBe(true);
   await expect(presentation).toHaveAttribute(
     "data-reader-transition-mode",
     "shared"
   );
-  await page.waitForTimeout(70);
-  await capture(page, testInfo, "reader-presentation-midpoint-70ms");
+  await page.screenshot({ path: midpointPath, fullPage: false });
+  const midpoint = await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __readerMidpoint?: {
+        clickedAt: number;
+        sampledAt?: number;
+        contentOpacity?: number;
+        contentBackground?: string;
+        presentationBackground?: string;
+        readableLayers?: number;
+        durations?: number[];
+        spatialDurationMs?: number;
+      };
+    };
+    return measuredWindow.__readerMidpoint;
+  });
+  expect(midpoint?.sampledAt).toBeDefined();
+  expect((midpoint?.sampledAt ?? 0) - (midpoint?.clickedAt ?? 0)).toBeGreaterThanOrEqual(70);
+  expect((midpoint?.sampledAt ?? 0) - (midpoint?.clickedAt ?? 0)).toBeLessThan(110);
+  expect(midpoint?.spatialDurationMs).toBe(280);
+  expect(midpoint?.presentationBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(midpoint?.contentBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(midpoint?.readableLayers).toBe(1);
 
   await expect(presentation.locator('[data-reader-content-ready="true"]')).toHaveCount(1);
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(1);
-  expect(
-    await presentation.locator('[data-reader-content-ready="true"]').count()
-  ).toBe(1);
-
-  await page.waitForTimeout(280);
-  await capture(page, testInfo, "reader-presentation-settled");
+  await presentation.evaluate((element) => {
+    for (const animation of element.getAnimations({ subtree: true })) {
+      animation.play();
+    }
+  });
+  await expect
+    .poll(() =>
+      presentation.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
+  await page.screenshot({ path: settledPath, fullPage: false });
   const visualState = await presentation.evaluate((element) => {
-    const content = element.querySelector<HTMLElement>(
-      '[data-reader-content-ready="true"]'
+    const contentWrapper = element.querySelector<HTMLElement>(
+      '[data-reader-presentation-content="true"]'
     );
-    if (!content) throw new Error("Reader content did not become meaningful");
+    if (!contentWrapper) throw new Error("Reader presentation content is missing");
     const presentationStyle = getComputedStyle(element);
-    const contentStyle = getComputedStyle(content);
+    const contentStyle = getComputedStyle(contentWrapper);
     return {
       contentOpacity: Number(contentStyle.opacity),
       presentationOpacity: Number(presentationStyle.opacity),
@@ -1397,6 +1555,8 @@ test("reader presentation captures a meaningful 70 ms midpoint and opaque settle
     running: 0,
   });
   expect(visualState.presentationBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(midpoint?.contentOpacity).not.toBe(visualState.contentOpacity);
+  expect(readFileSync(midpointPath).equals(readFileSync(settledPath))).toBe(false);
 });
 
 test("reader presentation falls back safely when its cover origin is removed", async ({
@@ -1411,7 +1571,42 @@ test("reader presentation falls back safely when its cover origin is removed", a
     .locator(`[data-book-cover-origin="${originId}"]`)
     .evaluate((element) => element.remove());
 
-  await closeReaderWithControls(page);
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  if ((await menuToggle.getAttribute("aria-expanded")) !== "true") {
+    await menuToggle.click();
+  }
+  const exitEvidence = await page.locator('[data-reader-close="true"]').evaluate(
+    (button) =>
+      new Promise<{
+        durationMs: number[];
+        exitMode: string | undefined;
+        projectionActive: string | undefined;
+        spatialDurationMs: number;
+      }>((resolve) => {
+        (button as HTMLButtonElement).click();
+        requestAnimationFrame(() => {
+          const exiting = document.querySelector<HTMLElement>(
+            '[data-reader-presented="true"]'
+          );
+          resolve({
+            durationMs:
+              exiting?.getAnimations({ subtree: true }).map((animation) =>
+                Number(animation.effect?.getTiming().duration ?? 0)
+              ) ?? [],
+            exitMode: exiting?.dataset.readerExitMode,
+            projectionActive: exiting?.dataset.readerProjectionActive,
+            spatialDurationMs: Number(
+              exiting?.dataset.readerSpatialDurationMs ?? 0
+            ),
+          });
+        });
+      })
+  );
+
+  expect(exitEvidence.exitMode).toBe("fallback");
+  expect(exitEvidence.projectionActive).toBe("false");
+  expect(exitEvidence.spatialDurationMs).toBe(210);
+  expect(exitEvidence.durationMs).toContain(210);
 
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
 });
@@ -1536,6 +1731,81 @@ test("reader gesture ownership preserves TXT scroll selection and controls", asy
   await expect(menuToggle).toHaveAttribute("aria-expanded", "false");
   await menuToggle.click();
   await expect(page.locator('[data-reader-close="true"]')).toBeVisible();
+});
+
+test("reader gesture ownership keeps real EPUB swipes inside the reader", async ({
+  page,
+}) => {
+  const covers = page.locator(`${libraryRootSelector} [data-book-cover-origin]`);
+  const previousCount = await covers.count();
+  await page.locator('input[type="file"][accept*=".epub"]').setInputFiles({
+    name: "reader-gesture.epub",
+    mimeType: "application/epub+zip",
+    buffer: await buildReaderGestureEpub(),
+  });
+  await expect(covers).toHaveCount(previousCount + 1);
+  await firstLibraryCover(page).click();
+
+  const presentation = page.locator('[data-reader-presented="true"]');
+  const owner = presentation.locator('[data-navigation-gesture-owner="reader"]');
+  const frame = presentation.locator("iframe").first();
+  await expect(owner).toHaveCount(2);
+  await expect(frame).toBeVisible({ timeout: 20_000 });
+  const chrome = presentation.locator('[data-reader-chrome-controls="true"]');
+  await expect(chrome).toContainText(/\d+\/\d+/, { timeout: 30_000 });
+  const beforeLabel = await chrome.innerText();
+
+  await injectPush(page, "collections");
+  const frameBox = await frame.boundingBox();
+  if (!frameBox) throw new Error("EPUB frame geometry is missing");
+  await frame.evaluate((element) => {
+    const iframe = element as HTMLIFrameElement;
+    const doc = iframe.contentDocument;
+    const target = doc?.body;
+    if (!doc || !target) throw new Error("EPUB frame document is unavailable");
+    const makeTouch = (identifier: number, clientX: number, clientY: number) =>
+      new Touch({ identifier, target, clientX, clientY });
+    const y = Math.max(80, doc.documentElement.clientHeight * 0.5);
+    const startX = Math.max(260, doc.documentElement.clientWidth * 0.85);
+    const endX = Math.max(30, doc.documentElement.clientWidth * 0.15);
+    const start = makeTouch(1, startX, y);
+    target.dispatchEvent(
+      new TouchEvent("touchstart", {
+        bubbles: true,
+        cancelable: true,
+        touches: [start],
+        targetTouches: [start],
+        changedTouches: [start],
+      })
+    );
+    for (let index = 1; index <= 8; index += 1) {
+      const x = startX + ((endX - startX) * index) / 8;
+      const move = makeTouch(1, x, y);
+      target.dispatchEvent(
+        new TouchEvent("touchmove", {
+          bubbles: true,
+          cancelable: true,
+          touches: [move],
+          targetTouches: [move],
+          changedTouches: [move],
+        })
+      );
+    }
+    const end = makeTouch(1, endX, y);
+    target.dispatchEvent(
+      new TouchEvent("touchend", {
+        bubbles: true,
+        cancelable: true,
+        touches: [],
+        targetTouches: [],
+        changedTouches: [end],
+      })
+    );
+  });
+
+  await expect(presentation).toHaveCount(1);
+  await expect(page.locator('[data-push-route="collections"]')).toHaveCount(1);
+  await expect.poll(() => chrome.innerText(), { timeout: 20_000 }).not.toBe(beforeLabel);
 });
 
 test("nested sheet stack preserves one panel through history and visible back", async ({

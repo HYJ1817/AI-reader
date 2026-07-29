@@ -13,6 +13,10 @@ const sessionSource = readFileSync(
   new URL("../app/ReadingSession.tsx", import.meta.url),
   "utf8"
 );
+const coverSource = readFileSync(
+  new URL("../app/MotionBookCover.tsx", import.meta.url),
+  "utf8"
+);
 const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8"
@@ -55,6 +59,17 @@ describe("shared reader transition timing", () => {
     expect(transitionSource).not.toMatch(/exit[\s\S]{0,240}readerEnter \* 0\.24/);
   });
 
+  it("drives real reader layout and scale with explicit duration tweens", () => {
+    expect(transitionSource).toContain("MOTION_DURATION.readerEnter");
+    expect(transitionSource).toContain("MOTION_DURATION.readerExit");
+    expect(transitionSource).toContain("MOTION_EASE.enter");
+    expect(transitionSource).toContain("MOTION_EASE.exit");
+    expect(transitionSource).toContain('type: "tween"');
+    expect(transitionSource).not.toContain("MOTION_SPRING.sharedBook");
+    expect(coverSource).toContain("sourceLayoutTransition");
+    expect(coverSource).not.toContain("MOTION_SPRING.sharedBook");
+  });
+
   it("marks the meaningful reader frame while retaining loading in the presentation", () => {
     expect(sessionSource).toContain("data-reader-content-ready={");
     expect(sessionSource).toMatch(
@@ -84,15 +99,28 @@ describe("shared reader transition timing", () => {
       'key={readerEntry.key}'
     );
     expect(transitionSource).not.toMatch(/key=\{[^}]*epoch/);
-    expect(transitionSource).toMatch(
-      /layoutId=\{[^}]*settleImmediately[^}]*\?\s*undefined/
+    expect(transitionSource).toContain(
+      "layoutId={projectionActive ? sharedLayoutId : undefined}"
     );
   });
 
-  it("rechecks source geometry before selecting shared projection", () => {
+  it("uses observer state normally without measuring source geometry during render", () => {
+    const sourceSelection = transitionSource.match(
+      /const sourceVisible[\s\S]*?const mode/
+    )?.[0];
+    expect(sourceSelection).toContain("source?.visible");
+    expect(sourceSelection).toContain("source.element.isConnected");
+    expect(sourceSelection).not.toContain("isSourceVisible(source.element)");
+  });
+
+  it("revalidates the old source only after exit begins and exposes fallback state", () => {
+    expect(transitionSource).toContain("useIsPresent");
+    expect(transitionSource).toContain("exitSourceVisible");
     expect(transitionSource).toMatch(
-      /source\?\.visible\s*&&\s*isSourceVisible\(source\.element\)/
+      /!isPresent[\s\S]{0,180}isSourceVisible\(sourceElement\)/
     );
+    expect(transitionSource).toContain("data-reader-exit-mode");
+    expect(transitionSource).toContain("data-reader-projection-active");
   });
 
   it("keeps reader presentation visual-first and close persistence non-blocking", () => {

@@ -29,7 +29,9 @@ describe("shared reader presentation integration", () => {
   it("keeps reader exits present and restores a visible source", () => {
     expect(transitionSource).toContain("AnimatePresence");
     expect(transitionSource).toContain("getBookTransitionMode");
-    expect(transitionSource).toContain("MOTION_SPRING.sharedBook");
+    expect(transitionSource).toContain("MOTION_DURATION.readerEnter");
+    expect(transitionSource).toContain("MOTION_DURATION.readerExit");
+    expect(transitionSource).not.toContain("MOTION_SPRING.sharedBook");
     expect(transitionSource).toContain('data-reader-presented="true"');
     expect(transitionSource).toContain("closest<HTMLButtonElement>");
     expect(transitionSource).not.toContain("EpubReader");

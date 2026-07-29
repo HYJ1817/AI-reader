@@ -4,7 +4,6 @@ import { useEffect, useRef } from "react";
 import { m } from "motion/react";
 import type { BookMetadata } from "@/lib/db";
 import { bookCoverLayoutId } from "@/lib/sharedBookTransition";
-import { MOTION_SPRING } from "@/lib/motionSystem";
 import BookCover from "./BookCover";
 import { useAppReducedMotion } from "./AppMotionRoot";
 import { useSharedBookSource } from "./SharedBookTransition";
@@ -22,7 +21,11 @@ export default function MotionBookCover({
   originId,
 }: MotionBookCoverProps) {
   const reduceMotion = useAppReducedMotion();
-  const { registerSource, setSourceVisibility } = useSharedBookSource();
+  const {
+    registerSource,
+    setSourceVisibility,
+    sourceLayoutTransition,
+  } = useSharedBookSource();
   const sourceRef = useRef<HTMLDivElement>(null);
   const layoutId = bookCoverLayoutId(originId);
 
@@ -58,7 +61,7 @@ export default function MotionBookCover({
       className={styles.motionBookCover}
       layoutId={reduceMotion ? undefined : layoutId}
       layout={reduceMotion ? false : "position"}
-      transition={MOTION_SPRING.sharedBook}
+      transition={sourceLayoutTransition}
       data-book-cover-origin={originId}
       data-book-id={book.id}
       tabIndex={-1}
