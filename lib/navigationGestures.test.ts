@@ -21,22 +21,74 @@ describe("sheet gestures", () => {
 
   it("claims headers and top-of-scroll downward body drags", () => {
     expect(
-      canSheetClaimGesture({ fromHeader: true, scrollTop: 80, deltaY: 12 })
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 80,
+        deltaY: 12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(true);
     expect(
-      canSheetClaimGesture({ fromHeader: false, scrollTop: 0, deltaY: 12 })
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 0,
+        deltaY: 12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(true);
     expect(
-      canSheetClaimGesture({ fromHeader: false, scrollTop: 20, deltaY: 12 })
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 20,
+        deltaY: 12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(false);
   });
 
   it("does not claim upward or stationary movement", () => {
     expect(
-      canSheetClaimGesture({ fromHeader: true, scrollTop: 0, deltaY: 0 })
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 0,
+        deltaY: 0,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(false);
     expect(
-      canSheetClaimGesture({ fromHeader: true, scrollTop: 0, deltaY: -12 })
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 0,
+        deltaY: -12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
+    ).toBe(false);
+  });
+
+  it("leaves interactive controls and keyboard-visible sheets unclaimed", () => {
+    expect(
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 0,
+        deltaY: 18,
+        interactiveTarget: true,
+        keyboardVisible: false,
+      })
+    ).toBe(false);
+
+    expect(
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 0,
+        deltaY: 18,
+        interactiveTarget: false,
+        keyboardVisible: true,
+      })
     ).toBe(false);
   });
 

@@ -172,11 +172,13 @@ function BookActionPage({
             label={UI_TEXT.RENAME_BOOK}
             icon="edit"
             onClick={onOpenRename}
+            returnFocusFor="book-rename"
           />
           <ActionRow
             label={UI_TEXT.MANAGE_GROUPS}
             icon="list"
             onClick={onOpenGroups}
+            returnFocusFor="book-groups"
           />
           <ActionRow
             label={UI_TEXT.EXPORT_BOOK}
@@ -198,6 +200,7 @@ function BookActionPage({
           <button
             className={`${styles.actionListRow} ${styles.actionListDanger}`}
             onClick={onOpenDelete}
+            data-sheet-return-focus="book-delete"
           >
             <span className={styles.actionIcon}>
               <DeleteIcon />
@@ -553,13 +556,19 @@ function ActionRow({
   label,
   icon,
   onClick,
+  returnFocusFor,
 }: {
   label: string;
   icon: "book" | "workspace" | "edit" | "list" | "export";
   onClick: () => void;
+  returnFocusFor?: string;
 }) {
   return (
-    <button className={styles.actionListRow} onClick={onClick}>
+    <button
+      className={styles.actionListRow}
+      onClick={onClick}
+      data-sheet-return-focus={returnFocusFor}
+    >
       <span className={styles.actionIcon}>
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
           {icon === "book" ? (

@@ -16,7 +16,11 @@ import {
   getSheetPageTarget,
   getSheetViewportHeight,
 } from "@/lib/sheetStackMotion";
-import { useAppReducedMotion } from "./AppMotionRoot";
+import {
+  useAppMotionLifecycle,
+  useAppReducedMotion,
+} from "./AppMotionRoot";
+import { useSheetPresentationMotion } from "./MotionSheet";
 import type { CloseSheet } from "./BottomSheet";
 import styles from "./page.module.css";
 
@@ -40,6 +44,7 @@ export type SheetPageStackProps = {
 
 type PresenceContext = {
   direction: NavigationDirection;
+  lifecycleEpoch: number;
   reduceMotion: boolean;
 };
 
@@ -47,6 +52,11 @@ type PendingBack = {
   key: string;
   generation: number;
   afterBack?: () => void;
+};
+
+type PendingReturnFocus = {
+  generation: number;
+  route: string;
 };
 
 type IntentSnapshot = {
@@ -65,8 +75,16 @@ type MeasuredSheetPageProps = {
   presenceContext: PresenceContext;
   renderPage: SheetPageStackProps["renderPage"];
   target: { opacity: number; x: number };
-  onAnimationComplete: (entryKey: string, didExit: boolean) => void;
-  onBackRequest: (entryKey: string, afterBack?: () => void) => void;
+  onAnimationComplete: (
+    entryKey: string,
+    didExit: boolean,
+    lifecycleEpoch: number
+  ) => void;
+  onBackRequest: (
+    entryKey: string,
+    returnFocusFor: string,
+    afterBack?: () => void
+  ) => void;
   onElementChange: (entryKey: string, element: HTMLDivElement | null) => void;
   onHeightChange: (
     entryKey: string,
@@ -126,6 +144,7 @@ function MeasuredSheetPage({
   const isPresent = useIsPresent();
   const isActive = active && isPresent;
   const activeMeasurementRef = useRef(isActive);
+  const animationEpochRef = useRef(presenceContext.lifecycleEpoch);
   const { reduceMotion } = presenceContext;
 
   useLayoutEffect(() => {
@@ -180,22 +199,28 @@ function MeasuredSheetPage({
       animate={target}
       exit="exit"
       transition={getRoleTransition("push-enter", reduceMotion)}
+      onAnimationStart={() => {
+        animationEpochRef.current = presenceContext.lifecycleEpoch;
+      }}
       onAnimationComplete={(definition) => {
         if (definition === "exit") {
-          onAnimationComplete(entryKey, true);
+          onAnimationComplete(entryKey, true, animationEpochRef.current);
           return;
         }
-        if (isActive) onAnimationComplete(entryKey, false);
+        if (isActive) {
+          onAnimationComplete(entryKey, false, animationEpochRef.current);
+        }
       }}
       data-sheet-page
       data-sheet-page-active={isActive}
+      role="region"
       aria-hidden={isActive ? undefined : true}
       inert={isActive ? undefined : true}
       tabIndex={-1}
     >
       {renderPage(entry, {
         back: isActive
-          ? (afterBack) => onBackRequest(entryKey, afterBack)
+          ? (afterBack) => onBackRequest(entryKey, entry.route, afterBack)
           : () => undefined,
         dismiss,
         depth,
@@ -213,6 +238,9 @@ export default function SheetPageStack({
   dismiss,
 }: SheetPageStackProps) {
   const reduceMotion = useAppReducedMotion();
+  const lifecycle = useAppMotionLifecycle();
+  const presentationMotion = useSheetPresentationMotion();
+  const keyboardVisible = presentationMotion?.keyboardVisible ?? false;
   const heightsRef = useRef(new Map<string, number>());
   const pageElementsRef = useRef(new Map<string, HTMLDivElement>());
   const [heightSnapshot, bumpHeightVersion] = useReducer(
@@ -230,6 +258,7 @@ export default function SheetPageStack({
   );
   const intentGenerationRef = useRef(0);
   const pendingBackRef = useRef<PendingBack | null>(null);
+  const pendingReturnFocusRef = useRef<PendingReturnFocus | null>(null);
   const mountedRef = useRef(true);
   const lastMeasuredActiveHeightRef = useRef<number | undefined>(undefined);
   const activeEntryKeyRef = useRef<string | undefined>(entries[entries.length - 1]?.key);
@@ -237,6 +266,7 @@ export default function SheetPageStack({
   const focusGuardRef = useRef({
     key: entries[entries.length - 1]?.key ?? "",
     generation: 0,
+    lifecycleEpoch: lifecycle.epoch,
   });
   const lastFocusedGenerationRef = useRef(-1);
   const hasMountedRef = useRef(false);
@@ -260,10 +290,20 @@ export default function SheetPageStack({
 
   useLayoutEffect(() => {
     mountedRef.current = true;
+    hasMountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      hasMountedRef.current = false;
     };
   }, []);
+
+  useLayoutEffect(() => {
+    focusGuardRef.current = {
+      ...focusGuardRef.current,
+      lifecycleEpoch: lifecycle.epoch,
+    };
+    lastFocusedGenerationRef.current = -1;
+  }, [lifecycle.epoch]);
 
   useLayoutEffect(() => {
     const previous = previousIntentRef.current;
@@ -284,11 +324,13 @@ export default function SheetPageStack({
       if (!isExpectedBackRemoval) {
         intentGenerationRef.current += 1;
         pendingBackRef.current = null;
+        pendingReturnFocusRef.current = null;
       }
 
       focusGuardRef.current = {
         key: activeEntryKey ?? "",
         generation: focusGuardRef.current.generation + 1,
+        lifecycleEpoch: lifecycle.epoch,
       };
       lastFocusedGenerationRef.current = -1;
     }
@@ -296,7 +338,14 @@ export default function SheetPageStack({
     activeEntryKeyRef.current = activeEntryKey;
     currentEntryKeysRef.current = new Set(entryKeys);
     previousIntentRef.current = { direction, entryKeys, entryTokens };
-  }, [activeEntryKey, direction, entryKeys, entryTokens, intentSignature]);
+  }, [
+    activeEntryKey,
+    direction,
+    entryKeys,
+    entryTokens,
+    intentSignature,
+    lifecycle.epoch,
+  ]);
 
   const handleElementChange = useCallback(
     (entryKey: string, element: HTMLDivElement | null) => {
@@ -343,11 +392,18 @@ export default function SheetPageStack({
     []
   );
 
-  const focusActivePage = useCallback((entryKey: string, generation: number) => {
+  const focusActivePage = useCallback((
+    entryKey: string,
+    generation: number,
+    lifecycleEpoch: number
+  ) => {
     const guard = focusGuardRef.current;
     if (
       guard.key !== entryKey ||
       guard.generation !== generation ||
+      guard.lifecycleEpoch !== lifecycleEpoch ||
+      lifecycleEpoch !== lifecycle.epoch ||
+      !hasMountedRef.current ||
       lastFocusedGenerationRef.current === generation
     ) {
       return;
@@ -355,6 +411,31 @@ export default function SheetPageStack({
 
     const activePage = pageElementsRef.current.get(entryKey);
     if (!activePage || activeEntryKeyRef.current !== entryKey) return;
+
+    const focusElement = (element: HTMLElement) => {
+      element.focus({ preventScroll: true });
+      if (keyboardVisible) {
+        element.scrollIntoView({ block: "nearest" });
+      }
+      lastFocusedGenerationRef.current = generation;
+    };
+
+    const pendingReturnFocus = pendingReturnFocusRef.current;
+    const returnFocusTarget = pendingReturnFocus &&
+      pendingReturnFocus.generation === intentGenerationRef.current
+      ? Array.from(
+          activePage.querySelectorAll<HTMLElement>("[data-sheet-return-focus]")
+        ).find(
+          (element) =>
+            element.dataset.sheetReturnFocus === pendingReturnFocus.route
+        )
+      : undefined;
+    if (returnFocusTarget) {
+      pendingReturnFocusRef.current = null;
+      focusElement(returnFocusTarget);
+      return;
+    }
+
     if (
       typeof document !== "undefined" &&
       activePage.contains(document.activeElement)
@@ -367,24 +448,26 @@ export default function SheetPageStack({
       '[data-sheet-autofocus="true"]'
     );
     if (autofocus) {
-      autofocus.focus({ preventScroll: true });
-      lastFocusedGenerationRef.current = generation;
+      focusElement(autofocus);
       return;
     }
 
     const firstFocusable = activePage.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
     if (firstFocusable) {
-      firstFocusable.focus({ preventScroll: true });
-      lastFocusedGenerationRef.current = generation;
+      focusElement(firstFocusable);
       return;
     }
 
     activePage.focus({ preventScroll: true });
+    if (keyboardVisible) {
+      activePage.scrollIntoView({ block: "nearest" });
+    }
     lastFocusedGenerationRef.current = generation;
-  }, []);
+  }, [keyboardVisible, lifecycle.epoch]);
 
   const finishPageAnimation = useCallback(
-    (entryKey: string, didExit: boolean) => {
+    (entryKey: string, didExit: boolean, animationLifecycleEpoch: number) => {
+      if (animationLifecycleEpoch !== lifecycle.epoch) return;
       if (didExit) {
         const pending = pendingBackRef.current;
         if (!pending || pending.key !== entryKey) return;
@@ -397,13 +480,13 @@ export default function SheetPageStack({
       }
 
       const guard = focusGuardRef.current;
-      focusActivePage(entryKey, guard.generation);
+      focusActivePage(entryKey, guard.generation, animationLifecycleEpoch);
     },
-    [focusActivePage]
+    [focusActivePage, lifecycle.epoch]
   );
 
   const requestBack = useCallback(
-    (entryKey: string, afterBack?: () => void) => {
+    (entryKey: string, returnFocusFor: string, afterBack?: () => void) => {
       if (activeEntryKeyRef.current !== entryKey || pendingBackRef.current) return;
 
       intentGenerationRef.current += 1;
@@ -411,6 +494,10 @@ export default function SheetPageStack({
         key: entryKey,
         generation: intentGenerationRef.current,
         afterBack,
+      };
+      pendingReturnFocusRef.current = {
+        generation: intentGenerationRef.current,
+        route: returnFocusFor,
       };
       if (mountedRef.current) markEmptyExitComplete(false);
       onBack();
@@ -426,27 +513,16 @@ export default function SheetPageStack({
     heightSnapshot.lastActiveHeight,
     entries.length === 0 && !emptyExitComplete
   );
-  const heightTransition = reduceMotion
+  const heightTransition = reduceMotion || keyboardVisible
     ? { type: "tween" as const, duration: 0 }
     : getRoleTransition(
         direction === "backward" ? "push-exit" : "push-enter",
         false
       );
   const presenceContext = useMemo<PresenceContext>(
-    () => ({ direction, reduceMotion }),
-    [direction, reduceMotion]
+    () => ({ direction, lifecycleEpoch: lifecycle.epoch, reduceMotion }),
+    [direction, lifecycle.epoch, reduceMotion]
   );
-
-  useLayoutEffect(() => {
-    const focusImmediately = reduceMotion || !hasMountedRef.current;
-    hasMountedRef.current = true;
-    if (!focusImmediately || !activeEntryKey) return;
-    const guard = focusGuardRef.current;
-    const frame = requestAnimationFrame(() => {
-      focusActivePage(activeEntryKey, guard.generation);
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [activeEntryKey, focusActivePage, reduceMotion]);
 
   return (
     <m.div

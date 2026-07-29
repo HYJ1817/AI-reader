@@ -55,6 +55,36 @@ async function completeEdgeBack(page: Page) {
   }
 }
 
+async function openBookActionSheet(page: Page) {
+  await page.getByRole("button", { name: "\u5217\u8868" }).click();
+  await page
+    .locator(`${libraryRoot} [data-library-book-more="true"]`)
+    .first()
+    .click();
+  const actionSheet = page.locator('[data-sheet-route="book-actions"]');
+  await expect(actionSheet).toHaveCount(1);
+  return actionSheet;
+}
+
+async function installKeyboardVisualViewport(page: Page) {
+  await page.evaluate(() => {
+    const viewport = new EventTarget();
+    Object.assign(viewport, {
+      offsetLeft: 0,
+      offsetTop: 0,
+      width: window.innerWidth,
+      height: Math.max(320, window.innerHeight - 320),
+      pageLeft: 0,
+      pageTop: 0,
+      scale: 1,
+    });
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: viewport,
+    });
+  });
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(libraryRoot)).toBeVisible();
@@ -250,4 +280,112 @@ test("nested sheet rapid reversal settles on the last requested page", async ({
   await expect(panel).toHaveCount(1);
   await expect(panel).toHaveAttribute("data-e2e-identity", "rapid-sheet-panel");
   await expect(page.locator('[data-motion-sheet="backdrop"]')).toHaveCount(1);
+});
+
+test("keyboard keeps rename input visible and prevents sheet drag ownership", async ({
+  page,
+}) => {
+  await installKeyboardVisualViewport(page);
+  const actionSheet = await openBookActionSheet(page);
+  await actionSheet
+    .getByRole("button", { name: "\u91cd\u547d\u540d\u4e66\u7c4d" })
+    .click();
+
+  const renameSheet = page.locator('[data-sheet-route="book-rename"]');
+  const input = renameSheet.getByLabel("\u4e66\u540d");
+  await expect(input).toBeFocused();
+  await expect
+    .poll(() =>
+      input.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        const viewport = window.visualViewport;
+        const viewportTop = viewport?.offsetTop ?? 0;
+        const viewportBottom =
+          viewportTop + (viewport?.height ?? window.innerHeight);
+        return rect.top >= viewportTop && rect.bottom <= viewportBottom;
+      })
+    )
+    .toBe(true);
+
+  const panel = page.locator('[data-motion-sheet="panel"]');
+  const handle = page.locator('[data-sheet-drag-handle="true"]');
+  const box = await handle.boundingBox();
+  if (!box) throw new Error("Sheet drag handle geometry is unavailable");
+  const session = await page.context().newCDPSession(page);
+  try {
+    const x = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y: startY }],
+    });
+    for (let index = 1; index <= 6; index += 1) {
+      await session.send("Input.dispatchTouchEvent", {
+        type: "touchMove",
+        touchPoints: [{ x, y: startY + index * 12 }],
+      });
+    }
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => {
+          const transform = getComputedStyle(element).transform;
+          return transform === "none"
+            ? 0
+            : new DOMMatrixReadOnly(transform).m42;
+        })
+      )
+      .toBe(0);
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchCancel",
+      touchPoints: [],
+    });
+  } finally {
+    await session.detach();
+  }
+
+  await expect(renameSheet).toHaveCount(1);
+  await expect(input).toBeFocused();
+});
+
+test("focus returns to the originating Book Action row after internal Back", async ({
+  page,
+}) => {
+  const actionSheet = await openBookActionSheet(page);
+  const renameAction = actionSheet.getByRole("button", {
+    name: "\u91cd\u547d\u540d\u4e66\u7c4d",
+  });
+  await renameAction.click();
+  const renameSheet = page.locator('[data-sheet-route="book-rename"]');
+  await expect(renameSheet.getByLabel("\u4e66\u540d")).toBeFocused();
+
+  await renameSheet
+    .getByRole("button", { name: "\u5173\u95ed" })
+    .click();
+
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(renameAction).toBeFocused();
+});
+
+test("active sheet page is the only accessible internal page", async ({
+  page,
+}) => {
+  const actionSheet = await openBookActionSheet(page);
+  await actionSheet
+    .getByRole("button", { name: "\u91cd\u547d\u540d\u4e66\u7c4d" })
+    .click();
+
+  await expect(page.locator('[role="dialog"][aria-modal="true"]')).toHaveCount(1);
+  const pages = page.locator("[data-sheet-page]");
+  await expect(pages).toHaveCount(2);
+  await expect(page.locator('[data-sheet-page][role="region"]')).toHaveCount(2);
+  await expect(
+    page.locator('[data-sheet-page][data-sheet-page-active="true"]:not([aria-hidden])')
+  ).toHaveCount(1);
+  const coveredPage = page.locator(
+    '[data-sheet-page][data-sheet-page-active="false"][aria-hidden="true"]'
+  );
+  await expect(coveredPage).toHaveCount(1);
+  expect(await coveredPage.evaluate((element) => (element as HTMLElement).inert)).toBe(
+    true
+  );
 });

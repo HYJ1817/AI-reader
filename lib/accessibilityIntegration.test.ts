@@ -36,6 +36,18 @@ const artifactPreview = readFileSync(
   new URL("../app/WorkspaceArtifactPreview.tsx", import.meta.url),
   "utf8"
 );
+const motionSheet = readFileSync(
+  new URL("../app/MotionSheet.tsx", import.meta.url),
+  "utf8"
+);
+const sheetPageStack = readFileSync(
+  new URL("../app/SheetPageStack.tsx", import.meta.url),
+  "utf8"
+);
+const librarySheetPages = readFileSync(
+  new URL("../app/LibrarySheetPages.tsx", import.meta.url),
+  "utf8"
+);
 
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -131,5 +143,45 @@ describe("daily-path accessibility contract", () => {
       expect(value, selector).toMatch(/(?:width|min-width):\s*44px/);
       expect(value, selector).toMatch(/(?:height|min-height):\s*44px/);
     }
+  });
+
+  it("keeps one modal boundary and exposes only the active internal region", () => {
+    expect(motionSheet).toContain('role="dialog"');
+    expect(motionSheet).toContain('aria-modal="true"');
+    expect(sheetPageStack).toContain('role="region"');
+    expect(sheetPageStack).toContain(
+      "aria-hidden={isActive ? undefined : true}"
+    );
+    expect(sheetPageStack).toContain("inert={isActive ? undefined : true}");
+    expect(askAi).toContain('role="region"');
+    expect(askAi).toContain("aria-label={UI_TEXT.REVIEW_MEMORY}");
+    expect(askAi).not.toContain(
+      'className={styles.workspaceMemoryReview} role="dialog"'
+    );
+    expect(askAi).not.toContain(
+      'className={styles.workspaceMemoryReview} role="dialog" aria-modal="true"'
+    );
+  });
+
+  it("coordinates keyboard visibility, lifecycle focus, and nested return focus", () => {
+    expect(motionSheet).toContain(
+      "window.innerHeight - viewport.height - viewport.offsetTop >= 120"
+    );
+    expect(motionSheet).toContain("interactiveTarget");
+    expect(motionSheet).toContain("keyboardVisible");
+    expect(motionSheet).toContain("onPointerCancel={settleCancelledDrag}");
+    expect(motionSheet).toContain(
+      "onLostPointerCapture={settleCancelledDrag}"
+    );
+    expect(sheetPageStack).toContain("useSheetPresentationMotion");
+    expect(sheetPageStack).toContain("scrollIntoView({ block: \"nearest\" })");
+    expect(sheetPageStack).toContain("lifecycle.epoch");
+    expect(sheetPageStack).toContain("data-sheet-return-focus");
+    for (const route of ["book-rename", "book-groups"]) {
+      expect(librarySheetPages).toContain(`returnFocusFor="${route}"`);
+    }
+    expect(librarySheetPages).toContain(
+      'data-sheet-return-focus="book-delete"'
+    );
   });
 });

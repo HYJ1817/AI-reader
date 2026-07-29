@@ -57,6 +57,7 @@ type SheetPresentationMotion = {
   scale: MotionValue<number>;
   borderRadius: MotionValue<number>;
   brightness: MotionValue<number>;
+  keyboardVisible: boolean;
 };
 
 type VisualViewportFrame = {
@@ -64,6 +65,7 @@ type VisualViewportFrame = {
   offsetTop: number;
   width: number;
   height: number;
+  keyboardVisible: boolean;
 };
 
 type BackgroundSiblingState = {
@@ -83,6 +85,17 @@ const FOCUSABLE_SELECTOR = [
 
 const SheetPresentationContext =
   createContext<SheetPresentationMotion | null>(null);
+
+function readVisualViewportFrame(viewport: VisualViewport): VisualViewportFrame {
+  return {
+    offsetLeft: viewport.offsetLeft,
+    offsetTop: viewport.offsetTop,
+    width: viewport.width,
+    height: viewport.height,
+    keyboardVisible:
+      window.innerHeight - viewport.height - viewport.offsetTop >= 120,
+  };
+}
 
 export function useSheetPresentationMotion(): SheetPresentationMotion | null {
   return useContext(SheetPresentationContext);
@@ -155,14 +168,7 @@ export default function MotionSheet({
     useState<VisualViewportFrame | null>(() => {
       if (typeof window === "undefined") return null;
       const viewport = window.visualViewport;
-      return viewport
-        ? {
-            offsetLeft: viewport.offsetLeft,
-            offsetTop: viewport.offsetTop,
-            width: viewport.width,
-            height: viewport.height,
-          }
-        : null;
+      return viewport ? readVisualViewportFrame(viewport) : null;
     });
   const panelRef = useRef<HTMLDivElement>(null);
   const y = useMotionValue(sheetHeight);
@@ -180,6 +186,9 @@ export default function MotionSheet({
   const lastHandledOpenRef = useRef<boolean | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const backgroundSiblingsRef = useRef<BackgroundSiblingState[]>([]);
+  const dragActiveRef = useRef(false);
+  const cancelledDragRef = useRef(false);
+  const pointerReleasedRef = useRef(false);
 
   const progress = useTransform(y, (translationY) => {
     const distance = Math.max(1, sheetHeight);
@@ -188,9 +197,10 @@ export default function MotionSheet({
   const scale = useTransform(progress, [0, 1], [1, 0.98]);
   const borderRadius = useTransform(progress, [0, 1], [0, 18]);
   const brightness = useTransform(progress, [0, 1], [1, 0.92]);
+  const keyboardVisible = visualViewportFrame?.keyboardVisible ?? false;
   const presentationMotion = useMemo(
-    () => ({ progress, scale, borderRadius, brightness }),
-    [borderRadius, brightness, progress, scale]
+    () => ({ progress, scale, borderRadius, brightness, keyboardVisible }),
+    [borderRadius, brightness, keyboardVisible, progress, scale]
   );
   const overlayStyle = {
     ...(visualViewportFrame
@@ -318,18 +328,14 @@ export default function MotionSheet({
     if (!viewport) return;
 
     const syncViewport = () => {
-      const nextFrame = {
-        offsetLeft: viewport.offsetLeft,
-        offsetTop: viewport.offsetTop,
-        width: viewport.width,
-        height: viewport.height,
-      };
+      const nextFrame = readVisualViewportFrame(viewport);
       setVisualViewportFrame((currentFrame) =>
         currentFrame &&
         currentFrame.offsetLeft === nextFrame.offsetLeft &&
         currentFrame.offsetTop === nextFrame.offsetTop &&
         currentFrame.width === nextFrame.width &&
-        currentFrame.height === nextFrame.height
+        currentFrame.height === nextFrame.height &&
+        currentFrame.keyboardVisible === nextFrame.keyboardVisible
           ? currentFrame
           : nextFrame
       );
@@ -486,12 +492,33 @@ export default function MotionSheet({
     const fromHeader =
       target instanceof Element &&
       Boolean(target.closest('[data-sheet-drag-handle="true"]'));
-    if (!fromHeader && isInteractiveControl(target)) return;
+    const interactiveTarget = isInteractiveControl(target);
 
     const scrollTop = findScrollableAncestor(target, panel)?.scrollTop ?? 0;
-    if (!canSheetClaimGesture({ fromHeader, scrollTop, deltaY: 1 })) return;
+    if (
+      !canSheetClaimGesture({
+        fromHeader,
+        scrollTop,
+        deltaY: 1,
+        interactiveTarget,
+        keyboardVisible,
+      })
+    ) {
+      return;
+    }
+    pointerReleasedRef.current = false;
     dragControls.start(event);
   }
+
+  const settleCancelledDrag = useCallback((event: ReactPointerEvent) => {
+    if (event.type === "lostpointercapture" && pointerReleasedRef.current) {
+      return;
+    }
+    if (!dragActiveRef.current) return;
+    dragActiveRef.current = false;
+    cancelledDragRef.current = true;
+    runAnimation(0, "settle");
+  }, [runAnimation]);
 
   const panelClassName = [
     styles.bottomSheet,
@@ -542,11 +569,27 @@ export default function MotionSheet({
               dragConstraints={{ top: 0, bottom: sheetHeight }}
               dragElastic={{ top: 0, bottom: 0.08 }}
               dragMomentum={false}
-              onDragStart={() => setIsAnimating(true)}
+              onDragStart={() => {
+                dragActiveRef.current = true;
+                cancelledDragRef.current = false;
+                setIsAnimating(true);
+              }}
               onPointerDownCapture={handleDragPointerDown}
+              onPointerUpCapture={() => {
+                pointerReleasedRef.current = true;
+              }}
+              onPointerCancel={settleCancelledDrag}
+              onLostPointerCapture={settleCancelledDrag}
               onPointerDown={(event) => event.stopPropagation()}
               onClick={(event) => event.stopPropagation()}
               onDragEnd={(_, info) => {
+                dragActiveRef.current = false;
+                pointerReleasedRef.current = false;
+                if (cancelledDragRef.current) {
+                  cancelledDragRef.current = false;
+                  runAnimation(0, "settle");
+                  return;
+                }
                 const offsetY = Math.max(0, y.get(), info.offset.y);
                 if (
                   shouldCompleteSheetDismiss(

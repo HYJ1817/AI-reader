@@ -201,7 +201,11 @@ export default function WorkspaceConversation({
       </div>
 
       {memoryReview ? (
-        <div className={styles.workspaceMemoryReview} role="dialog" aria-modal="true">
+        <div
+          className={styles.workspaceMemoryReview}
+          role="region"
+          aria-label={UI_TEXT.REVIEW_MEMORY}
+        >
           <strong>{UI_TEXT.REVIEW_MEMORY}</strong>
           <textarea
             aria-label={UI_TEXT.WORKSPACE_MEMORY}
