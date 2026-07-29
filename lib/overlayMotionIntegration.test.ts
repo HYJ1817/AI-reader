@@ -70,7 +70,37 @@ describe("overlay and nested view motion", () => {
       );
     }
     expect(librarySheetPagesSource).not.toContain("<BottomSheet");
-    expect(librarySheetPagesSource).toContain(
+    const renamePageSource = librarySheetPagesSource.slice(
+      librarySheetPagesSource.indexOf("function BookRenamePage"),
+      librarySheetPagesSource.indexOf("function BookDeletePage")
+    );
+    const renameFailure = renamePageSource.match(
+      /catch \{([\s\S]*?)\n\s*\}/
+    )?.[1] ?? "";
+    const focusAfterCommit = renamePageSource.match(
+      /useLayoutEffect\(\(\) => \{([\s\S]*?)\n\s*\}, \[[^\]]*error[^\]]*saving[^\]]*\]\);/
+    )?.[1] ?? "";
+
+    expect(renamePageSource).toContain(
+      "requiredMessage = UI_TEXT.BOOK_TITLE_REQUIRED"
+    );
+    expect(renamePageSource).toContain("setError(requiredMessage)");
+    expect(renamePageSource).toContain(
+      'isSubmitKey = (event) => event.key === "Enter"'
+    );
+    expect(renamePageSource).toContain(
+      "if (isSubmitKey(event) && !event.nativeEvent.isComposing)"
+    );
+    expect(renameFailure).toContain("setError(UI_TEXT.RENAME_BOOK_FAILED)");
+    expect(renameFailure).toContain("setSaving(false)");
+    expect(renameFailure).toContain("restoreFocusAfterFailureRef.current = true");
+    expect(renameFailure).not.toContain("focus(");
+    expect(focusAfterCommit).toContain("!saving");
+    expect(focusAfterCommit).toContain("error === UI_TEXT.RENAME_BOOK_FAILED");
+    expect(focusAfterCommit).toContain(
+      "restoreFocusAfterFailureRef.current"
+    );
+    expect(focusAfterCommit).toContain(
       "inputRef.current?.focus({ preventScroll: true })"
     );
     expect(librarySheetPagesSource).toContain(

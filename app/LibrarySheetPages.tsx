@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type RefObject } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import BookCover from "./BookCover";
 import type { CloseSheet } from "./BottomSheet";
 import type { AppOverlaysProps } from "./AppOverlays";
@@ -230,6 +230,18 @@ function BookRenamePage({
   const [title, setTitle] = useState(book.title);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const restoreFocusAfterFailureRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (
+      !saving &&
+      error === UI_TEXT.RENAME_BOOK_FAILED &&
+      restoreFocusAfterFailureRef.current
+    ) {
+      restoreFocusAfterFailureRef.current = false;
+      inputRef.current?.focus({ preventScroll: true });
+    }
+  }, [error, inputRef, saving]);
 
   async function submit() {
     const trimmed = title.trim();
@@ -245,9 +257,9 @@ function BookRenamePage({
       await onRename(book.id, trimmed);
       close();
     } catch {
+      restoreFocusAfterFailureRef.current = true;
       setError(UI_TEXT.RENAME_BOOK_FAILED);
       setSaving(false);
-      inputRef.current?.focus({ preventScroll: true });
     }
   }
 
