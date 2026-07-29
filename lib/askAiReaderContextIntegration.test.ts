@@ -124,7 +124,7 @@ describe("Ask AI reader context integration", () => {
     expect(workspaceConversationSource).toContain("contentRevision");
     expect(workspaceConversationSource).toContain("onPointerDown={onUserInteractionStart}");
     expect(workspaceConversationSource).toContain("onPointerUp={onUserInteractionEnd}");
-    expect(workspaceConversationSource).toContain("onPointerCancel={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onPointerCancel={onUserInteractionCancel}");
     expect(workspaceConversationSource).toContain("onTouchStart={onUserInteractionStart}");
     expect(workspaceConversationSource).toContain("onTouchEnd={onUserInteractionEnd}");
     expect(workspaceConversationSource).toContain("onTouchCancel={onUserInteractionEnd}");
@@ -139,6 +139,8 @@ describe("Ask AI reader context integration", () => {
     expect(viewportFollowHookSource).toContain("new MutationObserver");
     expect(viewportFollowHookSource).toContain("preservingPrependRef.current");
     expect(viewportFollowHookSource).toContain("findVisiblePrependAnchor");
+    expect(viewportFollowHookSource).toContain("interactionGenerationRef");
+    expect(viewportFollowHookSource).toContain("returnLayoutFrameRef");
   });
 
   it("publishes stream frames as transitions and serializes checkpoint persistence", () => {
@@ -147,6 +149,7 @@ describe("Ask AI reader context integration", () => {
     expect(askHookSource).toContain("enqueueCheckpoint");
     expect(askHookSource).toContain("commitOwned");
     expect(askHookSource).toContain("cancel(async () =>");
+    expect(askHookSource).toContain("await previousWorkspacePersistence");
   });
 
   it("keeps the return control in layout instead of overlaying workspace actions", () => {

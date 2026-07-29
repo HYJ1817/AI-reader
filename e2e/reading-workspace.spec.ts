@@ -41,7 +41,7 @@ async function installLocalAiFixture(page: Page) {
         .__workspaceStreamMode;
       const events = mode === "long" || mode === "prepend"
         ? [
-            ...Array.from({ length: mode === "prepend" ? 60 : 24 }, (_, index) => ({
+            ...Array.from({ length: mode === "prepend" ? 120 : 24 }, (_, index) => ({
               type: "delta",
               text: mode === "long"
                 ? "x".repeat(1_200)
@@ -257,6 +257,43 @@ test("long history pages without scroll jumps and long content is explicit", asy
   );
   const after = await reopened.locator(`[data-workspace-message-id="${firstId}"]`).boundingBox();
   expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(1);
+  await expect(loadOlder).toHaveCount(1);
+  const pendingUserScrollTop = await page.evaluate(() => {
+    const workspace = document.querySelector<HTMLElement>(
+      '[data-sheet-route="reading-workspace"]'
+    );
+    const thread = workspace?.querySelector<HTMLElement>(
+      '[data-workspace-thread="true"]'
+    );
+    const button = workspace?.querySelector<HTMLButtonElement>(
+      '[data-workspace-prepend-anchor="true"]'
+    );
+    if (!thread || !button) throw new Error("Workspace pagination controls missing");
+    button.click();
+    thread.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+    }));
+    const target = Math.min(
+      thread.scrollHeight - thread.clientHeight,
+      thread.scrollTop + 137
+    );
+    thread.scrollTop = target;
+    thread.dispatchEvent(new Event("scroll", { bubbles: true }));
+    thread.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+    }));
+    return thread.scrollTop;
+  });
+  await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(202);
+  expect(Math.abs(
+    (await thread.evaluate((element) => element.scrollTop)) - pendingUserScrollTop
+  )).toBeLessThanOrEqual(1);
   await reopened.getByRole("button", { name: "\u505c\u6b62" }).click();
   await expect(reopened.getByText("\u5185\u5bb9\u8f83\u957f\uff0c\u5df2\u6298\u53e0\u9884\u89c8\u3002").first()).toBeVisible();
   await reopened.getByRole("button", { name: "\u5c55\u5f00\u5168\u6587" }).first().click();
@@ -328,6 +365,35 @@ test("workspace streaming preserves user scroll and keeps the composer responsiv
     workspace.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
   ).toBeVisible();
 
+  const momentumTarget = Math.max(0, scrollTop - 128);
+  await thread.evaluate((element, target) => {
+    const firstStep = Math.max(target, element.scrollTop - 64);
+    element.scrollTop = firstStep;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    element.scrollTop = target;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, momentumTarget);
+  await expect.poll(() => thread.evaluate((element) => element.scrollTop))
+    .toBe(momentumTarget);
+
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 2,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await thread.dispatchEvent("pointercancel", {
+    pointerId: 2,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  const cancelledMomentumTarget = Math.max(0, momentumTarget - 64);
+  await thread.evaluate((element, target) => {
+    element.scrollTop = target;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, cancelledMomentumTarget);
+  await expect.poll(() => thread.evaluate((element) => element.scrollTop))
+    .toBe(cancelledMomentumTarget);
+
   const chunksBeforeTyping = await page.evaluate(() => (
     window as typeof window & { __workspacePublishedChunks?: number }
   ).__workspacePublishedChunks ?? 0);
@@ -337,12 +403,22 @@ test("workspace streaming preserves user scroll and keeps the composer responsiv
   await expect.poll(() => page.evaluate(() => (
     window as typeof window & { __workspacePublishedChunks?: number }
   ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksBeforeTyping + 3);
-  expect(Math.abs((await thread.evaluate((element) => element.scrollTop)) - scrollTop))
+  expect(Math.abs(
+    (await thread.evaluate((element) => element.scrollTop)) - cancelledMomentumTarget
+  ))
     .toBeLessThanOrEqual(1);
 
+  const clientHeightBeforeReturn = await thread.evaluate(
+    (element) => element.clientHeight
+  );
   await workspace.getByRole("button", {
     name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
   }).click();
+  await expect(workspace.getByRole("button", {
+    name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
+  })).toHaveCount(0);
+  await expect.poll(() => thread.evaluate((element) => element.clientHeight))
+    .toBeGreaterThan(clientHeightBeforeReturn);
   await expect.poll(() => thread.evaluate((element) =>
     element.scrollHeight - element.clientHeight - element.scrollTop
   )).toBeLessThanOrEqual(1);
@@ -355,6 +431,40 @@ test("workspace streaming preserves user scroll and keeps the composer responsiv
   await expect.poll(() => thread.evaluate((element) =>
     element.scrollHeight - element.clientHeight - element.scrollTop
   )).toBeLessThanOrEqual(48);
+
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 3,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await thread.dispatchEvent("pointercancel", {
+    pointerId: 3,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  const cancelledFromBottomTarget = await thread.evaluate((element) => {
+    const target = Math.max(
+      0,
+      element.scrollHeight - element.clientHeight - 180
+    );
+    element.scrollTop = target;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return target;
+  });
+  await expect.poll(() => thread.evaluate((element) => element.scrollTop))
+    .toBe(cancelledFromBottomTarget);
+  await expect(workspace.getByRole("button", {
+    name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
+  })).toBeVisible();
+  const chunksAfterCancel = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksAfterCancel + 1);
+  expect(Math.abs(
+    (await thread.evaluate((element) => element.scrollTop)) - cancelledFromBottomTarget
+  )).toBeLessThanOrEqual(1);
 });
 
 test("workspace opens within the architecture budget", async ({ page }, testInfo) => {

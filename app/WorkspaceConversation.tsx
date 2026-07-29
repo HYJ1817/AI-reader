@@ -70,6 +70,7 @@ export default function WorkspaceConversation({
     onScroll,
     onUserInteractionStart,
     onUserInteractionEnd,
+    onUserInteractionCancel,
     onWheel,
     preservePrependAnchor,
     returnToBottom,
@@ -111,7 +112,7 @@ export default function WorkspaceConversation({
         onScroll={onScroll}
         onPointerDown={onUserInteractionStart}
         onPointerUp={onUserInteractionEnd}
-        onPointerCancel={onUserInteractionEnd}
+        onPointerCancel={onUserInteractionCancel}
         onTouchStart={onUserInteractionStart}
         onTouchEnd={onUserInteractionEnd}
         onTouchCancel={onUserInteractionEnd}

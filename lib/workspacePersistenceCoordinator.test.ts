@@ -118,4 +118,67 @@ describe("WorkspacePersistenceCoordinator", () => {
     expect(messageState).toBe("cancelled");
     expect(sessionState).toBe("paused");
   });
+
+  it("settles cancellation before an A to B to A reload reads persisted state", async () => {
+    const terminalWrite = deferred();
+    const terminalStarted = deferred();
+    const coordinator = new WorkspacePersistenceCoordinator();
+    let owned = true;
+    let currentWorkspace = "A";
+    let persistedMessageState = "streaming";
+    let persistedSessionState = "streaming";
+    let uiMessageState = "streaming";
+    let uiSessionState = "streaming";
+    const reads: string[] = [];
+
+    const terminal = coordinator.commitOwned(
+      () => owned,
+      async (stillOwned) => {
+        terminalStarted.resolve();
+        await terminalWrite.promise;
+        persistedMessageState = "complete";
+        if (!stillOwned()) return;
+        uiMessageState = "complete";
+        persistedSessionState = "idle";
+        if (!stillOwned()) return;
+        uiSessionState = "idle";
+      }
+    );
+    await terminalStarted.promise;
+
+    owned = false;
+    currentWorkspace = "B";
+    const cancelA = coordinator.cancel(async () => {
+      persistedMessageState = "cancelled";
+      persistedSessionState = "paused";
+    });
+    const loadB = (async () => {
+      await cancelA;
+      if (currentWorkspace === "B") {
+        uiMessageState = persistedMessageState;
+        uiSessionState = persistedSessionState;
+        reads.push(`B:${uiMessageState}:${uiSessionState}`);
+      }
+    })();
+
+    currentWorkspace = "A";
+    const previousWorkspacePersistence = coordinator.drain();
+    const loadA = (async () => {
+      await previousWorkspacePersistence;
+      if (currentWorkspace === "A") {
+        uiMessageState = persistedMessageState;
+        uiSessionState = persistedSessionState;
+        reads.push(`A:${uiMessageState}:${uiSessionState}`);
+      }
+    })();
+    terminalWrite.resolve();
+
+    await expect(terminal).resolves.toBe(false);
+    await Promise.all([loadB, loadA]);
+    expect(reads).toEqual(["A:cancelled:paused"]);
+    expect(persistedMessageState).toBe("cancelled");
+    expect(persistedSessionState).toBe("paused");
+    expect(uiMessageState).toBe("cancelled");
+    expect(uiSessionState).toBe("paused");
+  });
 });

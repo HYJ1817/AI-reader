@@ -186,6 +186,7 @@ export default function useWorkspaceChat({
 
   useEffect(() => {
     const pendingIdentity = requestIdentityRef.current;
+    let previousWorkspacePersistence: Promise<void>;
     if (pendingIdentity) {
       const now = new Date().toISOString();
       const pendingAssistant = messagesRef.current.find(
@@ -212,15 +213,23 @@ export default function useWorkspaceChat({
           }
         : null;
       if (cancelledMessage || pausedSession) {
-        void persistenceCoordinator.cancel(async () => {
-          if (cancelledMessage) {
-            await putWorkspaceMessage(cancelledMessage).catch(() => undefined);
+        previousWorkspacePersistence = persistenceCoordinator.cancel(
+          async () => {
+            if (cancelledMessage) {
+              await putWorkspaceMessage(cancelledMessage).catch(
+                () => undefined
+              );
+            }
+            if (pausedSession) {
+              await putWorkspaceSession(pausedSession).catch(() => undefined);
+            }
           }
-          if (pausedSession) {
-            await putWorkspaceSession(pausedSession).catch(() => undefined);
-          }
-        });
+        );
+      } else {
+        previousWorkspacePersistence = persistenceCoordinator.drain();
       }
+    } else {
+      previousWorkspacePersistence = persistenceCoordinator.drain();
     }
     generationRef.current += 1;
     requestControllerRef.current?.abort();
@@ -258,6 +267,8 @@ export default function useWorkspaceChat({
       setWorkspaceLoading(true);
       void (async () => {
         try {
+          await previousWorkspacePersistence;
+          if (cancelled || generationRef.current !== generation) return;
           const owner = await ensureDefaultBookWorkspace(workspaceBookId);
           const nextSessions = await listWorkspaceSessions(owner.workspace.id);
           let activeSession = nextSessions[0] ?? owner.session;

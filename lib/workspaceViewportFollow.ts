@@ -15,6 +15,34 @@ export function shouldFollowWorkspaceViewport(input: {
   return input.nearBottom && !input.userInteracting && input.visible;
 }
 
+export function getWorkspaceManualScrollOwnership(input: {
+  scrollHeight: number;
+  clientHeight: number;
+  scrollTop: number;
+}): {
+  nearBottom: boolean;
+  manualAway: boolean;
+  ownedScrollTop: number | null;
+} {
+  const nearBottom = isWorkspaceNearBottom(
+    input.scrollHeight,
+    input.clientHeight,
+    input.scrollTop
+  );
+  return {
+    nearBottom,
+    manualAway: !nearBottom,
+    ownedScrollTop: nearBottom ? null : input.scrollTop,
+  };
+}
+
+export function shouldRestoreWorkspacePrependAnchor(
+  interactionGenerationBefore: number,
+  interactionGenerationAfter: number
+): boolean {
+  return interactionGenerationBefore === interactionGenerationAfter;
+}
+
 export function getAnchoredPrependScrollTop(input: {
   currentScrollTop: number;
   previousAnchorTop: number;

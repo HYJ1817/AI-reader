@@ -13,7 +13,9 @@ import { animate, type AnimationPlaybackControls } from "motion/react";
 import { MOTION_DURATION, MOTION_EASE } from "@/lib/motionSystem";
 import {
   getAnchoredPrependScrollTop,
+  getWorkspaceManualScrollOwnership,
   isWorkspaceNearBottom,
+  shouldRestoreWorkspacePrependAnchor,
   shouldFollowWorkspaceViewport,
 } from "@/lib/workspaceViewportFollow";
 
@@ -23,6 +25,7 @@ export type WorkspaceViewportFollow = {
   onScroll: (event: UIEvent<HTMLDivElement>) => void;
   onUserInteractionStart: () => void;
   onUserInteractionEnd: () => void;
+  onUserInteractionCancel: () => void;
   onWheel: () => void;
   preservePrependAnchor: (load: () => Promise<void> | void) => Promise<void>;
   returnToBottom: () => void;
@@ -69,10 +72,12 @@ export default function useWorkspaceViewportFollow({
   const nearBottomRef = useRef(true);
   const userInteractingRef = useRef(false);
   const gestureActiveRef = useRef(false);
+  const interactionGenerationRef = useRef(0);
   const manualAwayRef = useRef(false);
   const ownedScrollTopRef = useRef<number | null>(null);
   const preservingPrependRef = useRef(false);
   const wheelReleaseTimerRef = useRef<number | null>(null);
+  const returnLayoutFrameRef = useRef<number | null>(null);
   const expectedAnimatedScrollTopRef = useRef<number | null>(null);
   const [showReturnToBottom, setShowReturnToBottom] = useState(false);
 
@@ -172,23 +177,26 @@ export default function useWorkspaceViewportFollow({
       if (wheelReleaseTimerRef.current !== null) {
         window.clearTimeout(wheelReleaseTimerRef.current);
       }
+      if (returnLayoutFrameRef.current !== null) {
+        window.cancelAnimationFrame(returnLayoutFrameRef.current);
+      }
     },
     [stopActiveAnimation]
   );
 
   const onScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
     const thread = event.currentTarget;
-    const nearBottom = isWorkspaceNearBottom(
-      thread.scrollHeight,
-      thread.clientHeight,
-      thread.scrollTop
-    );
+    const ownership = getWorkspaceManualScrollOwnership({
+      scrollHeight: thread.scrollHeight,
+      clientHeight: thread.clientHeight,
+      scrollTop: thread.scrollTop,
+    });
 
     if (gestureActiveRef.current) {
-      manualAwayRef.current = !nearBottom;
-      nearBottomRef.current = nearBottom;
-      ownedScrollTopRef.current = nearBottom ? null : thread.scrollTop;
-      setShowReturnToBottom(!nearBottom);
+      manualAwayRef.current = ownership.manualAway;
+      nearBottomRef.current = ownership.nearBottom;
+      ownedScrollTopRef.current = ownership.ownedScrollTop;
+      setShowReturnToBottom(ownership.manualAway);
       return;
     }
 
@@ -198,35 +206,45 @@ export default function useWorkspaceViewportFollow({
         expectedScrollTop !== null &&
         Math.abs(thread.scrollTop - expectedScrollTop) <= 1
       ) {
-        if (nearBottom) nearBottomRef.current = true;
+        if (ownership.nearBottom) nearBottomRef.current = true;
         return;
       }
       activeAnimationRef.current.stop();
       activeAnimationRef.current = null;
       expectedAnimatedScrollTopRef.current = null;
-      manualAwayRef.current = !nearBottom;
-      ownedScrollTopRef.current = nearBottom ? null : thread.scrollTop;
+      manualAwayRef.current = ownership.manualAway;
+      ownedScrollTopRef.current = ownership.ownedScrollTop;
     }
 
     if (manualAwayRef.current) {
-      if (ownedScrollTopRef.current !== null) {
-        thread.scrollTop = ownedScrollTopRef.current;
+      interactionGenerationRef.current += 1;
+      manualAwayRef.current = ownership.manualAway;
+      ownedScrollTopRef.current = ownership.ownedScrollTop;
+      nearBottomRef.current = ownership.nearBottom;
+      userInteractingRef.current = ownership.manualAway;
+      setShowReturnToBottom(ownership.manualAway);
+      if (ownership.nearBottom) {
+        gestureActiveRef.current = false;
       }
-      nearBottomRef.current = false;
-      userInteractingRef.current = true;
-      setShowReturnToBottom(true);
       return;
     }
 
-    nearBottomRef.current = nearBottom;
-    userInteractingRef.current = !nearBottom;
-    setShowReturnToBottom(!nearBottom);
+    manualAwayRef.current = ownership.manualAway;
+    ownedScrollTopRef.current = ownership.ownedScrollTop;
+    nearBottomRef.current = ownership.nearBottom;
+    userInteractingRef.current = ownership.manualAway;
+    setShowReturnToBottom(ownership.manualAway);
   }, []);
 
   const onUserInteractionStart = useCallback(() => {
     stopActiveAnimation();
     gestureActiveRef.current = true;
+    interactionGenerationRef.current += 1;
     userInteractingRef.current = true;
+    if (returnLayoutFrameRef.current !== null) {
+      window.cancelAnimationFrame(returnLayoutFrameRef.current);
+      returnLayoutFrameRef.current = null;
+    }
     if (wheelReleaseTimerRef.current !== null) {
       window.clearTimeout(wheelReleaseTimerRef.current);
       wheelReleaseTimerRef.current = null;
@@ -237,12 +255,12 @@ export default function useWorkspaceViewportFollow({
     gestureActiveRef.current = false;
     const thread = threadRef.current;
     if (!thread) return;
-    const nearBottom = isWorkspaceNearBottom(
-      thread.scrollHeight,
-      thread.clientHeight,
-      thread.scrollTop
-    );
-    if (nearBottom && !manualAwayRef.current) {
+    const ownership = getWorkspaceManualScrollOwnership({
+      scrollHeight: thread.scrollHeight,
+      clientHeight: thread.clientHeight,
+      scrollTop: thread.scrollTop,
+    });
+    if (ownership.nearBottom && !manualAwayRef.current) {
       nearBottomRef.current = true;
       userInteractingRef.current = false;
       setShowReturnToBottom(false);
@@ -253,6 +271,22 @@ export default function useWorkspaceViewportFollow({
     nearBottomRef.current = false;
     userInteractingRef.current = true;
     setShowReturnToBottom(true);
+  }, []);
+
+  const onUserInteractionCancel = useCallback(() => {
+    gestureActiveRef.current = false;
+    const thread = threadRef.current;
+    if (!thread) return;
+    const ownership = getWorkspaceManualScrollOwnership({
+      scrollHeight: thread.scrollHeight,
+      clientHeight: thread.clientHeight,
+      scrollTop: thread.scrollTop,
+    });
+    manualAwayRef.current = ownership.manualAway;
+    ownedScrollTopRef.current = ownership.ownedScrollTop;
+    nearBottomRef.current = ownership.nearBottom;
+    userInteractingRef.current = ownership.manualAway;
+    setShowReturnToBottom(ownership.manualAway);
   }, []);
 
   const onWheel = useCallback(() => {
@@ -269,13 +303,21 @@ export default function useWorkspaceViewportFollow({
       if (!thread) return;
       stopActiveAnimation();
       preservingPrependRef.current = true;
+      const interactionGeneration = interactionGenerationRef.current;
       const anchor = findVisiblePrependAnchor(thread);
       const previousAnchorTop = anchor?.getBoundingClientRect().top ?? null;
       try {
         await load();
         await nextAnimationFrame();
         if (threadRef.current !== thread) return;
-        if (anchor?.isConnected && previousAnchorTop !== null) {
+        if (
+          shouldRestoreWorkspacePrependAnchor(
+            interactionGeneration,
+            interactionGenerationRef.current
+          ) &&
+          anchor?.isConnected &&
+          previousAnchorTop !== null
+        ) {
           thread.scrollTop = getAnchoredPrependScrollTop({
             currentScrollTop: thread.scrollTop,
             previousAnchorTop,
@@ -300,14 +342,21 @@ export default function useWorkspaceViewportFollow({
   );
 
   const returnToBottom = useCallback(() => {
+    stopActiveAnimation();
     gestureActiveRef.current = false;
     manualAwayRef.current = false;
     ownedScrollTopRef.current = null;
     userInteractingRef.current = false;
     nearBottomRef.current = true;
     setShowReturnToBottom(false);
-    animateToBottom();
-  }, [animateToBottom]);
+    if (returnLayoutFrameRef.current !== null) {
+      window.cancelAnimationFrame(returnLayoutFrameRef.current);
+    }
+    returnLayoutFrameRef.current = window.requestAnimationFrame(() => {
+      returnLayoutFrameRef.current = null;
+      animateToBottom();
+    });
+  }, [animateToBottom, stopActiveAnimation]);
 
   return {
     threadRef,
@@ -315,6 +364,7 @@ export default function useWorkspaceViewportFollow({
     onScroll,
     onUserInteractionStart,
     onUserInteractionEnd,
+    onUserInteractionCancel,
     onWheel,
     preservePrependAnchor,
     returnToBottom,

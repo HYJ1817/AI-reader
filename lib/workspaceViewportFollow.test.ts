@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   getAnchoredPrependScrollTop,
+  getWorkspaceManualScrollOwnership,
   isWorkspaceNearBottom,
+  shouldRestoreWorkspacePrependAnchor,
   shouldFollowWorkspaceViewport,
 } from "./workspaceViewportFollow";
 
@@ -39,5 +41,46 @@ describe("workspace viewport following", () => {
         nextAnchorTop: 420,
       })
     ).toBe(1100);
+  });
+
+  it("updates manual ownership through post-release momentum and releases at bottom", () => {
+    expect(
+      getWorkspaceManualScrollOwnership({
+        scrollHeight: 1_000,
+        clientHeight: 100,
+        scrollTop: 520,
+      })
+    ).toEqual({
+      nearBottom: false,
+      manualAway: true,
+      ownedScrollTop: 520,
+    });
+    expect(
+      getWorkspaceManualScrollOwnership({
+        scrollHeight: 1_000,
+        clientHeight: 100,
+        scrollTop: 460,
+      })
+    ).toEqual({
+      nearBottom: false,
+      manualAway: true,
+      ownedScrollTop: 460,
+    });
+    expect(
+      getWorkspaceManualScrollOwnership({
+        scrollHeight: 1_000,
+        clientHeight: 100,
+        scrollTop: 852,
+      })
+    ).toEqual({
+      nearBottom: true,
+      manualAway: false,
+      ownedScrollTop: null,
+    });
+  });
+
+  it("does not restore a stale prepend anchor after user interaction", () => {
+    expect(shouldRestoreWorkspacePrependAnchor(4, 4)).toBe(true);
+    expect(shouldRestoreWorkspacePrependAnchor(4, 5)).toBe(false);
   });
 });
