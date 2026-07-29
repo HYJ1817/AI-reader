@@ -1353,6 +1353,191 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
   }
 });
 
+test("reader presentation captures a meaningful 70 ms midpoint and opaque settlement", async ({
+  page,
+}, testInfo) => {
+  await capture(page, testInfo, "reader-presentation-start");
+  await firstLibraryCover(page).click();
+  const presentation = page.locator('[data-reader-presented="true"]');
+  await expect(presentation).toHaveCount(1);
+  await expect(presentation).toHaveAttribute(
+    "data-reader-transition-mode",
+    "shared"
+  );
+  await page.waitForTimeout(70);
+  await capture(page, testInfo, "reader-presentation-midpoint-70ms");
+
+  await expect(presentation.locator('[data-reader-content-ready="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(1);
+  expect(
+    await presentation.locator('[data-reader-content-ready="true"]').count()
+  ).toBe(1);
+
+  await page.waitForTimeout(280);
+  await capture(page, testInfo, "reader-presentation-settled");
+  const visualState = await presentation.evaluate((element) => {
+    const content = element.querySelector<HTMLElement>(
+      '[data-reader-content-ready="true"]'
+    );
+    if (!content) throw new Error("Reader content did not become meaningful");
+    const presentationStyle = getComputedStyle(element);
+    const contentStyle = getComputedStyle(content);
+    return {
+      contentOpacity: Number(contentStyle.opacity),
+      presentationOpacity: Number(presentationStyle.opacity),
+      presentationBackground: presentationStyle.backgroundColor,
+      running: element
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.playState === "running").length,
+    };
+  });
+  expect(visualState).toMatchObject({
+    contentOpacity: 1,
+    presentationOpacity: 1,
+    running: 0,
+  });
+  expect(visualState.presentationBackground).not.toBe("rgba(0, 0, 0, 0)");
+});
+
+test("reader presentation falls back safely when its cover origin is removed", async ({
+  page,
+}) => {
+  const origin = firstLibraryCover(page);
+  const originId = await origin.getAttribute("data-book-cover-origin");
+  if (!originId) throw new Error("Reader source origin is missing");
+  await origin.click();
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(1);
+  await page
+    .locator(`[data-book-cover-origin="${originId}"]`)
+    .evaluate((element) => element.remove());
+
+  await closeReaderWithControls(page);
+
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+});
+
+test("reader presentation uses fallback geometry for an offscreen origin", async ({
+  page,
+}) => {
+  for (let index = 0; index < 8; index += 1) {
+    await importBook(page, `reader-fallback-${index}.txt`);
+  }
+  const origin = firstLibraryCover(page);
+  const openButton = origin.locator("xpath=ancestor::button[1]");
+  await page.locator(libraryRootSelector).evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(() =>
+      origin.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.bottom <= 0 || rect.top >= window.innerHeight;
+      })
+    )
+    .toBe(true);
+
+  await openButton.evaluate((button) => (button as HTMLButtonElement).click());
+
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveAttribute(
+    "data-reader-transition-mode",
+    "fallback"
+  );
+});
+
+test("reader presentation can close while TXT content is still preparing", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    const readText = Blob.prototype.text;
+    Blob.prototype.text = async function delayedText() {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      return readText.call(this);
+    };
+  });
+
+  await firstLibraryCover(page).click();
+  const presentation = page.locator('[data-reader-presented="true"]');
+  await expect(presentation.locator('[data-reader-content-ready="false"]')).toHaveCount(1);
+  await closeReaderWithControls(page);
+
+  await expect(presentation).toHaveCount(0);
+});
+
+test("reader presentation reduced motion uses one short crossfade", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    const storageKey = "ai-reader-app-preferences";
+    const stored = localStorage.getItem(storageKey);
+    const preferences = stored ? JSON.parse(stored) : {};
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ ...preferences, reduceMotion: true })
+    );
+  });
+  await page.reload();
+  await expect(page.locator(libraryRootSelector)).toBeVisible();
+
+  await firstLibraryCover(page).click();
+  const presentation = page.locator('[data-reader-presented="true"]');
+  await expect(presentation).toHaveAttribute(
+    "data-reader-transition-mode",
+    /shared|fallback/
+  );
+  await page.waitForTimeout(110);
+  await expect
+    .poll(() =>
+      presentation.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
+});
+
+test("reader gesture ownership preserves TXT scroll selection and controls", async ({
+  page,
+}) => {
+  await openReader(page);
+  const stage = page.locator('[data-navigation-gesture-owner="reader"]');
+  const reader = page.locator('[data-txt-reader="true"]');
+  await expect(stage).toHaveCount(1);
+  await expect(reader).toBeVisible();
+
+  const scrollTop = await reader.evaluate((element) => {
+    element.scrollTop = Math.min(120, element.scrollHeight - element.clientHeight);
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return element.scrollTop;
+  });
+  expect(scrollTop).toBeGreaterThan(0);
+
+  const selectedText = await page.locator('[data-paragraph-index="0"]').evaluate(
+    (paragraph) => {
+      const textNode = document
+        .createTreeWalker(paragraph, NodeFilter.SHOW_TEXT)
+        .nextNode();
+      if (!textNode || !textNode.textContent) return "";
+      const range = document.createRange();
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, Math.min(8, textNode.textContent.length));
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return selection?.toString() ?? "";
+    }
+  );
+  expect(selectedText.length).toBeGreaterThan(0);
+
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  await expect(menuToggle).toBeVisible();
+  await menuToggle.click();
+  await expect(menuToggle).toHaveAttribute("aria-expanded", "false");
+  await menuToggle.click();
+  await expect(page.locator('[data-reader-close="true"]')).toBeVisible();
+});
+
 test("nested sheet stack preserves one panel through history and visible back", async ({
   page,
 }) => {

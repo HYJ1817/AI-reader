@@ -2790,6 +2790,7 @@
   justify-items: center;
   align-items: start;
   padding-top: calc(var(--safe-top) + min(15dvh, 128px));
+  background: var(--background);
   pointer-events: none;
   isolation: isolate;
 }
@@ -2815,6 +2816,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
+  background: var(--background);
   pointer-events: auto;
 }
 

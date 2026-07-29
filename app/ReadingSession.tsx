@@ -108,6 +108,9 @@ export default function ReadingSession({
   return (
     <div
       className={styles.readerShell}
+      data-reader-content-ready={
+        book && (book.format === "epub" || !loading) ? "true" : "false"
+      }
     >
       <div
         className={styles.readerStage}

@@ -136,6 +136,59 @@ test.beforeEach(async ({ page }) => {
   await expect(covers).toHaveCount(previousCount + 1);
 });
 
+test("reader lifecycle resumes at settled geometry without replaying entry", async ({
+  page,
+}) => {
+  await page.locator(`${libraryRoot} [data-book-cover-origin]`).first().click();
+  const presentation = page.locator('[data-reader-presented="true"]');
+  const content = presentation.locator('[data-reader-content-ready="true"]');
+  await expect(content).toHaveCount(1);
+
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+
+  await expect(presentation).toHaveCount(1);
+  await expect(presentation).toHaveAttribute(
+    "data-reader-lifecycle-settled",
+    "true"
+  );
+  await expect
+    .poll(() =>
+      presentation.evaluate((element) => {
+        const style = getComputedStyle(element);
+        const transform = style.transform;
+        const x =
+          transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+        return {
+          opacity: Number(style.opacity),
+          running: element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length,
+          x,
+        };
+      })
+    )
+    .toEqual({ opacity: 1, running: 0, x: 0 });
+
+  await page.evaluate(() =>
+    window.dispatchEvent(new Event("orientationchange"))
+  );
+  await expect(presentation).toHaveAttribute(
+    "data-reader-lifecycle-settled",
+    "true"
+  );
+  await expect
+    .poll(() =>
+      presentation.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
+});
+
 test("interaction probe records root retargeting without layout shift", async ({
   page,
 }, testInfo) => {
