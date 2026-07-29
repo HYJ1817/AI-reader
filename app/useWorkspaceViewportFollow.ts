@@ -14,6 +14,7 @@ import { MOTION_DURATION, MOTION_EASE } from "@/lib/motionSystem";
 import {
   getAnchoredPrependScrollTop,
   getWorkspaceManualScrollOwnership,
+  hasWorkspacePrependDomCommitted,
   isWorkspaceNearBottom,
   shouldRestoreWorkspacePrependAnchor,
   shouldFollowWorkspaceViewport,
@@ -36,14 +37,57 @@ type UseWorkspaceViewportFollowOptions = {
   visible: boolean;
 };
 
-function nextAnimationFrame(): Promise<void> {
-  return new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
-}
-
 function isThreadActuallyVisible(thread: HTMLDivElement): boolean {
   return !thread.closest(
     '[data-sheet-page-active="false"], [aria-hidden="true"], [inert]'
   );
+}
+
+function waitForWorkspacePrependCommit(
+  thread: HTMLDivElement,
+  previousMessageCount: number,
+  hadPrependControl: boolean,
+  signal: AbortSignal
+): Promise<boolean> {
+  const hasCommitted = () =>
+    hasWorkspacePrependDomCommitted({
+      previousMessageCount,
+      nextMessageCount: thread.querySelectorAll("[data-workspace-message-id]")
+        .length,
+      hadPrependControl,
+      hasPrependControl: Boolean(
+        thread.querySelector("[data-workspace-prepend-anchor]")
+      ),
+    });
+
+  if (signal.aborted || !thread.isConnected) return Promise.resolve(false);
+  if (hasCommitted()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let observer: MutationObserver | null = null;
+    let settled = false;
+    const finish = (committed: boolean) => {
+      if (settled) return;
+      settled = true;
+      observer?.disconnect();
+      signal.removeEventListener("abort", handleAbort);
+      resolve(committed);
+    };
+    const handleAbort = () => finish(false);
+    observer = new MutationObserver(() => {
+      if (!thread.isConnected) {
+        finish(false);
+        return;
+      }
+      if (hasCommitted()) finish(true);
+    });
+    signal.addEventListener("abort", handleAbort, { once: true });
+    observer.observe(thread.ownerDocument.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+    if (signal.aborted || !thread.isConnected) finish(false);
+    else if (hasCommitted()) finish(true);
+  });
 }
 
 function findVisiblePrependAnchor(thread: HTMLDivElement): HTMLElement | null {
@@ -76,6 +120,7 @@ export default function useWorkspaceViewportFollow({
   const manualAwayRef = useRef(false);
   const ownedScrollTopRef = useRef<number | null>(null);
   const preservingPrependRef = useRef(false);
+  const prependCommitControllerRef = useRef<AbortController | null>(null);
   const wheelReleaseTimerRef = useRef<number | null>(null);
   const returnLayoutFrameRef = useRef<number | null>(null);
   const expectedAnimatedScrollTopRef = useRef<number | null>(null);
@@ -174,6 +219,8 @@ export default function useWorkspaceViewportFollow({
   useEffect(
     () => () => {
       stopActiveAnimation();
+      const controller = prependCommitControllerRef.current;
+      if (controller) controller.abort();
       if (wheelReleaseTimerRef.current !== null) {
         window.clearTimeout(wheelReleaseTimerRef.current);
       }
@@ -301,14 +348,29 @@ export default function useWorkspaceViewportFollow({
       const thread = threadRef.current;
       if (!thread) return;
       stopActiveAnimation();
+      prependCommitControllerRef.current?.abort();
+      const controller = new AbortController();
+      prependCommitControllerRef.current = controller;
       preservingPrependRef.current = true;
       const interactionGeneration = interactionGenerationRef.current;
+      const previousMessageCount = thread.querySelectorAll(
+        "[data-workspace-message-id]"
+      ).length;
+      const hadPrependControl = Boolean(
+        thread.querySelector("[data-workspace-prepend-anchor]")
+      );
       const anchor = findVisiblePrependAnchor(thread);
       const previousAnchorTop = anchor?.getBoundingClientRect().top ?? null;
       try {
         await load();
-        await nextAnimationFrame();
-        if (threadRef.current !== thread) return;
+        if (controller.signal.aborted || threadRef.current !== thread) return;
+        const committed = await waitForWorkspacePrependCommit(
+          thread,
+          previousMessageCount,
+          hadPrependControl,
+          controller.signal
+        );
+        if (!committed || threadRef.current !== thread) return;
         if (
           shouldRestoreWorkspacePrependAnchor(
             interactionGeneration,
@@ -334,7 +396,10 @@ export default function useWorkspaceViewportFollow({
         userInteractingRef.current = !nearBottom;
         setShowReturnToBottom(!nearBottom);
       } finally {
-        preservingPrependRef.current = false;
+        if (prependCommitControllerRef.current === controller) {
+          prependCommitControllerRef.current = null;
+          preservingPrependRef.current = false;
+        }
       }
     },
     [stopActiveAnimation]

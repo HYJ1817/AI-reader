@@ -43,6 +43,18 @@ export function shouldRestoreWorkspacePrependAnchor(
   return interactionGenerationBefore === interactionGenerationAfter;
 }
 
+export function hasWorkspacePrependDomCommitted(input: {
+  previousMessageCount: number;
+  nextMessageCount: number;
+  hadPrependControl: boolean;
+  hasPrependControl: boolean;
+}): boolean {
+  return (
+    input.nextMessageCount !== input.previousMessageCount ||
+    input.hasPrependControl !== input.hadPrependControl
+  );
+}
+
 export function getAnchoredPrependScrollTop(input: {
   currentScrollTop: number;
   previousAnchorTop: number;

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getAnchoredPrependScrollTop,
   getWorkspaceManualScrollOwnership,
+  hasWorkspacePrependDomCommitted,
   isWorkspaceNearBottom,
   shouldRestoreWorkspacePrependAnchor,
   shouldFollowWorkspaceViewport,
@@ -82,5 +83,32 @@ describe("workspace viewport following", () => {
   it("does not restore a stale prepend anchor after user interaction", () => {
     expect(shouldRestoreWorkspacePrependAnchor(4, 4)).toBe(true);
     expect(shouldRestoreWorkspacePrependAnchor(4, 5)).toBe(false);
+  });
+
+  it("recognizes an explicit prepend DOM commit", () => {
+    expect(
+      hasWorkspacePrependDomCommitted({
+        previousMessageCount: 100,
+        nextMessageCount: 100,
+        hadPrependControl: true,
+        hasPrependControl: true,
+      })
+    ).toBe(false);
+    expect(
+      hasWorkspacePrependDomCommitted({
+        previousMessageCount: 100,
+        nextMessageCount: 150,
+        hadPrependControl: true,
+        hasPrependControl: true,
+      })
+    ).toBe(true);
+    expect(
+      hasWorkspacePrependDomCommitted({
+        previousMessageCount: 100,
+        nextMessageCount: 100,
+        hadPrependControl: true,
+        hasPrependControl: false,
+      })
+    ).toBe(true);
   });
 });

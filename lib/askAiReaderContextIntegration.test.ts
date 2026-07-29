@@ -139,6 +139,13 @@ describe("Ask AI reader context integration", () => {
     expect(viewportFollowHookSource).toContain("new MutationObserver");
     expect(viewportFollowHookSource).toContain("preservingPrependRef.current");
     expect(viewportFollowHookSource).toContain("findVisiblePrependAnchor");
+    expect(viewportFollowHookSource).toContain("waitForWorkspacePrependCommit");
+    expect(viewportFollowHookSource).toContain("prependCommitControllerRef");
+    expect(viewportFollowHookSource).toContain("controller.abort()");
+    expect(viewportFollowHookSource).toContain("thread.isConnected");
+    expect(viewportFollowHookSource).toContain("previousMessageCount");
+    expect(viewportFollowHookSource).toContain("childList: true");
+    expect(viewportFollowHookSource).toContain("subtree: true");
     expect(viewportFollowHookSource).toContain("interactionGenerationRef");
     expect(
       viewportFollowHookSource.match(
