@@ -1425,6 +1425,44 @@ test("invalid nested sheet removal removes its descendants without an empty fram
   await page.getByRole("button", { name: "删除这本书" }).click();
   await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
 
+  await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __invalidSheetFrameAudit?: {
+        frames: Array<{ hasActivePage: boolean; activePageEmpty: boolean }>;
+        stop: () => Array<{ hasActivePage: boolean; activePageEmpty: boolean }>;
+      };
+    };
+    const frames: Array<{
+      hasActivePage: boolean;
+      activePageEmpty: boolean;
+    }> = [];
+    let animationFrame = 0;
+    const sample = () => {
+      const panel = document.querySelector('[data-motion-sheet="panel"]');
+      if (panel) {
+        const activePage = panel.querySelector(
+          '[data-sheet-page-active="true"]'
+        );
+        frames.push({
+          hasActivePage: Boolean(activePage),
+          activePageEmpty: activePage
+            ? activePage.childElementCount === 0 &&
+              !(activePage.textContent ?? "").trim()
+            : true,
+        });
+      }
+      animationFrame = requestAnimationFrame(sample);
+    };
+    animationFrame = requestAnimationFrame(sample);
+    measuredWindow.__invalidSheetFrameAudit = {
+      frames,
+      stop: () => {
+        cancelAnimationFrame(animationFrame);
+        return frames;
+      },
+    };
+  });
+
   await page
     .locator('[data-sheet-route="book-delete"]')
     .getByRole("button", { name: "删除这本书", exact: true })
@@ -1432,6 +1470,23 @@ test("invalid nested sheet removal removes its descendants without an empty fram
   await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
   await expect(page.locator("[data-sheet-page]")).toHaveCount(0);
   await expect(page.locator("[data-sheet-route]")).toHaveCount(0);
+  const exitFrames = await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __invalidSheetFrameAudit?: {
+        stop: () => Array<{
+          hasActivePage: boolean;
+          activePageEmpty: boolean;
+        }>;
+      };
+    };
+    return measuredWindow.__invalidSheetFrameAudit?.stop() ?? [];
+  });
+  expect(exitFrames.length).toBeGreaterThan(0);
+  expect(
+    exitFrames.every(
+      (frame) => frame.hasActivePage && !frame.activePageEmpty
+    )
+  ).toBe(true);
 });
 
 test("renames a book from its action sheet and validates blank titles", async ({

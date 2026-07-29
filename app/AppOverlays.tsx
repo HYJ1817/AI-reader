@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, type ComponentProps } from "react";
+import { useEffect, useReducer } from "react";
 import AskAiPanel, { type AiConversationMessage } from "@/app/AskAiPanel";
 import MotionSheet, { type CloseSheet } from "@/app/MotionSheet";
 import {
@@ -15,10 +15,7 @@ import {
 } from "@/app/LibrarySheetPages";
 import { ReaderCustomSettingsPage } from "@/app/ReaderCustomSettingsPanel";
 import { ReaderSettingsPage } from "@/app/ReaderSettingsPanel";
-import {
-  ReadingGoalPage,
-  type ReadingGoalPageProps,
-} from "@/app/ReadingGoalSheet";
+import { ReadingGoalPage } from "@/app/ReadingGoalSheet";
 import { ReadingWorkspacePage } from "@/app/ReadingWorkspaceSheet";
 import SheetPageStack, {
   type SheetPageRenderControls,
@@ -202,26 +199,6 @@ const SHEET_PRESENTATIONS: Record<
   "collection-create": { ariaLabel: "新建藏书", showGrabber: true },
 };
 
-function BookRenameSheet(props: ComponentProps<typeof BookRenamePage>) {
-  return <BookRenamePage {...props} />;
-}
-
-function BookDeleteSheet(props: ComponentProps<typeof BookDeletePage>) {
-  return <BookDeletePage {...props} />;
-}
-
-/* Legacy source-test boundary for the extracted book-action page:
-   className={styles.bookActionSheet}
-   </BottomSheet> */
-
-function ReadingGoalSheet({
-  onClose,
-  ...props
-}: ReadingGoalPageProps & { onClose: () => void }) {
-  void onClose;
-  return <ReadingGoalPage {...props} />;
-}
-
 export default function AppOverlays({
   reader,
   library,
@@ -235,12 +212,26 @@ export default function AppOverlays({
     (_current: SheetEntry[], next: SheetEntry[]) => next,
     navigationState.sheets
   );
+  const [bookSnapshots, updateBookSnapshots] = useReducer(
+    (
+      current: Map<string, BookMetadata>,
+      update: BookMetadata[] | null
+    ) => {
+      if (update === null) return new Map<string, BookMetadata>();
+      const next = new Map(current);
+      for (const book of update) next.set(book.id, book);
+      return next;
+    },
+    library.books,
+    (books) => new Map(books.map((book) => [book.id, book]))
+  );
 
   useEffect(() => {
     if (navigationState.sheets.length > 0) {
       setVisualEntries(navigationState.sheets);
+      updateBookSnapshots(library.books);
     }
-  }, [navigationState.sheets]);
+  }, [library.books, navigationState.sheets]);
 
   const renderedEntries = navigationState.sheets.length > 0
     ? navigationState.sheets
@@ -268,7 +259,9 @@ export default function AppOverlays({
       ? controls.dismiss
       : controls.back;
     const sheetBook = entry.entityId
-      ? library.books.find((book) => book.id === entry.entityId) ?? null
+      ? library.books.find((book) => book.id === entry.entityId) ??
+        bookSnapshots.get(entry.entityId) ??
+        null
       : null;
     const close = closePage;
 
@@ -319,8 +312,6 @@ export default function AppOverlays({
             hasOlderMessages={workspace.hasOlderMessages}
             eligibleSkills={workspace.eligibleSkills}
             close={closePage}
-            onClose={navigation.dismissSheet}
-            className={styles.askBottomSheet}
           />
         );
       case "reading-workspace":
@@ -380,14 +371,13 @@ export default function AppOverlays({
         ) : null;
       case "reading-goal":
         return (
-          <ReadingGoalSheet
+          <ReadingGoalPage
             todayMinutes={reader.todayMinutes}
             targetMinutes={reader.targetMinutes}
             goalInputValue={reader.goalInputValue}
             onGoalInputChange={actions.setGoalInputValue}
             onSaveGoal={actions.saveGoal}
             close={closePage}
-            onClose={navigation.dismissSheet}
           />
         );
       case "book-actions":
@@ -417,7 +407,7 @@ export default function AppOverlays({
         ) : null;
       case "book-rename":
         return sheetBook ? (
-          <BookRenameSheet
+          <BookRenamePage
             book={sheetBook}
             onRename={actions.renameBook}
             close={closePage}
@@ -427,7 +417,7 @@ export default function AppOverlays({
         ) : null;
       case "book-delete":
         return sheetBook ? (
-          <BookDeleteSheet
+          <BookDeletePage
             book={sheetBook}
             onDelete={actions.deleteBook}
             close={closePage}
@@ -472,7 +462,9 @@ export default function AppOverlays({
   };
 
   const topBook = topSheet.entityId
-    ? library.books.find((book) => book.id === topSheet.entityId) ?? null
+    ? library.books.find((book) => book.id === topSheet.entityId) ??
+      bookSnapshots.get(topSheet.entityId) ??
+      null
     : null;
   const presentation: SheetPresentation = {
     ...SHEET_PRESENTATIONS[topSheet.route],
@@ -496,7 +488,10 @@ export default function AppOverlays({
         open={navigationState.sheets.length > 0}
         onRequestClose={navigation.dismissSheetStack}
         onExitComplete={() => {
-          if (navigation.getState().sheets.length === 0) setVisualEntries([]);
+          if (navigation.getState().sheets.length === 0) {
+            setVisualEntries([]);
+            updateBookSnapshots(null);
+          }
         }}
         ariaLabel={presentation.ariaLabel}
         className={presentation.className}
@@ -525,8 +520,6 @@ function AskAiPage({
   hasOlderMessages,
   eligibleSkills,
   close,
-  onClose,
-  className,
 }: {
   reader: AppOverlaysProps["reader"];
   actions: AppOverlaysProps["actions"];
@@ -534,11 +527,7 @@ function AskAiPage({
   hasOlderMessages: boolean;
   eligibleSkills: ReadingSkill[];
   close: CloseSheet;
-  onClose?: () => void;
-  className?: string;
 }) {
-  void onClose;
-  void className;
   return (
     <>
       <SheetHeader

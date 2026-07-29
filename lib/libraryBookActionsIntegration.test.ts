@@ -38,18 +38,18 @@ describe("library book progress presentation", () => {
 
 describe("book delete confirmation", () => {
   it("keeps single-book deletion in a separate navigation sheet route", () => {
-    const sheetStart = overlaysSource.indexOf(
-      "className={styles.bookActionSheet}"
-    );
-    const sheetEnd = overlaysSource.indexOf("</BottomSheet>", sheetStart);
-    const bookActionSheet = overlaysSource.slice(sheetStart, sheetEnd);
+    const sheetStart = overlaysSource.indexOf('case "book-actions"');
+    const sheetEnd = overlaysSource.indexOf('case "book-rename"', sheetStart);
+    const bookActionPage = overlaysSource.slice(sheetStart, sheetEnd);
 
     expect(sheetStart).toBeGreaterThanOrEqual(0);
     expect(sheetEnd).toBeGreaterThan(sheetStart);
-    expect(bookActionSheet).not.toContain("deleteConfirmBox");
-    expect(bookActionSheet).not.toContain("bookAction.deleteConfirmOpen ?");
+    expect(bookActionPage).toContain("<BookActionPage");
+    expect(bookActionPage).not.toContain("deleteConfirmBox");
+    expect(bookActionPage).not.toContain("bookAction.deleteConfirmOpen ?");
+    expect(overlaysSource).toContain("className: styles.bookActionSheet");
     expect(overlaysSource).toContain('case "book-delete"');
-    expect(overlaysSource).toContain("<BookDeleteSheet");
+    expect(overlaysSource).toContain("<BookDeletePage");
     expect(overlaysSource).not.toContain("bookAction.deleteConfirmOpen");
   });
 });

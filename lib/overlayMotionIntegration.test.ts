@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createSheetCloseRequestGuard,
+  shouldCommitSheetExit,
+} from "./sheetPresentationState";
 
 const bottomSheetSource = readFileSync(
   new URL("../app/BottomSheet.tsx", import.meta.url),
@@ -123,7 +127,7 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain('drag="y"');
     expect(motionSheetSource).toContain("dragControls");
     expect(motionSheetSource).toContain("shouldCompleteSheetDismiss");
-    expect(motionSheetSource).toContain("onExitComplete={finishClose}");
+    expect(motionSheetSource).toContain("setExitCommitGeneration");
     expect(motionSheetSource).toContain("useAppReducedMotion");
     expect(motionSheetSource).toContain("window.visualViewport");
     expect(motionSheetSource).toContain('viewport.addEventListener("resize"');
@@ -261,9 +265,14 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain("data-sheet-stack-depth={stackDepth}");
     expect(motionSheetSource).toContain("lifecycle.epoch");
     expect(motionSheetSource).toContain("animationGenerationRef.current += 1");
-    expect(motionSheetSource).toContain("exitCompletedRef.current");
-    expect(motionSheetSource).toContain("onExitCompleteRef.current?.()");
+    expect(motionSheetSource).toContain("completedExitGenerationRef.current");
+    expect(motionSheetSource).toContain("onExitComplete?.()");
     expect(motionSheetSource).toContain("reduceMotion ? reducedOpacity : progress");
+    expect(motionSheetSource).toContain("closeRequestGuardRef");
+    expect(motionSheetSource).toContain("exitCommitGeneration");
+    expect(motionSheetSource).not.toContain(
+      "onExitComplete={finishClose}"
+    );
     for (const route of [
       "reader-settings",
       "reader-custom-settings",
@@ -281,6 +290,71 @@ describe("overlay and nested view motion", () => {
     ]) {
       expect(overlaysSource).toContain(`"${route}":`);
     }
+  });
+
+  it("keeps the first close callback and rejects duplicate same-tick requests", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const onRequestClose = vi.fn();
+    const guard = createSheetCloseRequestGuard();
+    const requestClose = (callback: () => void) => {
+      if (!guard.request(callback)) return;
+      onRequestClose();
+    };
+
+    requestClose(first);
+    requestClose(second);
+    expect(onRequestClose).toHaveBeenCalledOnce();
+    guard.takeCallback()?.();
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
+    expect(guard.takeCallback()).toBeNull();
+
+    guard.reset();
+    expect(guard.request(second)).toBe(true);
+  });
+
+  it("commits an exit only for the current closed generation", () => {
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 3,
+      })
+    ).toBe(true);
+    expect(
+      shouldCommitSheetExit({
+        open: true,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 3,
+      })
+    ).toBe(false);
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 5,
+        completedGeneration: 3,
+      })
+    ).toBe(false);
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 4,
+      })
+    ).toBe(false);
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 5,
+      })
+    ).toBe(false);
   });
 
   it("promotes compositing only while the sheet is moving", () => {

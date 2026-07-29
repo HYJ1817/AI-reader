@@ -4325,7 +4325,6 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
   pointer-events: none;
-  /* Runtime-owned during motion; legacy contract: will-change: opacity; */
 }
 
 .bottomSheet {
@@ -4349,7 +4348,6 @@
 
 .motionSheetPanel {
   touch-action: pan-y;
-  /* Runtime-owned during motion; legacy contract: will-change: transform; */
 }
 
 .sheetDragHandle {

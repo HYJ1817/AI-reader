@@ -73,8 +73,9 @@ describe("motion CSS", () => {
     const readerShellRule = css.slice(readerShellStart, readerShellEnd);
     expect(readerShellRule).not.toMatch(/(?:opacity|transform)\s+var\(--motion-navigation\)/);
     expect(motionSheetSource).toContain("MOTION_SPRING.sheet");
-    expect(motionSheetSource).toContain("MOTION_DURATION.sheetExit");
-    expect(motionSheetSource).toContain("ease: [0.32, 0.72, 0, 1]");
+    expect(motionSheetSource).toContain(
+      'getRoleTransition("sheet-exit", false)'
+    );
     expect(motionSheetSource).toContain("useAppReducedMotion");
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.app,[\s\S]*?transition-duration:\s*0\.001ms !important;/s
@@ -125,13 +126,9 @@ describe("motion CSS", () => {
     expect(pageSource).not.toContain("readerPrefsMotionTimerRef");
     expect(pageSource).not.toContain("readerPreferencesAdjusting");
     const willChangeDeclarations = css.match(/will-change:\s*[^;]+;/g) ?? [];
-    expect([...willChangeDeclarations].sort()).toEqual(
-      [
-        "will-change: opacity;",
-        "will-change: transform;",
-        "will-change: transform;",
-      ].sort()
-    );
+    expect([...willChangeDeclarations].sort()).toEqual([
+      "will-change: transform;",
+    ]);
     const swipeStart = css.indexOf(".readerSwipeTracking {");
     const swipeEnd = css.indexOf("}", swipeStart);
     expect(css.slice(swipeStart, swipeEnd)).toContain("will-change: transform;");
@@ -145,13 +142,13 @@ describe("motion CSS", () => {
     const backdropStart = css.indexOf(".motionSheetBackdrop {");
     const backdropEnd = css.indexOf("}", backdropStart);
     const backdropRule = css.slice(backdropStart, backdropEnd);
-    expect(backdropRule).toContain("will-change: opacity;");
+    expect(backdropRule).not.toContain("will-change");
     expect(backdropRule).not.toMatch(/(?:filter|backdrop-filter|transform):/);
 
     const panelStart = css.indexOf(".motionSheetPanel {");
     const panelEnd = css.indexOf("}", panelStart);
     const panelRule = css.slice(panelStart, panelEnd);
-    expect(panelRule).toContain("will-change: transform;");
+    expect(panelRule).not.toContain("will-change");
     expect(panelRule).not.toMatch(
       /(?:top|left|right|bottom|width|height|filter|backdrop-filter):/
     );
@@ -159,6 +156,12 @@ describe("motion CSS", () => {
     expect(css).not.toContain("--sheet-backdrop-opacity");
     expect(css).not.toContain(".sheetOverlay::before");
     expect(css).not.toContain(".motionSheetOverlay::before");
+    expect(motionSheetSource).toContain(
+      'willChange: isAnimating ? "opacity" : "auto"'
+    );
+    expect(motionSheetSource).toContain(
+      'willChange: isAnimating ? "transform" : "auto"'
+    );
   });
 
   it("uses persistent tab surfaces instead of display switching or mount fades", () => {

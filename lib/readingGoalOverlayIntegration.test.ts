@@ -65,7 +65,7 @@ describe("reading goal motion sheet", () => {
 describe("reading goal orchestration", () => {
   const goalMount =
     overlaysSource.match(
-      /case "reading-goal":[\s\S]*?<ReadingGoalSheet[\s\S]*?\/>/
+      /case "reading-goal":[\s\S]*?<ReadingGoalPage[\s\S]*?\/>/
     )?.[0] ?? "";
 
   it("keeps the goal overlay mounted through AppOverlays", () => {
@@ -76,7 +76,13 @@ describe("reading goal orchestration", () => {
       "onGoalInputChange={actions.setGoalInputValue}"
     );
     expect(goalMount).toContain("onSaveGoal={actions.saveGoal}");
-    expect(goalMount).toContain("onClose={navigation.dismissSheet}");
+    expect(goalMount).toContain("close={closePage}");
+    expect(overlaysSource).toContain(
+      'topSheet.route === "reading-goal"'
+    );
+    expect(overlaysSource).toContain(
+      "actions.setGoalInputValue(reader.targetMinutes)"
+    );
   });
 
   it("does not pass obsolete goal-only props", () => {

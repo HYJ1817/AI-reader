@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -29,6 +30,10 @@ import {
   shouldCompleteSheetDismiss,
 } from "@/lib/navigationGestures";
 import { MOTION_SPRING, getRoleTransition } from "@/lib/motionSystem";
+import {
+  createSheetCloseRequestGuard,
+  shouldCommitSheetExit,
+} from "@/lib/sheetPresentationState";
 import { useAppMotionLifecycle, useAppReducedMotion } from "./AppMotionRoot";
 import styles from "./page.module.css";
 
@@ -45,10 +50,6 @@ export type MotionSheetProps = {
   showGrabber?: boolean;
   initialFocusRef?: RefObject<HTMLElement | null>;
   onBeforeClose?: () => void;
-};
-
-type SheetCloseRequest = {
-  afterClose: (() => void) | null;
 };
 
 type SheetPresentationMotion = {
@@ -143,8 +144,8 @@ export default function MotionSheet({
     (_current: boolean, next: boolean) => next,
     open
   );
-  const [closeRequest, setCloseRequest] = useReducer(
-    (_current: SheetCloseRequest | null, next: SheetCloseRequest | null) => next,
+  const [exitCommitGeneration, setExitCommitGeneration] = useReducer(
+    (_current: number | null, next: number | null) => next,
     null
   );
   const [sheetHeight, setSheetHeight] = useState(() =>
@@ -169,11 +170,12 @@ export default function MotionSheet({
   const dragControls = useDragControls();
   const activeAnimationRef = useRef<AnimationPlaybackControls | null>(null);
   const animationGenerationRef = useRef(0);
+  const exitGenerationRef = useRef(0);
+  const completedExitGenerationRef = useRef(0);
   const exitRequestedRef = useRef(!open);
-  const exitCompletedRef = useRef(false);
   const beforeCloseCalledRef = useRef(false);
+  const closeRequestGuardRef = useRef(createSheetCloseRequestGuard());
   const openRef = useRef(open);
-  const onExitCompleteRef = useRef(onExitComplete);
   const lifecycleEpochRef = useRef(lifecycle.epoch);
   const lastHandledOpenRef = useRef<boolean | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -233,14 +235,14 @@ export default function MotionSheet({
     },
     [reduceMotion, reducedOpacity, y]
   );
-  // Full-motion exit timing is MOTION_DURATION.sheetExit with
-  // ease: [0.32, 0.72, 0, 1], centralized by getRoleTransition.
-
   const interruptClose = useCallback(() => {
     animationGenerationRef.current += 1;
+    exitGenerationRef.current += 1;
     activeAnimationRef.current?.stop();
     activeAnimationRef.current = null;
     exitRequestedRef.current = false;
+    closeRequestGuardRef.current.reset();
+    setExitCommitGeneration(null);
     setIsAnimating(false);
   }, []);
 
@@ -341,31 +343,33 @@ export default function MotionSheet({
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     openRef.current = open;
-    onExitCompleteRef.current = onExitComplete;
-  }, [onExitComplete, open]);
+  }, [open]);
 
   const beginExit = useCallback(() => {
     if (exitRequestedRef.current) return;
+    const exitGeneration = exitGenerationRef.current + 1;
+    exitGenerationRef.current = exitGeneration;
     exitRequestedRef.current = true;
-    exitCompletedRef.current = false;
     if (!beforeCloseCalledRef.current) {
       beforeCloseCalledRef.current = true;
       onBeforeClose?.();
     }
     const viewportHeight = Math.max(sheetHeight, window.innerHeight);
-    runAnimation(viewportHeight, "close", () => setPresent(false));
+    runAnimation(viewportHeight, "close", () => {
+      if (exitGenerationRef.current !== exitGeneration) return;
+      setPresent(false);
+      setExitCommitGeneration(exitGeneration);
+    });
   }, [onBeforeClose, runAnimation, sheetHeight]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (lastHandledOpenRef.current === open) return;
     lastHandledOpenRef.current = open;
     if (open) {
       interruptClose();
-      exitCompletedRef.current = false;
       beforeCloseCalledRef.current = false;
-      setCloseRequest(null);
       setPresent(true);
       runAnimation(0, "settle");
       return;
@@ -375,29 +379,42 @@ export default function MotionSheet({
 
   useEffect(() => () => {
     animationGenerationRef.current += 1;
+    exitGenerationRef.current += 1;
     activeAnimationRef.current?.stop();
   }, []);
 
   const close = useCallback<CloseSheet>((nextAfterClose) => {
-    if (!open || closeRequest) return;
-    setCloseRequest({ afterClose: nextAfterClose ?? null });
-    onRequestClose();
-  }, [closeRequest, onRequestClose, open]);
-
-  const finishClose = useCallback(() => {
     if (
-      openRef.current ||
-      !exitRequestedRef.current ||
-      exitCompletedRef.current
+      !open ||
+      !closeRequestGuardRef.current.request(nextAfterClose)
     ) {
       return;
     }
-    exitCompletedRef.current = true;
-    const callback = closeRequest?.afterClose ?? null;
-    setCloseRequest(null);
+    onRequestClose();
+  }, [onRequestClose, open]);
+
+  useLayoutEffect(() => {
+    if (exitCommitGeneration === null) return;
+    if (
+      !shouldCommitSheetExit({
+        open,
+        requestedGeneration: exitCommitGeneration,
+        currentGeneration: exitGenerationRef.current,
+        completedGeneration: completedExitGenerationRef.current,
+      })
+    ) {
+      if (open) {
+        closeRequestGuardRef.current.reset();
+        setExitCommitGeneration(null);
+      }
+      return;
+    }
+
+    completedExitGenerationRef.current = exitCommitGeneration;
+    const callback = closeRequestGuardRef.current.takeCallback();
     callback?.();
-    onExitCompleteRef.current?.();
-  }, [closeRequest]);
+    onExitComplete?.();
+  }, [exitCommitGeneration, onExitComplete, open]);
 
   useEffect(() => {
     if (lifecycleEpochRef.current === lifecycle.epoch) return;
@@ -408,9 +425,15 @@ export default function MotionSheet({
     setIsAnimating(false);
 
     if (exitRequestedRef.current || !openRef.current) {
+      const exitGeneration = exitRequestedRef.current
+        ? exitGenerationRef.current
+        : exitGenerationRef.current + 1;
+      exitGenerationRef.current = exitGeneration;
+      exitRequestedRef.current = true;
       y.set(Math.max(sheetHeight, window.innerHeight));
       reducedOpacity.set(0);
       setPresent(false);
+      setExitCommitGeneration(exitGeneration);
       return;
     }
     y.set(0);
@@ -480,8 +503,8 @@ export default function MotionSheet({
 
   return (
     <SheetPresentationContext.Provider value={presentationMotion}>
-      <AnimatePresence initial={false} onExitComplete={finishClose}>
-        {present && (
+      <AnimatePresence initial={false}>
+        {(open || present) && (
           <m.div
             key="motion-sheet"
             className={styles.sheetOverlay}
@@ -549,6 +572,8 @@ export default function MotionSheet({
                   <div className={styles.sheetGrabber} />
                 </div>
               )}
+              {/* The render prop receives an event callback; it does not invoke it during render. */}
+              {/* eslint-disable-next-line react-hooks/refs */}
               {typeof children === "function" ? children(close) : children}
             </m.div>
           </m.div>

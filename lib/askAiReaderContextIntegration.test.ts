@@ -71,7 +71,10 @@ describe("Ask AI reader context integration", () => {
     expect(workspaceConversationSource).not.toContain("bookTitle");
     expect(messagesIndex).toBeGreaterThanOrEqual(0);
     expect(inputIndex).toBeGreaterThan(messagesIndex);
-    expect(overlaysSource).toContain("className={styles.askBottomSheet}");
+    expect(overlaysSource).toContain(
+      '"ask-ai": {'
+    );
+    expect(overlaysSource).toContain("className: styles.askBottomSheet");
     expect(cssSource).toContain(".askBottomSheet .sheetBody");
     expect(cssSource).toContain(".workspaceConversationThread");
     expect(cssSource).toContain("overflow-y: auto");
@@ -82,7 +85,7 @@ describe("Ask AI reader context integration", () => {
   it("opens Ask AI through the navigation sheet route", () => {
     expect(pageSource).toContain('navigation.presentSheet("ask-ai")');
     expect(overlaysSource).toContain('case "ask-ai"');
-    expect(overlaysSource).toContain("onClose={navigation.dismissSheet}");
+    expect(overlaysSource).toContain("close={closePage}");
     expect(pageSource).not.toContain("setAskSheetOpen");
   });
 
@@ -90,7 +93,9 @@ describe("Ask AI reader context integration", () => {
     expect(overlaysSource).toContain("reader.bookId");
     expect(overlaysSource).toContain("UI_TEXT.READING_WORKSPACE");
     expect(overlaysSource).toContain("openReadingWorkspace(bookId)");
-    expect(overlaysSource).toContain("close(() =>");
+    expect(pageSource).toContain(
+      'navigation.replaceSheet("reading-workspace", { entityId: bookId })'
+    );
   });
 
   it("clears submitted input and sends prior messages plus current reader text", () => {
