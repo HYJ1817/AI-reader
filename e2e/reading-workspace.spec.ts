@@ -255,8 +255,12 @@ test("long history pages without scroll jumps and long content is explicit", asy
   ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(
     chunksBeforePrepend + 2
   );
-  const after = await reopened.locator(`[data-workspace-message-id="${firstId}"]`).boundingBox();
-  expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(1);
+  await expect.poll(async () => {
+    const after = await reopened
+      .locator(`[data-workspace-message-id="${firstId}"]`)
+      .boundingBox();
+    return Math.abs((after?.y ?? 0) - (before?.y ?? 0));
+  }).toBeLessThanOrEqual(1);
   await expect(loadOlder).toHaveCount(1);
   const pendingUserScrollTop = await page.evaluate(() => {
     const workspace = document.querySelector<HTMLElement>(
