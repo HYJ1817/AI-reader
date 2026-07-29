@@ -8,7 +8,7 @@ import type {
   WorkspaceSessionRecord,
 } from "@/lib/readingWorkspace";
 import { UI_TEXT } from "@/lib/uiText";
-import BottomSheet from "./BottomSheet";
+import BottomSheet, { type CloseSheet } from "./BottomSheet";
 import WorkspaceConversation from "./WorkspaceConversation";
 import WorkspaceMaterials from "./WorkspaceMaterials";
 import styles from "./page.module.css";
@@ -33,7 +33,29 @@ export type ReadingWorkspaceSheetProps = {
   materials: ComponentProps<typeof WorkspaceMaterials>;
 };
 
+export type ReadingWorkspacePageProps = Omit<
+  ReadingWorkspaceSheetProps,
+  "onClose"
+> & {
+  close: CloseSheet;
+};
+
 export default function ReadingWorkspaceSheet({
+  onClose,
+  ...pageProps
+}: ReadingWorkspaceSheetProps) {
+  return (
+    <BottomSheet
+      onClose={onClose}
+      ariaLabel={`${UI_TEXT.READING_WORKSPACE} · ${pageProps.book.title}`}
+      className={styles.readingWorkspaceSheet}
+    >
+      {(close) => <ReadingWorkspacePage {...pageProps} close={close} />}
+    </BottomSheet>
+  );
+}
+
+export function ReadingWorkspacePage({
   book,
   workspace,
   sessions,
@@ -45,23 +67,17 @@ export default function ReadingWorkspaceSheet({
   onNewSession,
   canCompactConversation,
   onCompactConversation,
-  onClose,
+  close,
   conversation,
   materials,
-}: ReadingWorkspaceSheetProps) {
+}: ReadingWorkspacePageProps) {
   const [view, setView] = useState<"conversation" | "materials">(
     "conversation"
   );
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
 
   return (
-    <BottomSheet
-      onClose={onClose}
-      ariaLabel={`${UI_TEXT.READING_WORKSPACE} · ${book.title}`}
-      className={styles.readingWorkspaceSheet}
-    >
-      {(close) => (
-        <div
+    <div
           className={styles.workspaceShell}
           data-workspace-id={workspace?.id ?? undefined}
         >
@@ -192,8 +208,6 @@ export default function ReadingWorkspaceSheet({
               </div>
             )}
           </div>
-        </div>
-      )}
-    </BottomSheet>
+    </div>
   );
 }

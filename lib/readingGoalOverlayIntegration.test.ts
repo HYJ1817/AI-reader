@@ -15,6 +15,16 @@ const pageSource = readFileSync(
 );
 
 describe("reading goal motion sheet", () => {
+  it("exports a reusable content-only goal page", () => {
+    const goalPageSource = goalSource.slice(
+      goalSource.indexOf("export function ReadingGoalPage")
+    );
+
+    expect(goalSource).toContain("export function ReadingGoalPage");
+    expect(goalPageSource).not.toContain("<BottomSheet");
+    expect(goalPageSource).toContain('data-sheet-autofocus="true"');
+  });
+
   it("uses the shared MotionSheet contract and the minute wheel", () => {
     expect(goalSource).toContain('import BottomSheet, { type CloseSheet } from "./BottomSheet"');
     expect(goalSource).toContain("<BottomSheet");
@@ -40,7 +50,7 @@ describe("reading goal motion sheet", () => {
     expect(goalSource).toMatch(
       /function saveTarget\(\)[\s\S]*onSaveGoal\(\);[\s\S]*setEditingTarget\(false\);/
     );
-    expect(goalSource).toContain("onClick={() => closeSheet()}");
+    expect(goalSource).toContain("onClick={() => close()}");
     expect(goalSource).not.toContain("handleDialogKeyDown");
   });
 

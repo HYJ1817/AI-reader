@@ -49,6 +49,10 @@ type Props = {
 
 const TOC_RENDER_BATCH = 60;
 
+export type TocPageProps = Omit<Props, "onClose"> & {
+  close: CloseSheet;
+};
+
 function formatAnnotationMeta(record: AnnotationRecord): string {
   const location = record.pageNumber
     ? `第 ${record.pageNumber} 页`
@@ -121,7 +125,19 @@ const ChapterContents = memo(function ChapterContents({
   );
 });
 
-export default function TocDrawer({
+export default function TocDrawer({ onClose, ...pageProps }: Props) {
+  return (
+    <BottomSheet
+      onClose={onClose}
+      className={styles.tocSheet}
+      ariaLabel="目录与标记"
+    >
+      {(close) => <TocPage {...pageProps} close={close} />}
+    </BottomSheet>
+  );
+}
+
+export function TocPage({
   items,
   bookmarks,
   highlights,
@@ -132,8 +148,8 @@ export default function TocDrawer({
   onToggleBookmark,
   onSelectAnnotation,
   onDeleteAnnotation,
-  onClose,
-}: Props) {
+  close,
+}: TocPageProps) {
   const reduceMotion = useAppReducedMotion();
   const flatItems = useMemo(() => flattenEpubNavigation(items), [items]);
   const [activeTab, setActiveTab] =
@@ -370,9 +386,7 @@ export default function TocDrawer({
   };
 
   return (
-    <BottomSheet onClose={onClose} className={styles.tocSheet} ariaLabel="目录与标记">
-      {(close) => (
-        <>
+    <>
           <div className={styles.tocHeader}>
             <div className={styles.tocHeaderText}>
               <h2 className={styles.tocHeaderTitle}>{bookTitle || "目录与标记"}</h2>
@@ -441,8 +455,6 @@ export default function TocDrawer({
               </section>
             ))}
           </div>
-        </>
-      )}
-    </BottomSheet>
+    </>
   );
 }

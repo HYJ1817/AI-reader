@@ -29,12 +29,58 @@ const readerSettingsSource = readFileSync(
   new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
   "utf8"
 );
+const readingWorkspaceSource = readFileSync(
+  new URL("../app/ReadingWorkspaceSheet.tsx", import.meta.url),
+  "utf8"
+);
+const librarySheetPagesUrl = new URL(
+  "../app/LibrarySheetPages.tsx",
+  import.meta.url
+);
+const librarySheetPagesSource = existsSync(librarySheetPagesUrl)
+  ? readFileSync(librarySheetPagesUrl, "utf8")
+  : "";
 const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
 
 describe("overlay and nested view motion", () => {
+  it("extracts reusable content-only workspace and library sheet pages", () => {
+    const workspacePageSource = readingWorkspaceSource.slice(
+      readingWorkspaceSource.indexOf("export function ReadingWorkspacePage")
+    );
+
+    expect(readingWorkspaceSource).toContain(
+      "export function ReadingWorkspacePage"
+    );
+    expect(workspacePageSource).not.toContain("<BottomSheet");
+    for (const page of [
+      "BatchDeletePage",
+      "BatchGroupPage",
+      "BookActionPage",
+      "BookDeletePage",
+      "BookGroupPage",
+      "BookRenamePage",
+      "CollectionCreatePage",
+    ]) {
+      expect(librarySheetPagesSource).toContain(`function ${page}`);
+      expect(librarySheetPagesSource).toMatch(
+        new RegExp(`export \\{[\\s\\S]*?\\b${page}\\b[\\s\\S]*?\\};`)
+      );
+    }
+    expect(librarySheetPagesSource).not.toContain("<BottomSheet");
+    expect(librarySheetPagesSource).toContain(
+      "inputRef.current?.focus({ preventScroll: true })"
+    );
+    expect(librarySheetPagesSource).toContain(
+      'data-sheet-autofocus="true"'
+    );
+    expect(overlaysSource).toContain("<BookActionPage");
+    expect(overlaysSource).toContain("<BookRenamePage");
+    expect(overlaysSource).toContain("<CollectionCreatePage");
+  });
+
   it("adapts the legacy sheet contract to one interruptible Motion owner", () => {
     expect(bottomSheetSource).toContain('import MotionSheet from "./MotionSheet"');
     expect(bottomSheetSource).toContain("return <MotionSheet {...props} />");

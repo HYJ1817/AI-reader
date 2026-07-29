@@ -8,7 +8,7 @@ import {
   type ReaderPreferences,
 } from "@/lib/readerPreferences";
 import { UI_TEXT } from "@/lib/uiText";
-import BottomSheet from "./BottomSheet";
+import BottomSheet, { type CloseSheet } from "./BottomSheet";
 import styles from "./page.module.css";
 
 type Props = {
@@ -79,11 +79,34 @@ const FONT_STYLE: Record<ReaderPreferences["fontFamily"], CSSProperties["fontFam
   serif: '"Songti SC", "STSong", "Noto Serif CJK SC", serif',
 };
 
-export default function ReaderCustomSettingsPanel({
+export type ReaderCustomSettingsPageProps = Omit<Props, "onClose"> & {
+  close: CloseSheet;
+};
+
+export default function ReaderCustomSettingsPanel(props: Props) {
+  return (
+    <BottomSheet
+      onClose={props.onClose}
+      ariaLabel="自定义设置"
+      className={styles.readerCustomSettingsSheet}
+      showGrabber={false}
+    >
+      {(close) => (
+        <ReaderCustomSettingsPage
+          preferences={props.preferences}
+          onChange={props.onChange}
+          close={close}
+        />
+      )}
+    </BottomSheet>
+  );
+}
+
+export function ReaderCustomSettingsPage({
   preferences,
   onChange,
-  onClose,
-}: Props) {
+  close,
+}: ReaderCustomSettingsPageProps) {
   const [draft, setDraft] = useState(preferences);
   const draftRef = useRef(preferences);
   const committedRef = useRef(preferences);
@@ -163,14 +186,7 @@ export default function ReaderCustomSettingsPanel({
   };
 
   return (
-    <BottomSheet
-      onClose={onClose}
-      ariaLabel="自定义设置"
-      className={styles.readerCustomSettingsSheet}
-      showGrabber={false}
-    >
-      {(close) => (
-        <>
+    <>
           <div className={styles.readerCustomHeader}>
             <button onClick={() => close()} title={UI_TEXT.CLOSE} aria-label={UI_TEXT.CLOSE}>
               <svg width="25" height="25" viewBox="0 0 25 25" fill="none" stroke="currentColor" strokeWidth="2">
@@ -297,9 +313,7 @@ export default function ReaderCustomSettingsPanel({
               还原主题
             </button>
           </div>
-        </>
-      )}
-    </BottomSheet>
+    </>
   );
 }
 
