@@ -288,6 +288,7 @@ export function ReaderSettingsPage({
               <button
                 className={styles.readerCustomEntryButton}
                 onClick={onOpenCustomSettings}
+                data-sheet-return-focus="reader-custom-settings"
               >
                 <span className={styles.readerCustomGearIcon} aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

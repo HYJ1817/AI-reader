@@ -34,6 +34,7 @@ export type SheetPageRenderControls = {
 export type SheetPageStackProps = {
   entries: SheetEntry[];
   direction: NavigationDirection;
+  focusGeneration: number;
   renderPage: (
     entry: SheetEntry,
     controls: SheetPageRenderControls
@@ -51,6 +52,7 @@ type PresenceContext = {
 type PendingBack = {
   key: string;
   generation: number;
+  lifecycleEpoch: number;
   afterBack?: () => void;
 };
 
@@ -73,11 +75,13 @@ type MeasuredSheetPageProps = {
   initialTarget: { opacity: number; x: number };
   isRoot: boolean;
   presenceContext: PresenceContext;
+  focusGeneration: number;
   renderPage: SheetPageStackProps["renderPage"];
   target: { opacity: number; x: number };
   onAnimationComplete: (
     entryKey: string,
     didExit: boolean,
+    focusGeneration: number,
     lifecycleEpoch: number
   ) => void;
   onBackRequest: (
@@ -132,6 +136,7 @@ function MeasuredSheetPage({
   initialTarget,
   isRoot,
   presenceContext,
+  focusGeneration,
   renderPage,
   target,
   onAnimationComplete,
@@ -144,6 +149,7 @@ function MeasuredSheetPage({
   const isPresent = useIsPresent();
   const isActive = active && isPresent;
   const activeMeasurementRef = useRef(isActive);
+  const animationFocusGenerationRef = useRef(focusGeneration);
   const animationEpochRef = useRef(presenceContext.lifecycleEpoch);
   const { reduceMotion } = presenceContext;
 
@@ -200,15 +206,26 @@ function MeasuredSheetPage({
       exit="exit"
       transition={getRoleTransition("push-enter", reduceMotion)}
       onAnimationStart={() => {
+        animationFocusGenerationRef.current = focusGeneration;
         animationEpochRef.current = presenceContext.lifecycleEpoch;
       }}
       onAnimationComplete={(definition) => {
         if (definition === "exit") {
-          onAnimationComplete(entryKey, true, animationEpochRef.current);
+          onAnimationComplete(
+            entryKey,
+            true,
+            animationFocusGenerationRef.current,
+            animationEpochRef.current
+          );
           return;
         }
         if (isActive) {
-          onAnimationComplete(entryKey, false, animationEpochRef.current);
+          onAnimationComplete(
+            entryKey,
+            false,
+            animationFocusGenerationRef.current,
+            animationEpochRef.current
+          );
         }
       }}
       data-sheet-page
@@ -233,6 +250,7 @@ function MeasuredSheetPage({
 export default function SheetPageStack({
   entries,
   direction,
+  focusGeneration,
   renderPage,
   onBack,
   dismiss,
@@ -241,6 +259,13 @@ export default function SheetPageStack({
   const lifecycle = useAppMotionLifecycle();
   const presentationMotion = useSheetPresentationMotion();
   const keyboardVisible = presentationMotion?.keyboardVisible ?? false;
+  const entryKeys = useMemo(() => entries.map((entry) => entry.key), [entries]);
+  const entryTokens = useMemo(
+    () => entries.map((entry) => JSON.stringify(entry)),
+    [entries]
+  );
+  const intentSignature = JSON.stringify(entryTokens);
+  const activeEntryKey = entryKeys[entryKeys.length - 1];
   const heightsRef = useRef(new Map<string, number>());
   const pageElementsRef = useRef(new Map<string, HTMLDivElement>());
   const [heightSnapshot, bumpHeightVersion] = useReducer(
@@ -259,13 +284,14 @@ export default function SheetPageStack({
   const intentGenerationRef = useRef(0);
   const pendingBackRef = useRef<PendingBack | null>(null);
   const pendingReturnFocusRef = useRef<PendingReturnFocus | null>(null);
+  const previousKeyboardVisibleRef = useRef(keyboardVisible);
   const mountedRef = useRef(true);
   const lastMeasuredActiveHeightRef = useRef<number | undefined>(undefined);
   const activeEntryKeyRef = useRef<string | undefined>(entries[entries.length - 1]?.key);
   const currentEntryKeysRef = useRef(new Set(entries.map((entry) => entry.key)));
   const focusGuardRef = useRef({
-    key: entries[entries.length - 1]?.key ?? "",
-    generation: 0,
+    key: activeEntryKey ?? "",
+    generation: focusGeneration,
     lifecycleEpoch: lifecycle.epoch,
   });
   const lastFocusedGenerationRef = useRef(-1);
@@ -275,13 +301,6 @@ export default function SheetPageStack({
     false
   );
 
-  const entryKeys = useMemo(() => entries.map((entry) => entry.key), [entries]);
-  const entryTokens = useMemo(
-    () => entries.map((entry) => JSON.stringify(entry)),
-    [entries]
-  );
-  const intentSignature = JSON.stringify(entryTokens);
-  const activeEntryKey = entryKeys[entryKeys.length - 1];
   const previousIntentRef = useRef<IntentSnapshot>({
     direction,
     entryKeys,
@@ -329,7 +348,7 @@ export default function SheetPageStack({
 
       focusGuardRef.current = {
         key: activeEntryKey ?? "",
-        generation: focusGuardRef.current.generation + 1,
+        generation: focusGeneration,
         lifecycleEpoch: lifecycle.epoch,
       };
       lastFocusedGenerationRef.current = -1;
@@ -343,6 +362,7 @@ export default function SheetPageStack({
     direction,
     entryKeys,
     entryTokens,
+    focusGeneration,
     intentSignature,
     lifecycle.epoch,
   ]);
@@ -394,17 +414,17 @@ export default function SheetPageStack({
 
   const focusActivePage = useCallback((
     entryKey: string,
-    generation: number,
+    focusGeneration: number,
     lifecycleEpoch: number
   ) => {
     const guard = focusGuardRef.current;
     if (
       guard.key !== entryKey ||
-      guard.generation !== generation ||
+      guard.generation !== focusGeneration ||
       guard.lifecycleEpoch !== lifecycleEpoch ||
       lifecycleEpoch !== lifecycle.epoch ||
       !hasMountedRef.current ||
-      lastFocusedGenerationRef.current === generation
+      lastFocusedGenerationRef.current === focusGeneration
     ) {
       return;
     }
@@ -417,7 +437,7 @@ export default function SheetPageStack({
       if (keyboardVisible) {
         element.scrollIntoView({ block: "nearest" });
       }
-      lastFocusedGenerationRef.current = generation;
+      lastFocusedGenerationRef.current = focusGeneration;
     };
 
     const pendingReturnFocus = pendingReturnFocusRef.current;
@@ -440,7 +460,7 @@ export default function SheetPageStack({
       typeof document !== "undefined" &&
       activePage.contains(document.activeElement)
     ) {
-      lastFocusedGenerationRef.current = generation;
+      lastFocusedGenerationRef.current = focusGeneration;
       return;
     }
 
@@ -462,27 +482,51 @@ export default function SheetPageStack({
     if (keyboardVisible) {
       activePage.scrollIntoView({ block: "nearest" });
     }
-    lastFocusedGenerationRef.current = generation;
+    lastFocusedGenerationRef.current = focusGeneration;
   }, [keyboardVisible, lifecycle.epoch]);
 
+  const completePendingBack = useCallback((pending: PendingBack) => {
+    if (pendingBackRef.current !== pending) return;
+    pendingBackRef.current = null;
+    pending.afterBack?.();
+  }, []);
+
   const finishPageAnimation = useCallback(
-    (entryKey: string, didExit: boolean, animationLifecycleEpoch: number) => {
-      if (animationLifecycleEpoch !== lifecycle.epoch) return;
+    (
+      entryKey: string,
+      didExit: boolean,
+      animationFocusGeneration: number,
+      animationLifecycleEpoch: number
+    ) => {
+      if (animationLifecycleEpoch !== lifecycle.epoch) {
+        const pending = pendingBackRef.current;
+        if (
+          didExit &&
+          pending?.key === entryKey &&
+          pending.lifecycleEpoch !== lifecycle.epoch &&
+          !currentEntryKeysRef.current.has(pending.key)
+        ) {
+          completePendingBack(pending);
+        }
+        return;
+      }
       if (didExit) {
         const pending = pendingBackRef.current;
         if (!pending || pending.key !== entryKey) return;
         if (pending.generation !== intentGenerationRef.current) return;
         if (currentEntryKeysRef.current.has(entryKey)) return;
 
-        pendingBackRef.current = null;
-        pending.afterBack?.();
+        completePendingBack(pending);
         return;
       }
 
-      const guard = focusGuardRef.current;
-      focusActivePage(entryKey, guard.generation, animationLifecycleEpoch);
+      focusActivePage(
+        entryKey,
+        animationFocusGeneration,
+        animationLifecycleEpoch
+      );
     },
-    [focusActivePage, lifecycle.epoch]
+    [completePendingBack, focusActivePage, lifecycle.epoch]
   );
 
   const requestBack = useCallback(
@@ -493,6 +537,7 @@ export default function SheetPageStack({
       pendingBackRef.current = {
         key: entryKey,
         generation: intentGenerationRef.current,
+        lifecycleEpoch: lifecycle.epoch,
         afterBack,
       };
       pendingReturnFocusRef.current = {
@@ -502,8 +547,35 @@ export default function SheetPageStack({
       if (mountedRef.current) markEmptyExitComplete(false);
       onBack();
     },
-    [onBack]
+    [lifecycle.epoch, onBack]
   );
+
+  useLayoutEffect(() => {
+    const pending = pendingBackRef.current;
+    if (
+      pending &&
+      pending.lifecycleEpoch !== lifecycle.epoch &&
+      !entryKeys.includes(pending.key)
+    ) {
+      completePendingBack(pending);
+    }
+  }, [completePendingBack, entryKeys, intentSignature, lifecycle.epoch]);
+
+  useLayoutEffect(() => {
+    const keyboardBecameVisible =
+      !previousKeyboardVisibleRef.current && keyboardVisible;
+    previousKeyboardVisibleRef.current = keyboardVisible;
+    if (!keyboardBecameVisible || !activeEntryKey) return;
+
+    const activePage = pageElementsRef.current.get(activeEntryKey);
+    if (
+      activePage &&
+      document.activeElement instanceof HTMLElement &&
+      activePage.contains(document.activeElement)
+    ) {
+      document.activeElement.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeEntryKey, keyboardVisible]);
 
   const activeHeight = activeEntryKey
     ? heightSnapshot.values.get(activeEntryKey)
@@ -533,7 +605,7 @@ export default function SheetPageStack({
       transition={heightTransition}
     >
       <AnimatePresence
-        initial={false}
+        initial={true}
         mode="sync"
         custom={presenceContext}
         onExitComplete={() => {
@@ -554,12 +626,17 @@ export default function SheetPageStack({
               dismiss={dismiss}
               isRoot={index === 0}
               presenceContext={presenceContext}
+              focusGeneration={focusGeneration}
               renderPage={renderPage}
-              initialTarget={getSheetPageBoundary(
-                direction,
-                "enter",
-                reduceMotion
-              )}
+              initialTarget={
+                index === 0 && entries.length === 1
+                  ? getSheetPageTarget(0, reduceMotion)
+                  : getSheetPageBoundary(
+                      direction,
+                      "enter",
+                      reduceMotion
+                    )
+              }
               target={getSheetPageTarget(
                 entries.length - 1 - index,
                 reduceMotion

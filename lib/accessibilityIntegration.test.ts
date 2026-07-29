@@ -48,6 +48,10 @@ const librarySheetPages = readFileSync(
   new URL("../app/LibrarySheetPages.tsx", import.meta.url),
   "utf8"
 );
+const readerSettingsPanel = readFileSync(
+  new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
+  "utf8"
+);
 
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -154,7 +158,9 @@ describe("daily-path accessibility contract", () => {
     );
     expect(sheetPageStack).toContain("inert={isActive ? undefined : true}");
     expect(askAi).toContain('role="region"');
-    expect(askAi).toContain("aria-label={UI_TEXT.REVIEW_MEMORY}");
+    expect(askAi).toContain(
+      'aria-labelledby="workspace-memory-review-title"'
+    );
     expect(askAi).not.toContain(
       'className={styles.workspaceMemoryReview} role="dialog"'
     );
@@ -183,5 +189,43 @@ describe("daily-path accessibility contract", () => {
     expect(librarySheetPages).toContain(
       'data-sheet-return-focus="book-delete"'
     );
+    expect(readerSettingsPanel).toContain(
+      'data-sheet-return-focus="reader-custom-settings"'
+    );
+  });
+
+  it("gives persistent pages sole initial focus ownership and traps Tab in the active page", () => {
+    expect(motionSheet).toContain(
+      'panel.querySelector("[data-sheet-page]")'
+    );
+    expect(motionSheet).toContain(
+      '[data-sheet-page][data-sheet-page-active="true"]'
+    );
+    expect(motionSheet).toContain("focusScope.querySelectorAll<HTMLElement>");
+    expect(motionSheet).toContain(
+      'element.closest("[inert], [aria-hidden=\'true\']")'
+    );
+
+    const groupCreateRow = librarySheetPages.slice(
+      librarySheetPages.indexOf("function GroupCreateRow"),
+      librarySheetPages.indexOf("export function SheetHeader")
+    );
+    expect(groupCreateRow).not.toContain("autoFocus={autoFocus}");
+    expect(groupCreateRow).toContain(
+      'data-sheet-autofocus={autoFocus ? "true" : undefined}'
+    );
+  });
+
+  it("focuses and announces memory review while isolating underlying workspace controls", () => {
+    expect(askAi).toContain("memoryReviewTextareaRef");
+    expect(askAi).toContain("memoryReviewTriggerRef");
+    expect(askAi).toContain("memoryReviewTextareaRef.current?.focus");
+    expect(askAi).toContain("trigger.focus({ preventScroll: true })");
+    expect(askAi).toContain('aria-live="polite"');
+    expect(askAi).toContain('aria-labelledby="workspace-memory-review-title"');
+    expect(askAi).toContain('id="workspace-memory-review-title"');
+    expect(askAi).toContain("aria-hidden={memoryReview ? true : undefined}");
+    expect(askAi).toContain("inert={memoryReview ? true : undefined}");
+    expect(askAi).toContain("ref={memoryReviewTextareaRef}");
   });
 });

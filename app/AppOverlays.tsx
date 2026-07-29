@@ -503,6 +503,7 @@ export default function AppOverlays({
           <SheetPageStack
             entries={renderedEntries}
             direction={navigationState.direction}
+            focusGeneration={navigationState.revision}
             onBack={navigation.dismissSheet}
             dismiss={dismiss}
             renderPage={renderSheetPage}

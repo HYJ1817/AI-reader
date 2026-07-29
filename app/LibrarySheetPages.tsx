@@ -494,7 +494,6 @@ function GroupCreateRow({
           if (event.key === "Enter") onCreate();
         }}
         placeholder={UI_TEXT.GROUP_NAME_PLACEHOLDER}
-        autoFocus={autoFocus}
         data-sheet-autofocus={autoFocus ? "true" : undefined}
       />
       <button

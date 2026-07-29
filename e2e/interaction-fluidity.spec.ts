@@ -73,15 +73,49 @@ async function installKeyboardVisualViewport(page: Page) {
       offsetLeft: 0,
       offsetTop: 0,
       width: window.innerWidth,
-      height: Math.max(320, window.innerHeight - 320),
+      height: window.innerHeight,
       pageLeft: 0,
       pageTop: 0,
       scale: 1,
     });
+    const measuredWindow = window as typeof window & {
+      __sheetKeyboardViewport?: EventTarget & { height: number };
+      __sheetScrollIntoViewCalls?: Array<{
+        block?: ScrollLogicalPosition;
+        targetId: string;
+      }>;
+    };
+    measuredWindow.__sheetKeyboardViewport = viewport as EventTarget & {
+      height: number;
+    };
+    measuredWindow.__sheetScrollIntoViewCalls = [];
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function scrollIntoView(options) {
+      measuredWindow.__sheetScrollIntoViewCalls?.push({
+        block:
+          typeof options === "object" && options
+            ? options.block
+            : undefined,
+        targetId: (this as HTMLElement).id,
+      });
+      originalScrollIntoView?.call(this, options);
+    };
     Object.defineProperty(window, "visualViewport", {
       configurable: true,
       value: viewport,
     });
+  });
+}
+
+async function showKeyboardVisualViewport(page: Page) {
+  await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __sheetKeyboardViewport?: EventTarget & { height: number };
+    };
+    const viewport = measuredWindow.__sheetKeyboardViewport;
+    if (!viewport) throw new Error("Keyboard visual viewport is not installed");
+    viewport.height = Math.max(320, window.innerHeight - 320);
+    viewport.dispatchEvent(new Event("resize"));
   });
 }
 
@@ -294,6 +328,7 @@ test("keyboard keeps rename input visible and prevents sheet drag ownership", as
   const renameSheet = page.locator('[data-sheet-route="book-rename"]');
   const input = renameSheet.getByLabel("\u4e66\u540d");
   await expect(input).toBeFocused();
+  await showKeyboardVisualViewport(page);
   await expect
     .poll(() =>
       input.evaluate((element) => {
@@ -303,6 +338,22 @@ test("keyboard keeps rename input visible and prevents sheet drag ownership", as
         const viewportBottom =
           viewportTop + (viewport?.height ?? window.innerHeight);
         return rect.top >= viewportTop && rect.bottom <= viewportBottom;
+      })
+    )
+    .toBe(true);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const measuredWindow = window as typeof window & {
+          __sheetScrollIntoViewCalls?: Array<{
+            block?: ScrollLogicalPosition;
+            targetId: string;
+          }>;
+        };
+        return measuredWindow.__sheetScrollIntoViewCalls?.some(
+          (call) =>
+            call.targetId === "rename-book-title" && call.block === "nearest"
+        ) ?? false;
       })
     )
     .toBe(true);
@@ -366,6 +417,35 @@ test("focus returns to the originating Book Action row after internal Back", asy
   await expect(renameAction).toBeFocused();
 });
 
+test("reader custom settings returns focus to its originating control", async ({
+  page,
+}) => {
+  await page.locator('[data-navigation-tab="settings"]').click();
+  const settingsRoot = page.locator(
+    '[data-navigation-root="settings"][aria-hidden="false"]'
+  );
+  await settingsRoot
+    .getByRole("button", { name: /\u9605\u8bfb\u5916\u89c2/ })
+    .click();
+
+  const readerSettings = page.locator('[data-sheet-route="reader-settings"]');
+  const customButton = readerSettings.getByRole("button", {
+    name: "\u81ea\u5b9a\u4e49",
+  });
+  await customButton.click();
+
+  const customSettings = page.locator(
+    '[data-sheet-route="reader-custom-settings"]'
+  );
+  await expect(customSettings).toHaveCount(1);
+  await customSettings
+    .getByRole("button", { name: "\u5173\u95ed" })
+    .click();
+
+  await expect(readerSettings).toHaveCount(1);
+  await expect(customButton).toBeFocused();
+});
+
 test("active sheet page is the only accessible internal page", async ({
   page,
 }) => {
@@ -388,4 +468,102 @@ test("active sheet page is the only accessible internal page", async ({
   expect(await coveredPage.evaluate((element) => (element as HTMLElement).inert)).toBe(
     true
   );
+});
+
+test("focus trap wraps within the active sheet page in both directions", async ({
+  page,
+}) => {
+  const actionSheet = await openBookActionSheet(page);
+  await actionSheet
+    .getByRole("button", { name: "\u91cd\u547d\u540d\u4e66\u7c4d" })
+    .click();
+
+  const renameSheet = page.locator('[data-sheet-route="book-rename"]');
+  const closeButton = renameSheet.getByRole("button", {
+    name: "\u5173\u95ed",
+  });
+  const saveButton = renameSheet.getByRole("button", {
+    name: "\u4fdd\u5b58",
+  });
+
+  await saveButton.focus();
+  await page.keyboard.press("Tab");
+  await expect(closeButton).toBeFocused();
+
+  await closeButton.focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(saveButton).toBeFocused();
+});
+
+test("lifecycle interruption still commits a removed delete page callback once", async ({
+  page,
+}) => {
+  const actionSheet = await openBookActionSheet(page);
+  const booksBefore = await page.locator(`${libraryRoot} [data-book-cover-origin]`).count();
+  await actionSheet
+    .getByRole("button", { name: "\u5220\u9664\u8fd9\u672c\u4e66" })
+    .click();
+  const deleteSheet = page.locator('[data-sheet-route="book-delete"]');
+  await expect(deleteSheet).toHaveCount(1);
+
+  await deleteSheet
+    .getByRole("button", { name: "\u5220\u9664\u8fd9\u672c\u4e66" })
+    .click();
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await page.waitForTimeout(50);
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+
+  await expect(page.locator(`${libraryRoot} [data-book-cover-origin]`)).toHaveCount(
+    booksBefore - 1
+  );
+  await expect(page.locator('[data-sheet-route]')).toHaveCount(0);
+});
+
+test("abnormal lost pointer capture settles once without dismissing the sheet", async ({
+  page,
+}) => {
+  await openBookActionSheet(page);
+  const panel = page.locator('[data-motion-sheet="panel"]');
+  const handle = page.locator('[data-sheet-drag-handle="true"]');
+  const box = await handle.boundingBox();
+  if (!box) throw new Error("Sheet drag handle geometry is unavailable");
+  const session = await page.context().newCDPSession(page);
+  try {
+    const x = box.x + box.width / 2;
+    const startY = box.y + box.height / 2;
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x, y: startY }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x, y: startY + 72 }],
+    });
+    await panel.evaluate((element) => {
+      element.dispatchEvent(
+        new PointerEvent("lostpointercapture", {
+          bubbles: true,
+          pointerId: 1,
+        })
+      );
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchCancel",
+      touchPoints: [],
+    });
+  } finally {
+    await session.detach();
+  }
+
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect
+    .poll(() =>
+      panel.evaluate((element) => {
+        const transform = getComputedStyle(element).transform;
+        return transform === "none"
+          ? 0
+          : new DOMMatrixReadOnly(transform).m42;
+      })
+    )
+    .toBe(0);
 });

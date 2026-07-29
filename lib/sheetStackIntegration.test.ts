@@ -17,9 +17,17 @@ describe("measured internal sheet page stack", () => {
     expect(stackSource).toContain("data-sheet-page");
     expect(stackSource).toContain("data-sheet-page-active={isActive}");
     expect(stackSource).toMatch(
-      /<AnimatePresence[^>]*initial=\{false\}[^>]*mode="sync"/s
+      /<AnimatePresence[^>]*initial=\{true\}[^>]*mode="sync"/s
     );
     expect(stackSource).not.toContain(".at(-1)");
+  });
+
+  it("lets the outer sheet own the initial visual entrance while the page still completes", () => {
+    expect(stackSource).toContain(
+      "index === 0 && entries.length === 1"
+    );
+    expect(stackSource).toContain("? getSheetPageTarget(0, reduceMotion)");
+    expect(stackSource).toContain(": getSheetPageBoundary(");
   });
 
   it("isolates covered pages from accessibility and pointer interaction", () => {
@@ -103,6 +111,44 @@ describe("measured internal sheet page stack", () => {
     expect(stackSource).toContain('if (definition === "exit")');
     expect(stackSource).toContain("if (isActive)");
     expect(stackSource).toContain("activeEntryKeyRef.current !== entryKey");
+  });
+
+  it("captures the focus generation and lifecycle epoch when animation starts", () => {
+    expect(stackSource).toContain("focusGeneration: number");
+    expect(overlaysSource).toContain(
+      "focusGeneration={navigationState.revision}"
+    );
+    expect(stackSource).toContain("animationFocusGenerationRef");
+    expect(stackSource).toContain(
+      "animationFocusGenerationRef.current = focusGeneration"
+    );
+    expect(stackSource).toMatch(
+      /onAnimationComplete\(\s*entryKey,\s*false,\s*animationFocusGenerationRef\.current/s
+    );
+    expect(stackSource).toContain("guard.generation !== focusGeneration");
+    expect(stackSource).not.toContain(
+      "focusActivePage(entryKey, guard.generation, animationLifecycleEpoch)"
+    );
+  });
+
+  it("completes a removed pending back once after lifecycle interruption", () => {
+    expect(stackSource).toContain("lifecycleEpoch: number;");
+    expect(stackSource).toContain("pending.lifecycleEpoch !== lifecycle.epoch");
+    expect(stackSource).toContain("!entryKeys.includes(pending.key)");
+    expect(stackSource).toContain("completePendingBack(pending)");
+    expect(stackSource).toContain("pendingBackRef.current = null");
+    expect(stackSource).toContain("pending.afterBack?.();");
+  });
+
+  it("scrolls the active focused control when the keyboard becomes visible", () => {
+    expect(stackSource).toContain("previousKeyboardVisibleRef");
+    expect(stackSource).toContain(
+      "!previousKeyboardVisibleRef.current && keyboardVisible"
+    );
+    expect(stackSource).toContain("activePage.contains(document.activeElement)");
+    expect(stackSource).toContain(
+      'document.activeElement.scrollIntoView({ block: "nearest" })'
+    );
   });
 
   it("defines four isolated page-stack rules without permanent compositing hints", () => {

@@ -49,6 +49,42 @@ describe("sheet gestures", () => {
     ).toBe(false);
   });
 
+  it("treats labels and common interactive roles as control targets", () => {
+    expect(motionSheetSource).toContain("label");
+    for (const role of [
+      "button",
+      "link",
+      "textbox",
+      "checkbox",
+      "radio",
+      "switch",
+      "combobox",
+    ]) {
+      expect(motionSheetSource).toContain(`[role='${role}']`);
+    }
+
+    expect(
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 0,
+        deltaY: 18,
+        interactiveTarget: true,
+        keyboardVisible: false,
+      })
+    ).toBe(false);
+  });
+
+  it("does not restart settlement from the cancelled drag-end branch", () => {
+    const cancelledBranch = motionSheetSource.slice(
+      motionSheetSource.indexOf("if (cancelledDragRef.current)"),
+      motionSheetSource.indexOf(
+        "const offsetY = Math.max(0, y.get(), info.offset.y)"
+      )
+    );
+    expect(cancelledBranch).toContain("cancelledDragRef.current = false");
+    expect(cancelledBranch).not.toContain('runAnimation(0, "settle")');
+  });
+
   it("does not claim upward or stationary movement", () => {
     expect(
       canSheetClaimGesture({

@@ -129,7 +129,7 @@ function isInteractiveControl(target: EventTarget | null): boolean {
     target instanceof Element &&
     Boolean(
       target.closest(
-        "button, a, input, textarea, select, option, [contenteditable='true'], [role='slider'], [data-sheet-horizontal-gesture='true']"
+        "button, a, label, input, textarea, select, option, [contenteditable='true'], [role='button'], [role='link'], [role='textbox'], [role='checkbox'], [role='radio'], [role='switch'], [role='combobox'], [role='option'], [role='spinbutton'], [role='slider'], [data-sheet-horizontal-gesture='true']"
       )
     )
   );
@@ -304,12 +304,15 @@ export default function MotionSheet({
       sibling.inert = true;
     }
 
-    const requestedTarget = initialFocusRef?.current;
-    const focusTarget =
-      requestedTarget && panel.contains(requestedTarget)
-        ? requestedTarget
-        : panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? panel;
-    focusTarget.focus({ preventScroll: true });
+    const managedPage = panel.querySelector("[data-sheet-page]");
+    if (!managedPage) {
+      const requestedTarget = initialFocusRef?.current;
+      const focusTarget =
+        requestedTarget && panel.contains(requestedTarget)
+          ? requestedTarget
+          : panel.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ?? panel;
+      focusTarget.focus({ preventScroll: true });
+    }
 
     return () => {
       for (const { sibling, wasInert } of backgroundSiblingsRef.current) {
@@ -457,19 +460,26 @@ export default function MotionSheet({
       if (event.key !== "Tab") return;
       const panel = panelRef.current;
       if (!panel) return;
+      const activePage = panel.querySelector<HTMLElement>(
+        '[data-sheet-page][data-sheet-page-active="true"]'
+      );
+      const focusScope = activePage ?? panel;
       const focusableElements = Array.from(
-        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+        focusScope.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      ).filter(
+        (element) =>
+          !element.closest("[inert], [aria-hidden='true']")
       );
       if (focusableElements.length === 0) {
         event.preventDefault();
-        panel.focus({ preventScroll: true });
+        focusScope.focus({ preventScroll: true });
         return;
       }
 
       const first = focusableElements[0];
       const last = focusableElements[focusableElements.length - 1];
       const activeElement = document.activeElement;
-      if (!panel.contains(activeElement)) {
+      if (!focusScope.contains(activeElement)) {
         event.preventDefault();
         (event.shiftKey ? last : first).focus({ preventScroll: true });
       } else if (event.shiftKey && activeElement === first) {
@@ -587,7 +597,6 @@ export default function MotionSheet({
                 pointerReleasedRef.current = false;
                 if (cancelledDragRef.current) {
                   cancelledDragRef.current = false;
-                  runAnimation(0, "settle");
                   return;
                 }
                 const offsetY = Math.max(0, y.get(), info.offset.y);

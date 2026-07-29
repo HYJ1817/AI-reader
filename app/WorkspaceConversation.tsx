@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
 import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import { UI_TEXT } from "@/lib/uiText";
@@ -54,10 +54,26 @@ export default function WorkspaceConversation({
 }: WorkspaceConversationProps) {
   const threadRef = useRef<HTMLDivElement>(null);
   const nearBottomRef = useRef(true);
+  const memoryReviewTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const memoryReviewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [memoryReview, setMemoryReview] = useState<{
     messageId: string;
     content: string;
   } | null>(null);
+  const memoryReviewOpen = memoryReview !== null;
+
+  useLayoutEffect(() => {
+    if (memoryReviewOpen) {
+      memoryReviewTextareaRef.current?.focus({ preventScroll: true });
+      return;
+    }
+
+    const trigger = memoryReviewTriggerRef.current;
+    memoryReviewTriggerRef.current = null;
+    if (trigger?.isConnected) {
+      trigger.focus({ preventScroll: true });
+    }
+  }, [memoryReviewOpen]);
 
   useEffect(() => {
     const thread = threadRef.current;
@@ -87,6 +103,8 @@ export default function WorkspaceConversation({
         ref={threadRef}
         className={styles.workspaceConversationThread}
         aria-busy={loading}
+        aria-hidden={memoryReview ? true : undefined}
+        inert={memoryReview ? true : undefined}
         onScroll={(event) => {
           const thread = event.currentTarget;
           nearBottomRef.current =
@@ -167,9 +185,13 @@ export default function WorkspaceConversation({
                   <button
                     type="button"
                     className={styles.workspaceMessageAction}
-                    onClick={() =>
-                      setMemoryReview({ messageId: message.id, content: message.content })
-                    }
+                    onClick={(event) => {
+                      memoryReviewTriggerRef.current = event.currentTarget;
+                      setMemoryReview({
+                        messageId: message.id,
+                        content: message.content,
+                      });
+                    }}
                   >
                     {UI_TEXT.REMEMBER}
                   </button>
@@ -204,10 +226,14 @@ export default function WorkspaceConversation({
         <div
           className={styles.workspaceMemoryReview}
           role="region"
-          aria-label={UI_TEXT.REVIEW_MEMORY}
+          aria-labelledby="workspace-memory-review-title"
+          aria-live="polite"
         >
-          <strong>{UI_TEXT.REVIEW_MEMORY}</strong>
+          <strong id="workspace-memory-review-title">
+            {UI_TEXT.REVIEW_MEMORY}
+          </strong>
           <textarea
+            ref={memoryReviewTextareaRef}
             aria-label={UI_TEXT.WORKSPACE_MEMORY}
             value={memoryReview.content}
             onChange={(event) =>
@@ -233,7 +259,12 @@ export default function WorkspaceConversation({
       ) : null}
 
       {eligibleSkills.length > 0 && (messages.length === 0 || selectedText) ? (
-        <div className={styles.workspaceSkills} aria-label={UI_TEXT.READING_SKILLS}>
+        <div
+          className={styles.workspaceSkills}
+          aria-label={UI_TEXT.READING_SKILLS}
+          aria-hidden={memoryReview ? true : undefined}
+          inert={memoryReview ? true : undefined}
+        >
           {eligibleSkills.map((skill) => (
             <button
               key={skill.id}
@@ -248,7 +279,11 @@ export default function WorkspaceConversation({
         </div>
       ) : null}
 
-      <div className={styles.workspaceComposer}>
+      <div
+        className={styles.workspaceComposer}
+        aria-hidden={memoryReview ? true : undefined}
+        inert={memoryReview ? true : undefined}
+      >
         <textarea
           rows={1}
           aria-label={UI_TEXT.ASK_AI}
