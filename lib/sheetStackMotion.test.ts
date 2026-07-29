@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getSheetPageBoundary,
   getSheetPageTarget,
+  getSheetViewportHeight,
 } from "./sheetStackMotion";
 
 describe("sheet page stack motion", () => {
@@ -40,5 +41,12 @@ describe("sheet page stack motion", () => {
       opacity: 0,
       x: 0,
     });
+  });
+
+  it("holds the last measured height only while the final page exits", () => {
+    expect(getSheetViewportHeight(420, 360, true)).toBe(420);
+    expect(getSheetViewportHeight(undefined, 360, true)).toBe(360);
+    expect(getSheetViewportHeight(undefined, 360, false)).toBe("auto");
+    expect(getSheetViewportHeight(undefined, undefined, true)).toBe("auto");
   });
 });

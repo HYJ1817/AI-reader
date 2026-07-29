@@ -25,3 +25,19 @@ export function getSheetPageBoundary(
 
   return { opacity: 0, x };
 }
+
+export function getSheetViewportHeight(
+  activeHeight: number | undefined,
+  lastActiveHeight: number | undefined,
+  holdLastActiveHeight: boolean
+): number | "auto" {
+  if (activeHeight !== undefined && activeHeight > 0) return activeHeight;
+  if (
+    holdLastActiveHeight &&
+    lastActiveHeight !== undefined &&
+    lastActiveHeight > 0
+  ) {
+    return lastActiveHeight;
+  }
+  return "auto";
+}

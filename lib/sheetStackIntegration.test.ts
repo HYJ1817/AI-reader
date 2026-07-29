@@ -25,9 +25,16 @@ describe("measured internal sheet page stack", () => {
     expect(stackSource).toContain("aria-hidden={isActive ? undefined : true}");
     expect(stackSource).toContain("inert={isActive ? undefined : true}");
     expect(stackSource).toContain("tabIndex={-1}");
-    expect(stylesSource).toMatch(
-      /\.sheetPage\[data-sheet-page-active="false"\]\s*\{[^}]*position:\s*absolute;[^}]*inset:\s*0;[^}]*pointer-events:\s*none;/s
-    );
+    const coveredRule = stylesSource.match(
+      /\.sheetPage\[data-sheet-page-active="false"\]\s*\{[^}]*\}/s
+    )?.[0] ?? "";
+    expect(coveredRule).toContain("position: absolute");
+    expect(coveredRule).toContain("top: 0");
+    expect(coveredRule).toContain("left: 0");
+    expect(coveredRule).toContain("right: 0");
+    expect(coveredRule).toContain("pointer-events: none");
+    expect(coveredRule).not.toContain("inset:");
+    expect(coveredRule).not.toContain("bottom:");
   });
 
   it("uses direction-aware push roles, including the live exit direction", () => {
@@ -58,13 +65,33 @@ describe("measured internal sheet page stack", () => {
     expect(stackSource).toContain("new ResizeObserver");
     expect(stackSource).toContain("useRef(new Map<string, number>())");
     expect(stackSource).toContain("bumpHeightVersion");
-    expect(stackSource).toContain('animate={{ height: activeHeight || "auto" }}');
+    expect(stackSource).toContain("lastActiveHeight");
+    expect(stackSource).toContain("getSheetViewportHeight");
+    expect(stackSource).toContain("onExitComplete");
+    expect(stackSource).toContain("mountedRef.current");
+    expect(stackSource).toContain("animate={{ height: viewportHeight }}");
     expect(stackSource).toContain('data-sheet-stack-depth={entries.length}');
     expect(stackSource).toContain('data-sheet-stack-direction={direction}');
     expect(stackSource).toContain('[data-sheet-autofocus="true"]');
     expect(stackSource).toContain("FOCUSABLE_SELECTOR");
     expect(stackSource).toContain("activePage.focus");
     expect(stackSource).toContain("hasMountedRef");
+    expect(stackSource).toContain('typeof document !== "undefined"');
+    expect(stackSource).toContain("activePage.contains(document.activeElement)");
+    expect(stackSource).toContain("heights.get(entryKey) === height");
+  });
+
+  it("lets only the active page completion assign focus", () => {
+    const viewportStart = stackSource.indexOf(
+      "className={styles.sheetPageViewport}"
+    );
+    const presenceStart = stackSource.indexOf("<AnimatePresence", viewportStart);
+    const viewportSource = stackSource.slice(viewportStart, presenceStart);
+
+    expect(viewportSource).not.toContain("onAnimationComplete");
+    expect(stackSource).toContain('if (definition === "exit")');
+    expect(stackSource).toContain("if (isActive)");
+    expect(stackSource).toContain("activeEntryKeyRef.current === entryKey");
   });
 
   it("defines four isolated page-stack rules without permanent compositing hints", () => {

@@ -14,6 +14,7 @@ import { getRoleTransition } from "@/lib/motionSystem";
 import {
   getSheetPageBoundary,
   getSheetPageTarget,
+  getSheetViewportHeight,
 } from "@/lib/sheetStackMotion";
 import { useAppReducedMotion } from "./AppMotionRoot";
 import type { CloseSheet } from "./BottomSheet";
@@ -73,6 +74,12 @@ type MeasuredSheetPageProps = {
 type HeightSnapshot = {
   version: number;
   values: Map<string, number>;
+  lastActiveHeight: number | undefined;
+};
+
+type HeightSnapshotUpdate = {
+  values: Map<string, number>;
+  lastActiveHeight?: number;
 };
 
 const FOCUSABLE_SELECTOR = [
@@ -157,7 +164,11 @@ function MeasuredSheetPage({
       exit="exit"
       transition={getRoleTransition("push-enter", reduceMotion)}
       onAnimationComplete={(definition) => {
-        onAnimationComplete(entryKey, definition === "exit");
+        if (definition === "exit") {
+          onAnimationComplete(entryKey, true);
+          return;
+        }
+        if (isActive) onAnimationComplete(entryKey, false);
       }}
       data-sheet-page
       data-sheet-page-active={isActive}
@@ -188,14 +199,21 @@ export default function SheetPageStack({
   const heightsRef = useRef(new Map<string, number>());
   const pageElementsRef = useRef(new Map<string, HTMLDivElement>());
   const [heightSnapshot, bumpHeightVersion] = useReducer(
-    (_snapshot: HeightSnapshot, heights: Map<string, number>): HeightSnapshot => ({
-      version: _snapshot.version + 1,
-      values: new Map(heights),
+    (snapshot: HeightSnapshot, update: HeightSnapshotUpdate): HeightSnapshot => ({
+      version: snapshot.version + 1,
+      values: new Map(update.values),
+      lastActiveHeight:
+        update.lastActiveHeight ?? snapshot.lastActiveHeight,
     }),
-    { version: 0, values: new Map<string, number>() }
+    {
+      version: 0,
+      values: new Map<string, number>(),
+      lastActiveHeight: undefined,
+    }
   );
   const intentGenerationRef = useRef(0);
   const pendingBackRef = useRef<PendingBack | null>(null);
+  const mountedRef = useRef(true);
   const activeEntryKeyRef = useRef<string | undefined>(entries[entries.length - 1]?.key);
   const currentEntryKeysRef = useRef(new Set(entries.map((entry) => entry.key)));
   const focusGuardRef = useRef({
@@ -204,6 +222,10 @@ export default function SheetPageStack({
   });
   const lastFocusedGenerationRef = useRef(-1);
   const hasMountedRef = useRef(false);
+  const [emptyExitComplete, markEmptyExitComplete] = useReducer(
+    (_current: boolean, next: boolean) => next,
+    false
+  );
 
   const entryKeys = useMemo(() => entries.map((entry) => entry.key), [entries]);
   const entryTokens = useMemo(
@@ -217,6 +239,13 @@ export default function SheetPageStack({
     entryKeys,
     entryTokens,
   });
+
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const previous = previousIntentRef.current;
@@ -261,14 +290,25 @@ export default function SheetPageStack({
 
   const handleHeightChange = useCallback(
     (entryKey: string, height: number | null) => {
+      if (!mountedRef.current) return;
       const heights = heightsRef.current;
       if (height === null) {
-        if (heights.delete(entryKey)) bumpHeightVersion(heights);
+        if (heights.delete(entryKey)) {
+          bumpHeightVersion({ values: heights });
+        }
         return;
       }
       if (heights.get(entryKey) === height) return;
       heights.set(entryKey, height);
-      bumpHeightVersion(heights);
+      const measuredActivePage =
+        activeEntryKeyRef.current === entryKey && height > 0;
+      bumpHeightVersion({
+        values: heights,
+        lastActiveHeight: measuredActivePage ? height : undefined,
+      });
+      if (measuredActivePage) {
+        markEmptyExitComplete(false);
+      }
     },
     []
   );
@@ -285,6 +325,13 @@ export default function SheetPageStack({
 
     const activePage = pageElementsRef.current.get(entryKey);
     if (!activePage || activeEntryKeyRef.current !== entryKey) return;
+    if (
+      typeof document !== "undefined" &&
+      activePage.contains(document.activeElement)
+    ) {
+      lastFocusedGenerationRef.current = generation;
+      return;
+    }
 
     const autofocus = activePage.querySelector<HTMLElement>(
       '[data-sheet-autofocus="true"]'
@@ -335,6 +382,7 @@ export default function SheetPageStack({
         generation: intentGenerationRef.current,
         afterBack,
       };
+      if (mountedRef.current) markEmptyExitComplete(false);
       onBack();
     },
     [onBack]
@@ -343,6 +391,11 @@ export default function SheetPageStack({
   const activeHeight = activeEntryKey
     ? heightSnapshot.values.get(activeEntryKey)
     : undefined;
+  const viewportHeight = getSheetViewportHeight(
+    activeHeight,
+    heightSnapshot.lastActiveHeight,
+    entries.length === 0 && !emptyExitComplete
+  );
   const heightTransition = reduceMotion
     ? { type: "tween" as const, duration: 0 }
     : getRoleTransition(
@@ -370,17 +423,18 @@ export default function SheetPageStack({
       className={styles.sheetPageViewport}
       data-sheet-stack-depth={entries.length}
       data-sheet-stack-direction={direction}
-      animate={{ height: activeHeight || "auto" }}
+      animate={{ height: viewportHeight }}
       transition={heightTransition}
-      onAnimationComplete={() => {
-        const guard = focusGuardRef.current;
-        if (guard.key) focusActivePage(guard.key, guard.generation);
-      }}
     >
       <AnimatePresence
         initial={false}
         mode="sync"
         custom={presenceContext}
+        onExitComplete={() => {
+          if (mountedRef.current && currentEntryKeysRef.current.size === 0) {
+            markEmptyExitComplete(true);
+          }
+        }}
       >
         {entries.map((entry, index) => {
           const isActive = index === entries.length - 1;
