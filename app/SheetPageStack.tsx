@@ -285,6 +285,7 @@ export default function SheetPageStack({
   const pendingBackRef = useRef<PendingBack | null>(null);
   const pendingReturnFocusRef = useRef<PendingReturnFocus | null>(null);
   const previousKeyboardVisibleRef = useRef(keyboardVisible);
+  const previousLifecycleEpochRef = useRef(lifecycle.epoch);
   const mountedRef = useRef(true);
   const lastMeasuredActiveHeightRef = useRef<number | undefined>(undefined);
   const activeEntryKeyRef = useRef<string | undefined>(entries[entries.length - 1]?.key);
@@ -484,6 +485,23 @@ export default function SheetPageStack({
     }
     lastFocusedGenerationRef.current = focusGeneration;
   }, [keyboardVisible, lifecycle.epoch]);
+
+  useLayoutEffect(() => {
+    if (previousLifecycleEpochRef.current === lifecycle.epoch) return;
+    previousLifecycleEpochRef.current = lifecycle.epoch;
+    if (lifecycle.suspended || !activeEntryKey) return;
+
+    const frame = requestAnimationFrame(() => {
+      focusActivePage(activeEntryKey, focusGeneration, lifecycle.epoch);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [
+    activeEntryKey,
+    focusActivePage,
+    focusGeneration,
+    lifecycle.epoch,
+    lifecycle.suspended,
+  ]);
 
   const completePendingBack = useCallback((pending: PendingBack) => {
     if (pendingBackRef.current !== pending) return;

@@ -140,6 +140,19 @@ describe("measured internal sheet page stack", () => {
     expect(stackSource).toContain("pending.afterBack?.();");
   });
 
+  it("restores active-page focus only after a real resumed lifecycle epoch", () => {
+    expect(stackSource).toContain("previousLifecycleEpochRef");
+    expect(stackSource).toContain(
+      "previousLifecycleEpochRef.current === lifecycle.epoch"
+    );
+    expect(stackSource).toContain("if (lifecycle.suspended || !activeEntryKey) return");
+    expect(stackSource).toContain("requestAnimationFrame(() =>");
+    expect(stackSource).toContain(
+      "focusActivePage(activeEntryKey, focusGeneration, lifecycle.epoch)"
+    );
+    expect(stackSource).toContain("cancelAnimationFrame(frame)");
+  });
+
   it("scrolls the active focused control when the keyboard becomes visible", () => {
     expect(stackSource).toContain("previousKeyboardVisibleRef");
     expect(stackSource).toContain(

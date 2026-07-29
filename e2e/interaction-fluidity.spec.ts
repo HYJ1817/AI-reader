@@ -417,6 +417,27 @@ test("focus returns to the originating Book Action row after internal Back", asy
   await expect(renameAction).toBeFocused();
 });
 
+test("lifecycle resume restores focus after an interrupted internal Back", async ({
+  page,
+}) => {
+  const actionSheet = await openBookActionSheet(page);
+  const renameAction = actionSheet.getByRole("button", {
+    name: "\u91cd\u547d\u540d\u4e66\u7c4d",
+  });
+  await renameAction.click();
+  const renameSheet = page.locator('[data-sheet-route="book-rename"]');
+  await expect(renameSheet.getByLabel("\u4e66\u540d")).toBeFocused();
+
+  await renameSheet
+    .getByRole("button", { name: "\u5173\u95ed" })
+    .click();
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
+  await page.evaluate(() => window.dispatchEvent(new Event("pageshow")));
+
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(renameAction).toBeFocused();
+});
+
 test("reader custom settings returns focus to its originating control", async ({
   page,
 }) => {
@@ -539,6 +560,16 @@ test("abnormal lost pointer capture settles once without dismissing the sheet", 
       type: "touchMove",
       touchPoints: [{ x, y: startY + 72 }],
     });
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => {
+          const transform = getComputedStyle(element).transform;
+          return transform === "none"
+            ? 0
+            : new DOMMatrixReadOnly(transform).m42;
+        })
+      )
+      .toBeGreaterThan(0);
     await panel.evaluate((element) => {
       element.dispatchEvent(
         new PointerEvent("lostpointercapture", {
@@ -547,6 +578,17 @@ test("abnormal lost pointer capture settles once without dismissing the sheet", 
         })
       );
     });
+    await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+    await expect
+      .poll(() =>
+        panel.evaluate((element) => {
+          const transform = getComputedStyle(element).transform;
+          return transform === "none"
+            ? 0
+            : new DOMMatrixReadOnly(transform).m42;
+        })
+      )
+      .toBe(0);
     await session.send("Input.dispatchTouchEvent", {
       type: "touchCancel",
       touchPoints: [],
