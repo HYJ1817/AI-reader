@@ -31,15 +31,27 @@ it("keeps all annotation pages mounted in a fixed-height swipe viewport", () => 
   expect(tocSource).toContain('data-sheet-horizontal-gesture="true"');
   expect(tocSource).toContain('data-toc-swipe-viewport="true"');
   expect(tocSource).toContain('data-active-tab={activeTab}');
-  expect(tocSource).toContain('className={styles.tocTabIndicator}');
+  expect(tocSource).not.toContain('className={styles.tocTabIndicator}');
   expect(tocSource).not.toContain('layoutId="toc-active-tab-indicator"');
   expect(tocSource).toContain("getNearestReaderTocTabIndex");
+  expect(tocSource).toContain("onTouchStart={releaseProgrammaticTab}");
+  expect(tocSource).toContain("tabScrollFrameRef.current = window.requestAnimationFrame");
   expect(tocSource).toContain("aria-hidden={activeTab !== tab.id}");
   expect(css).toMatch(
     /\.tocSheet\s*\{[^}]*height:\s*min\(92dvh, 760px\)/s
   );
   expect(css).toContain("scroll-snap-type: x mandatory");
   expect(css).toContain("scroll-snap-align: start");
-  expect(css).toContain('.tocTabs[data-active-tab="bookmarks"]');
-  expect(css).toContain('.tocTabs[data-active-tab="highlights"]');
+  expect(css).toMatch(
+    /\.tocTabs button\s*\{[^}]*transition:[^}]*background-color var\(--motion-fast\)[^}]*color var\(--motion-fast\)/s
+  );
+  expect(css).toMatch(
+    /\.tocTabs \.tocTabActive\s*\{[^}]*background-color:\s*rgba\(255, 255, 255, 0\.23\);/s
+  );
+  expect(css).toMatch(
+    /\.tocSheet\s*\{[\s\S]*?--sheet-page-viewport-flex:\s*1;[\s\S]*?--sheet-page-height:\s*100%;/
+  );
+  expect(css).toMatch(
+    /\.tocPage\s*\{[\s\S]*?display:\s*flex;[\s\S]*?min-height:\s*0;[\s\S]*?overflow:\s*hidden;/
+  );
 });

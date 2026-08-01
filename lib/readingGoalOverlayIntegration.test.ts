@@ -13,6 +13,10 @@ const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8"
 );
+const readingGoalStateSource = readFileSync(
+  new URL("../app/useReadingGoalState.ts", import.meta.url),
+  "utf8"
+);
 
 describe("reading goal motion sheet", () => {
   it("exports a reusable content-only goal page", () => {
@@ -99,6 +103,21 @@ describe("reading goal orchestration", () => {
     );
     expect(pageSource).not.toMatch(
       /setGoalInputValue:\s*\([^)]*\)\s*=>\s*saveReadingGoalToStorage/
+    );
+  });
+
+  it("hydrates the stored goal after the server-compatible first render", () => {
+    expect(pageSource).toContain("useReadingGoalState()");
+    expect(readingGoalStateSource).toMatch(
+      /useState\(\{\s*targetMinutes:\s*DEFAULT_READING_TARGET_MINUTES,?\s*\}\)/
+    );
+    expect(readingGoalStateSource).toContain("const storedGoal = loadReadingGoal()");
+    expect(readingGoalStateSource).toContain("setReadingGoal(storedGoal)");
+    expect(readingGoalStateSource).toContain(
+      "setGoalInputValue(storedGoal.targetMinutes)"
+    );
+    expect(readingGoalStateSource).not.toContain(
+      "useState(() => loadReadingGoal())"
     );
   });
 });

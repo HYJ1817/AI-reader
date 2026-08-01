@@ -300,6 +300,13 @@ export function NavigationRoot({
       : outgoing
         ? getRootTabOffsets(previousTab, activeTab).outgoing
         : getRootTabOffsets(activeTab, tab).incoming;
+  const rootTabTransition = reduceMotion
+    ? { duration: MOTION_DURATION.reduced }
+    : pushDepth === 0
+      ? active
+        ? ROOT_TAB_CONTENT_TRANSITION
+        : { duration: 0 }
+      : ROOT_TAB_CONTENT_TRANSITION;
 
   return (
     <m.section
@@ -311,11 +318,7 @@ export function NavigationRoot({
         opacity: coveredOpacity,
         x,
       }}
-      transition={
-        reduceMotion
-          ? { duration: MOTION_DURATION.reduced }
-          : ROOT_TAB_CONTENT_TRANSITION
-      }
+      transition={rootTabTransition}
       onAnimationComplete={() => {
         if (active) settleTab(tab);
       }}

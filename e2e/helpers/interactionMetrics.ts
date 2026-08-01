@@ -9,6 +9,9 @@ export type InteractionMetrics = {
   maxFrame: number;
   maxLongTask: number;
   layoutShift: number;
+  longTasks: Array<{ start: number; duration: number }>;
+  inputEvents: Array<{ type: string; at: number }>;
+  slowFrames: Array<{ at: number; interval: number }>;
 };
 
 export type InteractionProbeOptions = {
@@ -36,8 +39,11 @@ export async function collectInteractionMetrics(
   options: InteractionProbeOptions
 ): Promise<InteractionMetrics> {
   return page.evaluate(async ({ durationMs, clickSelector, mountSelector }) => {
+    const frameTimes: number[] = [];
     const intervals: number[] = [];
     const longTasks: number[] = [];
+    const longTaskDetails: Array<{ start: number; duration: number }> = [];
+    const inputEvents: Array<{ type: string; at: number }> = [];
     let layoutShift = 0;
     let clickedAt: number | null = null;
     let mountedAt: number | null = null;
@@ -47,11 +53,23 @@ export async function collectInteractionMetrics(
     let mutationObserver: MutationObserver | undefined;
     let mutationObserved = false;
     let clickListenerRegistered = false;
+    const startedAt = performance.now();
+
+    const recordPointerInput = () => {
+      inputEvents.push({ type: "pointerdown", at: performance.now() - startedAt });
+    };
+    const recordKeyboardInput = (event: KeyboardEvent) => {
+      inputEvents.push({ type: `keydown:${event.key}`, at: performance.now() - startedAt });
+    };
 
     const handleEntries = (entries: PerformanceEntryList) => {
       for (const entry of entries) {
         if (entry.entryType === "longtask") {
           longTasks.push(entry.duration);
+          longTaskDetails.push({
+            start: entry.startTime - startedAt,
+            duration: entry.duration,
+          });
         } else if (entry.entryType === "layout-shift") {
           const shift = entry as PerformanceEntry & {
             hadRecentInput?: boolean;
@@ -110,6 +128,8 @@ export async function collectInteractionMetrics(
 
       mutationObserver.observe(document.body, { childList: true, subtree: true });
       mutationObserved = true;
+      document.addEventListener("pointerdown", recordPointerInput, true);
+      document.addEventListener("keydown", recordKeyboardInput, true);
       recordMount();
       if (clickSelector) {
         document.addEventListener("click", clickListener, true);
@@ -117,8 +137,8 @@ export async function collectInteractionMetrics(
       }
 
       await new Promise<void>((resolve) => {
-        const startedAt = performance.now();
         const sample = (now: number) => {
+          frameTimes.push(now - startedAt);
           intervals.push(now - previousFrame);
           previousFrame = now;
           if (now - startedAt >= durationMs) {
@@ -144,6 +164,12 @@ export async function collectInteractionMetrics(
       if (clickListenerRegistered) {
         safely(() => document.removeEventListener("click", clickListener, true));
       }
+      safely(() =>
+        document.removeEventListener("pointerdown", recordPointerInput, true)
+      );
+      safely(() =>
+        document.removeEventListener("keydown", recordKeyboardInput, true)
+      );
       if (mutationObserved) {
         safely(() => mutationObserver?.disconnect());
       }
@@ -153,6 +179,7 @@ export async function collectInteractionMetrics(
       }
     }
 
+    const sampledFrameTimes = frameTimes.slice(2);
     const sampledIntervals = intervals.slice(2);
     const sorted = [...sampledIntervals].sort((left, right) => left - right);
     return {
@@ -163,6 +190,13 @@ export async function collectInteractionMetrics(
       maxFrame: sampledIntervals.length > 0 ? Math.max(...sampledIntervals) : 0,
       maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
       layoutShift,
+      longTasks: longTaskDetails,
+      inputEvents,
+      slowFrames: sampledIntervals.flatMap((interval, index) =>
+        interval > 25
+          ? [{ at: sampledFrameTimes[index] ?? 0, interval }]
+          : []
+      ),
     };
   }, options);
 }

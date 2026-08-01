@@ -161,7 +161,12 @@ describe("motion CSS", () => {
     expect(readerSettingsSource).toContain('data-motion-role="popover"');
     expect(readerSettingsSource).toContain('transformOrigin: "100% 0%"');
     expect(tocDrawerSource).toContain('data-motion-role="inline-state"');
-    expect(tocDrawerSource).toMatch(/direction\s*\*\s*10/);
+    expect(css).not.toMatch(
+      /\.tocPanelScroller\s*\{[^}]*transition:\s*opacity/s
+    );
+    expect(tocDrawerSource).not.toMatch(/direction\s*\*\s*10/);
+    expect(tocDrawerSource).not.toContain("panelAnimationRef");
+    expect(tocDrawerSource).toContain("viewportWidthRef.current");
     expect(tocDrawerSource).not.toContain("panel?.animate(");
     expect(tocDrawerSource).not.toContain("duration: 240");
     expect(aiSettingsSource).toContain('data-motion-role="inline-status"');
@@ -361,6 +366,9 @@ describe("motion CSS", () => {
     expect(css).toMatch(
       /\.bookItem:active\s+\.bookCover\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.985\)/s
     );
+    expect(css).toMatch(
+      /\.bookItemMain:active\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.985\)/s
+    );
 
     const moreStart = css.indexOf(".bookMoreButton {");
     const moreEnd = css.indexOf("}", moreStart);
@@ -389,6 +397,8 @@ describe("motion CSS", () => {
     const reduceRule = css.slice(reduceStart, reduceEnd);
     for (const selector of [
       ".bookCover",
+      ".bookItemMain",
+      ".bookItemMain:active",
       ".bookGridItem:active .bookCover",
       ".bookItem:active .bookCover",
       ".bookMoreButton",

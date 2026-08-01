@@ -1583,24 +1583,48 @@ test("reader presentation falls back safely when its cover origin is removed", a
         exitMode: string | undefined;
         projectionActive: string | undefined;
         spatialDurationMs: number;
-      }>((resolve) => {
-        (button as HTMLButtonElement).click();
-        requestAnimationFrame(() => {
-          const exiting = document.querySelector<HTMLElement>(
-            '[data-reader-presented="true"]'
-          );
-          resolve({
-            durationMs:
-              exiting?.getAnimations({ subtree: true }).map((animation) =>
-                Number(animation.effect?.getTiming().duration ?? 0)
-              ) ?? [],
-            exitMode: exiting?.dataset.readerExitMode,
-            projectionActive: exiting?.dataset.readerProjectionActive,
-            spatialDurationMs: Number(
-              exiting?.dataset.readerSpatialDurationMs ?? 0
-            ),
+      }>((resolve, reject) => {
+        const presentation = document.querySelector<HTMLElement>(
+          '[data-reader-presented="true"]'
+        );
+        if (!presentation) {
+          reject(new Error("Reader presentation is missing before exit"));
+          return;
+        }
+        const captureExit = () => {
+          if (presentation.dataset.readerExitMode === "present") return false;
+          observer.disconnect();
+          window.clearTimeout(timeout);
+          requestAnimationFrame(() => {
+            resolve({
+              durationMs: presentation
+                .getAnimations({ subtree: true })
+                .map((animation) =>
+                  Number(animation.effect?.getTiming().duration ?? 0)
+                ),
+              exitMode: presentation.dataset.readerExitMode,
+              projectionActive: presentation.dataset.readerProjectionActive,
+              spatialDurationMs: Number(
+                presentation.dataset.readerSpatialDurationMs ?? 0
+              ),
+            });
           });
+          return true;
+        };
+        const observer = new MutationObserver(captureExit);
+        const timeout = window.setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Reader exit state was not committed"));
+        }, 1_000);
+        observer.observe(presentation, {
+          attributes: true,
+          attributeFilter: [
+            "data-reader-exit-mode",
+            "data-reader-projection-active",
+          ],
         });
+        (button as HTMLButtonElement).click();
+        captureExit();
       })
   );
 

@@ -85,6 +85,7 @@ import SharedBookTransition from "@/app/SharedBookTransition";
 import SettingsSurface from "@/app/SettingsSurface";
 import useAppNavigation from "@/app/useAppNavigation";
 import useReaderBookState from "@/app/useReaderBookState";
+import useReadingGoalState from "@/app/useReadingGoalState";
 import { UI_TEXT } from "@/lib/uiText";
 import {
   DEFAULT_READER_MODE,
@@ -252,10 +253,9 @@ export default function Home() {
   const pendingReaderPrefsRef = useRef<ReaderPreferences | null>(null);
   const readerPrefsGenerationRef = useRef(0);
 
-  const [readingGoal, setReadingGoal] = useState(() => loadReadingGoal());
+  const { readingGoal, setReadingGoal, goalInputValue, setGoalInputValue } = useReadingGoalState();
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [readingStats, setReadingStats] = useState<DailyReadingStat[]>([]);
-  const [goalInputValue, setGoalInputValue] = useState(readingGoal.targetMinutes);
   const tickRef = useRef<{
     date: string;
     lastVis: boolean;

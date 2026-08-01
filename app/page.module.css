@@ -2108,6 +2108,12 @@
   padding: 13px 0;
   color: inherit;
   text-align: left;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
+.bookItemMain:active {
+  transform: translate3d(0, 1px, 0) scale(0.985);
 }
 
 .bookItemMain:focus-visible,
@@ -2317,6 +2323,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .bookCover,
+  .bookItemMain,
+  .bookItemMain:active,
   .bookGridItem:active .bookCover,
   .bookItem:active .bookCover,
   .bookMoreButton,
@@ -5648,12 +5656,23 @@
 }
 
 .tocSheet {
+  --sheet-page-viewport-flex: 1;
+  --sheet-page-viewport-height: auto;
+  --sheet-page-height: 100%;
   height: min(92dvh, 760px);
   max-height: min(92dvh, 760px);
   overflow: hidden;
   background: color-mix(in srgb, #1f1f1f 88%, var(--sheet-fill));
   color: rgba(255, 255, 255, 0.9);
   border-radius: 24px 24px 0 0;
+}
+
+.tocPage {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
 }
 
 .tocHeader {
@@ -5733,32 +5752,14 @@
   color: rgba(255, 255, 255, 0.78);
   font-size: 15px;
   font-weight: 700;
+  transition:
+    background-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
 }
 
 .tocTabs .tocTabActive {
+  background-color: rgba(255, 255, 255, 0.23);
   color: #ffffff;
-}
-
-.tocTabIndicator {
-  position: absolute;
-  z-index: 0;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc((100% - 10px) / 3);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.23);
-  pointer-events: none;
-  transform: translate3d(0, 0, 0);
-  transition: transform var(--motion-standard) var(--ease-standard);
-}
-
-.tocTabs[data-active-tab="bookmarks"] .tocTabIndicator {
-  transform: translate3d(calc(100% + 2px), 0, 0);
-}
-
-.tocTabs[data-active-tab="highlights"] .tocTabIndicator {
-  transform: translate3d(calc(200% + 4px), 0, 0);
 }
 
 .tocTabLabel {
@@ -7701,7 +7702,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pushDepthOverlay,
-  .tocTabIndicator,
+  .tocTabs button,
   .providerChoiceIcon,
   .providerModelCheck,
   .providerActiveBadge,

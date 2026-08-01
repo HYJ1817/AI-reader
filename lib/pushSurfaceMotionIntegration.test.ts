@@ -69,6 +69,10 @@ describe("push surface motion integration", () => {
   it("uses the dedicated root content transition", () => {
     expect(navigationSource).toContain("ROOT_TAB_CONTENT_TRANSITION");
     expect(navigationSource).toContain('data-motion-role="root-content"');
+    expect(navigationSource).toContain("const rootTabTransition =");
+    expect(navigationSource).toMatch(
+      /pushDepth === 0[\s\S]*?active[\s\S]*?ROOT_TAB_CONTENT_TRANSITION[\s\S]*?: \{ duration: 0 \}/
+    );
     expect(pageCss).toMatch(
       /\[data-motion-role="root-content"\][\s\S]*?--motion-role-duration:\s*var\(--motion-root\);/
     );

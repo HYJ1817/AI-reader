@@ -125,36 +125,47 @@ async function measurePressFeedback(
   target: Locator,
   observed: Locator = target
 ) {
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+  );
   const box = await target.boundingBox();
   if (!box) throw new Error("Press target geometry is unavailable");
-  const measurement = observed.evaluate(
-    (element) =>
-      new Promise<number>((resolve, reject) => {
-        const fingerprint = () => {
-          const style = getComputedStyle(element);
-          return `${style.opacity}|${style.transform}|${style.backgroundColor}`;
-        };
-        const baseline = fingerprint();
+  await observed.evaluate((element) => {
+    const targetElement = element as HTMLElement;
+    const fingerprint = () => {
+      const style = getComputedStyle(targetElement);
+      return `${style.opacity}|${style.transform}|${style.backgroundColor}`;
+    };
+    const baseline = fingerprint();
+    delete targetElement.dataset.pressProbeLatency;
+    targetElement.addEventListener(
+      "pointerdown",
+      () => {
         const startedAt = performance.now();
-        const timeout = window.setTimeout(
-          () => reject(new Error("Press feedback did not become visible")),
-          500
-        );
         const sample = (now: number) => {
           if (fingerprint() !== baseline) {
-            window.clearTimeout(timeout);
-            resolve(now - startedAt);
+            targetElement.dataset.pressProbeLatency = String(now - startedAt);
             return;
           }
           requestAnimationFrame(sample);
         };
         requestAnimationFrame(sample);
-      })
-  );
+      },
+      { once: true }
+    );
+  });
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   try {
-    return await measurement;
+    await expect
+      .poll(() => observed.getAttribute("data-press-probe-latency"), {
+        timeout: 500,
+      })
+      .not.toBeNull();
+    return Number(await observed.getAttribute("data-press-probe-latency"));
   } finally {
     await page.mouse.up();
   }
@@ -177,10 +188,13 @@ test.beforeEach(async ({ page }) => {
   await expect(covers).toHaveCount(previousCount + 1);
 });
 
-test("press feedback appears within 80 ms across daily interaction families", async ({ page }) => {
-  const latencies: number[] = [];
+test("press feedback appears within 80 ms across daily interaction families", async ({ page }, testInfo) => {
+  const latencies: Array<{ control: string; latency: number }> = [];
   const readingTab = page.locator('[data-navigation-tab="reading"]');
-  latencies.push(await measurePressFeedback(page, readingTab));
+  latencies.push({
+    control: "root-tab",
+    latency: await measurePressFeedback(page, readingTab),
+  });
   await page.locator('[data-navigation-tab="library"]').click();
   await page.getByRole("button", { name: "列表" }).click();
   const covers = page.locator(`${libraryRoot} [data-book-cover-origin]`);
@@ -193,11 +207,27 @@ test("press feedback appears within 80 ms across daily interaction families", as
   await expect(covers).toHaveCount(coverCount + 1);
 
   const bookOpen = page.locator(`${libraryRoot} [data-library-book-open="true"]`).last();
-  latencies.push(await measurePressFeedback(page, bookOpen, bookOpen.locator("..")));
+  latencies.push({
+    control: "book-row",
+    latency: await measurePressFeedback(page, bookOpen),
+  });
   const reader = page.locator('[data-reader-presented="true"]');
   await expect(reader).toBeVisible();
+  await expect
+    .poll(() =>
+      reader.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
   const readerControl = reader.locator('[data-reader-menu-toggle="true"]');
-  latencies.push(await measurePressFeedback(page, readerControl));
+  latencies.push({
+    control: "reader-control",
+    latency: await measurePressFeedback(page, readerControl),
+  });
   if ((await readerControl.getAttribute("aria-expanded")) !== "true") {
     await readerControl.click();
   }
@@ -210,13 +240,25 @@ test("press feedback appears within 80 ms across daily interaction families", as
     .getByRole("button", { name: "阅读空间" });
   await expect(workspaceRow).toBeVisible();
   await page.waitForTimeout(350);
-  latencies.push(await measurePressFeedback(page, workspaceRow));
+  latencies.push({
+    control: "sheet-row",
+    latency: await measurePressFeedback(page, workspaceRow),
+  });
   const workspace = page.locator('[data-sheet-route="reading-workspace"]');
   await expect(workspace).toBeVisible();
   const workspaceTab = workspace.getByRole("tab", { name: "资料" });
-  latencies.push(await measurePressFeedback(page, workspaceTab));
+  latencies.push({
+    control: "workspace-tab",
+    latency: await measurePressFeedback(page, workspaceTab),
+  });
 
-  for (const latency of latencies) expect(latency).toBeLessThanOrEqual(80);
+  await testInfo.attach("press-feedback-latencies.json", {
+    body: JSON.stringify({ project: testInfo.project.name, latencies }, null, 2),
+    contentType: "application/json",
+  });
+  for (const sample of latencies) {
+    expect(sample.latency, sample.control).toBeLessThanOrEqual(80);
+  }
 });
 
 test("reader popover keeps focus with reduced motion and 200 percent text", async ({ page }, testInfo) => {
@@ -248,6 +290,10 @@ test("reader popover keeps focus with reduced motion and 200 percent text", asyn
   await expect(popover).toHaveCount(0);
   await expect(modeTrigger).toBeFocused();
   const metrics = await metricsPromise;
+  console.info(
+    `[reader-popover-cadence] ${testInfo.project.name}`,
+    JSON.stringify(metrics)
+  );
   await attachInteractionMetrics(testInfo, "reader-popover-inline-state", metrics);
   expectInteractionBudget(metrics);
   expect(
@@ -400,6 +446,10 @@ test("ten root intents settle on the last tab without ghost surfaces", async ({
   }
 
   const metrics = await metricsPromise;
+  console.info(
+    `[ten-root-intents-cadence] ${testInfo.project.name}`,
+    JSON.stringify(metrics)
+  );
   await attachInteractionMetrics(testInfo, "ten-root-intents", metrics);
 
   await expect(

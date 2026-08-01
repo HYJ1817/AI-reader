@@ -1,6 +1,6 @@
 "use client";
 
-import { AnimatePresence, animate, m } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import {
   memo,
   useCallback,
@@ -163,9 +163,10 @@ export function TocPage({
   const chapterScrollRootRef = useRef<HTMLDivElement>(null);
   const loadSentinelRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const tabScrollFrameRef = useRef<number | null>(null);
+  const viewportWidthRef = useRef(0);
   const activeTabRef = useRef<ReaderTocTab>("chapters");
   const programmaticTabRef = useRef<ReaderTocTab | null>(null);
-  const panelAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
   const visibleItems = useMemo(
     () => flatItems.slice(0, visibleCount),
     [flatItems, visibleCount]
@@ -178,40 +179,35 @@ export function TocPage({
     setActiveTab(tab);
   }, []);
 
+  const releaseProgrammaticTab = useCallback(() => {
+    programmaticTabRef.current = null;
+  }, []);
+
   const selectTab = useCallback(
     (tab: ReaderTocTab) => {
       const viewport = viewportRef.current;
-      const previousTab = activeTabRef.current;
       programmaticTabRef.current = tab;
       updateActiveTab(tab);
       if (!viewport) return;
-      viewport.scrollTo({
-        left: getReaderTocTabScrollLeft(
-          READER_TOC_TABS.indexOf(tab),
-          viewport.clientWidth
-        ),
-        behavior: "auto",
+      if (tabScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(tabScrollFrameRef.current);
+      }
+      tabScrollFrameRef.current = window.requestAnimationFrame(() => {
+        tabScrollFrameRef.current = null;
+        const currentViewport = viewportRef.current;
+        if (!currentViewport) return;
+        const viewportWidth =
+          viewportWidthRef.current || currentViewport.clientWidth;
+        currentViewport.scrollTo({
+          left: getReaderTocTabScrollLeft(
+            READER_TOC_TABS.indexOf(tab),
+            viewportWidth
+          ),
+          behavior: "auto",
+        });
       });
-      if (previousTab === tab) return;
-      const panel = viewport.querySelector<HTMLElement>(
-        `#toc-panel-${tab} [data-toc-panel-scroller="true"]`
-      );
-      if (!panel) return;
-      panelAnimationRef.current?.stop();
-      const direction =
-        READER_TOC_TABS.indexOf(tab) >
-        READER_TOC_TABS.indexOf(previousTab)
-          ? 1
-          : -1;
-      panelAnimationRef.current = animate(
-        panel,
-        reduceMotion
-          ? { opacity: [0.94, 1] }
-          : { opacity: [0.94, 1], x: [direction * 10, 0] },
-        getRoleTransition("state-enter", reduceMotion)
-      );
     },
-    [reduceMotion, updateActiveTab]
+    [updateActiveTab]
   );
 
   const handleViewportScroll = useCallback(() => {
@@ -222,7 +218,7 @@ export function TocPage({
       if (!viewport) return;
       const index = getNearestReaderTocTabIndex(
         viewport.scrollLeft,
-        viewport.clientWidth
+        viewportWidthRef.current || viewport.clientWidth
       );
       const nearestTab = READER_TOC_TABS[index];
       const targetTab = programmaticTabRef.current;
@@ -236,25 +232,31 @@ export function TocPage({
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    const resnap = () => {
+    viewportWidthRef.current = viewport.clientWidth;
+    const resnap = (width: number) => {
+      viewportWidthRef.current = width;
       viewport.scrollTo({
         left: getReaderTocTabScrollLeft(
           READER_TOC_TABS.indexOf(activeTabRef.current),
-          viewport.clientWidth
+          width
         ),
         behavior: "auto",
       });
     };
-    const observer = new ResizeObserver(resnap);
+    const observer = new ResizeObserver(([entry]) =>
+      resnap(entry?.contentRect.width || viewport.clientWidth)
+    );
     observer.observe(viewport);
     return () => observer.disconnect();
   }, []);
 
   useEffect(
     () => () => {
-      panelAnimationRef.current?.stop();
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (tabScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(tabScrollFrameRef.current);
       }
     },
     []
@@ -406,7 +408,7 @@ export function TocPage({
   };
 
   return (
-    <>
+    <div className={styles.tocPage}>
           <div className={styles.tocHeader}>
             <div className={styles.tocHeaderText}>
               <h2 className={styles.tocHeaderTitle}>{bookTitle || "目录与标记"}</h2>
@@ -424,7 +426,6 @@ export function TocPage({
             aria-label="目录视图"
             data-active-tab={activeTab}
           >
-            <span className={styles.tocTabIndicator} aria-hidden="true" />
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -450,9 +451,8 @@ export function TocPage({
             className={styles.tocSwipeViewport}
             data-sheet-horizontal-gesture="true"
             data-toc-swipe-viewport="true"
-            onPointerDown={() => {
-              programmaticTabRef.current = null;
-            }}
+            onPointerDown={releaseProgrammaticTab}
+            onTouchStart={releaseProgrammaticTab}
             onScroll={handleViewportScroll}
           >
             {tabs.map((tab) => (
@@ -476,6 +476,6 @@ export function TocPage({
               </section>
             ))}
           </div>
-    </>
+    </div>
   );
 }
