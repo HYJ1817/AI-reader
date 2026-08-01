@@ -1,5 +1,12 @@
 ﻿# AI Reader Agent Handoff
 
+## Future integration policy
+
+- For subsequent work in this repository, once the requested change is implemented and the relevant verification passes, the agent may decide autonomously whether to create or update a pull request or merge the work into `main`.
+- Prefer a pull request for broad product changes, risky refactors, or work that benefits from review. A small, well-verified documentation, maintenance, or low-risk fix may be merged into `main` directly when that is clearer and safer.
+- Do not pause only to ask for integration permission after the change is ready. Preserve unrelated user changes and never use reset or clean to prepare the integration.
+- This standing permission covers branch integration only. Production deployment, release publication, destructive data operations, and external announcements still require a separate user request or authorization.
+
 ## PWA Interaction Fluidity Candidate (2026-08-01, Current Authoritative UI State)
 
 - Active checkout: `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`, branch `feat/pwa-interaction-fluidity`. Implementation commit `740226d` plus verification record `8241ac1` were pushed to `origin/feat/pwa-interaction-fluidity`; the deployed source was 39 commits ahead of and 0 behind local `main` (`d0d2f99`). No reset or clean was run.
