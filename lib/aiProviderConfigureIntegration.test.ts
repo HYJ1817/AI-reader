@@ -22,7 +22,7 @@ describe("Minis-style provider configure contract", () => {
   it("provides an accessible API key visibility control", () => {
     expect(surface).toContain("showApiKey");
     expect(surface).toContain('data-provider-api-key-toggle="true"');
-    expect(surface).toContain('aria-label={showApiKey ? "隐藏 API Key" : "显示 API Key"}');
+    expect(surface).toContain('aria-label={showApiKey ? "隐藏密钥" : "显示密钥"}');
   });
 
   it("labels remote and manual models and exposes typed retry state", () => {

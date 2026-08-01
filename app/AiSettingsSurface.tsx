@@ -499,7 +499,7 @@ export default function AiSettingsSurface({
               ref={addMenuTriggerRef}
               type="button"
               className={styles.providerHeaderAddButton}
-              aria-label="添加 AI 服务商"
+              aria-label="AI 服务商菜单"
               aria-haspopup="menu"
               aria-expanded={addMenuOpen}
               onClick={() => setAddMenuOpen((open) => !open)}
@@ -737,6 +737,7 @@ export default function AiSettingsSurface({
                     <span className={styles.providerFieldLabel}>API Key</span>
                     <div className={styles.providerFieldInputRow}>
                       <input
+                        aria-label="API Key"
                         value={draft.apiKey}
                         onChange={(event) =>
                           updateDraft({ apiKey: event.target.value })
@@ -749,7 +750,7 @@ export default function AiSettingsSurface({
                         type="button"
                         className={styles.providerApiKeyToggle}
                         data-provider-api-key-toggle="true"
-                        aria-label={showApiKey ? "隐藏 API Key" : "显示 API Key"}
+                        aria-label={showApiKey ? "隐藏密钥" : "显示密钥"}
                         aria-pressed={showApiKey}
                         onClick={() => setShowApiKey((visible) => !visible)}
                       >
