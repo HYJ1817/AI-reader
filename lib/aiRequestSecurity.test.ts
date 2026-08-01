@@ -41,6 +41,21 @@ describe("AI request security", () => {
     );
   });
 
+  it("uses a Workers-compatible manual redirect mode and rejects redirects", async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response("redirect", {
+        status: 302,
+        headers: { location: "https://api.example.com/new" },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      fetchAiUpstream("https://api.example.com/v1", {})
+    ).rejects.toMatchObject({ status: 502 });
+    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ redirect: "manual" });
+  });
+
   it("allows local HTTP only when explicitly enabled for development", () => {
     expect(
       assertSafeAiUpstreamUrl("http://localhost:11434/v1", {
