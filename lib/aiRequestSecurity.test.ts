@@ -131,6 +131,9 @@ describe("AI request security", () => {
       expect(source).toContain("error instanceof AiRequestError ? error.message");
       expect(source).toContain("fetchAiUpstream(");
     }
+    expect(modelsRouteSource).toContain("classifyAiModelRefreshFailure");
+    expect(modelsRouteSource).toContain("errorCode");
+    expect(modelsRouteSource).toContain("retryable");
   });
 
   it("streams normalized provider events with anti-buffering headers", () => {
