@@ -87,6 +87,19 @@ describe("AI provider API formats", () => {
     ]);
   });
 
+  it("describes each text provider card without introducing voice providers", () => {
+    expect(AI_PROVIDER_PRESETS.map((preset) => preset.description)).toEqual([
+      "支持 OpenAI、DeepSeek、Moonshot、Groq 等兼容服务商，也支持自定义 API 地址",
+      "支持 Claude 及兼容 Anthropic Messages 协议的服务商",
+      "支持 Gemini 系列及 Google AI Studio",
+      "聚合 GPT、Claude、Gemini、Llama 等主流模型",
+      "支持 Grok 系列模型",
+    ]);
+    expect(AI_PROVIDER_PRESETS.every((preset) => preset.vendors.length > 0)).toBe(
+      true
+    );
+  });
+
   it("creates a usable provider only after API details and model are configured", () => {
     const provider = createEmptyAiProvider({
       protocol: "openai-compatible",
