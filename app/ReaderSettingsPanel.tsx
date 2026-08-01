@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getRoleTransition } from "@/lib/motionSystem";
 import type { ReaderMode } from "@/lib/readerMode";
 import {
   updateReaderPreferenceDraft,
@@ -8,6 +10,7 @@ import {
   type ReaderTheme,
 } from "@/lib/readerPreferences";
 import { UI_TEXT } from "@/lib/uiText";
+import { useAppReducedMotion } from "./AppMotionRoot";
 import BottomSheet, { type CloseSheet } from "./BottomSheet";
 import styles from "./page.module.css";
 
@@ -77,9 +80,56 @@ export function ReaderSettingsPage({
   onOpenCustomSettings,
   close,
 }: ReaderSettingsPageProps) {
+  const reduceMotion = useAppReducedMotion();
   const [draft, setDraft] = useState(preferences);
   const [openMenu, setOpenMenu] = useState<ReaderSettingsMenu | null>(null);
   const draftRef = useRef(preferences);
+  const modeMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const themeMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const closeReaderMenu = useCallback(
+    (menu: ReaderSettingsMenu | null = openMenu, returnFocus = true) => {
+      setOpenMenu(null);
+      if (!menu || !returnFocus) return;
+      window.requestAnimationFrame(() => {
+        const trigger =
+          menu === "mode"
+            ? modeMenuTriggerRef.current
+            : themeMenuTriggerRef.current;
+        trigger?.focus({ preventScroll: true });
+      });
+    },
+    [openMenu]
+  );
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeReaderMenu(openMenu);
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        event.type === "pointerdown" &&
+        !popoverRef.current?.contains(target) &&
+        !modeMenuTriggerRef.current?.contains(target) &&
+        !themeMenuTriggerRef.current?.contains(target)
+      ) {
+        closeReaderMenu(openMenu);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [closeReaderMenu, openMenu]);
 
   function updateImmediately<K extends keyof ReaderPreferences>(
     key: K,
@@ -136,6 +186,7 @@ export function ReaderSettingsPage({
                 </div>
                 <div className={styles.readerModeSegment}>
                   <button
+                    ref={modeMenuTriggerRef}
                     type="button"
                     className={openMenu === "mode" ? styles.readerModeSegmentActive : ""}
                     onClick={() => setOpenMenu(openMenu === "mode" ? null : "mode")}
@@ -151,6 +202,7 @@ export function ReaderSettingsPage({
                     </span>
                   </button>
                   <button
+                    ref={themeMenuTriggerRef}
                     type="button"
                     className={openMenu === "theme" ? styles.readerModeSegmentActive : ""}
                     onClick={() => setOpenMenu(openMenu === "theme" ? null : "theme")}
@@ -168,8 +220,24 @@ export function ReaderSettingsPage({
                 </div>
               </div>
 
+              <AnimatePresence initial={false}>
               {openMenu === "mode" && (
-                <div className={styles.readerSettingsPopover} data-menu="mode">
+                <m.div
+                  ref={popoverRef}
+                  className={styles.readerSettingsPopover}
+                  data-menu="mode"
+                  data-motion-role="popover"
+                  role="menu"
+                  style={{ transformOrigin: "100% 0%" }}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    scale: reduceMotion ? 1 : 0.96,
+                    transition: getRoleTransition("popover-exit", reduceMotion),
+                  }}
+                  transition={getRoleTransition("popover-enter", reduceMotion)}
+                >
                   {READER_MODE_MENU_OPTIONS.map((item) => (
                     <button
                       key={item.value}
@@ -177,7 +245,7 @@ export function ReaderSettingsPage({
                       className={styles.readerSettingsPopoverRow}
                       onClick={() => {
                         onModeChange(item.value);
-                        setOpenMenu(null);
+                        closeReaderMenu("mode");
                       }}
                     >
                       <span className={styles.readerSettingsPopoverCheck}>
@@ -199,11 +267,26 @@ export function ReaderSettingsPage({
                       <span>{item.label}</span>
                     </button>
                   ))}
-                </div>
+                </m.div>
               )}
 
               {openMenu === "theme" && (
-                <div className={styles.readerSettingsPopover} data-menu="theme">
+                <m.div
+                  ref={popoverRef}
+                  className={styles.readerSettingsPopover}
+                  data-menu="theme"
+                  data-motion-role="popover"
+                  role="menu"
+                  style={{ transformOrigin: "100% 0%" }}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    scale: reduceMotion ? 1 : 0.96,
+                    transition: getRoleTransition("popover-exit", reduceMotion),
+                  }}
+                  transition={getRoleTransition("popover-enter", reduceMotion)}
+                >
                   {READER_THEME_MENU_OPTIONS.map((item) => (
                     <button
                       key={item.value}
@@ -211,7 +294,7 @@ export function ReaderSettingsPage({
                       className={styles.readerSettingsPopoverRow}
                       onClick={() => {
                         updateImmediately("theme", item.value);
-                        setOpenMenu(null);
+                        closeReaderMenu("theme");
                       }}
                     >
                       <span className={styles.readerSettingsPopoverCheck}>
@@ -246,8 +329,9 @@ export function ReaderSettingsPage({
                       <span>{item.label}</span>
                     </button>
                   ))}
-                </div>
+                </m.div>
               )}
+              </AnimatePresence>
 
               <div className={styles.readerFontScale} aria-hidden="true">
                 {Array.from({ length: FONT_SCALE_DOTS }, (_, index) => (

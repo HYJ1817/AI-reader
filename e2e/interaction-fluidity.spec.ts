@@ -136,6 +136,78 @@ test.beforeEach(async ({ page }) => {
   await expect(covers).toHaveCount(previousCount + 1);
 });
 
+test("reader popover keeps focus with reduced motion and 200 percent text", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
+  await page.locator(`${libraryRoot} [data-book-cover-origin]`).first().click();
+  await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  if ((await menuToggle.getAttribute("aria-expanded")) !== "true") {
+    await menuToggle.click();
+  }
+  await page.getByRole("button", { name: /主题与设置/ }).click();
+
+  const settings = page.locator('[data-sheet-route="reader-settings"]');
+  const modeTrigger = settings.getByRole("button", { name: "阅读方式" });
+  await modeTrigger.click();
+  const popover = settings.getByRole("menu");
+  await expect(popover).toBeVisible();
+  expect(
+    await popover.evaluate((element) => {
+      const transform = getComputedStyle(element).transform;
+      if (transform === "none") return true;
+      const matrix = new DOMMatrixReadOnly(transform);
+      return matrix.a === 1 && matrix.d === 1 && matrix.e === 0 && matrix.f === 0;
+    })
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(popover).toHaveCount(0);
+  await expect(modeTrigger).toBeFocused();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+    )
+  ).toBeLessThanOrEqual(1);
+});
+
+test("AI inline state stays current while model refresh is pending", async ({ page }) => {
+  await page.locator('[data-navigation-tab="settings"]').click();
+  const settingsRoot = page.locator(
+    '[data-navigation-root="settings"][aria-hidden="false"]'
+  );
+  await settingsRoot.getByRole("button", { name: /AI 服务商/ }).click();
+  await page.getByRole("button", { name: "添加 AI 服务商" }).click();
+  const configure = page.locator('[data-provider-configure="true"]');
+  await configure.getByRole("button", { name: /OpenAI/ }).click();
+  await configure.getByLabel("API Key").fill("fixture-key");
+
+  await page.route("**/api/models", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        models: [{ id: "stale-model", label: "Stale model", source: "remote" }],
+      }),
+    });
+  });
+
+  const refresh = configure.getByRole("button", { name: "刷新" });
+  await refresh.click();
+  await expect(configure.getByText("正在刷新模型…")).toBeVisible();
+  await expect(refresh).toBeDisabled();
+  await configure.getByRole("button", { name: /Anthropic/ }).click();
+  await expect(refresh).toBeEnabled();
+  await page.waitForTimeout(650);
+
+  await expect(configure.getByText("Stale model")).toHaveCount(0);
+  await expect(configure.getByRole("button", { name: /Anthropic/ })).toHaveAttribute(
+    "aria-pressed",
+    "true"
+  );
+  await expect(configure.getByText("正在刷新模型…")).toHaveCount(0);
+});
+
 test("reader lifecycle resumes at settled geometry without replaying entry", async ({
   page,
 }) => {

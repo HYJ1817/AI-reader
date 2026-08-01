@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, animate, m } from "motion/react";
 import {
   memo,
   useCallback,
@@ -23,6 +24,7 @@ import {
   formatReaderPageSummary,
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
+import { getRoleTransition } from "@/lib/motionSystem";
 import {
   READER_TOC_TABS,
   getNearestReaderTocTabIndex,
@@ -163,12 +165,15 @@ export function TocPage({
   const scrollFrameRef = useRef<number | null>(null);
   const activeTabRef = useRef<ReaderTocTab>("chapters");
   const programmaticTabRef = useRef<ReaderTocTab | null>(null);
+  const panelAnimationRef = useRef<ReturnType<typeof animate> | null>(null);
   const visibleItems = useMemo(
     () => flatItems.slice(0, visibleCount),
     [flatItems, visibleCount]
   );
 
   const updateActiveTab = useCallback((tab: ReaderTocTab) => {
+    const previousTab = activeTabRef.current;
+    if (previousTab === tab) return;
     activeTabRef.current = tab;
     setActiveTab(tab);
   }, []);
@@ -187,24 +192,23 @@ export function TocPage({
         ),
         behavior: "auto",
       });
-      if (reduceMotion || previousTab === tab) return;
-      const direction =
-        READER_TOC_TABS.indexOf(tab) > READER_TOC_TABS.indexOf(previousTab)
-          ? 1
-          : -1;
+      if (previousTab === tab) return;
       const panel = viewport.querySelector<HTMLElement>(
         `#toc-panel-${tab} [data-toc-panel-scroller="true"]`
       );
-      panel?.getAnimations().forEach((animation) => animation.cancel());
-      panel?.animate(
-        [
-          { opacity: 0.7, transform: `translate3d(${direction * 24}px, 0, 0)` },
-          { opacity: 1, transform: "translate3d(0, 0, 0)" },
-        ],
-        {
-          duration: 240,
-          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        }
+      if (!panel) return;
+      panelAnimationRef.current?.stop();
+      const direction =
+        READER_TOC_TABS.indexOf(tab) >
+        READER_TOC_TABS.indexOf(previousTab)
+          ? 1
+          : -1;
+      panelAnimationRef.current = animate(
+        panel,
+        reduceMotion
+          ? { opacity: [0.94, 1] }
+          : { opacity: [0.94, 1], x: [direction * 10, 0] },
+        getRoleTransition("state-enter", reduceMotion)
       );
     },
     [reduceMotion, updateActiveTab]
@@ -248,6 +252,7 @@ export function TocPage({
 
   useEffect(
     () => () => {
+      panelAnimationRef.current?.stop();
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
       }
@@ -271,6 +276,10 @@ export function TocPage({
     const observer = new Observer(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
+        const scrollRoot = chapterScrollRootRef.current;
+        if (!scrollRoot || scrollRoot.scrollHeight <= scrollRoot.clientHeight + 1) {
+          return;
+        }
         setVisibleCount((current) =>
           getNextVisibleItemCount(current, flatItems.length, TOC_RENDER_BATCH)
         );
@@ -299,13 +308,23 @@ export function TocPage({
     records.length === 0 ? (
       <p className={styles.tocEmptyText}>{emptyText}</p>
     ) : (
-      <ul className={styles.annotationList}>
+      <m.ul className={styles.annotationList}>
+        <AnimatePresence initial={false} mode="popLayout">
         {records.map((record) => (
-          <li
+          <m.li
             key={record.id}
+            layout={reduceMotion ? false : "position"}
             className={styles.annotationRow}
             data-annotation-id={record.id}
             data-annotation-kind={record.kind}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={{
+              opacity: 0,
+              y: reduceMotion ? 0 : 6,
+              transition: getRoleTransition("state-exit", reduceMotion),
+            }}
+            transition={getRoleTransition("state-enter", reduceMotion)}
           >
             <button
               className={styles.annotationJumpButton}
@@ -337,9 +356,10 @@ export function TocPage({
             >
               <TrashIcon />
             </button>
-          </li>
+          </m.li>
         ))}
-      </ul>
+        </AnimatePresence>
+      </m.ul>
     );
 
   const renderPanel = (
@@ -449,6 +469,7 @@ export function TocPage({
                   ref={tab.id === "chapters" ? chapterScrollRootRef : undefined}
                   className={styles.tocPanelScroller}
                   data-toc-panel-scroller="true"
+                  data-motion-role="inline-state"
                 >
                   {renderPanel(tab.id, close)}
                 </div>

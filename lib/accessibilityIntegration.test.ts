@@ -56,6 +56,10 @@ const readerSettingsPanel = readFileSync(
   new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
   "utf8"
 );
+const readingWorkspaceSheet = readFileSync(
+  new URL("../app/ReadingWorkspaceSheet.tsx", import.meta.url),
+  "utf8"
+);
 
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -67,6 +71,20 @@ function rule(source: string, selector: string): string {
 }
 
 describe("daily-path accessibility contract", () => {
+  it("returns focus when dismissing local workspace and reader popovers", () => {
+    for (const source of [readingWorkspaceSheet, readerSettingsPanel]) {
+      expect(source).toContain('event.key === "Escape"');
+      expect(source).toContain("event.stopPropagation()");
+      expect(source).toContain('event.type === "pointerdown"');
+      expect(source).toContain(".focus({ preventScroll: true })");
+    }
+  });
+
+  it("returns focus to the artifact title when an inline rename fails", () => {
+    expect(artifactPreview).toContain("titleInputRef.current?.focus");
+    expect(artifactPreview).toContain("preventScroll: true");
+  });
+
   it("provides one visible keyboard focus language", () => {
     expect(globals).toContain("--focus-ring");
     expect(globals).toContain(":focus-visible");

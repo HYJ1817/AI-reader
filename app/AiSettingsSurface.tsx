@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
+import { useMemo, useRef, useState } from "react";
 import styles from "./page.module.css";
 import {
   AI_PROVIDER_PRESETS,
@@ -16,6 +17,8 @@ import {
   type AiProviderProtocol,
   type AiProviderSettings,
 } from "@/lib/aiProviders";
+import { getRoleTransition } from "@/lib/motionSystem";
+import { useAppReducedMotion } from "./AppMotionRoot";
 
 type DraftProvider = Omit<AiProviderConfig, "protocol"> & {
   protocol: AiProviderProtocol | "";
@@ -93,6 +96,7 @@ export default function AiSettingsSurface({
   onBack,
   onSave,
 }: AiSettingsSurfaceProps) {
+  const reduceMotion = useAppReducedMotion();
   const editingProviderId = providerId ?? null;
   const [draft, setDraft] = useState<DraftProvider | null>(() =>
     createInitialDraft(mode, settings, providerId)
@@ -100,6 +104,7 @@ export default function AiSettingsSurface({
   const [manualModel, setManualModel] = useState("");
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [modelRefreshStatus, setModelRefreshStatus] = useState("");
+  const refreshRequestIdRef = useRef(0);
   const activeProvider = useMemo(
     () =>
       settings.providers.find((provider) => provider.id === settings.activeProviderId) ??
@@ -108,11 +113,15 @@ export default function AiSettingsSurface({
   );
   function updateDraft(next: Partial<DraftProvider>) {
     if (!draft) return;
+    refreshRequestIdRef.current += 1;
+    setRefreshingModels(false);
     setDraft({ ...draft, ...next });
   }
 
   function changeProviderKind(kind: Exclude<AiProviderKind, "custom">) {
     if (!draft) return;
+    refreshRequestIdRef.current += 1;
+    setRefreshingModels(false);
     const preset = materializeAiProviderBaseUrl(
       createAiProviderFromPreset(kind, {
         id: draft.id,
@@ -184,6 +193,8 @@ export default function AiSettingsSurface({
       setModelRefreshStatus("请先选择服务商，并填写 API 地址和 API Key。");
       return;
     }
+    const requestId = refreshRequestIdRef.current + 1;
+    refreshRequestIdRef.current = requestId;
     setRefreshingModels(true);
     setModelRefreshStatus("");
     try {
@@ -199,6 +210,7 @@ export default function AiSettingsSurface({
       if (!response.ok || !Array.isArray(data.models)) {
         throw new Error(data.error || "刷新失败");
       }
+      if (refreshRequestIdRef.current !== requestId) return;
       const remoteModels = data.models.map((model) => ({ ...model, source: "remote" as const }));
       const manualModels = draft.models.filter((model) => model.source === "manual");
       const models = dedupeModels([...remoteModels, ...manualModels]);
@@ -211,11 +223,14 @@ export default function AiSettingsSurface({
         models.length > 0 ? `已刷新 ${remoteModels.length} 个模型。` : "没有返回模型，可手动添加。"
       );
     } catch (err) {
+      if (refreshRequestIdRef.current !== requestId) return;
       setModelRefreshStatus(
         err instanceof Error ? err.message : "刷新失败，可手动添加模型。"
       );
     } finally {
-      setRefreshingModels(false);
+      if (refreshRequestIdRef.current === requestId) {
+        setRefreshingModels(false);
+      }
     }
   }
 
@@ -270,6 +285,7 @@ export default function AiSettingsSurface({
     draft.apiKey.trim().length > 0 &&
     draft.model.trim().length > 0;
   const title = mode === "list" ? "AI 服务商" : editingProviderId ? "配置服务商" : "添加服务商";
+  const inlineModelStatus = refreshingModels ? "正在刷新模型…" : modelRefreshStatus;
 
   return (
     <div
@@ -294,15 +310,27 @@ export default function AiSettingsSurface({
             <>
               <p className={styles.providerGroupLabel}>当前服务商</p>
               <div className={styles.providerListCard}>
+                <AnimatePresence initial={false} mode="popLayout">
                 {settings.providers.length > 0 ? (
                   settings.providers.map((provider) => {
                     const active = provider.id === activeProvider?.id;
                     return (
-                      <button
+                      <m.button
                         type="button"
                         key={provider.id}
+                        layout={reduceMotion ? false : "position"}
                         className={styles.providerChoiceRow}
                         onClick={() => onPushConfigure(provider.id)}
+                        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                        animate={
+                          reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
+                        }
+                        exit={{
+                          opacity: 0,
+                          y: reduceMotion ? 0 : 6,
+                          transition: getRoleTransition("state-exit", reduceMotion),
+                        }}
+                        transition={getRoleTransition("state-enter", reduceMotion)}
                       >
                         <span className={styles.providerChoiceText}>
                           <strong>{provider.label}</strong>
@@ -312,12 +340,27 @@ export default function AiSettingsSurface({
                         </span>
                         {active && <span className={styles.providerActiveBadge}>使用中</span>}
                         <span className={styles.providerChoiceChevron}>›</span>
-                      </button>
+                      </m.button>
                     );
                   })
                 ) : (
-                  <div className={styles.providerEmptyState}>还没有添加 AI 服务商</div>
+                  <m.div
+                    key="provider-empty"
+                    className={styles.providerEmptyState}
+                    data-motion-role="inline-status"
+                    role="status"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{
+                      opacity: 0,
+                      transition: getRoleTransition("state-exit", reduceMotion),
+                    }}
+                    transition={getRoleTransition("state-enter", reduceMotion)}
+                  >
+                    还没有添加 AI 服务商
+                  </m.div>
                 )}
+                </AnimatePresence>
               </div>
 
               <button
@@ -349,6 +392,7 @@ export default function AiSettingsSurface({
                         key={preset.kind}
                         type="button"
                         className={styles.providerPresetButton}
+                        data-motion-role="inline-state"
                         aria-pressed={selected}
                         data-selected={selected ? "true" : undefined}
                         onClick={() => changeProviderKind(preset.kind)}
@@ -363,11 +407,23 @@ export default function AiSettingsSurface({
                         <span className={styles.providerPresetName}>
                           {PROVIDER_COMPACT_LABEL[preset.kind]}
                         </span>
-                        <span
-                          className={styles.providerPresetCheck}
-                          aria-hidden="true"
-                        >
-                          {selected ? "✓" : ""}
+                        <span className={styles.providerPresetCheck} aria-hidden="true">
+                          <AnimatePresence initial={false}>
+                            {selected ? (
+                              <m.span
+                                key="selected"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{
+                                  opacity: 0,
+                                  transition: getRoleTransition("state-exit", reduceMotion),
+                                }}
+                                transition={getRoleTransition("state-enter", reduceMotion)}
+                              >
+                                ✓
+                              </m.span>
+                            ) : null}
+                          </AnimatePresence>
                         </span>
                       </button>
                     );
@@ -446,12 +502,24 @@ export default function AiSettingsSurface({
                   </button>
                 </div>
                 <div className={styles.providerListCard}>
+                <AnimatePresence initial={false} mode="popLayout">
                 {draft.models.length > 0 ? (
                   draft.models.map((model) => (
-                    <div
+                    <m.div
                       key={model.id}
+                      layout={reduceMotion ? false : "position"}
                       className={styles.providerModelRow}
                       data-selected={draft.model === model.id ? "true" : undefined}
+                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                      animate={
+                        reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
+                      }
+                      exit={{
+                        opacity: 0,
+                        y: reduceMotion ? 0 : 6,
+                        transition: getRoleTransition("state-exit", reduceMotion),
+                      }}
+                      transition={getRoleTransition("state-enter", reduceMotion)}
                     >
                       <button
                         type="button"
@@ -477,11 +545,26 @@ export default function AiSettingsSurface({
                           删除
                         </button>
                       )}
-                    </div>
+                    </m.div>
                   ))
                 ) : (
-                  <div className={styles.providerEmptyState}>还没有模型。可以刷新，或手动添加。</div>
+                  <m.div
+                    key="model-empty"
+                    className={styles.providerEmptyState}
+                    data-motion-role="inline-status"
+                    role="status"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{
+                      opacity: 0,
+                      transition: getRoleTransition("state-exit", reduceMotion),
+                    }}
+                    transition={getRoleTransition("state-enter", reduceMotion)}
+                  >
+                    还没有模型。可以刷新，或手动添加。
+                  </m.div>
                 )}
+                </AnimatePresence>
                 <div className={styles.providerManualModelRow}>
                   <input
                     value={manualModel}
@@ -497,11 +580,27 @@ export default function AiSettingsSurface({
                 </div>
                 </div>
               </section>
-              {modelRefreshStatus && (
-                <p className={styles.providerHelpText} role="status">
-                  {modelRefreshStatus}
-                </p>
-              )}
+              <div className={styles.providerInlineStatusHost}>
+                <AnimatePresence initial={false} mode="sync">
+                  {inlineModelStatus ? (
+                    <m.p
+                      key={inlineModelStatus}
+                      className={styles.providerHelpText}
+                      data-motion-role="inline-status"
+                      role="status"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{
+                        opacity: 0,
+                        transition: getRoleTransition("state-exit", reduceMotion),
+                      }}
+                      transition={getRoleTransition("state-enter", reduceMotion)}
+                    >
+                      {inlineModelStatus}
+                    </m.p>
+                  ) : null}
+                </AnimatePresence>
+              </div>
 
               {editingProviderId && (
                 <button type="button" className={styles.providerDangerButton} onClick={deleteDraft}>

@@ -1,9 +1,12 @@
 "use client";
 
+import { AnimatePresence, m } from "motion/react";
 import { useLayoutEffect, useRef, useState } from "react";
+import { getRoleTransition } from "@/lib/motionSystem";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
 import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import { UI_TEXT } from "@/lib/uiText";
+import { useAppReducedMotion } from "./AppMotionRoot";
 import useWorkspaceViewportFollow from "./useWorkspaceViewportFollow";
 import WorkspaceMessageBody from "./WorkspaceMessageBody";
 import styles from "./page.module.css";
@@ -53,12 +56,21 @@ export default function WorkspaceConversation({
   onSaveToMaterials,
   onRemember,
 }: WorkspaceConversationProps) {
+  const reduceMotion = useAppReducedMotion();
   const memoryReviewTextareaRef = useRef<HTMLTextAreaElement>(null);
   const memoryReviewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [memoryReview, setMemoryReview] = useState<{
     messageId: string;
     content: string;
   } | null>(null);
+  const [seenMessageIds] = useState(
+    () => new Set(messages.map((message) => message.id))
+  );
+  const enteringMessageIds = new Set(
+    messages
+      .filter((message) => !seenMessageIds.has(message.id))
+      .map((message) => message.id)
+  );
   const memoryReviewOpen = memoryReview !== null;
   const lastMessage = messages.at(-1);
   const contentRevision = lastMessage
@@ -91,6 +103,10 @@ export default function WorkspaceConversation({
       trigger.focus({ preventScroll: true });
     }
   }, [memoryReviewOpen]);
+
+  useLayoutEffect(() => {
+    messages.forEach((message) => seenMessageIds.add(message.id));
+  }, [messages, seenMessageIds]);
 
   const handleLoadOlder = async () => {
     await preservePrependAnchor(onLoadOlder);
@@ -161,23 +177,52 @@ export default function WorkspaceConversation({
           </div>
         ) : null}
 
+        <AnimatePresence initial={false} mode="sync">
         {messages.length === 0 && !loading ? (
-          <div className={styles.workspaceEmptyState}>
+          <m.div
+            key="empty"
+            className={styles.workspaceEmptyState}
+            data-motion-role="inline-status"
+            role="status"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: getRoleTransition("state-exit", reduceMotion),
+            }}
+            transition={getRoleTransition("state-enter", reduceMotion)}
+          >
             <strong>{UI_TEXT.WORKSPACE_EMPTY_TITLE}</strong>
             <span>{UI_TEXT.WORKSPACE_EMPTY_HINT}</span>
-          </div>
+          </m.div>
         ) : (
-          <div className={styles.workspaceMessages} aria-live="polite">
-            {messages.map((message) => (
-              <div
+          <m.div
+            key="messages"
+            className={styles.workspaceMessages}
+            aria-live="polite"
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: getRoleTransition("state-exit", reduceMotion),
+            }}
+          >
+            {messages.map((message) => {
+              const isEntering = enteringMessageIds.has(message.id);
+              return (
+              <m.div
                 key={message.id}
                 data-workspace-message-id={message.id}
                 data-workspace-message-state={message.state}
+                data-motion-role="message-entrance"
                 className={`${styles.workspaceMessage} ${
                   message.role === "user"
                     ? styles.workspaceMessageUser
                     : styles.workspaceMessageAssistant
-                }`}
+                  }`}
+                initial={isEntering ? { opacity: 0 } : false}
+                animate={{ opacity: 1 }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
               >
                 <WorkspaceMessageBody message={message} />
                 {message.role === "assistant" && message.state === "complete" ? (
@@ -213,21 +258,50 @@ export default function WorkspaceConversation({
                     {UI_TEXT.RETRY}
                   </button>
                 ) : null}
-              </div>
-            ))}
-          </div>
+              </m.div>
+              );
+            })}
+          </m.div>
         )}
+        </AnimatePresence>
 
-        {loading ? (
-          <div className={styles.workspaceThinking} role="status">
-            {UI_TEXT.AI_THINKING}
-          </div>
-        ) : null}
-        {error ? (
-          <div className={styles.errorBox} role="alert">
-            {error}
-          </div>
-        ) : null}
+        <div className={styles.workspaceConversationStatusRegion}>
+          <AnimatePresence initial={false} mode="sync">
+            {error ? (
+              <m.div
+                key="error"
+                className={styles.errorBox}
+                data-motion-role="inline-status"
+                role="alert"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  transition: getRoleTransition("state-exit", reduceMotion),
+                }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
+              >
+                {error}
+              </m.div>
+            ) : loading ? (
+              <m.div
+                key="loading"
+                className={styles.workspaceThinking}
+                data-motion-role="inline-status"
+                role="status"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  transition: getRoleTransition("state-exit", reduceMotion),
+                }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
+              >
+                {UI_TEXT.AI_THINKING}
+              </m.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
 
       {showReturnToBottom && !memoryReview ? (

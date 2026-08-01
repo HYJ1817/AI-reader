@@ -29,8 +29,147 @@ const navigationMotionSource = readFileSync(
   new URL("./navigationMotion.ts", import.meta.url),
   "utf8"
 );
+const readingWorkspaceSource = readFileSync(
+  new URL("../app/ReadingWorkspaceSheet.tsx", import.meta.url),
+  "utf8"
+);
+const workspaceConversationSource = readFileSync(
+  new URL("../app/WorkspaceConversation.tsx", import.meta.url),
+  "utf8"
+);
+const workspaceMaterialsSource = readFileSync(
+  new URL("../app/WorkspaceMaterials.tsx", import.meta.url),
+  "utf8"
+);
+const workspaceArtifactPreviewSource = readFileSync(
+  new URL("../app/WorkspaceArtifactPreview.tsx", import.meta.url),
+  "utf8"
+);
+const readerSettingsSource = readFileSync(
+  new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
+  "utf8"
+);
+const tocDrawerSource = readFileSync(
+  new URL("../app/TocDrawer.tsx", import.meta.url),
+  "utf8"
+);
+const aiSettingsSource = readFileSync(
+  new URL("../app/AiSettingsSurface.tsx", import.meta.url),
+  "utf8"
+);
 
 describe("motion CSS", () => {
+  it("uses shared inline motion roles for workspace segments and local state", () => {
+    expect(readingWorkspaceSource).toContain(
+      'layoutId="workspace-segment-indicator"'
+    );
+    expect(readingWorkspaceSource).toContain(
+      '<AnimatePresence initial={false} mode="sync">'
+    );
+    expect(readingWorkspaceSource).toContain('data-motion-role="inline-state"');
+    expect(readingWorkspaceSource).toMatch(/x:\s*direction\s*\*\s*10/);
+    expect(readingWorkspaceSource).toContain(
+      'getRoleTransition("state-enter", reduceMotion)'
+    );
+    expect(readingWorkspaceSource).toContain(
+      'getRoleTransition("state-exit", reduceMotion)'
+    );
+  });
+
+  it("keeps workspace popovers local, reversible, and focus-owned", () => {
+    expect(readingWorkspaceSource).toContain('data-motion-role="popover"');
+    expect(readingWorkspaceSource).toContain('transformOrigin: "100% 0%"');
+    expect(readingWorkspaceSource).toContain(
+      'getRoleTransition("popover-enter", reduceMotion)'
+    );
+    expect(readingWorkspaceSource).toMatch(
+      /getRoleTransition\(\s*"popover-exit",\s*reduceMotion\s*\)/
+    );
+    expect(readingWorkspaceSource).toContain('event.key === "Escape"');
+    expect(readingWorkspaceSource).toContain("sessionMenuTriggerRef.current?.focus");
+    expect(readingWorkspaceSource).not.toContain("duration: 180");
+    expect(readingWorkspaceSource).not.toContain("duration: 120");
+  });
+
+  it("animates material rows by position and never lays out streaming messages", () => {
+    expect(workspaceMaterialsSource).toContain(
+      '<AnimatePresence initial={false} mode="popLayout">'
+    );
+    expect(workspaceMaterialsSource).toContain(
+      'layout={reduceMotion ? false : "position"}'
+    );
+    expect(workspaceMaterialsSource).toMatch(/y:\s*reduceMotion\s*\?\s*0\s*:\s*6/);
+    expect(workspaceMaterialsSource).toContain(
+      'data-materials-empty-state="true"'
+    );
+    expect(workspaceConversationSource).toContain(
+      'data-motion-role="message-entrance"'
+    );
+    expect(workspaceConversationSource).not.toMatch(
+      /data-workspace-message-id[\s\S]{0,500}\blayout(?:=|\s)/
+    );
+    expect(workspaceConversationSource).not.toContain("layoutId={message.id}");
+  });
+
+  it("uses fixed semantic local status transitions", () => {
+    for (const source of [
+      readingWorkspaceSource,
+      workspaceConversationSource,
+      workspaceMaterialsSource,
+      aiSettingsSource,
+    ]) {
+      expect(source).toContain('data-motion-role="inline-status"');
+      expect(source).toContain(
+        'getRoleTransition("state-enter", reduceMotion)'
+      );
+      expect(source).toContain(
+        'getRoleTransition("state-exit", reduceMotion)'
+      );
+    }
+  });
+
+  it("keeps artifact rename feedback local without replacing the title field", () => {
+    expect(workspaceArtifactPreviewSource).toContain(
+      'data-motion-role="inline-status"'
+    );
+    expect(workspaceArtifactPreviewSource).toContain(
+      'getRoleTransition("state-enter", reduceMotion)'
+    );
+    expect(workspaceArtifactPreviewSource).toContain(
+      'getRoleTransition("state-exit", reduceMotion)'
+    );
+    expect(workspaceArtifactPreviewSource).toContain("disabled={saving}");
+    expect(workspaceArtifactPreviewSource).toContain("value={title}");
+  });
+
+  it("uses semantic popover, TOC, and provider list motion without local timing literals", () => {
+    expect(readerSettingsSource).toContain('data-motion-role="popover"');
+    expect(readerSettingsSource).toContain('transformOrigin: "100% 0%"');
+    expect(tocDrawerSource).toContain('data-motion-role="inline-state"');
+    expect(tocDrawerSource).toMatch(/direction\s*\*\s*10/);
+    expect(tocDrawerSource).not.toContain("panel?.animate(");
+    expect(tocDrawerSource).not.toContain("duration: 240");
+    expect(aiSettingsSource).toContain('data-motion-role="inline-status"');
+    expect(aiSettingsSource).toContain('data-motion-role="inline-state"');
+    expect(aiSettingsSource).toContain(
+      'layout={reduceMotion ? false : "position"}'
+    );
+    expect(aiSettingsSource).toContain(
+      "refreshRequestIdRef.current !== requestId"
+    );
+
+    for (const source of [
+      readingWorkspaceSource,
+      workspaceConversationSource,
+      workspaceMaterialsSource,
+      readerSettingsSource,
+      tocDrawerSource,
+      aiSettingsSource,
+    ]) {
+      expect(source).not.toMatch(/duration:\s*(?:120|160|180|240)\b/);
+    }
+  });
+
   it("uses an explicit project easing curve for timed transitions", () => {
     const declarations = css.match(/transition:\s*[^;]+;/g) ?? [];
     const uncurved = declarations.filter((declaration) => {

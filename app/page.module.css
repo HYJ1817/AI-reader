@@ -3656,6 +3656,8 @@
 }
 
 .workspaceSegment {
+  position: relative;
+  isolation: isolate;
   min-height: 36px;
   border: 0;
   border-radius: 8px;
@@ -3671,13 +3673,32 @@
 
 .workspaceSegment[aria-selected="true"] {
   color: var(--text-primary);
+}
+
+.workspaceSegment > span:not(.workspaceSegmentIndicator) {
+  position: relative;
+  z-index: 1;
+}
+
+.workspaceSegmentIndicator {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
   background: var(--surface-primary);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .workspaceViewport {
+  position: relative;
   min-height: 0;
   overflow: hidden;
+}
+
+.workspacePanel,
+.workspaceStatusRegion {
+  position: absolute;
+  inset: 0;
 }
 
 .workspacePanel,
@@ -4316,6 +4337,37 @@
 
 .sheetRouteHost {
   display: contents;
+}
+
+.workspaceConversationStatusRegion {
+  position: relative;
+  min-height: 22px;
+  flex-shrink: 0;
+}
+
+.workspaceConversationStatusRegion > * {
+  position: absolute;
+  inset: 0;
+}
+
+.workspaceMaterialsStatusHost {
+  position: relative;
+  height: 100%;
+  min-height: 160px;
+}
+
+.workspaceArtifactStatusHost {
+  position: relative;
+  min-height: 24px;
+}
+
+.workspaceArtifactStatusHost > * {
+  position: absolute;
+  inset: 0;
+}
+
+.workspaceStatusRegion {
+  min-height: 100%;
 }
 
 .sheetPageViewport {
@@ -7448,6 +7500,18 @@
   font-size: 15px;
   line-height: 1.38;
   color: var(--text-secondary);
+}
+
+.providerInlineStatusHost {
+  position: relative;
+  min-height: 42px;
+  margin: 10px 0 8px;
+}
+
+.providerInlineStatusHost > * {
+  position: absolute;
+  inset: 0;
+  margin: 0;
 }
 
 .providerFormRow {

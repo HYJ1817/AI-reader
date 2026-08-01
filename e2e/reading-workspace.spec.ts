@@ -128,6 +128,18 @@ async function openAskFromReader(page: Page) {
   await expect(page.locator('[data-sheet-route="ask-ai"]')).toBeVisible();
 }
 
+async function saveFixtureMaterial(page: Page) {
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const composer = workspace.getByRole("textbox", { name: "问 AI" });
+  await composer.fill("Create a material");
+  await workspace.getByRole("button", { name: "发送" }).click();
+  await expect(
+    workspace.locator('[data-workspace-message-state="complete"]')
+  ).toHaveCount(2);
+  await workspace.getByRole("button", { name: "保存到资料" }).click();
+  await expect(workspace.getByRole("tab", { name: "资料" })).toBeEnabled();
+}
+
 test.beforeEach(async ({ page }) => {
   await installLocalAiFixture(page);
   await waitForLibrary(page);
@@ -306,6 +318,77 @@ test("long history pages without scroll jumps and long content is explicit", asy
     document.documentElement.scrollWidth - document.documentElement.clientWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("workspace inline state and popover settle on the last rapid intent", async ({ page }) => {
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const conversationTab = workspace.getByRole("tab", { name: "对话" });
+  const materialsTab = workspace.getByRole("tab", { name: "资料" });
+  const sessionTrigger = workspace.getByRole("button", { name: "对话会话" });
+
+  for (let index = 0; index < 6; index += 1) {
+    await sessionTrigger.click();
+    await sessionTrigger.click();
+  }
+  await expect(workspace.getByRole("menu")).toHaveCount(0);
+  await materialsTab.click();
+
+  for (let index = 0; index < 10; index += 1) {
+    await (index % 2 === 0 ? conversationTab : materialsTab).click();
+  }
+
+  await expect(materialsTab).toHaveAttribute("aria-selected", "true");
+  await expect(
+    workspace.locator('[role="tabpanel"][data-motion-role="inline-state"]')
+  ).toHaveCount(1);
+  await expect(workspace.getByText("还没有资料")).toBeVisible();
+});
+
+test("workspace materials rename failure retains the title and focus", async ({ page }) => {
+  await openWorkspaceFromLibrary(page);
+  await saveFixtureMaterial(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  await workspace.getByRole("tab", { name: "资料" }).click();
+  const material = workspace.locator("[data-workspace-material-id]").first();
+  await expect(material).toBeVisible();
+  await material.getByRole("button", { name: /打开/ }).click();
+
+  const title = workspace.getByRole("textbox", { name: "资料标题" });
+  await title.fill("保留这个标题");
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function failArtifactPut(...args) {
+      if (this.name === "workspaceArtifacts") {
+        throw new DOMException("fixture rename failed", "AbortError");
+      }
+      return originalPut.apply(this, args as Parameters<IDBObjectStore["put"]>);
+    };
+  });
+  await workspace.getByRole("button", { name: "重命名" }).click();
+
+  await expect(workspace.getByRole("alert")).toContainText("fixture rename failed");
+  await expect(title).toHaveValue("保留这个标题");
+  await expect(title).toBeFocused();
+});
+
+test("workspace materials keep header and composer geometry stable", async ({ page }) => {
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const header = workspace.locator("header").first();
+  const composer = workspace.getByRole("textbox", { name: "问 AI" });
+  const beforeHeader = await header.boundingBox();
+  const beforeComposer = await composer.boundingBox();
+
+  await saveFixtureMaterial(page);
+  await workspace.getByRole("tab", { name: "资料" }).click();
+  await expect(workspace.locator("[data-workspace-material-id]")).toHaveCount(1);
+  await workspace.getByRole("tab", { name: "对话" }).click();
+
+  const afterHeader = await header.boundingBox();
+  const afterComposer = await composer.boundingBox();
+  expect(Math.abs((afterHeader?.y ?? 0) - (beforeHeader?.y ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((afterComposer?.y ?? 0) - (beforeComposer?.y ?? 0))).toBeLessThanOrEqual(1);
 });
 
 test("workspace streaming preserves user scroll and keeps the composer responsive", async ({ page }) => {
