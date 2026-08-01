@@ -1,5 +1,25 @@
 ﻿# AI Reader Agent Handoff
 
+## PWA Interaction Fluidity Candidate (2026-08-01, Current Authoritative UI State)
+
+- Active checkout: `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`, branch `feat/pwa-interaction-fluidity`. Implementation commit `740226d` is 38 commits ahead of and 0 behind local `main` (`d0d2f99`). No reset or clean was run.
+- Governing documents: `docs/superpowers/specs/2026-07-28-pwa-interaction-fluidity-design.md`, `docs/superpowers/plans/2026-07-28-pwa-interaction-fluidity.md`, and `docs/qa/2026-07-28-iphone15pm-fluidity-checklist.md`.
+- Commit phases: metric foundation `ae50bf1..6230a09`; lifecycle/root/push motion `c4a5f63..435729f`; persistent nested sheets/history/focus `b95b643..429ac7d`; reader lifecycle/transition `0779a57..92b5536`; Workspace streaming/scroll ownership `ea8e895..8a5af46`; inline state coverage and strict budgets `4b2b97e`, `5315629`; final hydration, TOC, root-layer, press, and evidence fixes `740226d`.
+- Root, pushed pages, reader, and sheets use explicit semantic motion roles. Current durations are root 160ms, root indicator 220ms, push 280/200ms, reader 280/210ms, sheet 280/220ms, popover 180/120ms, state 160/120ms, gesture settle 220ms, and reduced motion 100ms.
+- Root tab retargeting keeps one shared bottom indicator but animates only the newly active full-screen root. Inactive roots settle immediately, preventing three hidden full-screen surfaces from consuming compositor work during rapid intent changes.
+- Nested sheet navigation preserves one outer sheet/backdrop and swaps persistent internal pages through measured height snapshots. Focus, keyboard ownership, drag cancellation, browser history, lifecycle interruption, and callback commit-once behavior are covered.
+- Reader presentation has shared-cover geometry, fallback geometry for missing/offscreen origins, lifecycle settlement, real TXT/EPUB gesture ownership, close-during-load handling, and explicit focus return.
+- Contents tabs cache viewport width, split state commit and horizontal scroll across frames, release programmatic ownership on pointer/touch input, and retain fixed sheet geometry. A full-panel opacity/translation animation was replaced with a small 120ms background/color segment fade after 4x CPU evidence showed costly tail frames.
+- Reading-goal state starts from a server-compatible default and restores storage after hydration. Local E2E blocks service workers and supplies `/BUILD_ID`, so deployment-only refresh plumbing no longer creates false local hydration failures.
+- Workspace stays a book-owned persistent sheet. Streaming and viewport follow remain frame-batched, user-scroll aware, generation guarded, and stable across long history, material operations, keyboard geometry, offline state, and rapid inline intents.
+- Fresh repository verification after implementation: `npm.cmd test -- --run` passed 122 files / 1176 tests; `npm.cmd run lint` and `npm.cmd run build` exited 0; the production build compiled, type-checked, and generated all routes. Impeccable returned `[]`; `git diff --check` exited 0.
+- iPhone 14 Chromium full matrix passed 92/92 with one worker, zero retries, and `--trace=off` on the immediately preceding candidate. Retained metrics: TOC first-click p95 16.7ms, max 33.3ms, long task 0; Workspace mount 15.7ms, visible 61.4ms, long task 0, CLS 0. The later root-layer optimization is focused-tested but the exact final commit was not rerun through all 92 iPhone 14 cases.
+- iPhone 15 Pro Max Chromium had an earlier 92/92 full pass before the last TOC/root refinements. Two later full matrices each reached 91/92 because rapid-root p95 intermittently sampled 33.3-33.4ms with no long task or layout shift. After `740226d`, the 17-test interaction file passed the rapid-root case at p95 16.7ms and the focused root navigation gate passed 2/2 with p95/max 16.8ms, long task 0, CLS 0.
+- Retained small issue per user direction: the same final interaction-file run measured list-mode `book-row` press feedback once at 88.0ms against the 80ms target. Navigation still succeeded, other press families passed, and an earlier five-repeat run passed 5/5. This is recorded in the QA checklist and was not changed further.
+- Strict trace-off metrics are authoritative for frame gates. Traced diagnostic runs and earlier failed strict runs are retained as history; no retry was used to convert a failure into a pass.
+- Physical iPhone 15 Pro Max Safari/home-screen PWA evidence is unavailable. iOS/Safari version, standalone lifecycle, real WebKit/ProMotion cadence, thermal/power behavior, weak network, VoiceOver, installed-PWA update lifecycle, and physical screenshots/video remain pending. Chromium emulation is not marked as a physical pass.
+- Publication state: local branch only. Nothing was pushed, merged, deployed, tagged, or released in this phase; production was not changed. A hosted candidate requires explicit user authorization.
+
 ## Reading Workspace Delivery (2026-07-28, Current Authoritative State)
 
 - Checkout for this delivery: `C:\aaa\ai-reader-pwa`, branch `main`, initially
