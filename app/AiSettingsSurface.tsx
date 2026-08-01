@@ -4,6 +4,7 @@ import { AnimatePresence, m } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import styles from "./page.module.css";
 import {
+  AI_API_FORMATS,
   AI_PROVIDER_PRESETS,
   createEmptyAiProvider,
   createAiProviderFromPreset,
@@ -17,6 +18,7 @@ import {
   type AiProviderProtocol,
   type AiProviderSettings,
 } from "@/lib/aiProviders";
+import type { AiModelRefreshErrorCode } from "@/lib/aiModelRefresh";
 import {
   getAiProviderCredentialSummary,
   getAiProviderHealth,
@@ -28,6 +30,15 @@ import { useAppReducedMotion } from "./AppMotionRoot";
 
 type DraftProvider = Omit<AiProviderConfig, "protocol"> & {
   protocol: AiProviderProtocol | "";
+};
+
+type ModelRefreshFailure = {
+  code: AiModelRefreshErrorCode;
+  retryable: boolean;
+};
+
+type ModelRefreshError = Error & {
+  refreshFailure?: ModelRefreshFailure;
 };
 
 const PROVIDER_COMPACT_LABEL: Record<
@@ -93,6 +104,21 @@ function providerHealthClass(health: AiProviderHealth): string {
   }
 }
 
+function modelRefreshErrorMessage(code: AiModelRefreshErrorCode): string {
+  switch (code) {
+    case "auth":
+      return "API Key 无效或没有权限访问模型列表";
+    case "billing":
+      return "服务商账户需要先完成计费设置";
+    case "rate-limit":
+      return "请求过于频繁，请稍后重试";
+    case "invalid-response":
+      return "服务商返回的模型列表格式无法识别";
+    case "network":
+      return "网络或服务商暂时不可用";
+  }
+}
+
 function createInitialDraft(
   mode: "list" | "configure",
   settings: AiProviderSettings,
@@ -121,6 +147,9 @@ export default function AiSettingsSurface({
   const [manualModel, setManualModel] = useState("");
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [modelRefreshStatus, setModelRefreshStatus] = useState("");
+  const [modelRefreshFailure, setModelRefreshFailure] =
+    useState<ModelRefreshFailure | null>(null);
+  const [showApiKey, setShowApiKey] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [providerImportStatus, setProviderImportStatus] = useState("");
   const refreshRequestIdRef = useRef(0);
@@ -214,6 +243,7 @@ export default function AiSettingsSurface({
     if (!draft) return;
     refreshRequestIdRef.current += 1;
     setRefreshingModels(false);
+    setModelRefreshFailure(null);
     setDraft({ ...draft, ...next });
   }
 
@@ -221,6 +251,8 @@ export default function AiSettingsSurface({
     if (!draft) return;
     refreshRequestIdRef.current += 1;
     setRefreshingModels(false);
+    setModelRefreshFailure(null);
+    setShowApiKey(false);
     const preset = materializeAiProviderBaseUrl(
       createAiProviderFromPreset(kind, {
         id: draft.id,
@@ -243,6 +275,33 @@ export default function AiSettingsSurface({
       models: [],
     });
     setManualModel("");
+    setModelRefreshStatus("");
+  }
+
+  function changeProtocol(protocol: AiProviderProtocol) {
+    if (!draft) return;
+    refreshRequestIdRef.current += 1;
+    setRefreshingModels(false);
+    setModelRefreshFailure(null);
+    setShowApiKey(false);
+    const format = getAiApiFormat(protocol);
+    const baseUrl = resolveAiProviderFormatBaseUrl({
+      currentBaseUrl: draft.baseUrl,
+      protocol,
+      appendDefaultPath: draft.appendDefaultPath,
+    });
+    const manualModels = draft.models.filter((model) => model.source === "manual");
+    setDraft({
+      ...draft,
+      kind: "custom",
+      protocol,
+      baseUrl,
+      defaultPath: format.defaultPath,
+      models: manualModels,
+      model: manualModels.some((model) => model.id === draft.model)
+        ? draft.model
+        : manualModels[0]?.id ?? "",
+    });
     setModelRefreshStatus("");
   }
 
@@ -275,6 +334,7 @@ export default function AiSettingsSurface({
     setDraft({ ...draft, model: id, models: nextModels });
     setManualModel("");
     setModelRefreshStatus("");
+    setModelRefreshFailure(null);
   }
 
   function removeModel(id: string) {
@@ -285,6 +345,7 @@ export default function AiSettingsSurface({
       models: nextModels,
       model: draft.model === id ? nextModels[0]?.id ?? "" : draft.model,
     });
+    setModelRefreshFailure(null);
   }
 
   async function refreshModels() {
@@ -296,6 +357,7 @@ export default function AiSettingsSurface({
     refreshRequestIdRef.current = requestId;
     setRefreshingModels(true);
     setModelRefreshStatus("");
+    setModelRefreshFailure(null);
     try {
       const response = await fetch("/api/models", {
         method: "POST",
@@ -305,9 +367,19 @@ export default function AiSettingsSurface({
       const data = (await response.json()) as {
         models?: AiProviderModel[];
         error?: string;
+        errorCode?: AiModelRefreshErrorCode;
+        retryable?: boolean;
       };
       if (!response.ok || !Array.isArray(data.models)) {
-        throw new Error(data.error || "刷新失败");
+        const error = new Error(
+          data.error ||
+            modelRefreshErrorMessage(data.errorCode ?? "invalid-response")
+        ) as ModelRefreshError;
+        error.refreshFailure = {
+          code: data.errorCode ?? "invalid-response",
+          retryable: data.retryable ?? false,
+        };
+        throw error;
       }
       if (refreshRequestIdRef.current !== requestId) return;
       const remoteModels = data.models.map((model) => ({ ...model, source: "remote" as const }));
@@ -321,16 +393,29 @@ export default function AiSettingsSurface({
       setModelRefreshStatus(
         models.length > 0 ? `已刷新 ${remoteModels.length} 个模型。` : "没有返回模型，可手动添加。"
       );
+      setModelRefreshFailure(null);
     } catch (err) {
       if (refreshRequestIdRef.current !== requestId) return;
+      const failure: ModelRefreshFailure =
+        err instanceof Error && (err as ModelRefreshError).refreshFailure
+          ? (err as ModelRefreshError).refreshFailure!
+          : { code: "network", retryable: true };
+      setModelRefreshFailure(failure);
       setModelRefreshStatus(
-        err instanceof Error ? err.message : "刷新失败，可手动添加模型。"
+        err instanceof Error && (err as ModelRefreshError).refreshFailure
+          ? modelRefreshErrorMessage(failure.code)
+          : "网络或服务商暂时不可用"
       );
     } finally {
       if (refreshRequestIdRef.current === requestId) {
         setRefreshingModels(false);
       }
     }
+  }
+
+  function retryableRefresh() {
+    if (!modelRefreshFailure?.retryable || refreshingModels) return;
+    void refreshModels();
   }
 
   function saveDraft() {
@@ -598,8 +683,18 @@ export default function AiSettingsSurface({
                         >
                           {preset.iconLabel}
                         </span>
-                        <span className={styles.providerPresetName}>
-                          {PROVIDER_COMPACT_LABEL[preset.kind]}
+                        <span className={styles.providerPresetCopy}>
+                          <span className={styles.providerPresetName}>
+                            {PROVIDER_COMPACT_LABEL[preset.kind]}
+                          </span>
+                          <span className={styles.providerPresetDescription}>
+                            {preset.description}
+                          </span>
+                          <span className={styles.providerPresetVendors}>
+                            {preset.vendors.map((vendor) => (
+                              <span key={vendor}>{vendor}</span>
+                            ))}
+                          </span>
                         </span>
                         <span className={styles.providerPresetCheck} aria-hidden="true">
                           <AnimatePresence initial={false}>
@@ -638,18 +733,33 @@ export default function AiSettingsSurface({
                       placeholder="例如：DeepSeek"
                     />
                   </label>
-                  <label className={styles.providerField}>
+                  <div className={styles.providerField}>
                     <span className={styles.providerFieldLabel}>API Key</span>
-                    <input
-                      value={draft.apiKey}
-                      onChange={(event) =>
-                        updateDraft({ apiKey: event.target.value })
-                      }
-                      placeholder="sk-..."
-                      type="password"
-                      autoComplete="off"
-                    />
-                  </label>
+                    <div className={styles.providerFieldInputRow}>
+                      <input
+                        value={draft.apiKey}
+                        onChange={(event) =>
+                          updateDraft({ apiKey: event.target.value })
+                        }
+                        placeholder="sk-..."
+                        type={showApiKey ? "text" : "password"}
+                        autoComplete="off"
+                      />
+                      <button
+                        type="button"
+                        className={styles.providerApiKeyToggle}
+                        data-provider-api-key-toggle="true"
+                        aria-label={showApiKey ? "隐藏 API Key" : "显示 API Key"}
+                        aria-pressed={showApiKey}
+                        onClick={() => setShowApiKey((visible) => !visible)}
+                      >
+                        <span aria-hidden="true">{showApiKey ? "隐藏" : "显示"}</span>
+                      </button>
+                    </div>
+                    <small className={styles.providerFieldHint}>
+                      密钥只保存在本机浏览器，不会离开当前设备的本地存储。
+                    </small>
+                  </div>
                   <label className={styles.providerField}>
                     <span className={styles.providerFieldLabel}>API 地址</span>
                     <input
@@ -679,6 +789,35 @@ export default function AiSettingsSurface({
                       <span>选择服务商后设置</span>
                     </div>
                   )}
+                  <div
+                    className={styles.providerProtocolRow}
+                    data-provider-api-format={draft.protocol || undefined}
+                  >
+                    <span className={styles.providerProtocolCopy}>
+                      <strong>API 格式</strong>
+                      <small>
+                        {draft.protocol
+                          ? getAiApiFormat(draft.protocol).description
+                          : "选择一种协议格式"}
+                      </small>
+                    </span>
+                    <select
+                      aria-label="API 格式"
+                      value={draft.protocol}
+                      onChange={(event) =>
+                        changeProtocol(event.target.value as AiProviderProtocol)
+                      }
+                    >
+                      <option value="" disabled>
+                        请选择
+                      </option>
+                      {AI_API_FORMATS.map((format) => (
+                        <option key={format.protocol} value={format.protocol}>
+                          {format.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </section>
 
@@ -723,7 +862,15 @@ export default function AiSettingsSurface({
                       >
                         <span className={styles.providerChoiceText}>
                           <strong>{model.label}</strong>
-                          <small>{model.id}</small>
+                          <small>
+                            {model.id}
+                            <span
+                              className={styles.providerModelSource}
+                              data-provider-model-source={model.source}
+                            >
+                              {model.source === "remote" ? "远程" : "手动"}
+                            </span>
+                          </small>
                         </span>
                         <span className={styles.providerModelCheck} aria-hidden="true">
                           {draft.model === model.id ? "✓" : ""}
@@ -795,6 +942,32 @@ export default function AiSettingsSurface({
                   ) : null}
                 </AnimatePresence>
               </div>
+              <AnimatePresence initial={false}>
+                {modelRefreshFailure ? (
+                  <m.div
+                    className={styles.providerRefreshError}
+                    data-provider-refresh-error="true"
+                    data-error-code={modelRefreshFailure.code}
+                    data-retryable={modelRefreshFailure.retryable}
+                    role="alert"
+                    initial={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: reduceMotion ? 0 : 4 }}
+                    transition={getRoleTransition("state-enter", reduceMotion)}
+                  >
+                    <span>{modelRefreshErrorMessage(modelRefreshFailure.code)}</span>
+                    {modelRefreshFailure.retryable ? (
+                      <button
+                        type="button"
+                        data-provider-retry="true"
+                        onClick={retryableRefresh}
+                      >
+                        重试
+                      </button>
+                    ) : null}
+                  </m.div>
+                ) : null}
+              </AnimatePresence>
 
               {editingProviderId && (
                 <button type="button" className={styles.providerDangerButton} onClick={deleteDraft}>

@@ -7302,7 +7302,7 @@
 .providerPresetButton {
   position: relative;
   min-width: 0;
-  min-height: 58px;
+  min-height: 78px;
   display: grid;
   grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
@@ -7355,6 +7355,40 @@
   line-height: 1.2;
   font-weight: 600;
   text-align: left;
+}
+
+.providerPresetCopy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  align-content: center;
+  text-align: left;
+}
+
+.providerPresetDescription {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providerPresetVendors {
+  display: flex;
+  min-width: 0;
+  gap: 5px;
+  overflow: hidden;
+  color: var(--tint);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.providerPresetVendors span + span::before {
+  content: "·";
+  margin-right: 5px;
+  color: var(--text-tertiary);
 }
 
 .providerPresetCheck {
@@ -7414,6 +7448,85 @@
 .providerField input::placeholder {
   color: var(--text-secondary);
   opacity: 0.82;
+}
+
+.providerFieldInputRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.providerFieldInputRow input {
+  flex: 1;
+}
+
+.providerApiKeyToggle {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.providerApiKeyToggle:active,
+.providerApiKeyToggle[aria-pressed="true"] {
+  color: var(--tint);
+  background: var(--control-fill);
+}
+
+.providerFieldHint {
+  color: var(--text-tertiary);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+}
+
+.providerProtocolRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 58px;
+  padding: 8px 16px;
+  border-top: 0.5px solid var(--hairline);
+  color: var(--text-primary);
+}
+
+.providerProtocolCopy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.providerProtocolCopy strong {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.providerProtocolCopy small {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.6875rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.providerProtocolRow select {
+  min-width: 124px;
+  min-height: 44px;
+  padding: 0 28px 0 10px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text-secondary);
+  background: var(--control-fill);
+  font: inherit;
+  font-size: 0.8125rem;
 }
 
 .providerStickyActions {
@@ -7590,6 +7703,18 @@
     transform var(--motion-fast) var(--ease-standard);
 }
 
+.providerModelSource {
+  display: inline-block;
+  margin-left: 7px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--tint);
+  background: color-mix(in srgb, var(--tint) 10%, transparent);
+  font-size: 0.625rem;
+  line-height: 1.2;
+  vertical-align: 1px;
+}
+
 .providerActiveBadge {
   flex-shrink: 0;
   border-radius: 999px;
@@ -7664,6 +7789,42 @@
   position: absolute;
   inset: 0;
   margin: 0;
+}
+
+.providerRefreshError {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  margin: -2px 0 4px;
+  padding: 8px 12px;
+  border: 0.5px solid color-mix(in srgb, var(--status-error) 28%, transparent);
+  border-radius: 12px;
+  color: var(--status-error);
+  background: color-mix(in srgb, var(--status-error) 9%, transparent);
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.providerRefreshError span {
+  min-width: 0;
+}
+
+.providerRefreshError button {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--tint);
+  background: transparent;
+  font-weight: 700;
+}
+
+.providerRefreshError button:active {
+  background: var(--control-fill);
 }
 
 .providerFormRow {
@@ -7833,6 +7994,8 @@
   .providerHeaderEditButton,
   .providerHeaderAddButton,
   .providerAddMenuItem,
+  .providerApiKeyToggle,
+  .providerRefreshError button,
   .providerPresetButton,
   .providerPresetCheck,
   .providerField,
