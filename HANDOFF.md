@@ -19,7 +19,7 @@
 - Fresh verification on the current source: `npm.cmd test` passed **126 files / 1194 tests**; `npm.cmd exec -- eslint app lib e2e` passed; `npm.cmd run build` passed with Next.js 16.2.11; `git diff --check` passed. Provider Playwright passed **4/4** across iPhone 14 and iPhone 15 Pro Max emulation with trace off. The existing model-refresh pending journey passed **2/2** across both profiles with trace off.
 - The repository-wide `npm.cmd run lint` command can traverse ignored `.wrangler` generated bundles left by prior local builds and emit their pre-existing generated-code diagnostics. Source lint for `app`, `lib`, and `e2e` is the clean gate recorded above; no generated bundle was edited or committed.
 - Deferred by scope: voice providers, native OAuth, iCloud sync, physical iPhone Safari/home-screen PWA acceptance, and arbitrary third-party provider backup schemas. The local JSON import accepts the repository's sanitized provider-settings shape only.
-- Publication state: this provider-settings work is committed locally and has not been pushed, merged, or deployed. Production deployment still requires a separate user request. The branch is currently ahead of `origin/feat/pwa-interaction-fluidity`; use the standing integration policy above to choose PR versus merge only after any requested review.
+- Publication state: commits through `d65c38e` are pushed to `origin/feat/pwa-interaction-fluidity` and draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5) targets `main`. The PR is not merged and no production deployment was performed. Production deployment still requires a separate user request; keep the worktree available for PR feedback.
 
 ## PWA Interaction Fluidity Candidate (2026-08-01, Current Authoritative UI State)
 
