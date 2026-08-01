@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, m } from "motion/react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import styles from "./page.module.css";
 import {
   AI_PROVIDER_PRESETS,
@@ -17,6 +17,12 @@ import {
   type AiProviderProtocol,
   type AiProviderSettings,
 } from "@/lib/aiProviders";
+import {
+  getAiProviderCredentialSummary,
+  getAiProviderHealth,
+  getAiProviderModelCount,
+  type AiProviderHealth,
+} from "@/lib/aiProviderPresentation";
 import { getRoleTransition } from "@/lib/motionSystem";
 import { useAppReducedMotion } from "./AppMotionRoot";
 
@@ -76,6 +82,17 @@ function dedupeModels(models: AiProviderModel[]): AiProviderModel[] {
   });
 }
 
+function providerHealthClass(health: AiProviderHealth): string {
+  switch (health) {
+    case "ready":
+      return styles.providerStatusDotReady;
+    case "needs-attention":
+      return styles.providerStatusDotAttention;
+    case "empty":
+      return styles.providerStatusDotEmpty;
+  }
+}
+
 function createInitialDraft(
   mode: "list" | "configure",
   settings: AiProviderSettings,
@@ -104,13 +121,95 @@ export default function AiSettingsSurface({
   const [manualModel, setManualModel] = useState("");
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [modelRefreshStatus, setModelRefreshStatus] = useState("");
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [providerImportStatus, setProviderImportStatus] = useState("");
   const refreshRequestIdRef = useRef(0);
+  const addMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const addMenuRef = useRef<HTMLDivElement>(null);
+  const providerImportInputRef = useRef<HTMLInputElement>(null);
   const activeProvider = useMemo(
     () =>
       settings.providers.find((provider) => provider.id === settings.activeProviderId) ??
       null,
     [settings]
   );
+
+  useEffect(() => {
+    if (!addMenuOpen) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      event.stopPropagation();
+      setAddMenuOpen(false);
+      window.requestAnimationFrame(() => {
+        addMenuTriggerRef.current?.focus({ preventScroll: true });
+      });
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (
+        addMenuRef.current?.contains(target) ||
+        addMenuTriggerRef.current?.contains(target)
+      ) {
+        return;
+      }
+      setAddMenuOpen(false);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, [addMenuOpen]);
+
+  function openProviderConfigure(providerId?: string) {
+    setAddMenuOpen(false);
+    onPushConfigure(providerId);
+  }
+
+  function handleProviderImport(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    void file
+      .text()
+      .then((raw) => {
+        const parsed: unknown = JSON.parse(raw);
+        const imported = sanitizeAiProviderSettings(parsed);
+        if (
+          !Array.isArray((parsed as { providers?: unknown } | null)?.providers) ||
+          imported.providers.length === 0
+        ) {
+          throw new Error("文件中没有可导入的服务商配置");
+        }
+
+        const providersById = new Map(
+          settings.providers.map((provider) => [provider.id, provider])
+        );
+        imported.providers.forEach((provider) => {
+          providersById.set(provider.id, provider);
+        });
+        const providers = [...providersById.values()];
+        onSave(
+          sanitizeAiProviderSettings({
+            activeProviderId: imported.activeProviderId ?? providers[0]?.id ?? null,
+            providers,
+          })
+        );
+        setProviderImportStatus(`已导入 ${imported.providers.length} 个服务商`);
+        setAddMenuOpen(false);
+      })
+      .catch((error) => {
+        setProviderImportStatus(
+          error instanceof Error ? error.message : "导入失败，请选择有效的 JSON 配置文件"
+        );
+      });
+  }
   function updateDraft(next: Partial<DraftProvider>) {
     if (!draft) return;
     refreshRequestIdRef.current += 1;
@@ -302,7 +401,72 @@ export default function AiSettingsSurface({
           {mode === "list" ? "设置" : "服务商"}
         </button>
         <h2>{title}</h2>
-        <span className={styles.providerHeaderSpacer} />
+        {mode === "list" ? (
+          <div className={styles.providerHeaderActions}>
+            <button
+              type="button"
+              className={styles.providerHeaderEditButton}
+              onClick={() => setProviderImportStatus("点击服务商即可编辑")}
+            >
+              编辑
+            </button>
+            <button
+              ref={addMenuTriggerRef}
+              type="button"
+              className={styles.providerHeaderAddButton}
+              aria-label="添加 AI 服务商"
+              aria-haspopup="menu"
+              aria-expanded={addMenuOpen}
+              onClick={() => setAddMenuOpen((open) => !open)}
+            >
+              <span aria-hidden="true">+</span>
+            </button>
+            <AnimatePresence initial={false}>
+              {addMenuOpen ? (
+                <m.div
+                  ref={addMenuRef}
+                  className={styles.providerAddMenu}
+                  data-provider-add-menu="true"
+                  role="menu"
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -4, scale: 0.98 }}
+                  transition={getRoleTransition("popover-enter", reduceMotion)}
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={styles.providerAddMenuItem}
+                    onClick={() => openProviderConfigure()}
+                  >
+                    <span aria-hidden="true">+</span>
+                    <span>添加 AI 服务商</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={styles.providerAddMenuItem}
+                    onClick={() => providerImportInputRef.current?.click()}
+                  >
+                    <span aria-hidden="true">↥</span>
+                    <span>导入服务商配置</span>
+                  </button>
+                </m.div>
+              ) : null}
+            </AnimatePresence>
+            <input
+              ref={providerImportInputRef}
+              className={styles.providerImportInput}
+              type="file"
+              accept="application/json,.json"
+              aria-hidden="true"
+              tabIndex={-1}
+              onChange={handleProviderImport}
+            />
+          </div>
+        ) : (
+          <span className={styles.providerHeaderSpacer} />
+        )}
       </div>
 
       <div
@@ -315,15 +479,21 @@ export default function AiSettingsSurface({
               <div className={styles.providerListCard}>
                 <AnimatePresence initial={false} mode="popLayout">
                 {settings.providers.length > 0 ? (
-                  settings.providers.map((provider) => {
-                    const active = provider.id === activeProvider?.id;
-                    return (
-                      <m.button
+                settings.providers.map((provider) => {
+                  const active = provider.id === activeProvider?.id;
+                  const health = getAiProviderHealth(provider);
+                  const modelCount = getAiProviderModelCount(provider);
+                  return (
+                    <m.button
                         type="button"
                         key={provider.id}
-                        layout={reduceMotion ? false : "position"}
-                        className={styles.providerChoiceRow}
-                        onClick={() => onPushConfigure(provider.id)}
+                      layout={reduceMotion ? false : "position"}
+                      className={styles.providerChoiceRow}
+                      data-provider-list-row="true"
+                      data-provider-status={health}
+                      data-provider-model-count={modelCount}
+                      aria-label={`${provider.label}，${getAiProviderCredentialSummary(provider)}，${modelCount} 个模型`}
+                      onClick={() => openProviderConfigure(provider.id)}
                         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
                         animate={
                           reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
@@ -337,10 +507,16 @@ export default function AiSettingsSurface({
                       >
                         <span className={styles.providerChoiceText}>
                           <strong>{provider.label}</strong>
+                          <small>{getAiProviderCredentialSummary(provider)}</small>
                           <small>
-                            {provider.model || "未选择模型"} · {apiFormatLabel(provider.protocol)}
+                            {modelCount} 个模型 · {apiFormatLabel(provider.protocol)}
                           </small>
                         </span>
+                        <span
+                          className={`${styles.providerStatusDot} ${providerHealthClass(health)}`}
+                          role="img"
+                          aria-label={health === "ready" ? "已就绪" : health === "needs-attention" ? "需要完善" : "未配置"}
+                        />
                         {active && <span className={styles.providerActiveBadge}>使用中</span>}
                         <span className={styles.providerChoiceChevron}>›</span>
                       </m.button>
@@ -377,6 +553,21 @@ export default function AiSettingsSurface({
               <p className={styles.providerHelpText}>
                 API Key 只保存在本机浏览器。提问时可能发送书名、格式、选中文本、当前页面附近正文、当前问题和最近对话；不会发送整本书，也不会在备份中导出 API Key。
               </p>
+              <AnimatePresence initial={false}>
+                {providerImportStatus ? (
+                  <m.p
+                    className={styles.providerHelpText}
+                    data-motion-role="inline-status"
+                    role="status"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={getRoleTransition("state-enter", reduceMotion)}
+                  >
+                    {providerImportStatus}
+                  </m.p>
+                ) : null}
+              </AnimatePresence>
             </>
           )}
 
