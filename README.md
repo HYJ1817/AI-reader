@@ -8,7 +8,7 @@ Production: [881817.xyz](https://881817.xyz)
 
 - 书籍和阅读状态默认保存在当前浏览器的 IndexedDB 中。
 - 没有账号系统，也没有默认云同步。
-- AI 只发送完成当前问题所需的阅读上下文，不发送整本书。
+- AI 只发送完成当前问题所需的阅读上下文，不会发送整本书。
 - PWA 依赖 HTTPS、manifest 和 service worker，目标设备是 iPhone Safari。
 
 ## 当前能力

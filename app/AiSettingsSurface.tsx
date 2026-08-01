@@ -676,7 +676,7 @@ export default function AiSettingsSurface({
                 添加 AI 服务商
               </button>
               <p className={styles.providerHelpText}>
-                API Key 只保存在本机浏览器。提问时可能发送书名、格式、选中文本、当前页面附近正文、当前问题和最近对话；不会发送整本书，也不会在备份中导出 API Key。
+                API Key 只保存在本机浏览器。提问时可能发送书名、格式、选中文本、附近正文（当前页面）、当前问题和最近对话；不会发送整本书，也不会在备份中导出 API Key。
               </p>
               <AnimatePresence initial={false}>
                 {providerImportStatus ? (
