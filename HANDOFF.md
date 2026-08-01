@@ -2,7 +2,7 @@
 
 ## PWA Interaction Fluidity Candidate (2026-08-01, Current Authoritative UI State)
 
-- Active checkout: `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`, branch `feat/pwa-interaction-fluidity`. Implementation commit `740226d` is 38 commits ahead of and 0 behind local `main` (`d0d2f99`). No reset or clean was run.
+- Active checkout: `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`, branch `feat/pwa-interaction-fluidity`. Implementation commit `740226d` plus verification record `8241ac1` were pushed to `origin/feat/pwa-interaction-fluidity`; the deployed source was 39 commits ahead of and 0 behind local `main` (`d0d2f99`). No reset or clean was run.
 - Governing documents: `docs/superpowers/specs/2026-07-28-pwa-interaction-fluidity-design.md`, `docs/superpowers/plans/2026-07-28-pwa-interaction-fluidity.md`, and `docs/qa/2026-07-28-iphone15pm-fluidity-checklist.md`.
 - Commit phases: metric foundation `ae50bf1..6230a09`; lifecycle/root/push motion `c4a5f63..435729f`; persistent nested sheets/history/focus `b95b643..429ac7d`; reader lifecycle/transition `0779a57..92b5536`; Workspace streaming/scroll ownership `ea8e895..8a5af46`; inline state coverage and strict budgets `4b2b97e`, `5315629`; final hydration, TOC, root-layer, press, and evidence fixes `740226d`.
 - Root, pushed pages, reader, and sheets use explicit semantic motion roles. Current durations are root 160ms, root indicator 220ms, push 280/200ms, reader 280/210ms, sheet 280/220ms, popover 180/120ms, state 160/120ms, gesture settle 220ms, and reduced motion 100ms.
@@ -18,7 +18,9 @@
 - Retained small issue per user direction: the same final interaction-file run measured list-mode `book-row` press feedback once at 88.0ms against the 80ms target. Navigation still succeeded, other press families passed, and an earlier five-repeat run passed 5/5. This is recorded in the QA checklist and was not changed further.
 - Strict trace-off metrics are authoritative for frame gates. Traced diagnostic runs and earlier failed strict runs are retained as history; no retry was used to convert a failure into a pass.
 - Physical iPhone 15 Pro Max Safari/home-screen PWA evidence is unavailable. iOS/Safari version, standalone lifecycle, real WebKit/ProMotion cadence, thermal/power behavior, weak network, VoiceOver, installed-PWA update lifecycle, and physical screenshots/video remain pending. Chromium emulation is not marked as a physical pass.
-- Publication state: local branch only. Nothing was pushed, merged, deployed, tagged, or released in this phase; production was not changed. A hosted candidate requires explicit user authorization.
+- Publication state: the user authorized branch push and production deployment on 2026-08-01. Commit `8241ac1` was pushed to `origin/feat/pwa-interaction-fluidity`; no pull request, merge, tag, release, or `main` update was performed.
+- Production deployment: OpenNext/Wrangler deployed Worker version `651c4c4a-e70e-42db-9975-6f9870eeed28` to `https://ai-reader-pwa.hyjsb1817.workers.dev` and route `881817.xyz/*`. Deployed BUILD_ID is `EiZRJkvG3PM1IdMF7D9fh`.
+- Public HTTP verification after deployment returned 200 for both roots, `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`, `/.well-known/assetlinks.json`, the deployed page chunk, and deployed CSS. `/downloads/ai-reader-twa.apk` returned 404; this was recorded only and not changed under the user's small-bug instruction. Physical iPhone 15 Pro Max PWA verification remains pending.
 
 ## Reading Workspace Delivery (2026-07-28, Current Authoritative State)
 

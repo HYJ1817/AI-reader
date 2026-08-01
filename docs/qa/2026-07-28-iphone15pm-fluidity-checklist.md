@@ -6,10 +6,10 @@
 - Implementation commit: `740226d`
 - Branch: `feat/pwa-interaction-fluidity`
 - Worktree: `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`
-- Base: local `main` at `d0d2f99`; candidate is 38 commits ahead and 0 behind.
+- Base: local `main` at `d0d2f99`; deployed source is 39 commits ahead and 0 behind.
 - Runtime tested automatically: Playwright Chromium mobile profiles for iPhone 14 and iPhone 15 Pro Max.
 - Physical device, iOS version, Safari version, installed-PWA BUILD_ID, and standalone-display confirmation: **not available / not verified**.
-- Publication status: local commits only. No push, preview deployment, production deployment, tag, or release was performed.
+- Publication status: `8241ac1` was pushed to `origin/feat/pwa-interaction-fluidity` and deployed to production with explicit user authorization. Worker version: `651c4c4a-e70e-42db-9975-6f9870eeed28`; BUILD_ID: `EiZRJkvG3PM1IdMF7D9fh`. No pull request, merge, tag, release, or `main` update was performed.
 
 ## Automated acceptance summary
 
@@ -44,6 +44,7 @@
 - Scope: intermittent visual feedback latency only; the click still opened the reader correctly. The other press families passed, and prior five-repeat sampling of the same repaired row passed 5/5.
 - Evidence basename: `press-feedback-latencies.json` and failure screenshot `test-results/native-navigation/interaction-fluidity-press-35a06--daily-interaction-families-iphone-15-pro-max/test-failed-1.png` (Playwright output is ephemeral and was later overwritten by focused runs).
 - Disposition: intentionally not changed further per user direction on 2026-08-01. Recheck on the physical iPhone before release.
+- Production HTTP follow-up: `/downloads/ai-reader-twa.apk` returned 404 after this deployment. The PWA roots, build marker, service worker, manifest, asset links, and tested JS/CSS assets returned 200. The APK response was recorded and not repaired in this pass.
 
 ## Automated evidence filenames
 
@@ -79,4 +80,4 @@ Record the actual device model, iOS version, Safari version, hosted BUILD_ID, ba
 
 ## Release decision
 
-This is a local automated candidate, not a production release. Do not mark the project fully complete until the physical checklist is run. Pushing or deploying a hosted candidate requires separate user authorization.
+This automated candidate is pushed and deployed to production, but it is not a physical-device acceptance pass. Do not mark the interaction-fluidity project fully complete until the physical checklist is run. The deployment came from the feature branch; `main` remains unchanged.
