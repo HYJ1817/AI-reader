@@ -103,4 +103,15 @@ test("provider configure keeps API credentials, protocol, model source, and retr
   const providerRow = page.locator('[data-provider-list-row="true"]');
   await expect(providerRow).toHaveAttribute("data-provider-status", "ready");
   await expect(providerRow).toContainText("API Key · sk-t…7890");
+
+  await page.getByRole("button", { name: "编辑" }).click();
+  await expect(
+    page.locator('[data-provider-editing="true"]')
+  ).toBeVisible();
+  await expect(
+    providerRow.getByRole("button", { name: /删除/ })
+  ).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await providerRow.getByRole("button", { name: /删除/ }).click();
+  await expect(page.locator('[data-provider-list-row="true"]')).toHaveCount(0);
 });

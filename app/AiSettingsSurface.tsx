@@ -152,6 +152,7 @@ export default function AiSettingsSurface({
   const [showApiKey, setShowApiKey] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [providerImportStatus, setProviderImportStatus] = useState("");
+  const [providerListEditing, setProviderListEditing] = useState(false);
   const refreshRequestIdRef = useRef(0);
   const addMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const addMenuRef = useRef<HTMLDivElement>(null);
@@ -238,6 +239,23 @@ export default function AiSettingsSurface({
           error instanceof Error ? error.message : "导入失败，请选择有效的 JSON 配置文件"
         );
       });
+  }
+
+  function deleteProviderFromList(providerId: string) {
+    const provider = settings.providers.find((item) => item.id === providerId);
+    if (!provider || !window.confirm(`删除服务商“${provider.label}”？`)) return;
+    const providers = settings.providers.filter((item) => item.id !== providerId);
+    onSave(
+      sanitizeAiProviderSettings({
+        activeProviderId:
+          settings.activeProviderId === providerId
+            ? providers[0]?.id ?? null
+            : settings.activeProviderId,
+        providers,
+      })
+    );
+    setProviderListEditing(false);
+    setProviderImportStatus(`已删除 ${provider.label}`);
   }
   function updateDraft(next: Partial<DraftProvider>) {
     if (!draft) return;
@@ -475,6 +493,9 @@ export default function AiSettingsSurface({
     <div
       className={styles.providerPushedSurface}
       data-provider-configure={mode === "configure" ? "true" : undefined}
+      data-provider-editing={
+        mode === "list" && providerListEditing ? "true" : undefined
+      }
     >
       <div className={styles.providerSheetHeader}>
         <button
@@ -491,9 +512,13 @@ export default function AiSettingsSurface({
             <button
               type="button"
               className={styles.providerHeaderEditButton}
-              onClick={() => setProviderImportStatus("点击服务商即可编辑")}
+              aria-pressed={providerListEditing}
+              onClick={() => {
+                setProviderListEditing((editing) => !editing);
+                setProviderImportStatus("");
+              }}
             >
-              编辑
+              {providerListEditing ? "完成" : "编辑"}
             </button>
             <button
               ref={addMenuTriggerRef}
@@ -569,16 +594,13 @@ export default function AiSettingsSurface({
                   const health = getAiProviderHealth(provider);
                   const modelCount = getAiProviderModelCount(provider);
                   return (
-                    <m.button
-                        type="button"
+                    <m.div
                         key={provider.id}
                       layout={reduceMotion ? false : "position"}
                       className={styles.providerChoiceRow}
                       data-provider-list-row="true"
                       data-provider-status={health}
                       data-provider-model-count={modelCount}
-                      aria-label={`${provider.label}，${getAiProviderCredentialSummary(provider)}，${modelCount} 个模型`}
-                      onClick={() => openProviderConfigure(provider.id)}
                         initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
                         animate={
                           reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }
@@ -590,21 +612,39 @@ export default function AiSettingsSurface({
                         }}
                         transition={getRoleTransition("state-enter", reduceMotion)}
                       >
-                        <span className={styles.providerChoiceText}>
-                          <strong>{provider.label}</strong>
-                          <small>{getAiProviderCredentialSummary(provider)}</small>
-                          <small>
-                            {modelCount} 个模型 · {apiFormatLabel(provider.protocol)}
-                          </small>
-                        </span>
-                        <span
-                          className={`${styles.providerStatusDot} ${providerHealthClass(health)}`}
-                          role="img"
-                          aria-label={health === "ready" ? "已就绪" : health === "needs-attention" ? "需要完善" : "未配置"}
-                        />
-                        {active && <span className={styles.providerActiveBadge}>使用中</span>}
-                        <span className={styles.providerChoiceChevron}>›</span>
-                      </m.button>
+                        <button
+                          type="button"
+                          className={styles.providerChoiceMain}
+                          aria-label={`${provider.label}，${getAiProviderCredentialSummary(provider)}，${modelCount} 个模型`}
+                          onClick={() => openProviderConfigure(provider.id)}
+                        >
+                          <span className={styles.providerChoiceText}>
+                            <strong>{provider.label}</strong>
+                            <small>{getAiProviderCredentialSummary(provider)}</small>
+                            <small>
+                              {modelCount} 个模型 · {apiFormatLabel(provider.protocol)}
+                            </small>
+                          </span>
+                          <span
+                            className={`${styles.providerStatusDot} ${providerHealthClass(health)}`}
+                            role="img"
+                            aria-label={health === "ready" ? "已就绪" : health === "needs-attention" ? "需要完善" : "未配置"}
+                          />
+                          {active && <span className={styles.providerActiveBadge}>使用中</span>}
+                          <span className={styles.providerChoiceChevron}>›</span>
+                        </button>
+                        {providerListEditing ? (
+                          <button
+                            type="button"
+                            className={styles.providerListDelete}
+                            data-provider-delete="true"
+                            aria-label={`删除 ${provider.label}`}
+                            onClick={() => deleteProviderFromList(provider.id)}
+                          >
+                            删除
+                          </button>
+                        ) : null}
+                      </m.div>
                     );
                   })
                 ) : (

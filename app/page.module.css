@@ -7081,7 +7081,7 @@
   top: 0;
   z-index: 2;
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr) 92px;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
   padding: 18px 16px 24px;
@@ -7568,6 +7568,45 @@
   transform: translate3d(0, 1px, 0);
 }
 
+.providerChoiceRow {
+  gap: 0;
+  padding: 0;
+}
+
+.providerChoiceMain {
+  min-width: 0;
+  min-height: 62px;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  background: transparent;
+  text-align: left;
+  transform: translate3d(0, 0, 0);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.providerChoiceMain:active {
+  background: var(--control-fill);
+  transform: translate3d(0, 1px, 0);
+}
+
+.providerListDelete {
+  min-width: 64px;
+  min-height: 44px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border-radius: 10px;
+  color: var(--status-error);
+  background: color-mix(in srgb, var(--status-error) 9%, transparent);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 .providerModelRow:active {
   background: var(--control-fill);
   transform: translate3d(0, 1px, 0);
@@ -7996,6 +8035,7 @@
   .providerAddMenuItem,
   .providerApiKeyToggle,
   .providerRefreshError button,
+  .providerChoiceMain,
   .providerPresetButton,
   .providerPresetCheck,
   .providerField,
