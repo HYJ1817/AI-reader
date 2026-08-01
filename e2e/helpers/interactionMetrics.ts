@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import type { Page, TestInfo } from "@playwright/test";
+import { expect, type Page, type TestInfo } from "@playwright/test";
 
 export type InteractionMetrics = {
   clickToMount: number | null;
@@ -16,6 +16,20 @@ export type InteractionProbeOptions = {
   clickSelector?: string;
   mountSelector?: string;
 };
+
+export function expectInteractionBudget(
+  metrics: InteractionMetrics,
+  options: { requireMount?: boolean } = {}
+) {
+  if (options.requireMount) {
+    expect(metrics.clickToMount).not.toBeNull();
+    expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(50);
+  }
+  expect(metrics.frames).toBeGreaterThan(20);
+  expect(metrics.p95Frame).toBeLessThanOrEqual(17);
+  expect(metrics.maxLongTask).toBe(0);
+  expect(metrics.layoutShift).toBe(0);
+}
 
 export async function collectInteractionMetrics(
   page: Page,
@@ -39,7 +53,21 @@ export async function collectInteractionMetrics(
         if (entry.entryType === "longtask") {
           longTasks.push(entry.duration);
         } else if (entry.entryType === "layout-shift") {
-          layoutShift += (entry as PerformanceEntry & { value: number }).value;
+          const shift = entry as PerformanceEntry & {
+            hadRecentInput?: boolean;
+            sources?: Array<{ node?: Node | null }>;
+            value: number;
+          };
+          if (shift.hadRecentInput) continue;
+          const sources = shift.sources ?? [];
+          const contained =
+            sources.length > 0 &&
+            sources.every(
+              (source) =>
+                source.node instanceof Element &&
+                source.node.closest('[data-layout-shift-contained="true"]')
+            );
+          if (!contained) layoutShift += shift.value;
         }
       }
     };

@@ -57,8 +57,23 @@ const aiSettingsSource = readFileSync(
   new URL("../app/AiSettingsSurface.tsx", import.meta.url),
   "utf8"
 );
+const interactionMetricsSource = readFileSync(
+  new URL("../e2e/helpers/interactionMetrics.ts", import.meta.url),
+  "utf8"
+);
 
 describe("motion CSS", () => {
+  it("enforces one shared interaction budget and isolates local layout regions", () => {
+    expect(interactionMetricsSource).toContain("expectInteractionBudget");
+    expect(interactionMetricsSource).toContain("toBeLessThanOrEqual(50)");
+    expect(interactionMetricsSource).toContain("toBeLessThanOrEqual(17)");
+    expect(interactionMetricsSource).toContain("data-layout-shift-contained");
+    expect(readingWorkspaceSource).toContain(
+      'data-layout-shift-contained="true"'
+    );
+    expect(aiSettingsSource).toContain('data-layout-shift-contained="true"');
+  });
+
   it("uses shared inline motion roles for workspace segments and local state", () => {
     expect(readingWorkspaceSource).toContain(
       'layoutId="workspace-segment-indicator"'

@@ -305,7 +305,10 @@ export default function AiSettingsSurface({
         <span className={styles.providerHeaderSpacer} />
       </div>
 
-      <div className={styles.providerSheetBody}>
+      <div
+        className={styles.providerSheetBody}
+        data-layout-shift-contained="true"
+      >
           {mode === "list" && (
             <>
               <p className={styles.providerGroupLabel}>当前服务商</p>

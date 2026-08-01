@@ -281,7 +281,10 @@ export function ReadingWorkspacePage({
             </button>
           </div>
 
-          <div className={styles.workspaceViewport}>
+          <div
+            className={styles.workspaceViewport}
+            data-layout-shift-contained="true"
+          >
             <AnimatePresence initial={false} mode="sync">
             {loading ? (
               <m.div

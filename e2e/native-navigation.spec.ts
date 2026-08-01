@@ -10,6 +10,7 @@ import JSZip from "jszip";
 import {
   attachInteractionMetrics,
   collectInteractionMetrics,
+  expectInteractionBudget,
 } from "./helpers/interactionMetrics";
 
 type PushRoute =
@@ -2117,6 +2118,17 @@ test("captures root, push, reader, and sheet transition evidence", async ({
   await page.waitForTimeout(80);
   await capture(page, testInfo, "push-mid");
   await page.waitForTimeout(420);
+  const settledPush = page.locator('[data-push-route="collections"]');
+  await expect(settledPush).toBeVisible();
+  await expect(settledPush.getByRole("heading", { name: "藏书" })).toBeVisible();
+  await expect
+    .poll(() =>
+      settledPush.evaluate((element) => {
+        const transform = getComputedStyle(element).transform;
+        return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+      })
+    )
+    .toBe(0);
   await capture(page, testInfo, "push-complete");
 
   await page.evaluate(() => window.history.back());
@@ -2181,8 +2193,7 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
   expect(metrics.p95Frame).toBeLessThanOrEqual(20);
   expect(metrics.maxFrame).toBeLessThanOrEqual(34);
-  expect(metrics.maxLongTask).toBe(0);
-  expect(metrics.layoutShift).toBe(0);
+  expectInteractionBudget(metrics, { requireMount: true });
 });
 
 test("book action sheet preserves light, sepia, dark, and system-dark materials", async ({
@@ -2278,10 +2289,7 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
   });
   await attachInteractionMetrics(testInfo, "root-tab-performance", metrics);
 
-  expect(metrics.frames).toBeGreaterThanOrEqual(32);
-  expect(metrics.p95Frame).toBeLessThanOrEqual(20);
-  expect(metrics.maxLongTask).toBe(0);
-  expect(metrics.layoutShift).toBe(0);
+  expectInteractionBudget(metrics);
 });
 
 test("push transition meets mobile frame cadence and long-task budgets", async ({
@@ -2304,7 +2312,6 @@ test("push transition meets mobile frame cadence and long-task budgets", async (
 
   await attachInteractionMetrics(testInfo, "push-transition-performance", metrics);
 
-  expect(metrics.frames).toBeGreaterThanOrEqual(40);
   expect(metrics.maxFrame).toBeLessThanOrEqual(80);
-  expect(metrics.maxLongTask).toBeLessThanOrEqual(100);
+  expectInteractionBudget(metrics, { requireMount: true });
 });

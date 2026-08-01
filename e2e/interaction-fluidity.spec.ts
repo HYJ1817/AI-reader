@@ -1,9 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   attachInteractionMetrics,
   collectInteractionMetrics,
+  expectInteractionBudget,
 } from "./helpers/interactionMetrics";
 
 const sampleText = readFileSync(
@@ -119,6 +120,46 @@ async function showKeyboardVisualViewport(page: Page) {
   });
 }
 
+async function measurePressFeedback(
+  page: Page,
+  target: Locator,
+  observed: Locator = target
+) {
+  const box = await target.boundingBox();
+  if (!box) throw new Error("Press target geometry is unavailable");
+  const measurement = observed.evaluate(
+    (element) =>
+      new Promise<number>((resolve, reject) => {
+        const fingerprint = () => {
+          const style = getComputedStyle(element);
+          return `${style.opacity}|${style.transform}|${style.backgroundColor}`;
+        };
+        const baseline = fingerprint();
+        const startedAt = performance.now();
+        const timeout = window.setTimeout(
+          () => reject(new Error("Press feedback did not become visible")),
+          500
+        );
+        const sample = (now: number) => {
+          if (fingerprint() !== baseline) {
+            window.clearTimeout(timeout);
+            resolve(now - startedAt);
+            return;
+          }
+          requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+      })
+  );
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  try {
+    return await measurement;
+  } finally {
+    await page.mouse.up();
+  }
+}
+
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
   await expect(page.locator(libraryRoot)).toBeVisible();
@@ -136,7 +177,49 @@ test.beforeEach(async ({ page }) => {
   await expect(covers).toHaveCount(previousCount + 1);
 });
 
-test("reader popover keeps focus with reduced motion and 200 percent text", async ({ page }) => {
+test("press feedback appears within 80 ms across daily interaction families", async ({ page }) => {
+  const latencies: number[] = [];
+  const readingTab = page.locator('[data-navigation-tab="reading"]');
+  latencies.push(await measurePressFeedback(page, readingTab));
+  await page.locator('[data-navigation-tab="library"]').click();
+  await page.getByRole("button", { name: "列表" }).click();
+  const covers = page.locator(`${libraryRoot} [data-book-cover-origin]`);
+  const coverCount = await covers.count();
+  await page.locator('input[type="file"][accept*=".txt"]').setInputFiles({
+    name: "press-feedback-second.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from(sampleText),
+  });
+  await expect(covers).toHaveCount(coverCount + 1);
+
+  const bookOpen = page.locator(`${libraryRoot} [data-library-book-open="true"]`).last();
+  latencies.push(await measurePressFeedback(page, bookOpen, bookOpen.locator("..")));
+  const reader = page.locator('[data-reader-presented="true"]');
+  await expect(reader).toBeVisible();
+  const readerControl = reader.locator('[data-reader-menu-toggle="true"]');
+  latencies.push(await measurePressFeedback(page, readerControl));
+  if ((await readerControl.getAttribute("aria-expanded")) !== "true") {
+    await readerControl.click();
+  }
+  await reader.getByRole("button", { name: "书库" }).click();
+
+  await expect(page.locator(libraryRoot)).toBeVisible();
+  await page.locator(`${libraryRoot} [data-library-book-more="true"]`).first().click();
+  const workspaceRow = page
+    .locator('[data-sheet-route="book-actions"]')
+    .getByRole("button", { name: "阅读空间" });
+  await expect(workspaceRow).toBeVisible();
+  await page.waitForTimeout(350);
+  latencies.push(await measurePressFeedback(page, workspaceRow));
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  await expect(workspace).toBeVisible();
+  const workspaceTab = workspace.getByRole("tab", { name: "资料" });
+  latencies.push(await measurePressFeedback(page, workspaceTab));
+
+  for (const latency of latencies) expect(latency).toBeLessThanOrEqual(80);
+});
+
+test("reader popover keeps focus with reduced motion and 200 percent text", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
   await page.locator(`${libraryRoot} [data-book-cover-origin]`).first().click();
@@ -149,6 +232,7 @@ test("reader popover keeps focus with reduced motion and 200 percent text", asyn
 
   const settings = page.locator('[data-sheet-route="reader-settings"]');
   const modeTrigger = settings.getByRole("button", { name: "阅读方式" });
+  const metricsPromise = collectInteractionMetrics(page, { durationMs: 500 });
   await modeTrigger.click();
   const popover = settings.getByRole("menu");
   await expect(popover).toBeVisible();
@@ -163,6 +247,9 @@ test("reader popover keeps focus with reduced motion and 200 percent text", asyn
   await page.keyboard.press("Escape");
   await expect(popover).toHaveCount(0);
   await expect(modeTrigger).toBeFocused();
+  const metrics = await metricsPromise;
+  await attachInteractionMetrics(testInfo, "reader-popover-inline-state", metrics);
+  expectInteractionBudget(metrics);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
@@ -170,7 +257,7 @@ test("reader popover keeps focus with reduced motion and 200 percent text", asyn
   ).toBeLessThanOrEqual(1);
 });
 
-test("AI inline state stays current while model refresh is pending", async ({ page }) => {
+test("AI inline state stays current while model refresh is pending", async ({ page }, testInfo) => {
   await page.locator('[data-navigation-tab="settings"]').click();
   const settingsRoot = page.locator(
     '[data-navigation-root="settings"][aria-hidden="false"]'
@@ -196,6 +283,7 @@ test("AI inline state stays current while model refresh is pending", async ({ pa
   await refresh.click();
   await expect(configure.getByText("正在刷新模型…")).toBeVisible();
   await expect(refresh).toBeDisabled();
+  const metricsPromise = collectInteractionMetrics(page, { durationMs: 500 });
   await configure.getByRole("button", { name: /Anthropic/ }).click();
   await expect(refresh).toBeEnabled();
   await page.waitForTimeout(650);
@@ -206,6 +294,9 @@ test("AI inline state stays current while model refresh is pending", async ({ pa
     "true"
   );
   await expect(configure.getByText("正在刷新模型…")).toHaveCount(0);
+  const metrics = await metricsPromise;
+  await attachInteractionMetrics(testInfo, "provider-pending-inline-state", metrics);
+  expectInteractionBudget(metrics);
 });
 
 test("reader lifecycle resumes at settled geometry without replaying entry", async ({
@@ -280,9 +371,7 @@ test("interaction probe records root retargeting without layout shift", async ({
     ...metrics,
   });
 
-  expect(metrics.frames).toBeGreaterThan(20);
-  expect(metrics.maxLongTask).toBe(0);
-  expect(metrics.layoutShift).toBe(0);
+  expectInteractionBudget(metrics);
   await expect(
     page.locator('[data-navigation-root="settings"][aria-hidden="false"]')
   ).toBeVisible();
@@ -319,9 +408,7 @@ test("ten root intents settle on the last tab without ghost surfaces", async ({
   await expect(
     page.locator('[data-navigation-root][aria-hidden="false"]')
   ).toHaveCount(1);
-  expect(metrics.p95Frame).toBeLessThanOrEqual(17);
-  expect(metrics.maxLongTask).toBe(0);
-  expect(metrics.layoutShift).toBe(0);
+  expectInteractionBudget(metrics);
 });
 
 test("pointercancel restores an interrupted push without navigating", async ({

@@ -1,4 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  attachInteractionMetrics,
+  collectInteractionMetrics,
+  expectInteractionBudget,
+} from "./helpers/interactionMetrics";
 
 const libraryRoot = '[data-navigation-root="library"][aria-hidden="false"]';
 
@@ -320,7 +325,7 @@ test("long history pages without scroll jumps and long content is explicit", asy
   expect(overflow).toBeLessThanOrEqual(1);
 });
 
-test("workspace inline state and popover settle on the last rapid intent", async ({ page }) => {
+test("workspace inline state and popover settle on the last rapid intent", async ({ page }, testInfo) => {
   await openWorkspaceFromLibrary(page);
   const workspace = page.locator('[data-sheet-route="reading-workspace"]');
   const conversationTab = workspace.getByRole("tab", { name: "对话" });
@@ -334,6 +339,7 @@ test("workspace inline state and popover settle on the last rapid intent", async
   await expect(workspace.getByRole("menu")).toHaveCount(0);
   await materialsTab.click();
 
+  const metricsPromise = collectInteractionMetrics(page, { durationMs: 700 });
   for (let index = 0; index < 10; index += 1) {
     await (index % 2 === 0 ? conversationTab : materialsTab).click();
   }
@@ -343,6 +349,9 @@ test("workspace inline state and popover settle on the last rapid intent", async
     workspace.locator('[role="tabpanel"][data-motion-role="inline-state"]')
   ).toHaveCount(1);
   await expect(workspace.getByText("还没有资料")).toBeVisible();
+  const metrics = await metricsPromise;
+  await attachInteractionMetrics(testInfo, "workspace-tab-inline-state", metrics);
+  expectInteractionBudget(metrics);
 });
 
 test("workspace materials rename failure retains the title and focus", async ({ page }) => {
@@ -391,7 +400,7 @@ test("workspace materials keep header and composer geometry stable", async ({ pa
   expect(Math.abs((afterComposer?.y ?? 0) - (beforeComposer?.y ?? 0))).toBeLessThanOrEqual(1);
 });
 
-test("workspace streaming preserves user scroll and keeps the composer responsive", async ({ page }) => {
+test("workspace streaming preserves user scroll and keeps the composer responsive", async ({ page }, testInfo) => {
   await page.evaluate(() => {
     const fixtureWindow = window as typeof window & {
       __workspaceStreamMode?: string;
@@ -409,11 +418,15 @@ test("workspace streaming preserves user scroll and keeps the composer responsiv
   )).toBe("none");
 
   await composer.fill("Stream a long answer");
+  const streamMetricsPromise = collectInteractionMetrics(page, { durationMs: 700 });
   await workspace.getByRole("button", { name: "\u53d1\u9001" }).click();
   await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
   await expect.poll(() => page.evaluate(() => (
     window as typeof window & { __workspacePublishedChunks?: number }
   ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(9);
+  const streamMetrics = await streamMetricsPromise;
+  await attachInteractionMetrics(testInfo, "workspace-streaming-inline-state", streamMetrics);
+  expectInteractionBudget(streamMetrics);
   await expect.poll(() => thread.evaluate((element) =>
     element.scrollHeight - element.clientHeight
   )).toBeGreaterThan(500);
@@ -561,10 +574,23 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
   await workspaceButton.evaluate((button) => {
     const state = {
       clickAt: 0,
+      mountedAt: 0,
       longTasks: [] as number[],
       layoutShift: 0,
       observers: [] as PerformanceObserver[],
+      mountObserver: null as MutationObserver | null,
     };
+    const recordMount = () => {
+      if (
+        state.clickAt > 0 &&
+        state.mountedAt === 0 &&
+        document.querySelector('[data-sheet-route="reading-workspace"]')
+      ) {
+        state.mountedAt = performance.now();
+      }
+    };
+    state.mountObserver = new MutationObserver(recordMount);
+    state.mountObserver.observe(document.body, { childList: true, subtree: true });
     for (const type of ["longtask", "layout-shift"]) {
       try {
         const observer = new PerformanceObserver((list) => {
@@ -583,8 +609,13 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
     (window as typeof window & { __workspacePerf?: typeof state }).__workspacePerf = state;
     button.addEventListener("click", () => {
       state.clickAt = performance.now();
+      recordMount();
     }, { once: true });
   });
+  const sharedMetricsPromise = collectInteractionMetrics(page, {
+    durationMs: 700,
+  });
+  await page.waitForTimeout(40);
   await workspaceButton.click();
   await expect(page.locator('[data-sheet-route="reading-workspace"]')).toBeVisible();
   const metrics = await page.evaluate(async () => {
@@ -592,13 +623,18 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
     const state = (window as typeof window & {
       __workspacePerf: {
         clickAt: number;
+        mountedAt: number;
         longTasks: number[];
         layoutShift: number;
         observers: PerformanceObserver[];
+        mountObserver: MutationObserver | null;
       };
     }).__workspacePerf;
     state.observers.forEach((observer) => observer.disconnect());
+    state.mountObserver?.disconnect();
     return {
+      clickToMount:
+        state.mountedAt > 0 ? state.mountedAt - state.clickAt : null,
       clickToVisible: performance.now() - state.clickAt,
       maxLongTask: state.longTasks.length ? Math.max(...state.longTasks) : 0,
       layoutShift: state.layoutShift,
@@ -610,8 +646,16 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
     contentType: "application/json",
   });
   expect(metrics.clickToVisible).toBeLessThanOrEqual(100);
+  expect(metrics.clickToMount).not.toBeNull();
+  expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(50);
   expect(metrics.maxLongTask).toBeLessThan(50);
   expect(metrics.layoutShift).toBe(0);
+  const sharedMetrics = await sharedMetricsPromise;
+  await attachInteractionMetrics(testInfo, "workspace-open-performance", sharedMetrics);
+  expectInteractionBudget(
+    { ...sharedMetrics, clickToMount: metrics.clickToMount },
+    { requireMount: true }
+  );
 });
 
 test.afterEach(async ({ context }) => {

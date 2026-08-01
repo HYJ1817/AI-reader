@@ -3590,6 +3590,16 @@
   color: var(--tint);
   background: transparent;
   font: inherit;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.workspaceHeaderButton:active,
+.workspaceCloseButton:active {
+  opacity: 0.72;
+  transform: translate3d(0, 1px, 0) scale(0.96);
 }
 
 .workspaceHeaderButton {
@@ -3668,7 +3678,12 @@
   transition:
     color var(--motion-fast) var(--ease-standard),
     background var(--motion-fast) var(--ease-standard),
-    box-shadow var(--motion-fast) var(--ease-standard);
+    box-shadow var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.workspaceSegment:active {
+  transform: translate3d(0, 1px, 0) scale(0.97);
 }
 
 .workspaceSegment[aria-selected="true"] {
@@ -3849,6 +3864,15 @@
   background: transparent;
   font-size: 12px;
   font-weight: 650;
+  transform: translate3d(0, 0, 0);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.workspaceMessageAction:active {
+  opacity: 0.72;
+  transform: translate3d(0, 1px, 0) scale(0.97);
 }
 
 .workspaceComposer {
@@ -4117,8 +4141,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .workspaceSegment {
+  .workspaceHeaderButton,
+  .workspaceCloseButton,
+  .workspaceSegment,
+  .workspaceMessageAction {
     transition: none;
+    transform: none;
   }
 }
 
