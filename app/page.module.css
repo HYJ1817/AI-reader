@@ -6200,8 +6200,8 @@
   max-width: 430px;
   max-height: min(86dvh, 640px);
   border-radius: 28px 28px 0 0;
-  background: color-mix(in srgb, #30302d 82%, var(--sheet-fill));
-  color: rgba(255, 255, 255, 0.92);
+  background: var(--reader-control-surface);
+  color: var(--reader-control-text);
 }
 
 .readerSettingsHeader {
@@ -6214,8 +6214,8 @@
 
 .readerSettingsHeader h2 {
   margin: 0;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 17px;
+  color: var(--reader-control-text);
+  font-size: 1.0625rem;
   font-weight: 760;
   line-height: 1.2;
 }
@@ -6227,8 +6227,9 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: #ffffff;
-  color: #111111;
+  background: var(--reader-control-surface-raised);
+  color: var(--reader-control-text);
+  box-shadow: inset 0 0 0 1px var(--reader-control-border);
 }
 
 .readerSettingsBody {
@@ -6237,6 +6238,9 @@
   flex-direction: column;
   gap: 16px;
   padding: 8px 22px calc(var(--safe-bottom) + 20px);
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .readerSettingsControlRow {
@@ -6252,7 +6256,7 @@
   min-height: 56px;
   overflow: hidden;
   border-radius: 28px;
-  background: rgba(255, 255, 255, 0.14);
+  background: var(--reader-control-fill);
 }
 
 .readerFontStepper {
@@ -6262,14 +6266,14 @@
 .readerFontStepper span {
   width: 1px;
   height: 30px;
-  background: rgba(255, 255, 255, 0.18);
+  background: var(--reader-control-border);
 }
 
 .readerFontStepper button,
 .readerModeSegment button {
   height: 100%;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 17px;
+  color: var(--reader-control-text);
+  font-size: 1.0625rem;
   font-weight: 760;
   transform: scale(1);
   transition:
@@ -6279,7 +6283,7 @@
 }
 
 .readerFontStepper button:active {
-  background: rgba(255, 255, 255, 0.1);
+  background: color-mix(in srgb, var(--reader-control-text) 10%, transparent);
   transform: scale(0.94);
 }
 
@@ -6290,19 +6294,19 @@
 
 .readerModeSegment button {
   border-radius: 24px;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 15px;
+  color: var(--reader-control-muted);
+  font-size: var(--type-body);
 }
 
 .readerModeSegment button:active {
-  background: rgba(255, 255, 255, 0.09);
+  background: color-mix(in srgb, var(--reader-control-text) 9%, transparent);
   transform: scale(0.94);
 }
 
 .readerModeSegment .readerModeSegmentActive {
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  background: var(--reader-control-surface-raised);
+  color: var(--reader-control-text);
+  box-shadow: inset 0 0 0 1px var(--reader-control-border);
   transform: scale(1);
 }
 
@@ -6329,13 +6333,16 @@
   display: grid;
   gap: 2px;
   min-width: 196px;
+  max-width: calc(100vw - 44px);
+  max-height: min(60dvh, 360px);
+  overflow-y: auto;
   padding: 14px 12px;
   border-radius: 24px;
-  background: color-mix(in srgb, #fff9ee 92%, rgba(255, 255, 255, 0.64));
-  color: #111111;
+  background: var(--reader-control-surface-raised);
+  color: var(--reader-control-text);
   box-shadow:
     0 18px 42px rgba(0, 0, 0, 0.18),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    inset 0 0 0 1px var(--reader-control-border);
 }
 
 .readerSettingsPopover[data-menu="mode"] {
@@ -6354,7 +6361,7 @@
   min-height: 44px;
   border-radius: 14px;
   color: inherit;
-  font-size: 15px;
+  font-size: var(--type-body);
   font-weight: 720;
   text-align: left;
   transform: translate3d(0, 0, 0);
@@ -6364,13 +6371,13 @@
 }
 
 .readerSettingsPopoverRow:active {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--reader-control-fill);
   transform: translate3d(0, 1px, 0) scale(0.985);
 }
 
 .readerSettingsPopoverCheck {
-  color: #111111;
-  font-size: 16px;
+  color: var(--tint);
+  font-size: 1rem;
   font-weight: 800;
   line-height: 1;
   text-align: center;
@@ -6414,7 +6421,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--reader-control-border);
   transform: scale(1);
   transition:
     background var(--motion-fast) var(--ease-standard),
@@ -6422,7 +6429,7 @@
 }
 
 .readerFontScaleDot[data-active="true"] {
-  background: rgba(255, 255, 255, 0.78);
+  background: var(--reader-control-text);
   transform: scale(1.18);
 }
 
@@ -6449,15 +6456,15 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 20px;
+  color: var(--reader-control-text);
+  font-size: 1.25rem;
 }
 
 .readerBrightnessRow div {
   position: relative;
   height: 8px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.13);
+  background: var(--reader-control-fill);
 }
 
 .readerBrightnessRow i {
@@ -6467,7 +6474,7 @@
   width: 32px;
   height: 28px;
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--reader-control-text);
   transform: translateY(-50%);
 }
 
@@ -6511,7 +6518,7 @@
 }
 
 .readerThemePreviewActive {
-  border-color: #ffffff;
+  border-color: var(--tint);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.24),
     0 8px 20px rgba(0, 0, 0, 0.16);
@@ -6528,14 +6535,14 @@
 }
 
 .readerThemePreviewSample {
-  font-size: 30px;
+  font-size: 1.875rem;
   font-weight: 500;
   line-height: 0.95;
 }
 
 .readerThemePreview span:last-child {
   margin-top: 7px;
-  font-size: 15px;
+  font-size: var(--type-body);
   font-weight: 620;
 }
 
@@ -6550,15 +6557,15 @@
   grid-template-columns: auto auto;
   gap: 8px 12px;
   align-items: center;
-  color: rgba(255, 255, 255, 0.86);
-  font-size: 15px;
+  color: var(--reader-control-text);
+  font-size: var(--type-body);
   font-weight: 650;
 }
 
 .readerSettingsSliders strong {
   justify-self: end;
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 14px;
+  color: var(--reader-control-muted);
+  font-size: 0.875rem;
   font-weight: 650;
   font-variant-numeric: tabular-nums;
 }
@@ -6566,7 +6573,7 @@
 .readerSettingsSliders input {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: #ffffff;
+  accent-color: var(--tint);
 }
 
 .readerCustomEntryButton {
@@ -6576,9 +6583,9 @@
   gap: 10px;
   min-height: 64px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.13);
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 22px;
+  background: var(--reader-control-fill);
+  color: var(--reader-control-text);
+  font-size: 1.375rem;
   font-weight: 760;
   transition:
     background-color var(--motion-fast) var(--ease-standard),
@@ -6586,7 +6593,7 @@
 }
 
 .readerCustomEntryButton span {
-  font-size: 23px;
+  font-size: 1.4375rem;
   line-height: 1;
 }
 
@@ -6607,7 +6614,7 @@
 
 .readerCustomEntryButton:active {
   transform: scale(0.98);
-  background: rgba(255, 255, 255, 0.2);
+  background: color-mix(in srgb, var(--reader-control-text) 18%, transparent);
 }
 
 .readerCustomEntryButton:active .readerCustomGearIcon {
@@ -6626,8 +6633,8 @@
   max-width: 430px;
   max-height: min(92dvh, 760px);
   border-radius: 28px 28px 0 0;
-  background: #1f1f23;
-  color: rgba(255, 255, 255, 0.92);
+  background: var(--reader-control-surface);
+  color: var(--reader-control-text);
 }
 
 .readerCustomHeader {
@@ -6639,14 +6646,18 @@
   align-items: center;
   gap: 8px;
   padding: 16px 22px 8px;
-  background: color-mix(in srgb, #3a3328 76%, #1d1d20);
+  background: color-mix(
+    in srgb,
+    var(--reader-control-surface) 86%,
+    var(--reader-control-surface-raised)
+  );
 }
 
 .readerCustomHeader h2 {
   margin: 0;
   text-align: center;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 18px;
+  color: var(--reader-control-text);
+  font-size: 1.125rem;
   font-weight: 800;
   line-height: 1.2;
 }
@@ -6658,31 +6669,36 @@
   width: 52px;
   height: 52px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.95);
-  color: #111111;
+  background: var(--reader-control-surface-raised);
+  color: var(--reader-control-text);
+  box-shadow: inset 0 0 0 1px var(--reader-control-border);
 }
 
 .readerCustomPreview {
   min-height: 190px;
   padding: 12px 0 24px;
-  background: color-mix(in srgb, #3a3328 80%, #1d1d20);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.78);
+  background: color-mix(
+    in srgb,
+    var(--reader-control-surface) 82%,
+    var(--reader-control-surface-raised)
+  );
+  border-bottom: 1px solid var(--reader-control-border);
+  color: var(--reader-control-muted);
   overflow: hidden;
 }
 
 .readerCustomPreviewText {
   max-width: 100%;
   color: inherit;
-  font-size: 16px;
+  font-size: 1rem;
   line-height: inherit;
 }
 
 .readerCustomPreviewText strong {
   display: block;
   margin-bottom: 16px;
-  color: rgba(255, 255, 255, 0.94);
-  font-size: 36px;
+  color: var(--reader-control-text);
+  font-size: 2.25rem;
   font-weight: inherit;
   line-height: 1.05;
 }
@@ -6702,7 +6718,7 @@
   flex-direction: column;
   gap: 14px;
   padding: 18px 22px calc(var(--safe-bottom) + 22px);
-  background: #1f1f23;
+  background: var(--reader-control-surface);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -6715,8 +6731,8 @@
 
 .readerCustomSection h3 {
   margin: 0 0 0 2px;
-  color: rgba(255, 255, 255, 0.96);
-  font-size: 17px;
+  color: var(--reader-control-text);
+  font-size: 1.0625rem;
   font-weight: 760;
   line-height: 1.2;
 }
@@ -6724,14 +6740,14 @@
 .readerCustomGroup {
   overflow: hidden;
   border-radius: 22px;
-  background: #2b2b2e;
+  background: var(--reader-control-surface-raised);
 }
 
 .readerCustomControlCard {
   overflow: hidden;
   border-radius: 24px;
-  background: #2b2b30;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  background: var(--reader-control-surface-raised);
+  box-shadow: inset 0 0 0 1px var(--reader-control-border);
 }
 
 .readerCustomRow,
@@ -6741,8 +6757,8 @@
   align-items: center;
   min-height: 54px;
   padding: 0 18px;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 16px;
+  color: var(--reader-control-text);
+  font-size: 1rem;
   font-weight: 620;
 }
 
@@ -6755,13 +6771,13 @@
 
 .readerCustomRow + .readerCustomRow,
 .readerCustomSliderRow + .readerCustomSliderRow {
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--reader-control-border);
 }
 
 .readerCustomRow strong {
   justify-self: end;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 16px;
+  color: var(--reader-control-muted);
+  font-size: 1rem;
   font-weight: 650;
 }
 
@@ -6775,26 +6791,26 @@
   align-items: baseline;
   gap: 0;
   width: 34px;
-  color: #ffffff;
+  color: var(--reader-control-text);
 }
 
 .readerCustomSizeIcon b {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 850;
   line-height: 1;
 }
 
 .readerCustomSizeIcon small {
   margin-left: -2px;
-  font-size: 10px;
+  font-size: 0.625rem;
   font-weight: 800;
   line-height: 1;
 }
 
 .readerCustomBoldLabel {
   width: 34px;
-  color: #ffffff;
-  font-size: 23px;
+  color: var(--reader-control-text);
+  font-size: 1.4375rem;
   font-weight: 900;
 }
 
@@ -6807,8 +6823,12 @@
   border-radius: 999px;
   appearance: none;
   background:
-    radial-gradient(circle at 16px 16px, #ffffff 0 13px, transparent 14px),
-    rgba(255, 255, 255, 0.28);
+    radial-gradient(
+      circle at 16px 16px,
+      var(--reader-control-surface-raised) 0 13px,
+      transparent 14px
+    ),
+    var(--reader-control-fill);
   transition:
     background-position var(--motion-fast) var(--ease-standard),
     background-color var(--motion-fast) var(--ease-standard);
@@ -6816,7 +6836,11 @@
 
 .readerCustomRow input[type="checkbox"]:checked {
   background:
-    radial-gradient(circle at 36px 16px, #ffffff 0 13px, transparent 14px),
+    radial-gradient(
+      circle at 36px 16px,
+      var(--reader-control-surface-raised) 0 13px,
+      transparent 14px
+    ),
     #31d568;
 }
 
@@ -6837,15 +6861,15 @@
 }
 
 .readerCustomSliderLabel {
-  color: rgba(255, 255, 255, 0.44);
-  font-size: 16px;
+  color: var(--reader-control-muted);
+  font-size: 1rem;
   font-weight: 700;
 }
 
 .readerCustomSliderValue {
   min-width: 48px;
-  color: rgba(255, 255, 255, 0.56);
-  font-size: 15px;
+  color: var(--reader-control-muted);
+  font-size: var(--type-body);
   font-weight: 650;
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -6865,7 +6889,7 @@
   justify-content: center;
   width: 34px;
   height: 34px;
-  color: rgba(255, 255, 255, 0.88);
+  color: var(--reader-control-text);
 }
 
 .readerCustomSliderSvg {
@@ -6878,7 +6902,7 @@
   grid-column: 2 / 3;
   width: 100%;
   min-width: 0;
-  accent-color: #ffffff;
+  accent-color: var(--tint);
 }
 
 .readerCustomLineIcon,
@@ -6968,10 +6992,45 @@
 .readerCustomResetButton {
   min-height: 52px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.38);
-  font-size: 16px;
+  background: var(--reader-control-fill);
+  color: var(--reader-control-muted);
+  font-size: 1rem;
   font-weight: 650;
+}
+
+@media (max-width: 380px) {
+  .readerSettingsHeader,
+  .readerSettingsBody,
+  .readerCustomHeader,
+  .readerCustomBody {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .readerSettingsControlRow {
+    grid-template-columns: minmax(0, 1.6fr) minmax(96px, 1fr);
+    gap: 10px;
+  }
+
+  .readerSettingsPopover[data-menu="mode"],
+  .readerSettingsPopover[data-menu="theme"] {
+    right: 12px;
+  }
+
+  .readerCustomPreviewText strong {
+    font-size: 1.875rem;
+  }
+}
+
+@media (max-height: 560px) and (orientation: landscape) {
+  .readerSettingsSheet,
+  .readerCustomSettingsSheet {
+    max-height: calc(100dvh - max(8px, var(--safe-top)));
+  }
+
+  .readerCustomPreview {
+    min-height: 132px;
+  }
 }
 
 .wizardSheet {
@@ -7492,7 +7551,7 @@
   color: var(--text-primary);
   background: transparent;
   font: inherit;
-  font-size: 15px;
+  font-size: var(--type-body);
   text-align: left;
   transition: background var(--motion-fast) var(--ease-standard);
 }

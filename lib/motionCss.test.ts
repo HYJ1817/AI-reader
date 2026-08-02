@@ -629,7 +629,7 @@ describe("motion CSS", () => {
     );
     const fontButtonEnd = css.indexOf("}", fontButtonStart);
     const fontButtonRule = css.slice(fontButtonStart, fontButtonEnd);
-    expect(fontButtonRule).toContain("font-size: 17px");
+    expect(fontButtonRule).toContain("font-size: 1.0625rem");
   });
 
   it("styles reader settings popover menus independently from font sizing", () => {
@@ -652,7 +652,8 @@ describe("motion CSS", () => {
     const rowStart = css.indexOf(".readerSettingsPopoverRow {");
     const rowEnd = css.indexOf("}", rowStart);
     const rowRule = css.slice(rowStart, rowEnd);
-    expect(rowRule).toContain("font-size: 15px");
+    expect(rowRule).toContain("font-size: var(--type-body)");
+    expect(rowRule).toContain("min-height: 44px");
     expect(rowRule).toMatch(/transition:[^}]*background[^}]*transform/s);
 
     const checkStart = css.indexOf(".readerSettingsPopoverCheck {");
@@ -680,26 +681,62 @@ describe("motion CSS", () => {
     expect(customIconRule).toContain("display: inline-flex");
   });
 
+  it("themes reader settings with semantic control tokens", () => {
+    for (const [selector, declarations] of [
+      [
+        ".readerSettingsSheet {",
+        [
+          "background: var(--reader-control-surface)",
+          "color: var(--reader-control-text)",
+        ],
+      ],
+      [
+        ".readerSettingsPopover {",
+        [
+          "background: var(--reader-control-surface-raised)",
+          "color: var(--reader-control-text)",
+        ],
+      ],
+      [
+        ".readerCustomSettingsSheet {",
+        [
+          "background: var(--reader-control-surface)",
+          "color: var(--reader-control-text)",
+        ],
+      ],
+      [
+        ".readerCustomBody {",
+        ["background: var(--reader-control-surface)"],
+      ],
+    ] as const) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      for (const declaration of declarations) expect(rule).toContain(declaration);
+    }
+    expect(css).toContain("@media (max-width: 380px)");
+  });
+
   it("keeps reader settings typography at a normal menu scale", () => {
     const headerStart = css.indexOf(".readerSettingsHeader h2 {");
     const headerEnd = css.indexOf("}", headerStart);
     const headerRule = css.slice(headerStart, headerEnd);
-    expect(headerRule).toContain("font-size: 17px");
+    expect(headerRule).toContain("font-size: 1.0625rem");
 
     const sampleStart = css.indexOf(".readerThemePreviewSample {");
     const sampleEnd = css.indexOf("}", sampleStart);
     const sampleRule = css.slice(sampleStart, sampleEnd);
-    expect(sampleRule).toContain("font-size: 30px");
+    expect(sampleRule).toContain("font-size: 1.875rem");
 
     const previewLabelStart = css.indexOf(".readerThemePreview span:last-child {");
     const previewLabelEnd = css.indexOf("}", previewLabelStart);
     const previewLabelRule = css.slice(previewLabelStart, previewLabelEnd);
-    expect(previewLabelRule).toContain("font-size: 15px");
+    expect(previewLabelRule).toContain("font-size: var(--type-body)");
 
     const customEntryStart = css.indexOf(".readerCustomEntryButton {");
     const customEntryEnd = css.indexOf("}", customEntryStart);
     const customEntryRule = css.slice(customEntryStart, customEntryEnd);
-    expect(customEntryRule).toContain("font-size: 22px");
+    expect(customEntryRule).toContain("font-size: 1.375rem");
     expect(customEntryRule).toContain("min-height: 64px");
 
     const customGearStart = css.indexOf(".readerCustomGearIcon {");
@@ -739,7 +776,7 @@ describe("motion CSS", () => {
     const previewTextStart = css.indexOf(".readerCustomPreviewText {");
     const previewTextEnd = css.indexOf("}", previewTextStart);
     const previewTextRule = css.slice(previewTextStart, previewTextEnd);
-    expect(previewTextRule).toContain("font-size: 16px");
+    expect(previewTextRule).toContain("font-size: 1rem");
     expect(previewTextRule).toContain("line-height: inherit");
 
     const cardStart = css.indexOf(".readerCustomControlCard {");

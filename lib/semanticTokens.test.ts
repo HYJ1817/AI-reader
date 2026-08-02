@@ -25,6 +25,12 @@ const semanticTokens = [
   "--control-fill",
   "--overlay-fill",
   "--sheet-fill",
+  "--reader-control-surface",
+  "--reader-control-surface-raised",
+  "--reader-control-fill",
+  "--reader-control-text",
+  "--reader-control-muted",
+  "--reader-control-border",
 ];
 
 function rule(selector: string): string {
