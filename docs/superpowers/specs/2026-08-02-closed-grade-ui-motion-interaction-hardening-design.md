@@ -1,7 +1,7 @@
 # AI Reader UI 动效与交互闭源级硬化设计规格
 
 **日期：** 2026-08-02  
-**状态：** 待评审  
+**状态：** 已实施并部署，待物理 iPhone 验收
 **范围：** 按压反馈、文字对比度、触控面积、背景调节性能、内容型弹层、文字缩放、主题一致性、手势策略和物理 iPhone 验收  
 **关联规格：** `2026-08-02-closed-grade-detail-polish-design.md`、`2026-07-28-pwa-interaction-fluidity-design.md`
 
