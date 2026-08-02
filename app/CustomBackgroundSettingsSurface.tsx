@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  useEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -40,14 +39,6 @@ export default function CustomBackgroundSettingsSurface({
       )
     );
   const committedOpacityRef = useRef(appPreferences.customBackgroundOpacity);
-
-  useEffect(() => {
-    const nextOpacity = clampCustomBackgroundPreviewEffect(
-      appPreferences.customBackgroundOpacity
-    );
-    committedOpacityRef.current = nextOpacity;
-    setCustomBackgroundOpacityDraft(nextOpacity);
-  }, [appPreferences.customBackgroundOpacity]);
 
   function commitCustomBackgroundOpacity() {
     const nextOpacity = clampCustomBackgroundPreviewEffect(
