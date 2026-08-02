@@ -11,6 +11,10 @@ const motionSheetSource = readFileSync(
   new URL("../app/MotionSheet.tsx", import.meta.url),
   "utf8"
 );
+const motionInteractionsSource = readFileSync(
+  new URL("./motionInteractions.ts", import.meta.url),
+  "utf8"
+);
 
 describe("sheet gestures", () => {
   it("leaves declared horizontal gesture regions to nested scrollers", () => {
@@ -133,6 +137,15 @@ describe("sheet gestures", () => {
     expect(shouldCompleteSheetDismiss(40, 950, 520)).toBe(true);
     expect(shouldCompleteSheetDismiss(40, 180, 520)).toBe(false);
     expect(shouldCompleteSheetDismiss(40, -950, 520)).toBe(false);
+  });
+
+  it("keeps dismissal boundaries in one canonical policy", () => {
+    expect(shouldCompleteSheetDismiss(139, 520, 700)).toBe(false);
+    expect(shouldCompleteSheetDismiss(140, 120, 700)).toBe(true);
+    expect(shouldCompleteSheetDismiss(23, 900, 700)).toBe(false);
+    expect(shouldCompleteSheetDismiss(24, 900, 700)).toBe(true);
+    expect(motionInteractionsSource).not.toContain("shouldDismissSheet");
+    expect(motionInteractionsSource).not.toContain("SheetDismissInput");
   });
 });
 
