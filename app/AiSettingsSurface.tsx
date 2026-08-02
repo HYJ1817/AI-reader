@@ -167,6 +167,7 @@ export default function AiSettingsSurface({
       null,
     [settings]
   );
+  const hasProviders = settings.providers.length > 0;
 
   useEffect(() => {
     if (!addMenuOpen) return;
@@ -527,7 +528,8 @@ export default function AiSettingsSurface({
         </button>
         <h2>{title}</h2>
         {mode === "list" ? (
-          <div className={styles.providerHeaderActions}>
+          hasProviders ? (
+            <div className={styles.providerHeaderActions}>
             <button
               type="button"
               className={styles.providerHeaderEditButton}
@@ -583,20 +585,24 @@ export default function AiSettingsSurface({
                 </m.div>
               ) : null}
             </AnimatePresence>
-            <input
-              ref={providerImportInputRef}
-              className={styles.providerImportInput}
-              type="file"
-              accept="application/json,.json"
-              aria-hidden="true"
-              tabIndex={-1}
-              onChange={handleProviderImport}
-            />
-          </div>
+            </div>
+          ) : (
+            <span className={styles.providerHeaderSpacer} />
+          )
         ) : (
           <span className={styles.providerHeaderSpacer} />
         )}
       </div>
+
+      <input
+        ref={providerImportInputRef}
+        className={styles.providerImportInput}
+        type="file"
+        accept="application/json,.json"
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={handleProviderImport}
+      />
 
       <div
         className={styles.providerSheetBody}
@@ -690,10 +696,20 @@ export default function AiSettingsSurface({
                 type="button"
                 className={styles.providerPrimaryButton}
                 data-open-provider-configure="true"
-                onClick={() => onPushConfigure()}
+                onClick={() => openProviderConfigure()}
               >
                 添加 AI 服务商
               </button>
+              {!hasProviders ? (
+                <button
+                  type="button"
+                  className={styles.providerEmptyImportButton}
+                  data-provider-empty-import="true"
+                  onClick={() => providerImportInputRef.current?.click()}
+                >
+                  导入服务商配置
+                </button>
+              ) : null}
               <p className={styles.providerHelpText}>
                 API Key 只保存在本机浏览器。提问时可能发送书名、格式、选中文本、附近正文（当前页面）、当前问题和最近对话；不会发送整本书，也不会在备份中导出 API Key。
               </p>

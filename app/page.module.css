@@ -8304,6 +8304,23 @@
   box-shadow: none;
 }
 
+.providerEmptyImportButton {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 4px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--tint);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.providerEmptyImportButton:active {
+  background: var(--control-fill);
+}
+
 .providerSecondaryButton {
   margin-top: 12px;
   background: var(--surface-primary);
