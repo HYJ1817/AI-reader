@@ -582,7 +582,7 @@ git commit -m "docs: specify closed-grade detail polish"
 **Files:**
 - Modify: `HANDOFF.md`
 
-- [ ] **Step 1: Build and deploy through the established OpenNext sequence**
+- [x] **Step 1: Build and deploy through the established OpenNext sequence**
 
 ```powershell
 $env:NEXT_PRIVATE_STANDALONE='true'
@@ -594,11 +594,11 @@ node node_modules\@opennextjs\cloudflare\dist\cli\index.js deploy
 
 Expected: Cloudflare publishes a new `ai-reader-pwa` Worker version for `881817.xyz/*`.
 
-- [ ] **Step 2: Smoke test production**
+- [x] **Step 2: Smoke test production**
 
 Verify `https://881817.xyz/` returns 200, discover the current JS/CSS asset URLs from the HTML, verify each returns 200, and check the empty-library/provider DOM at an iPhone-sized viewport without importing user data.
 
-- [ ] **Step 3: Update handoff with exact deployment evidence**
+- [x] **Step 3: Update handoff with exact deployment evidence**
 
 Append the implemented scope, verification counts, commit IDs, Worker version, production smoke results, and any remaining physical-iPhone limitation to `HANDOFF.md`. Preserve existing history and instructions.
 

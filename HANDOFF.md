@@ -3170,6 +3170,50 @@ Observed results:
   no retries, and `--trace=off`; sheet metrics were click-to-mount 12.5ms,
   frame P95/max 16.8ms, max long task 0ms, and CLS 0.
 
+## Closed-grade Detail Polish (2026-08-02)
+
+- Scope stayed deliberately small: recoverable library empty/search/collection
+  states, safer import errors, a 44px primary import target, clearer provider
+  save requirements, a quieter provider empty state, calmer reading-goal copy,
+  and consistent utility SVG glyphs. Reader control architecture, settings
+  switch guidance, IndexedDB/provider/backup schemas, and imported GPL code or
+  assets were left untouched.
+- Implementation commits:
+  - `6b95cfd` explains provider save requirements and disables invalid saves.
+  - `61ca329` makes library empty states recoverable and sanitizes import errors.
+  - `571a1a3` simplifies the no-provider action hierarchy.
+  - `841bec4` quiets reading-goal copy and unifies utility glyphs.
+  - `b7698fc` keeps architecture and lint gates focused.
+  - `11b85e7` measures provider labels correctly at 200% text scaling.
+  - `8389ee1` records the approved design and implementation plan.
+- Fresh full verification before deployment passed: Vitest 132 files / 1216
+  tests, full ESLint, production Next.js build, and `git diff --check`.
+- The full iPhone 15 Pro Max navigation suite passed 34/34 with one worker on
+  the final rerun. The initial run exposed one incorrect 200% text assertion;
+  inspection confirmed each direct label line remained single-line, so the
+  test selector was corrected without weakening the product budget. Three
+  isolated cadence misses from that initial run passed unchanged when rerun.
+- Cloudflare OpenNext deployment published Worker version
+  `012e20fb-1003-443a-99cf-1abffcbd1767` to both the Workers preview URL and
+  `881817.xyz/*`.
+- Production `/` returned the AI Reader library shell at
+  `https://881817.xyz/`. The deployed CSS asset
+  `/_next/static/css/8d9bf821348dfdd4.css` returned `text/css` (153200
+  characters), and the page JS asset
+  `/_next/static/chunks/app/page-877711d3a9dfa3e7.js` returned
+  `text/javascript` (327012 characters).
+- Fresh-browser iPhone-sized production DOM smoke checks confirmed the empty
+  library shows one primary `导入图书` recovery action plus the local-storage
+  privacy note. The provider empty state shows one `添加 AI 服务商` primary
+  action, one inline `导入服务商配置` action, the local API-key notice, and no
+  provider menu or edit action.
+- OpenNext still emits its Windows compatibility warning, Wrangler recommends
+  a newer compatibility date than `2024-12-30`, and Node emits `DEP0190` during
+  the Windows build path; none blocked the successful deployment.
+- Automated Chromium verifies the configured interaction budgets, but it does
+  not prove sustained 120fps on physical iPhone Safari/PWA hardware. A physical
+  device remains the final motion-quality acceptance surface.
+
 Before making another code commit, rerun:
 
 ```powershell
