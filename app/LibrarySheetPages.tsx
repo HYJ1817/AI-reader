@@ -1,6 +1,13 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type RefObject,
+} from "react";
 import BookCover from "./BookCover";
 import type { CloseSheet } from "./BottomSheet";
 import type { AppOverlaysProps } from "./AppOverlays";
@@ -580,10 +587,34 @@ function ActionRow({
   onClick: () => void;
   returnFocusFor?: string;
 }) {
+  const [pressed, setPressed] = useState(false);
+
+  function startPress(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    setPressed(true);
+  }
+
+  function endPress() {
+    setPressed(false);
+  }
+
+  function handlePressKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
+    if (event.key === " " || event.key === "Enter") setPressed(true);
+  }
+
   return (
     <button
       className={styles.actionListRow}
       onClick={onClick}
+      onPointerDown={startPress}
+      onPointerUp={endPress}
+      onPointerCancel={endPress}
+      onPointerLeave={endPress}
+      onLostPointerCapture={endPress}
+      onKeyDown={handlePressKeyDown}
+      onKeyUp={endPress}
+      onBlur={endPress}
+      data-pressed={pressed ? "true" : undefined}
       data-sheet-return-focus={returnFocusFor}
     >
       <span className={styles.actionIcon}>

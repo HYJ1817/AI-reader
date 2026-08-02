@@ -4805,7 +4805,19 @@
 
 .bookActionSheet .actionListRow:active {
   background: color-mix(in srgb, var(--tint) 8%, transparent);
-  transform: none;
+  transform: translate3d(0, 1px, 0);
+}
+
+.bookActionSheet .actionListRow[data-pressed="true"] {
+  background: color-mix(in srgb, var(--tint) 8%, transparent);
+  transform: translate3d(0, 1px, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookActionSheet .actionListRow:active,
+  .bookActionSheet .actionListRow[data-pressed="true"] {
+    transform: none;
+  }
 }
 
 .bookActionSheet .actionIcon {

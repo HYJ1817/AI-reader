@@ -179,6 +179,18 @@ describe("daily-path accessibility contract", () => {
     }
   });
 
+  it("keeps action-row press feedback deterministic across pointer engines", () => {
+    expect(librarySheetPages).toContain('data-pressed={pressed ? "true" : undefined}');
+    expect(librarySheetPages).toContain("onPointerDown={startPress}");
+    expect(librarySheetPages).toContain("onPointerCancel={endPress}");
+    expect(librarySheetPages).toContain("onLostPointerCapture={endPress}");
+    expect(librarySheetPages).toContain("onKeyDown={handlePressKeyDown}");
+    expect(librarySheetPages).toContain("onKeyUp={endPress}");
+    expect(rule(css, '.bookActionSheet .actionListRow[data-pressed="true"]')).toContain(
+      "translate3d(0, 1px, 0)"
+    );
+  });
+
   it("keeps one modal boundary and exposes only the active internal region", () => {
     expect(motionSheet).toContain('role="dialog"');
     expect(motionSheet).toContain('aria-modal="true"');
