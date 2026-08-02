@@ -106,6 +106,56 @@ test("book actions use a clear grouped visual hierarchy", async ({ page }) => {
   ).toBe(true);
 });
 
+test("book management sheets keep nested content opaque and touch-sized", async ({
+  page,
+}) => {
+  const actionSheet = await openBookActionSheet(page);
+  await actionSheet.getByRole("button", { name: "管理分组" }).click();
+
+  const groupsSheet = page.locator('[data-sheet-route="book-groups"]');
+  const groupsEditor = groupsSheet.locator('[data-book-editor="groups"]');
+  await expect(groupsEditor).toBeVisible();
+  const groupContract = await groupsEditor.evaluate((element) => {
+    const input = element.querySelector<HTMLInputElement>(
+      'input[placeholder="分组名称"]'
+    );
+    const createButton = element.querySelector<HTMLButtonElement>(
+      'button:not([aria-label])'
+    );
+    const editorStyle = getComputedStyle(element);
+    return {
+      background: editorStyle.backgroundColor,
+      inputMinHeight: input ? getComputedStyle(input).minHeight : "",
+      createMinHeight: createButton
+        ? getComputedStyle(createButton).minHeight
+        : "",
+    };
+  });
+  expect(groupContract.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(Number.parseFloat(groupContract.inputMinHeight)).toBeGreaterThanOrEqual(
+    44
+  );
+  expect(Number.parseFloat(groupContract.createMinHeight)).toBeGreaterThanOrEqual(
+    44
+  );
+  await groupsSheet.getByRole("button", { name: "完成" }).click();
+  await expect(groupsSheet).toHaveCount(0);
+  await actionSheet.getByRole("button", { name: "重命名书籍" }).click();
+
+  const renameSheet = page.locator('[data-sheet-route="book-rename"]');
+  const renameEditor = renameSheet.locator('[data-book-editor="rename"]');
+  const renameInput = renameSheet.getByLabel("书名");
+  await expect(renameEditor).toBeVisible();
+  const renameContract = await renameInput.evaluate((element) => ({
+    minHeight: getComputedStyle(element).minHeight,
+    borderRadius: getComputedStyle(element).borderRadius,
+    background: getComputedStyle(element.closest("[data-book-editor]")!).backgroundColor,
+  }));
+  expect(renameContract.background).not.toBe("rgba(0, 0, 0, 0)");
+  expect(Number.parseFloat(renameContract.minHeight)).toBeGreaterThanOrEqual(48);
+  expect(renameContract.borderRadius).toBe("10px");
+});
+
 async function installKeyboardVisualViewport(page: Page) {
   await page.evaluate(() => {
     const viewport = new EventTarget();

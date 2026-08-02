@@ -4450,6 +4450,31 @@
   position: relative;
 }
 
+.bookEditorPage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 100%;
+  background: var(--surface-primary);
+  color: var(--text-primary);
+}
+
+.bookEditorPage .sheetHeader {
+  padding: 10px 16px 9px;
+  border-bottom: 1px solid var(--hairline);
+  background: var(--surface-primary);
+}
+
+.bookEditorPage .sheetTitle {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.bookEditorPage .sheetBody {
+  padding: 0 0 16px;
+}
+
 .sheetPage [data-sheet-autofocus="true"] {
   scroll-margin-block: 16px;
 }
@@ -4781,53 +4806,79 @@
 .renameBookForm {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 8px 16px calc(16px + var(--safe-bottom));
+  flex: 1;
+  gap: 10px;
+  padding: 20px 16px calc(18px + var(--safe-bottom));
+  background: var(--surface-primary);
 }
 
 .renameBookForm label {
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 650;
 }
 
 .renameBookInput {
+  box-sizing: border-box;
   width: 100%;
-  min-height: 46px;
-  padding: 10px 12px;
+  min-height: 48px;
+  padding: 11px 13px;
   border: 1px solid var(--separator);
-  border-radius: 12px;
+  border-radius: 10px;
   outline: none;
   background: var(--surface-primary);
   color: var(--text-primary);
   font: inherit;
-  transition: border-color var(--motion-fast) var(--ease-standard);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .renameBookInput:focus {
-  border-color: var(--tint);
+  border-color: var(--separator);
+  box-shadow: none;
+}
+
+.renameBookInput:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  box-shadow: none;
 }
 
 .renameBookInput[aria-invalid="true"] {
-  border-color: #ff453a;
+  border-color: var(--status-error);
+}
+
+.renameBookInput[aria-invalid="true"]:focus {
+  box-shadow: none;
+}
+
+.renameBookInput[aria-invalid="true"]:focus-visible {
+  outline-color: var(--status-error);
 }
 
 .renameBookError {
   margin: 0;
-  color: #ff453a;
+  color: var(--status-error);
   font-size: 13px;
+  line-height: 1.4;
 }
 
 .renameBookActions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
 }
 
 .renameBookActions .primaryButton,
 .renameBookActions .secondaryButton {
-  min-width: 76px;
-  margin-top: 8px;
+  min-width: 0;
+  min-height: 44px;
+  margin-top: 0;
+  padding: 0 16px;
+  border-radius: 10px;
 }
 
 .deleteConfirmBox {
@@ -5303,20 +5354,43 @@
 }
 
 .groupSheetBookTitle {
-  padding: 0 16px 12px;
-  font-size: 14px;
-  color: var(--text-secondary);
-  white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 16px 14px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.groupSheetBookTitle > span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.groupSheetBookTitle > strong {
   overflow: hidden;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .groupEmpty {
-  padding: 16px;
-  text-align: center;
+  padding: 24px 16px 8px;
+  text-align: left;
+}
+
+.groupEmpty .emptyText {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 650;
 }
 
 .groupEmptyHint {
+  max-width: 32ch;
   font-size: 13px;
   color: var(--text-tertiary);
   margin: 4px 0 0;
@@ -5324,12 +5398,16 @@
 
 .groupList {
   list-style: none;
+  margin: 16px;
   padding: 0;
-  margin: 0;
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-primary);
 }
 
 .groupListItem {
-  border-bottom: 0.5px solid var(--separator);
+  border-bottom: 1px solid var(--hairline);
 }
 
 .tocLoadSentinel {
@@ -5346,28 +5424,73 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px;
-  min-height: 44px;
+  min-height: 56px;
+  padding: 6px 8px 6px 12px;
 }
 
 .groupCheckLabel {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 11px;
   flex: 1;
   min-width: 0;
+  min-height: 44px;
   cursor: pointer;
 }
 
 .groupCheckbox {
+  appearance: none;
+  display: grid;
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
-  accent-color: var(--tint);
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--separator);
+  border-radius: 6px;
+  background: var(--surface-primary);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.groupCheckbox::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border: solid #ffffff;
+  border-width: 0 0 2px 2px;
+  opacity: 0;
+  transform: translateY(-1px) rotate(-45deg) scale(0.7);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.groupCheckbox:checked {
+  border-color: var(--tint);
+  background: var(--tint);
+}
+
+.groupCheckbox:checked::after {
+  opacity: 1;
+  transform: translateY(-1px) rotate(-45deg) scale(1);
+}
+
+.groupCheckbox:active {
+  transform: scale(0.94);
+}
+
+.groupCheckbox:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 .groupName {
   font-size: 15px;
+  font-weight: 550;
+  line-height: 1.35;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -5376,107 +5499,141 @@
 
 .groupItemActions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
-.groupAction {
+:is(.groupAction, .groupActionDelete) {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  border-radius: 10px;
+  background: transparent;
   color: var(--text-secondary);
-  transition: opacity var(--motion-fast) var(--ease-standard);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
-.groupAction:hover {
-  opacity: 0.7;
+.groupAction {
+  width: 44px;
+  height: 44px;
 }
 
 .groupActionDelete {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 44px;
   height: 44px;
-  border-radius: 50%;
-  color: #ff453a;
-  transition: opacity var(--motion-fast) var(--ease-standard);
 }
 
+.groupAction:hover,
 .groupActionDelete:hover {
-  opacity: 0.7;
+  background: var(--control-fill);
+}
+
+.groupAction:active,
+.groupActionDelete:active {
+  transform: scale(0.94);
+}
+
+.groupActionDelete {
+  color: var(--status-error);
 }
 
 .groupEditRow {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 8px;
-  padding: 8px 16px;
+  min-height: 56px;
+  padding: 6px 12px;
 }
 
 .groupEditInput {
+  box-sizing: border-box;
   flex: 1;
-  padding: 8px 12px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
   border: 1px solid var(--tint);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-primary);
   color: var(--text-primary);
   font-size: 15px;
   outline: none;
+  transition: box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.groupEditInput:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint) 18%, transparent);
+}
+
+.groupEditInput:focus-visible {
+  outline: none;
+}
+
+.groupEditSave,
+.groupEditCancel {
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .groupEditSave {
-  padding: 6px 12px;
-  border-radius: 8px;
   background: var(--tint);
   color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-  flex-shrink: 0;
 }
 
 .groupEditCancel {
-  padding: 6px 12px;
-  border-radius: 8px;
   background: var(--control-fill);
   color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  flex-shrink: 0;
 }
 
 .groupCreateRow {
   display: flex;
+  align-items: center;
   gap: 8px;
-  padding: 12px 16px;
-  border-top: 0.5px solid var(--separator);
+  min-height: 56px;
+  margin: 16px;
+  padding: 5px;
+  border: 1px solid var(--separator);
+  border-radius: 12px;
+  background: var(--surface-primary);
+  transition:
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
+}
+
+.groupCreateRow:focus-within {
+  border-color: var(--tint);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tint) 14%, transparent);
 }
 
 .groupCreateInput {
+  box-sizing: border-box;
   flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--separator);
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  border: 0;
   border-radius: 8px;
-  background: var(--surface-primary);
+  background: transparent;
   color: var(--text-primary);
   font-size: 15px;
   outline: none;
 }
 
 .groupCreateInput::placeholder {
-  color: var(--text-tertiary);
-}
-
-.groupCreateInput:focus {
-  border-color: var(--tint);
+  color: var(--text-secondary);
 }
 
 .groupCreateButton {
-  padding: 8px 14px;
-  border-radius: 8px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 9px;
   background: var(--tint);
   color: #ffffff;
   font-size: 14px;
@@ -5494,10 +5651,20 @@
 }
 
 .groupSheetActions {
+  flex-shrink: 0;
   display: flex;
   gap: 8px;
   justify-content: flex-end;
-  padding: 12px 16px 0;
+  padding: 12px 16px calc(4px + var(--safe-bottom));
+  border-top: 1px solid var(--hairline);
+  background: var(--surface-primary);
+}
+
+.groupSheetActions .primaryButton {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 0;
+  border-radius: 10px;
 }
 
 .readerSettingsBody {

@@ -237,6 +237,42 @@ describe("daily-path accessibility contract", () => {
     );
   });
 
+  it("gives book management sheets an opaque grouped editor surface", () => {
+    expect(librarySheetPages).toContain(
+      'data-book-editor="rename"'
+    );
+    expect(librarySheetPages).toContain(
+      'data-book-editor="groups"'
+    );
+
+    const editor = rule(css, ".bookEditorPage");
+    expect(editor).toContain("display: flex");
+    expect(editor).toContain("flex-direction: column");
+    expect(editor).toContain("min-height: 100%");
+    expect(editor).toContain("background: var(--surface-primary)");
+
+    const renameInput = rule(css, ".renameBookInput");
+    expect(renameInput).toContain("min-height: 48px");
+    expect(css).toMatch(
+      /\.renameBookInput:focus\s*\{[^}]*border-color:\s*var\(--separator\)/s
+    );
+    expect(css).toMatch(
+      /\.renameBookInput:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus-ring\)[^}]*box-shadow:\s*none/s
+    );
+
+    const groupList = rule(css, ".groupList");
+    expect(groupList).toContain("margin: 16px");
+    expect(groupList).toContain("border: 1px solid var(--hairline)");
+    expect(groupList).toContain("border-radius: 12px");
+
+    const groupCreateRow = rule(css, ".groupCreateRow");
+    expect(groupCreateRow).toContain("margin: 16px");
+    expect(groupCreateRow).toContain("min-height: 56px");
+
+    const groupActions = rule(css, ".groupSheetActions");
+    expect(groupActions).toContain("border-top: 1px solid var(--hairline)");
+  });
+
   it("focuses and announces memory review while isolating underlying workspace controls", () => {
     expect(askAi).toContain("memoryReviewTextareaRef");
     expect(askAi).toContain("memoryReviewTriggerRef");

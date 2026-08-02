@@ -279,7 +279,7 @@ function BookRenamePage({
   }
 
   return (
-    <>
+    <div className={styles.bookEditorPage} data-book-editor="rename">
       <SheetHeader title={UI_TEXT.RENAME_BOOK} close={close} />
       <form
         className={styles.renameBookForm}
@@ -328,7 +328,7 @@ function BookRenamePage({
           </button>
         </div>
       </form>
-    </>
+    </div>
   );
 }
 
@@ -383,10 +383,13 @@ function BookGroupPage({
   close: CloseSheet;
 }) {
   return (
-    <>
+    <div className={styles.bookEditorPage} data-book-editor="groups">
       <SheetHeader title={UI_TEXT.MANAGE_GROUPS} close={close} />
       <div className={styles.sheetBody}>
-        <div className={styles.groupSheetBookTitle}>{book.title}</div>
+        <div className={styles.groupSheetBookTitle}>
+          <span>{UI_TEXT.BOOK_TITLE}</span>
+          <strong>{book.title}</strong>
+        </div>
         {groups.length === 0 ? (
           <GroupEmpty />
         ) : (
@@ -412,12 +415,14 @@ function BookGroupPage({
                         data-sheet-autofocus="true"
                       />
                       <button
+                        type="button"
                         className={styles.groupEditSave}
                         onClick={() => actions.renameGroup(item.id)}
                       >
                         {UI_TEXT.SAVE}
                       </button>
                       <button
+                        type="button"
                         className={styles.groupEditCancel}
                         onClick={() => actions.setEditingGroup(null, "")}
                       >
@@ -465,13 +470,13 @@ function BookGroupPage({
           onChange={actions.setNewGroupName}
           onCreate={() => onCreateGroup(book)}
         />
-        <div className={styles.groupSheetActions}>
-          <button className={styles.primaryButton} onClick={() => close()}>
-            {UI_TEXT.DONE}
-          </button>
-        </div>
       </div>
-    </>
+      <div className={styles.groupSheetActions}>
+        <button className={styles.primaryButton} onClick={() => close()}>
+          {UI_TEXT.DONE}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -509,6 +514,7 @@ function GroupCreateRow({
         data-sheet-autofocus={autoFocus ? "true" : undefined}
       />
       <button
+        type="button"
         className={styles.groupCreateButton}
         onClick={onCreate}
         disabled={!value.trim()}
