@@ -179,6 +179,38 @@ describe("daily-path accessibility contract", () => {
     }
   });
 
+  it("keeps audited text-entry and workspace targets at least 44px tall", () => {
+    for (const selector of [
+      ".workspaceSegment",
+      ".workspaceMessageAction",
+      ".workspaceRetryButton",
+      ".workspaceMaterialRow button",
+      ".readerSettingsPopoverRow",
+      ".customBackgroundSheetHeader button",
+      ".librarySearchBox",
+      ".collectionRenameInput",
+      ".providerManualModelRow input",
+    ]) {
+      expect(rule(css, selector), selector).toMatch(/(?:height|min-height):\s*44px/);
+    }
+  });
+
+  it("uses a readable semantic placeholder role without opacity dilution", () => {
+    for (const selector of [
+      ".settingsInputRow > input::placeholder",
+      ".librarySearchBox input::placeholder",
+      ".input::placeholder",
+      ".wizardFormInput::placeholder",
+      ".providerField input::placeholder",
+      ".providerFormRow input::placeholder",
+      ".providerManualModelRow input::placeholder",
+    ]) {
+      const value = rule(css, selector);
+      expect(value, selector).toContain("color: var(--text-placeholder)");
+      expect(value, selector).not.toContain("opacity:");
+    }
+  });
+
   it("keeps action-row press feedback deterministic across pointer engines", () => {
     expect(librarySheetPages).toContain('data-pressed={pressed ? "true" : undefined}');
     expect(librarySheetPages).toContain("onPointerDown={startPress}");

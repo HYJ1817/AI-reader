@@ -530,7 +530,7 @@
 }
 
 .settingsInputRow > input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 
 .settingsInputRow > input:focus {
@@ -719,7 +719,7 @@
   align-items: center;
   gap: 2px;
   min-width: 0;
-  height: 42px;
+  height: 44px;
   border-radius: 10px;
   color: var(--tint);
   background: transparent;
@@ -1010,7 +1010,7 @@
 
 .continueChevron {
   flex-shrink: 0;
-  color: var(--text-tertiary);
+  color: var(--icon-tertiary);
   font-size: 28px;
   line-height: 1;
   transform: translate3d(0, 0, 0);
@@ -1233,7 +1233,7 @@
 
 .collectionRowChevron {
   flex-shrink: 0;
-  color: var(--text-tertiary);
+  color: var(--icon-tertiary);
   font-size: 22px;
   line-height: 1;
   transform: translate3d(0, 0, 0);
@@ -1255,7 +1255,7 @@
 .collectionRenameInput {
   min-width: 0;
   flex: 1;
-  height: 34px;
+  height: 44px;
   padding: 0 8px;
   border: 0.5px solid var(--hairline);
   border-radius: 8px;
@@ -1301,7 +1301,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 42px;
+  height: 44px;
   padding: 0 12px;
   border-radius: 12px;
   background: var(--control-fill);
@@ -1320,7 +1320,7 @@
 }
 
 .librarySearchBox input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 
 .libraryViewToggle {
@@ -1416,7 +1416,7 @@
 }
 
 .emptyIcon {
-  color: var(--text-tertiary);
+  color: var(--icon-tertiary);
   margin-bottom: 8px;
 }
 
@@ -1477,7 +1477,7 @@
 }
 
 .input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 
 .input:focus {
@@ -3702,7 +3702,7 @@
 .workspaceSegment {
   position: relative;
   isolation: isolate;
-  min-height: 36px;
+  min-height: 44px;
   border: 0;
   border-radius: 8px;
   color: var(--text-secondary);
@@ -3904,7 +3904,7 @@
 }
 
 .workspaceMessageAction {
-  min-height: 32px;
+  min-height: 44px;
   margin: 7px 12px 0 0;
   padding: 0;
   border: 0;
@@ -4017,7 +4017,7 @@
 
 .workspaceRetryButton {
   display: block;
-  min-height: 32px;
+  min-height: 44px;
   margin-top: 7px;
   padding: 0;
   border: 0;
@@ -4115,7 +4115,7 @@
 }
 
 .workspaceMaterialRow button {
-  min-height: 36px;
+  min-height: 44px;
   flex-shrink: 0;
   padding: 0 4px;
   border: 0;
@@ -5655,7 +5655,7 @@
 }
 
 .groupCreateInput::placeholder {
-  color: var(--text-secondary);
+  color: var(--text-placeholder);
 }
 
 .groupCreateButton {
@@ -6353,7 +6353,7 @@
   grid-template-columns: 20px 24px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
-  min-height: 40px;
+  min-height: 44px;
   border-radius: 14px;
   color: inherit;
   font-size: 15px;
@@ -7201,7 +7201,7 @@
 }
 
 .wizardFormInput::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 
 .wizardFormInput:focus {
@@ -7696,7 +7696,7 @@
 .providerPresetVendors span + span::before {
   content: "·";
   margin-right: 5px;
-  color: var(--text-tertiary);
+  color: var(--icon-tertiary);
 }
 
 .providerPresetCheck {
@@ -7754,8 +7754,7 @@
 }
 
 .providerField input::placeholder {
-  color: var(--text-secondary);
-  opacity: 0.82;
+  color: var(--text-placeholder);
 }
 
 .providerPresetCheck svg {
@@ -8099,7 +8098,7 @@
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  color: var(--text-tertiary);
+  color: var(--icon-tertiary);
   font-size: 26px;
   line-height: 1;
   opacity: 0.72;
@@ -8128,8 +8127,8 @@
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  background: var(--text-tertiary);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-tertiary) 10%, transparent);
+  background: var(--icon-tertiary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--icon-tertiary) 10%, transparent);
 }
 
 .providerStatusDotReady {
@@ -8143,7 +8142,7 @@
 }
 
 .providerStatusDotEmpty {
-  background: var(--text-tertiary);
+  background: var(--icon-tertiary);
 }
 
 .providerInlineStatusHost {
@@ -8216,7 +8215,7 @@
 }
 
 .providerFormRow input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 
 .providerManualModelRow {
@@ -8235,7 +8234,7 @@
 .providerManualModelRow input {
   min-width: 0;
   flex: 1;
-  height: 38px;
+  height: 44px;
   padding: 0 12px;
   border: none;
   border-radius: 10px;
@@ -8254,7 +8253,7 @@
 }
 
 .providerManualModelRow input::placeholder {
-  color: var(--text-tertiary);
+  color: var(--text-placeholder);
 }
 
 .providerManualModelRow button {
@@ -8333,7 +8332,7 @@
 .providerPrimaryButton:disabled {
   opacity: 1;
   background: var(--control-fill);
-  color: var(--text-tertiary);
+  color: var(--text-disabled);
   box-shadow: none;
 }
 

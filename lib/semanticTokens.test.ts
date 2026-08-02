@@ -17,6 +17,9 @@ const semanticTokens = [
   "--text-primary",
   "--text-secondary",
   "--text-tertiary",
+  "--text-placeholder",
+  "--text-disabled",
+  "--icon-tertiary",
   "--separator",
   "--tint",
   "--control-fill",
@@ -37,6 +40,17 @@ describe("semantic visual tokens", () => {
         globals.match(new RegExp(`${token}:`, "g"))?.length
       ).toBeGreaterThanOrEqual(4);
     }
+  });
+
+  it("keeps meaningful tertiary text AA-readable on every theme surface", () => {
+    for (const declaration of [
+      "--text-tertiary: #707075",
+      "--text-tertiary: #a1a1a6",
+      "--text-tertiary: #756750",
+    ]) {
+      expect(globals).toContain(declaration);
+    }
+    expect(globals).toContain("@media (prefers-contrast: more)");
   });
 
   it("does not keep the retired iOS token alias layer", () => {
