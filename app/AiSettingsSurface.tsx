@@ -501,10 +501,23 @@ export default function AiSettingsSurface({
         <button
           type="button"
           className={styles.providerNavButton}
+          aria-label={mode === "list" ? "返回设置" : "返回服务商"}
           onClick={onBack}
         >
-          <span aria-hidden="true">{"\u2039"}</span>
-          {mode === "list" ? "设置" : "服务商"}
+          <svg
+            className={styles.providerNavIcon}
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              d="M14.5 5 7.5 12l7 7"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
         <h2>{title}</h2>
         {mode === "list" ? (

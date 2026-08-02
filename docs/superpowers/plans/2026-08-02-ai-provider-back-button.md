@@ -205,7 +205,8 @@ test("provider surfaces expose icon-only route-aware back buttons", async ({
   const listBack = page.getByRole("button", { name: "返回设置" });
   await expect(listBack).toBeVisible();
   await expect(listBack).toHaveAttribute("aria-label", "返回设置");
-  expect((await listBack.boundingBox())?.width).toBeGreaterThanOrEqual(44);
+  await expect(listBack).toHaveCSS("width", "44px");
+  expect((await listBack.boundingBox())?.width).toBeGreaterThanOrEqual(43.5);
 
   await page.locator('[data-open-provider-configure="true"]').click();
   const configure = page.locator('[data-provider-configure="true"]');
@@ -214,7 +215,8 @@ test("provider surfaces expose icon-only route-aware back buttons", async ({
   const configureBack = page.getByRole("button", { name: "返回服务商" });
   await expect(configureBack).toBeVisible();
   await expect(configureBack).toHaveAttribute("aria-label", "返回服务商");
-  expect((await configureBack.boundingBox())?.width).toBeGreaterThanOrEqual(44);
+  await expect(configureBack).toHaveCSS("width", "44px");
+  expect((await configureBack.boundingBox())?.width).toBeGreaterThanOrEqual(43.5);
 
   await configureBack.click();
   await expect(
@@ -232,7 +234,7 @@ Run:
 npx.cmd playwright test e2e/native-navigation.spec.ts -g "provider surfaces expose icon-only route-aware back buttons" --trace=off
 ```
 
-Expected: PASS on the configured mobile project; the route returns to the provider list and the measured arrow button is at least 44px wide.
+Expected: PASS on both configured mobile projects; the route returns to the provider list, the computed CSS width is 44px, and the measured geometry is at least 43.5px after device-pixel rounding.
 
 ### Task 4: Run the repository verification gates
 

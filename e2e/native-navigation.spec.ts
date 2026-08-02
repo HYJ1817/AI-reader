@@ -1235,6 +1235,34 @@ test("provider compact back reverses direction and keeps edge back", async ({
   await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
 });
 
+test("provider surfaces expose icon-only route-aware back buttons", async ({
+  page,
+}) => {
+  await openAiProviderList(page);
+
+  const listBack = page.getByRole("button", { name: "返回设置" });
+  await expect(listBack).toBeVisible();
+  await expect(listBack).toHaveAttribute("aria-label", "返回设置");
+  await expect(listBack).toHaveCSS("width", "44px");
+  expect((await listBack.boundingBox())?.width).toBeGreaterThanOrEqual(43.5);
+
+  await page.locator('[data-open-provider-configure="true"]').click();
+  const configure = page.locator('[data-provider-configure="true"]');
+  await expect(configure).toBeVisible();
+
+  const configureBack = page.getByRole("button", { name: "返回服务商" });
+  await expect(configureBack).toBeVisible();
+  await expect(configureBack).toHaveAttribute("aria-label", "返回服务商");
+  await expect(configureBack).toHaveCSS("width", "44px");
+  expect((await configureBack.boundingBox())?.width).toBeGreaterThanOrEqual(43.5);
+
+  await configureBack.click();
+  await expect(
+    page.locator('[data-push-route="ai-provider-configure"]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+});
+
 test("AI provider configuration remains usable at 200 percent text", async ({
   page,
 }, testInfo) => {

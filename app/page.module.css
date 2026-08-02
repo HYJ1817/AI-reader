@@ -7336,22 +7336,54 @@
 
 .providerNavButton {
   justify-self: start;
-  white-space: nowrap;
-  border: none;
-  background: transparent;
-  color: var(--tint);
-  font-size: 17px;
-  font-weight: 500;
-  padding: 4px 0;
-  transform: translate3d(0, 0, 0);
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0.5px solid color-mix(in srgb, var(--text-primary) 18%, transparent);
+  border-radius: 50%;
+  color: var(--text-primary);
+  background: var(--surface-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  transform: translate3d(0, 0, 0) scale(1);
   transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard),
     opacity var(--motion-fast) var(--ease-standard),
     transform var(--motion-fast) var(--ease-standard);
 }
 
+.providerNavIcon {
+  width: 26px;
+  height: 26px;
+  transform: translate3d(0, 0, 0);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+
 .providerNavButton:active {
-  opacity: 0.72;
-  transform: translate3d(0, 1px, 0);
+  opacity: 0.78;
+  background: var(--control-fill);
+  box-shadow: none;
+  transform: translate3d(0, 1px, 0) scale(0.96);
+}
+
+.providerNavButton:focus-visible {
+  outline: 3px solid var(--focus-ring);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .providerNavButton,
+  .providerNavIcon {
+    transition: none;
+    transform: none;
+  }
+
+  .providerNavButton:active {
+    transform: none;
+  }
 }
 
 .providerHeaderSpacer {
