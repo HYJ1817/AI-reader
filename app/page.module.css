@@ -4865,22 +4865,12 @@
   box-shadow: none;
 }
 
-.renameBookInput:focus-visible {
-  outline: 2px solid var(--focus-ring);
-  outline-offset: 2px;
-  box-shadow: none;
-}
-
 .renameBookInput[aria-invalid="true"] {
   border-color: var(--status-error);
 }
 
 .renameBookInput[aria-invalid="true"]:focus {
   box-shadow: none;
-}
-
-.renameBookInput[aria-invalid="true"]:focus-visible {
-  outline-color: var(--status-error);
 }
 
 .renameBookError {

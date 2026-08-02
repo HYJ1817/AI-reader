@@ -92,6 +92,15 @@ describe("daily-path accessibility contract", () => {
     expect(rule(css, ".tab:focus-visible")).not.toContain("outline: none");
   });
 
+  it("uses a quiet inset focus indicator for text-entry controls", () => {
+    expect(globals).toMatch(
+      /:root\s+:is\([\s\S]*input\[type="search"\][\s\S]*textarea,[\s\S]*select[\s\S]*\):focus-visible\s*\{[^}]*outline:\s*none;[^}]*box-shadow:\s*inset 0 -2px 0 var\(--focus-ring\)/s
+    );
+    expect(globals).toMatch(
+      /:root\s+:is\(input, textarea, select\)\[aria-invalid="true"\]:focus-visible\s*\{[^}]*box-shadow:\s*inset 0 -2px 0 var\(--status-error\)/s
+    );
+  });
+
   it("uses native, separate Library controls with explicit view state", () => {
     expect(library).toContain('role="group"');
     expect(library).toContain("aria-pressed={view.mode === mode}");
@@ -256,8 +265,8 @@ describe("daily-path accessibility contract", () => {
     expect(css).toMatch(
       /\.renameBookInput:focus\s*\{[^}]*border-color:\s*var\(--separator\)/s
     );
-    expect(css).toMatch(
-      /\.renameBookInput:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus-ring\)[^}]*box-shadow:\s*none/s
+    expect(css).not.toMatch(
+      /\.renameBookInput:focus-visible\s*\{[^}]*outline:\s*2px solid var\(--focus-ring\)/s
     );
 
     const groupList = rule(css, ".groupList");
