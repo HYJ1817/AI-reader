@@ -13,6 +13,10 @@ const sampleText = [
 type ReadingSeed = {
   progressPercent?: number;
   secondsRead?: number;
+  extraStats?: Array<{
+    daysAgo: number;
+    secondsRead: number;
+  }>;
 };
 
 async function waitForLibrary(page: Page) {
@@ -34,7 +38,7 @@ async function importBook(page: Page) {
 }
 
 async function seedReadingData(page: Page, seed: ReadingSeed) {
-  await page.evaluate(async ({ progressPercent, secondsRead }) => {
+  await page.evaluate(async ({ progressPercent, secondsRead, extraStats }) => {
     const request = indexedDB.open("AiReader");
     const database = await new Promise<IDBDatabase>((resolve, reject) => {
       request.onsuccess = () => resolve(request.result);
@@ -49,9 +53,13 @@ async function seedReadingData(page: Page, seed: ReadingSeed) {
         keysRequest.onerror = () => reject(keysRequest.error);
       });
 
+      const dailyStats = [
+        ...(secondsRead !== undefined ? [{ daysAgo: 0, secondsRead }] : []),
+        ...(extraStats ?? []),
+      ];
       const stores = [
         ...(progressPercent !== undefined ? ["readingPositions"] : []),
-        ...(secondsRead !== undefined ? ["dailyReadingStats"] : []),
+        ...(dailyStats.length > 0 ? ["dailyReadingStats"] : []),
       ];
       if (stores.length === 0) return;
 
@@ -69,15 +77,17 @@ async function seedReadingData(page: Page, seed: ReadingSeed) {
           });
         }
 
-        if (secondsRead !== undefined) {
+        for (const dailyStat of dailyStats) {
+          const dateValue = new Date(now);
+          dateValue.setDate(dateValue.getDate() - dailyStat.daysAgo);
           const date = [
-            now.getFullYear(),
-            String(now.getMonth() + 1).padStart(2, "0"),
-            String(now.getDate()).padStart(2, "0"),
+            dateValue.getFullYear(),
+            String(dateValue.getMonth() + 1).padStart(2, "0"),
+            String(dateValue.getDate()).padStart(2, "0"),
           ].join("-");
           transaction.objectStore("dailyReadingStats").put({
             date,
-            secondsRead,
+            secondsRead: dailyStat.secondsRead,
             updatedAt: now.toISOString(),
           });
         }
@@ -287,4 +297,25 @@ test("recorded minutes reveal the seven-day summary after the primary action", a
   expect(surfaceOrder).toEqual(["primary", "goal", "week"]);
 
   await capture(page, testInfo, "reading-week");
+});
+
+test("seven-day cumulative reading excludes older history", async ({ page }) => {
+  await importBook(page);
+  await seedReadingData(page, {
+    progressPercent: 42,
+    secondsRead: 180,
+    extraStats: [{ daysAgo: 14, secondsRead: 4140 }],
+  });
+  await page.reload();
+  await waitForLibrary(page);
+  await openReading(page);
+
+  const dashboard = page.locator(dashboardRoot);
+  const weeklySummary = dashboard
+    .locator('[data-reading-week="true"] > div')
+    .first()
+    .locator("span")
+    .first();
+  await expect(weeklySummary).toHaveText(/3\s*分钟/);
+  await expect(weeklySummary).not.toHaveText(/72\s*分钟/);
 });

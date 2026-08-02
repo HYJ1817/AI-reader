@@ -101,10 +101,7 @@ import {
   formatReadingMinutes,
   shouldPublishReadingSeconds,
 } from "@/lib/readingGoal";
-import {
-  buildSevenDayReadingInsights,
-  totalReadingMinutes,
-} from "@/lib/readingInsights";
+import { buildSevenDayReadingInsights } from "@/lib/readingInsights";
 import {
   pruneSelectedBookIds,
   selectAllBookIds,
@@ -853,7 +850,10 @@ export default function Home() {
     todayKey,
     readingGoal.targetMinutes
   );
-  const totalMinutesValue = totalReadingMinutes(readingStatsWithToday);
+  const totalMinutesValue = weeklyReadingInsights.reduce(
+    (total, day) => total + day.minutes,
+    0
+  );
   const paragraphChunks = useMemo(
     () => chunkParagraphs(paragraphs),
     [paragraphs]
