@@ -1,8 +1,11 @@
 "use client";
 
-import type {
-  CSSProperties,
-  RefObject,
+import {
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
 } from "react";
 import type { AppPreferences } from "@/lib/appPreferences";
 import { UI_TEXT } from "@/lib/uiText";
@@ -30,16 +33,36 @@ export default function CustomBackgroundSettingsSurface({
   onClearBackground,
   onBack,
 }: CustomBackgroundSettingsSurfaceProps) {
+  const [customBackgroundOpacityDraft, setCustomBackgroundOpacityDraft] =
+    useState(() =>
+      clampCustomBackgroundPreviewEffect(
+        appPreferences.customBackgroundOpacity
+      )
+    );
+  const committedOpacityRef = useRef(appPreferences.customBackgroundOpacity);
+
+  useEffect(() => {
+    const nextOpacity = clampCustomBackgroundPreviewEffect(
+      appPreferences.customBackgroundOpacity
+    );
+    committedOpacityRef.current = nextOpacity;
+    setCustomBackgroundOpacityDraft(nextOpacity);
+  }, [appPreferences.customBackgroundOpacity]);
+
+  function commitCustomBackgroundOpacity() {
+    const nextOpacity = clampCustomBackgroundPreviewEffect(
+      customBackgroundOpacityDraft
+    );
+    if (Math.abs(nextOpacity - committedOpacityRef.current) < 0.001) return;
+    committedOpacityRef.current = nextOpacity;
+    onPreferencesChange({ customBackgroundOpacity: nextOpacity });
+  }
+
   const customBackgroundOpacityPercent = Math.round(
-    appPreferences.customBackgroundOpacity * 100
+    customBackgroundOpacityDraft * 100
   );
-  const customBackgroundPreviewEffect =
-    clampCustomBackgroundPreviewEffect(appPreferences.customBackgroundOpacity);
   const customBackgroundPreviewStyle = {
-    "--custom-background-preview-blur": `${Math.round(
-      customBackgroundPreviewEffect * 42
-    )}px`,
-    "--custom-background-preview-veil-opacity": customBackgroundPreviewEffect,
+    "--custom-background-preview-veil-opacity": customBackgroundOpacityDraft,
   } as CSSProperties;
 
   return (
@@ -78,12 +101,14 @@ export default function CustomBackgroundSettingsSurface({
                 max="1"
                 step="0.05"
                 className={styles.backgroundOpacitySlider}
-                value={appPreferences.customBackgroundOpacity}
+                value={customBackgroundOpacityDraft}
                 onChange={(event) =>
-                  onPreferencesChange({
-                    customBackgroundOpacity: Number(event.target.value),
-                  })
+                  setCustomBackgroundOpacityDraft(Number(event.target.value))
                 }
+                onPointerUp={commitCustomBackgroundOpacity}
+                onPointerCancel={commitCustomBackgroundOpacity}
+                onKeyUp={commitCustomBackgroundOpacity}
+                onBlur={commitCustomBackgroundOpacity}
               />
             </label>
           </div>

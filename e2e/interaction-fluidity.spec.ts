@@ -106,6 +106,25 @@ test("book actions use a clear grouped visual hierarchy", async ({ page }) => {
   ).toBe(true);
 });
 
+test("reading workspace uses an opaque content surface", async ({ page }) => {
+  const actionSheet = await openBookActionSheet(page);
+  await actionSheet
+    .locator('[data-book-action-section="actions"] button')
+    .nth(1)
+    .click();
+
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const panel = workspace.locator('[data-motion-sheet="panel"]');
+  await expect(panel).toBeVisible();
+  const background = await panel.evaluate(
+    (element) => getComputedStyle(element).backgroundColor
+  );
+  const alphaMatch = background.match(
+    /rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)/
+  );
+  expect(alphaMatch ? Number(alphaMatch[1]) : 1).toBe(1);
+});
+
 test("book management sheets keep nested content opaque and touch-sized", async ({
   page,
 }) => {

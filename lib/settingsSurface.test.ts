@@ -86,7 +86,11 @@ describe("settings surface copy", () => {
     expect(backgroundSurfaceSource).toContain("styles.customBackgroundPreview");
     expect(backgroundSurfaceSource).toContain("styles.customBackgroundPreviewImage");
     expect(backgroundSurfaceSource).toContain("customBackgroundPreviewStyle");
-    expect(backgroundSurfaceSource).toContain('"--custom-background-preview-blur"');
+    expect(backgroundSurfaceSource).toContain("customBackgroundOpacityDraft");
+    expect(backgroundSurfaceSource).toContain("commitCustomBackgroundOpacity");
+    expect(backgroundSurfaceSource).toContain("onPointerUp={commitCustomBackgroundOpacity}");
+    expect(backgroundSurfaceSource).toContain("onKeyUp={commitCustomBackgroundOpacity}");
+    expect(backgroundSurfaceSource).not.toContain('"--custom-background-preview-blur"');
     expect(backgroundSurfaceSource).toContain("<img");
     expect(backgroundSurfaceSource).toContain("src={customBackgroundPreviewUrl}");
     expect(backgroundSurfaceSource).toContain("UI_TEXT.BACKGROUND_PREVIEW");
@@ -114,12 +118,18 @@ describe("settings surface copy", () => {
       "object-fit: contain"
     );
     expect(cssRule(cssSource, ".customBackgroundPreviewImage")).toContain(
-      "filter: blur(var(--custom-background-preview-blur))"
+      "filter: blur(18px)"
+    );
+    expect(cssRule(cssSource, ".customBackgroundPreviewImage")).not.toContain(
+      "transition: filter"
     );
     expect(cssRule(cssSource, ".customBackgroundPreview")).not.toContain(
       "background-size: cover"
     );
     expect(cssSource).toContain(".backgroundOpacitySlider");
+    expect(cssRule(cssSource, ".bottomSheet.readingWorkspaceSheet")).toContain(
+      "background: var(--surface-primary)"
+    );
   });
 
   it("owns and releases the custom background preview URL", () => {

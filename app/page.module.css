@@ -625,7 +625,6 @@
 }
 
 .customBackgroundPreview {
-  --custom-background-preview-blur: 42px;
   --custom-background-preview-veil-opacity: 1;
   position: relative;
   display: flex;
@@ -649,7 +648,6 @@
   background: var(--ambient-veil);
   opacity: var(--custom-background-preview-veil-opacity);
   pointer-events: none;
-  transition: opacity var(--motion-navigation) var(--ease-navigation);
 }
 
 .customBackgroundPreviewImage {
@@ -659,9 +657,8 @@
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  filter: blur(var(--custom-background-preview-blur));
+  filter: blur(18px);
   border-radius: 8px;
-  transition: filter var(--motion-navigation) var(--ease-navigation);
 }
 
 .backgroundOpacityControl {
@@ -3562,6 +3559,7 @@
 .bottomSheet.readingWorkspaceSheet {
   height: min(94dvh, 920px);
   max-height: calc(100dvh - max(12px, env(safe-area-inset-top)));
+  background: var(--surface-primary);
   --sheet-page-viewport-flex: 1;
   --sheet-page-viewport-height: auto;
   --sheet-page-height: 100%;
