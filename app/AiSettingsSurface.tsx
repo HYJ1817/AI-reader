@@ -31,6 +31,12 @@ import {
 } from "@/lib/aiProviderPresentation";
 import { getRoleTransition } from "@/lib/motionSystem";
 import { useAppReducedMotion } from "./AppMotionRoot";
+import {
+  AddIcon,
+  CheckIcon,
+  ChevronRightIcon,
+  ImportIcon,
+} from "./UiGlyphs";
 
 type DraftProvider = Omit<AiProviderConfig, "protocol"> & {
   protocol: AiProviderProtocol | "";
@@ -550,7 +556,7 @@ export default function AiSettingsSurface({
               aria-expanded={addMenuOpen}
               onClick={() => setAddMenuOpen((open) => !open)}
             >
-              <span aria-hidden="true">+</span>
+              <AddIcon />
             </button>
             <AnimatePresence initial={false}>
               {addMenuOpen ? (
@@ -570,7 +576,7 @@ export default function AiSettingsSurface({
                     className={styles.providerAddMenuItem}
                     onClick={() => openProviderConfigure()}
                   >
-                    <span aria-hidden="true">+</span>
+                    <AddIcon />
                     <span>添加 AI 服务商</span>
                   </button>
                   <button
@@ -579,7 +585,7 @@ export default function AiSettingsSurface({
                     className={styles.providerAddMenuItem}
                     onClick={() => providerImportInputRef.current?.click()}
                   >
-                    <span aria-hidden="true">↥</span>
+                    <ImportIcon />
                     <span>导入服务商配置</span>
                   </button>
                 </m.div>
@@ -656,7 +662,9 @@ export default function AiSettingsSurface({
                             aria-label={health === "ready" ? "已就绪" : health === "needs-attention" ? "需要完善" : "未配置"}
                           />
                           {active && <span className={styles.providerActiveBadge}>使用中</span>}
-                          <span className={styles.providerChoiceChevron}>›</span>
+                          <ChevronRightIcon
+                            className={styles.providerChoiceChevron}
+                          />
                         </button>
                         {providerListEditing ? (
                           <button
@@ -784,7 +792,7 @@ export default function AiSettingsSurface({
                                 }}
                                 transition={getRoleTransition("state-enter", reduceMotion)}
                               >
-                                ✓
+                                <CheckIcon />
                               </m.span>
                             ) : null}
                           </AnimatePresence>
@@ -949,7 +957,7 @@ export default function AiSettingsSurface({
                           </small>
                         </span>
                         <span className={styles.providerModelCheck} aria-hidden="true">
-                          {draft.model === model.id ? "✓" : ""}
+                          {draft.model === model.id ? <CheckIcon /> : null}
                         </span>
                       </button>
                       {model.source === "manual" && (

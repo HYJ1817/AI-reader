@@ -3716,6 +3716,12 @@
     transform var(--motion-fast) var(--ease-standard);
 }
 
+.workspaceHeaderButton svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
 .workspaceSegment:active {
   transform: translate3d(0, 1px, 0) scale(0.97);
 }
@@ -7433,6 +7439,11 @@
     opacity var(--motion-fast) var(--ease-standard);
 }
 
+.providerHeaderAddButton svg {
+  width: 20px;
+  height: 20px;
+}
+
 .providerHeaderEditButton {
   padding: 0 14px;
   color: var(--text-primary);
@@ -7493,6 +7504,14 @@
   color: var(--tint);
   font-size: 21px;
   line-height: 1;
+}
+
+.providerAddMenuItem > svg {
+  width: 20px;
+  height: 20px;
+  margin: 0 2px;
+  flex-shrink: 0;
+  color: var(--tint);
 }
 
 .providerAddMenuItem:active,
@@ -7735,6 +7754,11 @@
 .providerField input::placeholder {
   color: var(--text-secondary);
   opacity: 0.82;
+}
+
+.providerPresetCheck svg {
+  width: 16px;
+  height: 16px;
 }
 
 .providerFieldInputRow {
@@ -8037,6 +8061,11 @@
     transform var(--motion-fast) var(--ease-standard);
 }
 
+.providerModelCheck svg {
+  width: 18px;
+  height: 18px;
+}
+
 .providerModelSource {
   display: inline-block;
   margin-left: 7px;
@@ -8065,6 +8094,8 @@
 }
 
 .providerChoiceChevron {
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
   color: var(--text-tertiary);
   font-size: 26px;

@@ -167,9 +167,7 @@ export function ReadingGoalPage({
                 : `还需 ${display.remainingMinutes} 分钟`}
             </p>
             <p className={styles.goalStatus}>
-              {display.completed
-                ? "继续保持阅读节奏"
-                : "你正朝着每日目标奋进"}
+              今日已阅读 {todayMinutes} 分钟
             </p>
           </div>
         </div>

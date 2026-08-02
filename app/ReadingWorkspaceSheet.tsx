@@ -18,6 +18,7 @@ import type {
 import { UI_TEXT } from "@/lib/uiText";
 import { useAppReducedMotion } from "./AppMotionRoot";
 import BottomSheet, { type CloseSheet } from "./BottomSheet";
+import { MoreHorizontalIcon } from "./UiGlyphs";
 import WorkspaceConversation from "./WorkspaceConversation";
 import WorkspaceMaterials from "./WorkspaceMaterials";
 import styles from "./page.module.css";
@@ -153,7 +154,7 @@ export function ReadingWorkspacePage({
                     aria-expanded={sessionMenuOpen}
                     onClick={() => setSessionMenuOpen((current) => !current)}
                   >
-                    •••
+                    <MoreHorizontalIcon />
                   </button>
                   <AnimatePresence initial={false}>
                   {sessionMenuOpen ? (
