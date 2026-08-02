@@ -153,10 +153,6 @@ export default function MotionSheet({
     (_current: boolean, next: boolean) => next,
     open
   );
-  const [isAnimating, setIsAnimating] = useReducer(
-    (_current: boolean, next: boolean) => next,
-    open
-  );
   const [exitCommitGeneration, setExitCommitGeneration] = useReducer(
     (_current: number | null, next: number | null) => next,
     null
@@ -216,30 +212,32 @@ export default function MotionSheet({
   } satisfies CSSProperties;
 
   const runAnimation = useCallback(
-    (target: number, kind: "settle" | "close", onComplete?: () => void) => {
+    (
+      target: number,
+      kind: "enter" | "settle" | "close",
+      onComplete?: () => void
+    ) => {
       const generation = animationGenerationRef.current + 1;
       animationGenerationRef.current = generation;
       activeAnimationRef.current?.stop();
 
-      setIsAnimating(true);
+      const role = kind === "close" ? "sheet-exit" : "sheet-enter";
+      const transition =
+        kind === "settle"
+          ? MOTION_SPRING.sheet
+          : getRoleTransition(role, false);
       const controls = reduceMotion
-        ? animate(reducedOpacity, kind === "close" ? 0 : 1, getRoleTransition(
-            kind === "close" ? "sheet-exit" : "sheet-enter",
-            true
-          ))
-        : animate(
-            y,
-            target,
-            kind === "settle"
-              ? MOTION_SPRING.sheet
-              : getRoleTransition("sheet-exit", false)
-          );
+        ? animate(
+            reducedOpacity,
+            kind === "close" ? 0 : 1,
+            getRoleTransition(role, true)
+          )
+        : animate(y, target, transition);
       if (reduceMotion) y.set(kind === "close" ? 0 : target);
       activeAnimationRef.current = controls;
       void controls.then(() => {
         if (animationGenerationRef.current !== generation) return;
         activeAnimationRef.current = null;
-        setIsAnimating(false);
         onComplete?.();
       });
     },
@@ -253,7 +251,6 @@ export default function MotionSheet({
     exitRequestedRef.current = false;
     closeRequestGuardRef.current.reset();
     setExitCommitGeneration(null);
-    setIsAnimating(false);
   }, []);
 
   useEffect(() => {
@@ -380,7 +377,7 @@ export default function MotionSheet({
       interruptClose();
       beforeCloseCalledRef.current = false;
       setPresent(true);
-      runAnimation(0, "settle");
+      runAnimation(0, "enter");
       return;
     }
     beginExit();
@@ -431,7 +428,6 @@ export default function MotionSheet({
     animationGenerationRef.current += 1;
     activeAnimationRef.current?.stop();
     activeAnimationRef.current = null;
-    setIsAnimating(false);
 
     if (exitRequestedRef.current || !openRef.current) {
       const exitGeneration = exitRequestedRef.current
@@ -554,21 +550,14 @@ export default function MotionSheet({
           >
             <m.div
               className={styles.motionSheetBackdrop}
-              style={{
-                opacity: reduceMotion ? reducedOpacity : progress,
-                willChange: isAnimating ? "opacity" : "auto",
-              }}
+              style={{ opacity: reduceMotion ? reducedOpacity : progress }}
               data-motion-sheet="backdrop"
               aria-hidden="true"
             />
             <m.div
               ref={panelRef}
               className={panelClassName}
-              style={{
-                y,
-                opacity: reduceMotion ? reducedOpacity : 1,
-                willChange: isAnimating ? "transform" : "auto",
-              }}
+              style={{ y, opacity: reduceMotion ? reducedOpacity : 1 }}
               role="dialog"
               aria-modal="true"
               aria-label={ariaLabel}
@@ -582,7 +571,6 @@ export default function MotionSheet({
               onDragStart={() => {
                 dragActiveRef.current = true;
                 cancelledDragRef.current = false;
-                setIsAnimating(true);
               }}
               onPointerDownCapture={handleDragPointerDown}
               onPointerUpCapture={() => {

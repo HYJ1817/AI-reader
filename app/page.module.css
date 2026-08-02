@@ -4484,6 +4484,7 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
   pointer-events: none;
+  will-change: opacity;
 }
 
 .bottomSheet {
@@ -4507,6 +4508,7 @@
 
 .motionSheetPanel {
   touch-action: pan-y;
+  will-change: transform;
 }
 
 .sheetDragHandle {

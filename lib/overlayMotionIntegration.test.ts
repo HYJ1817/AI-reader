@@ -357,14 +357,14 @@ describe("overlay and nested view motion", () => {
     ).toBe(false);
   });
 
-  it("promotes compositing only while the sheet is moving", () => {
+  it("pre-promotes the sheet compositor layers before entrance motion", () => {
     const runtimeCss = css.replace(/\/\*[\s\S]*?\*\//g, "");
     const backdropRule = runtimeCss.match(/\.motionSheetBackdrop\s*\{[^}]*\}/s)?.[0] ?? "";
     const panelRule = runtimeCss.match(/\.motionSheetPanel\s*\{[^}]*\}/s)?.[0] ?? "";
-    expect(backdropRule).not.toContain("will-change");
-    expect(panelRule).not.toContain("will-change");
-    expect(motionSheetSource).toContain('willChange: isAnimating ? "opacity" : "auto"');
-    expect(motionSheetSource).toContain('willChange: isAnimating ? "transform" : "auto"');
+    expect(backdropRule).toContain("will-change: opacity;");
+    expect(panelRule).toContain("will-change: transform;");
+    expect(motionSheetSource).not.toContain('willChange: isAnimating ? "opacity" : "auto"');
+    expect(motionSheetSource).not.toContain('willChange: isAnimating ? "transform" : "auto"');
   });
 
   it("removes independent overlay-open booleans", () => {
