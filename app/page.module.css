@@ -7812,6 +7812,14 @@
   margin-top: 0;
 }
 
+.providerSaveHint {
+  margin: 0 0 8px;
+  color: var(--text-secondary);
+  font-size: var(--type-caption);
+  line-height: 1.4;
+  text-align: center;
+}
+
 .providerChoiceRow,
 .providerFormRow,
 .providerSwitchRow,

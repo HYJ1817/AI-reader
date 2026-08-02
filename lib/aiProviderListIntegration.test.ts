@@ -38,6 +38,14 @@ describe("Minis-style provider list contract", () => {
     expect(surface).toContain("window.confirm");
   });
 
+  it("explains provider save requirements with shared validation", () => {
+    expect(surface).toContain("getAiProviderDraftRequirements(draft)");
+    expect(surface).toContain("getAiProviderSaveHint(draft)");
+    expect(surface).toContain('id="provider-save-requirements"');
+    expect(surface).toContain("aria-describedby={");
+    expect(surface).toContain("missingRequirements.length === 0");
+  });
+
   it("keeps the add menu and status dot visually theme-aware", () => {
     expect(css).toMatch(
       /\.providerSheetHeader\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0,\s*1fr\)\s+auto\s+minmax\(0,\s*1fr\)/

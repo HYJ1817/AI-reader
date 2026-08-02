@@ -20,6 +20,10 @@ import {
 } from "@/lib/aiProviders";
 import type { AiModelRefreshErrorCode } from "@/lib/aiModelRefresh";
 import {
+  getAiProviderDraftRequirements,
+  getAiProviderSaveHint,
+} from "@/lib/aiProviderDraftRequirements";
+import {
   getAiProviderCredentialSummary,
   getAiProviderHealth,
   getAiProviderModelCount,
@@ -437,7 +441,13 @@ export default function AiSettingsSurface({
   }
 
   function saveDraft() {
-    if (!draft || !draft.protocol) return;
+    if (
+      !draft ||
+      !draft.protocol ||
+      getAiProviderDraftRequirements(draft).length > 0
+    ) {
+      return;
+    }
     const now = new Date().toISOString();
     const normalized: AiProviderConfig = materializeAiProviderBaseUrl({
       ...draft,
@@ -479,13 +489,9 @@ export default function AiSettingsSurface({
     onBack();
   }
 
-  const canSave =
-    !!draft &&
-    !!draft.protocol &&
-    draft.label.trim().length > 0 &&
-    draft.baseUrl.trim().length > 0 &&
-    draft.apiKey.trim().length > 0 &&
-    draft.model.trim().length > 0;
+  const missingRequirements = getAiProviderDraftRequirements(draft);
+  const saveHint = getAiProviderSaveHint(draft);
+  const canSave = !!draft && missingRequirements.length === 0;
   const title = mode === "list" ? "AI 服务商" : editingProviderId ? "配置服务商" : "添加服务商";
   const inlineModelStatus = refreshingModels ? "正在刷新模型…" : modelRefreshStatus;
 
@@ -1033,11 +1039,22 @@ export default function AiSettingsSurface({
                 className={styles.providerStickyActions}
                 data-provider-sticky-actions="true"
               >
+                {saveHint ? (
+                  <p
+                    id="provider-save-requirements"
+                    className={styles.providerSaveHint}
+                  >
+                    {saveHint}
+                  </p>
+                ) : null}
                 <button
                   type="button"
                   className={styles.providerPrimaryButton}
                   onClick={saveDraft}
                   disabled={!canSave}
+                  aria-describedby={
+                    saveHint ? "provider-save-requirements" : undefined
+                  }
                 >
                   保存并使用
                 </button>
