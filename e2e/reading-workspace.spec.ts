@@ -167,6 +167,33 @@ test("reader question streams locally, persists, and opens the same workspace", 
   )).toBe(2);
 });
 
+test("Ask AI assistant replies stay in the conversation flow without a covering card", async ({ page }) => {
+  await setListMode(page);
+  await openAskFromReader(page);
+  const askSheet = page.locator('[data-sheet-route="ask-ai"]');
+  await askSheet.getByRole("textbox", { name: "\u95ee AI" }).fill("Reply inline");
+  await askSheet.getByRole("button", { name: "\u53d1\u9001" }).click();
+  await expect(askSheet.locator('[data-workspace-message-state="complete"]')).toHaveCount(2);
+
+  const assistant = askSheet.locator('[data-workspace-message-id]').nth(1);
+  const assistantStyle = await assistant.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      position: style.position,
+      maxWidth: style.maxWidth,
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      borderBottomLeftRadius: style.borderBottomLeftRadius,
+    };
+  });
+
+  expect(assistantStyle.position).toBe("static");
+  expect(assistantStyle.maxWidth).toBe("100%");
+  expect(assistantStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(assistantStyle.borderTopWidth).toBe("0px");
+  expect(assistantStyle.borderBottomLeftRadius).toBe("0px");
+});
+
 test("Ask AI keeps a long conversation scrollable above its fixed composer", async ({ page }) => {
   await page.evaluate(() => {
     const fixtureWindow = window as typeof window & {
