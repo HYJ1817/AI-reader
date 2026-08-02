@@ -616,7 +616,7 @@ git status -sb
 
 Expected: tests, lint, build, and diff check exit 0; worktree is clean before push.
 
-- [ ] **Step 5: Confirm GitHub prerequisites and push**
+- [x] **Step 5: Confirm GitHub prerequisites and push**
 
 ```powershell
 gh --version
