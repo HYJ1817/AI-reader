@@ -143,7 +143,10 @@ function BookActionPage({
     <>
       <SheetHeader title={UI_TEXT.BOOK_ACTIONS} close={close} />
       <div className={styles.sheetBody}>
-        <div className={styles.bookActionHero}>
+        <div
+          className={styles.bookActionHero}
+          data-book-action-section="hero"
+        >
           <BookCover
             title={book.title}
             format={book.format}
@@ -157,7 +160,10 @@ function BookActionPage({
             <span>{formatLibraryProgressLabel(progress)}</span>
           </div>
         </div>
-        <div className={styles.actionListGroup}>
+        <div
+          className={styles.actionListGroup}
+          data-book-action-section="actions"
+        >
           <ActionRow
             label={UI_TEXT.OPEN_BOOK}
             icon="book"
@@ -186,7 +192,10 @@ function BookActionPage({
             onClick={onExport}
           />
         </div>
-        <div className={styles.bookDetailGroup}>
+        <div
+          className={styles.bookDetailGroup}
+          data-book-action-section="details"
+        >
           <h3>{UI_TEXT.BOOK_DETAILS}</h3>
           <DetailRow label={UI_TEXT.FORMAT} value={book.format.toUpperCase()} />
           <DetailRow label={UI_TEXT.FILE_SIZE} value={formatBookSize(book.size)} />
@@ -196,7 +205,10 @@ function BookActionPage({
             value={formatBookDate(book.lastOpenedAt)}
           />
         </div>
-        <div className={styles.actionListGroup}>
+        <div
+          className={styles.actionListGroup}
+          data-book-action-section="danger"
+        >
           <button
             className={`${styles.actionListRow} ${styles.actionListDanger}`}
             onClick={onOpenDelete}

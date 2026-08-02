@@ -67,6 +67,45 @@ async function openBookActionSheet(page: Page) {
   return actionSheet;
 }
 
+test("book actions use a clear grouped visual hierarchy", async ({ page }) => {
+  const sheet = await openBookActionSheet(page);
+  const sections = sheet.locator("[data-book-action-section]");
+  await expect(sections).toHaveCount(4);
+
+  const visualContract = await sheet.evaluate((element) => {
+    const read = (selector: string) => {
+      const node = element.querySelector<HTMLElement>(selector);
+      if (!node) throw new Error(`Missing ${selector}`);
+      const style = getComputedStyle(node);
+      return {
+        borderTopWidth: style.borderTopWidth,
+        borderRadius: style.borderRadius,
+        boxShadow: style.boxShadow,
+      };
+    };
+
+    return {
+      actions: read('[data-book-action-section="actions"]'),
+      details: read('[data-book-action-section="details"]'),
+      rows: [
+        ...element.querySelectorAll<HTMLElement>(
+          '[data-book-action-section="actions"] button'
+        ),
+      ].map((row) => getComputedStyle(row).minHeight),
+    };
+  });
+
+  expect(visualContract.actions.borderTopWidth).toBe("1px");
+  expect(visualContract.details.borderTopWidth).toBe("1px");
+  expect(visualContract.actions.borderRadius).toBe("14px");
+  expect(visualContract.details.borderRadius).toBe("14px");
+  expect(visualContract.actions.boxShadow).toBe("none");
+  expect(visualContract.rows).toHaveLength(5);
+  expect(
+    visualContract.rows.every((height) => Number.parseFloat(height) >= 44)
+  ).toBe(true);
+});
+
 async function installKeyboardVisualViewport(page: Page) {
   await page.evaluate(() => {
     const viewport = new EventTarget();
