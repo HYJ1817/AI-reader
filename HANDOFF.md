@@ -7,6 +7,14 @@
 - Do not pause only to ask for integration permission after the change is ready. Preserve unrelated user changes and never use reset or clean to prepare the integration.
 - This standing permission covers branch integration only. Production deployment, release publication, destructive data operations, and external announcements still require a separate user request or authorization.
 
+## Provider arrow-only back button polish (2026-08-02, current authoritative follow-up)
+
+- Product commit `b80d0df` replaces the AI provider list/configure text back labels with one icon-only SVG arrow control. The shared control is 44px square, circular, lightly bordered, route-aware for `aria-label` (`返回设置` / `返回服务商`), and includes press, focus-visible, and reduced-motion states.
+- Regression coverage: `lib/providerBackButtonIntegration.test.ts` and the updated pushed-surface contract test cover the source/CSS contract; `e2e/native-navigation.spec.ts` covers both provider routes and the click-back behavior on iPhone 14 and iPhone 15 Pro Max emulation.
+- Fresh verification: full Vitest passed **127 files / 1198 tests**; `npm.cmd exec -- eslint app lib e2e`, normal Next build, standalone Next build, OpenNext build, and `git diff --check` passed. The focused provider journey passed **2/2 locally** and **2/2 against production** with `--trace=off`.
+- Production deployment from source `b80d0df`: Worker version `4e7a8de3-0830-4a59-9046-ad6a40c4b12c`, live at `https://881817.xyz` and `https://ai-reader-pwa.hyjsb1817.workers.dev`; deployed BUILD_ID `j4Tgjv8wWmySgdjSKZqH6`. Root, BUILD_ID, service worker, manifest, assetlinks, and all 10 discovered JS/CSS assets returned HTTP 200; `POST /api/models` with `{}` returned the expected HTTP 400 validation response.
+- Publication state: branch `feat/pwa-interaction-fluidity` is pushed; draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5) targets `main` and its description includes this deployment. The handoff-only follow-up commit records this section; `main` remains untouched.
+
 ## Minis-inspired text AI provider settings (2026-08-02, current authoritative state)
 
 - Scope completed in `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity` on branch `feat/pwa-interaction-fluidity`: a text-provider-only configuration flow inspired by the OpenMinis provider screens. The implementation is independently written TypeScript/React; no OpenMinis GPL source or assets were copied.
