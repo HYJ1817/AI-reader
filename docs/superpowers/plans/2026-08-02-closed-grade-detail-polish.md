@@ -602,7 +602,7 @@ Verify `https://881817.xyz/` returns 200, discover the current JS/CSS asset URLs
 
 Append the implemented scope, verification counts, commit IDs, Worker version, production smoke results, and any remaining physical-iPhone limitation to `HANDOFF.md`. Preserve existing history and instructions.
 
-- [ ] **Step 4: Commit handoff and rerun final repository checks**
+- [x] **Step 4: Commit handoff and rerun final repository checks**
 
 ```powershell
 git add HANDOFF.md
