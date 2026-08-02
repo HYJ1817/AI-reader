@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties, type RefObject } from "react";
+import { useRef, useState, type CSSProperties, type RefObject } from "react";
 import { AnimatePresence, LayoutGroup, m } from "motion/react";
 import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import MotionBookCover from "@/app/MotionBookCover";
@@ -46,6 +46,7 @@ export type LibrarySurfaceProps = {
   actions: {
     importBooks: () => void;
     openCollections: () => void;
+    showAllBooks: () => void;
     setSearchQuery: (query: string) => void;
     setViewMode: (mode: LibraryViewMode) => void;
     toggleLibraryEditing: () => void;
@@ -76,6 +77,8 @@ export default function LibrarySurface({
     importError,
   } = data;
   const reduceMotion = useAppReducedMotion();
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const collectionsButtonRef = useRef<HTMLButtonElement>(null);
   const bookIds = books.map((book) => book.id);
   const visibleBookIds = visibleBooks.map((book) => book.id);
   const currentSignature = JSON.stringify({
@@ -165,7 +168,7 @@ export default function LibrarySurface({
               {editing.library ? UI_TEXT.DONE : UI_TEXT.EDIT}
             </button>
           )}
-          {!editing.library && (
+          {books.length > 0 && !editing.library && (
             <button
               className={styles.libraryActionButton}
               title={UI_TEXT.IMPORT}
@@ -190,6 +193,7 @@ export default function LibrarySurface({
                   <path d="m13 13 3.5 3.5" strokeLinecap="round" />
                 </svg>
                 <input
+                  ref={searchInputRef}
                   type="search"
                   value={view.searchQuery}
                   onChange={(event) => actions.setSearchQuery(event.target.value)}
@@ -246,11 +250,18 @@ export default function LibrarySurface({
             </div>
           ) : books.length === 0 ? (
             <div className={styles.emptyStateCompact}>
-              {importError && <p className={styles.importError}>{importError}</p>}
+              {importError && (
+                <p className={styles.importError} role="alert">
+                  {importError}
+                </p>
+              )}
               <h2 className={styles.emptyTitle}>{UI_TEXT.NO_BOOKS}</h2>
               <p className={styles.emptyText}>{UI_TEXT.NO_BOOKS_HINT}</p>
+              <p className={styles.emptyPrivacyText}>
+                {UI_TEXT.LOCAL_STORAGE_ONLY}
+              </p>
               <button className={styles.primaryButton} onClick={actions.importBooks}>
-                {UI_TEXT.IMPORT}
+                {importError ? UI_TEXT.RESELECT_FILE : UI_TEXT.IMPORT_BOOKS}
               </button>
             </div>
           ) : (
@@ -321,7 +332,11 @@ export default function LibrarySurface({
               )}
             </AnimatePresence>
             <div className={styles.bookList} data-library-shelf="true">
-              {importError && <p className={styles.importError}>{importError}</p>}
+              {importError && (
+                <p className={styles.importError} role="alert">
+                  {importError}
+                </p>
+              )}
               <div className={styles.sectionHeader}>
                 <h2>
                   {featuredLayout ? UI_TEXT.OTHER_BOOKS : UI_TEXT.RECENT_BOOKS}
@@ -332,6 +347,7 @@ export default function LibrarySurface({
                   </button>
                 ) : (
                   <button
+                    ref={collectionsButtonRef}
                     className={styles.libraryShelfAction}
                     data-library-collections="true"
                     aria-label={`${UI_TEXT.COLLECTIONS}：${view.activeCollectionName}，${filteredBookCount} ${UI_TEXT.BOOK_COUNT}`}
@@ -348,8 +364,43 @@ export default function LibrarySurface({
               )}
               {filteredBookCount === 0 && !featuredLayout ? (
                 <div className={styles.emptyStateCompact}>
-                  <h2 className={styles.emptyTitle}>{UI_TEXT.NO_MATCHING_BOOKS}</h2>
-                  <p className={styles.emptyText}>{view.searchQuery || UI_TEXT.UNGROUPED}</p>
+                  <h2 className={styles.emptyTitle}>
+                    {view.searchQuery.trim()
+                      ? UI_TEXT.NO_MATCHING_BOOKS
+                      : UI_TEXT.EMPTY_COLLECTION}
+                  </h2>
+                  <p className={styles.emptyText}>
+                    {view.searchQuery || view.activeCollectionName}
+                  </p>
+                  {view.searchQuery.trim() ? (
+                    <button
+                      type="button"
+                      className={styles.emptyRecoveryButton}
+                      onClick={() => {
+                        actions.setSearchQuery("");
+                        window.requestAnimationFrame(() => {
+                          searchInputRef.current?.focus({ preventScroll: true });
+                        });
+                      }}
+                    >
+                      {UI_TEXT.CLEAR_SEARCH}
+                    </button>
+                  ) : view.groupFilter !== null ? (
+                    <button
+                      type="button"
+                      className={styles.emptyRecoveryButton}
+                      onClick={() => {
+                        actions.showAllBooks();
+                        window.requestAnimationFrame(() => {
+                          collectionsButtonRef.current?.focus({
+                            preventScroll: true,
+                          });
+                        });
+                      }}
+                    >
+                      {UI_TEXT.VIEW_ALL_BOOKS}
+                    </button>
+                  ) : null}
                 </div>
               ) : filteredBookCount > 0 ? (
                 <LayoutGroup id="library-books">

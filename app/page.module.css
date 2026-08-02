@@ -1433,7 +1433,15 @@
   max-width: 280px;
 }
 
+.emptyPrivacyText {
+  max-width: 300px;
+  color: var(--text-tertiary);
+  font-size: var(--type-caption);
+  line-height: 1.45;
+}
+
 .primaryButton {
+  min-height: 44px;
   margin-top: 8px;
   padding: 10px 24px;
   background: var(--tint);
@@ -1535,6 +1543,16 @@
   height: 60px;
   background: transparent;
   pointer-events: none;
+}
+
+.emptyRecoveryButton {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  color: var(--tint);
+  background: transparent;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .tabIndicator[data-motion-role="root-indicator"] {

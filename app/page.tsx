@@ -87,6 +87,7 @@ import useAppNavigation from "@/app/useAppNavigation";
 import useReaderBookState from "@/app/useReaderBookState";
 import useReadingGoalState from "@/app/useReadingGoalState";
 import { UI_TEXT } from "@/lib/uiText";
+import { getBookImportErrorMessage } from "@/lib/bookImportError";
 import {
   DEFAULT_READER_MODE,
   type ReaderMode,
@@ -701,7 +702,9 @@ export default function Home() {
     if (!file) return;
     setImportError(null);
     if (!hasIndexedDbSupport(window)) {
-      setImportError(UI_TEXT.ERROR_READ_FILE);
+      setImportError(
+        getBookImportErrorMessage(new Error("indexeddb-unavailable"))
+      );
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -712,9 +715,7 @@ export default function Home() {
       autoOpenAttemptedRef.current = true;
       setBooks(await listBookMetadata());
     } catch (err) {
-      setImportError(
-        err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED
-      );
+      setImportError(getBookImportErrorMessage(err));
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -1761,6 +1762,7 @@ export default function Home() {
               setSelectedBookIds([]);
             },
             setSearchQuery: setLibrarySearchQuery,
+            showAllBooks: () => setGroupFilter(null),
             setViewMode: handleLibraryViewChange,
             toggleLibraryEditing: libraryEditing
               ? exitLibraryEditing
