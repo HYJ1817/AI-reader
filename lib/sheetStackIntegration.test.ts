@@ -174,7 +174,7 @@ describe("measured internal sheet page stack", () => {
     expect(stylesSource).toMatch(
       /\.sheetPage\[data-sheet-page-active="true"\]\s*\{[^}]*position:\s*relative;/s
     );
-    const stackRules = stylesSource.match(/\.sheetPage(?:Viewport|\[[^\n]+)?\s*\{[^}]*\}/g) ?? [];
+    const stackRules = stylesSource.match(/^\.sheetPage(?:Viewport|\[[^\n]+)?\s*\{[^}]*\}/gm) ?? [];
     expect(stackRules).toHaveLength(4);
     expect(stackRules.join("\n")).not.toContain("will-change");
   });

@@ -3501,12 +3501,20 @@
 
 .bottomSheet.askBottomSheet {
   height: min(78dvh, 720px);
+  --sheet-page-viewport-flex: 1;
+  --sheet-page-viewport-height: auto;
+  --sheet-page-height: 100%;
 }
 
 .askBottomSheet .sheetBody {
   display: flex;
   min-height: 0;
   overflow: hidden;
+}
+
+.askBottomSheet .sheetPage {
+  display: flex;
+  flex-direction: column;
 }
 
 .askSheetInner {

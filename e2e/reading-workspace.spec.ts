@@ -167,6 +167,54 @@ test("reader question streams locally, persists, and opens the same workspace", 
   )).toBe(2);
 });
 
+test("Ask AI keeps a long conversation scrollable above its fixed composer", async ({ page }) => {
+  await page.evaluate(() => {
+    const fixtureWindow = window as typeof window & {
+      __workspaceStreamMode?: string;
+      __workspacePublishedChunks?: number;
+    };
+    fixtureWindow.__workspaceStreamMode = "long";
+    fixtureWindow.__workspacePublishedChunks = 0;
+  });
+  await setListMode(page);
+  await openAskFromReader(page);
+
+  const askSheet = page.locator('[data-sheet-route="ask-ai"]');
+  const thread = askSheet.locator('[data-workspace-thread="true"]');
+  const composer = askSheet.getByRole("textbox", { name: "\u95ee AI" });
+  await composer.fill("Scroll through the answer");
+  await askSheet.getByRole("button", { name: "\u53d1\u9001" }).click();
+
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(9);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight
+  )).toBeGreaterThan(240);
+
+  const geometry = await thread.evaluate((element) => {
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    element.scrollTop = Math.max(0, maxScrollTop - 240);
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const composer = element.parentElement?.querySelector("textarea");
+    const panel = element.closest('[data-motion-sheet="panel"]');
+    return {
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+      composerBottom: composer?.getBoundingClientRect().bottom ?? 0,
+      panelBottom: panel?.getBoundingClientRect().bottom ?? 0,
+    };
+  });
+
+  expect(geometry.scrollHeight - geometry.clientHeight).toBeGreaterThan(240);
+  expect(geometry.scrollTop).toBeGreaterThan(0);
+  expect(geometry.composerBottom).toBeLessThanOrEqual(geometry.panelBottom + 1);
+  await expect(
+    askSheet.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
+  ).toBeVisible();
+});
+
 test("offline workspace stays readable and preserves a disabled draft", async ({ page, context }) => {
   await openWorkspaceFromLibrary(page);
   const workspace = page.locator('[data-sheet-route="reading-workspace"]');
