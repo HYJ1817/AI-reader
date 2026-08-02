@@ -7,6 +7,31 @@
 - Do not pause only to ask for integration permission after the change is ready. Preserve unrelated user changes and never use reset or clean to prepare the integration.
 - This standing permission covers branch integration only. Production deployment, release publication, destructive data operations, and external announcements still require a separate user request or authorization.
 
+## Reading dashboard weekly cumulative total fix (2026-08-02, current authoritative follow-up)
+
+- Product commit `2672c02` makes the Reading dashboard's `累计阅读` summary use
+  the same seven-day insight window as the visible bars. Previously the summary
+  summed every historical `dailyReadingStats` row, so older history could show
+  a value such as `72 分钟` while the recent-seven-day bars were empty.
+- The regression seeds 3 minutes for today plus 69 minutes from 14 days ago and
+  asserts that the weekly summary remains `3 分钟`. The Reading dashboard suite
+  passed **12/12** locally across iPhone 14 and iPhone 15 Pro Max emulation and
+  **2/2** against production.
+- Fresh verification: full Vitest passed **127 files / 1198 tests**; source
+  lint, normal Next.js build, standalone Next.js build, OpenNext build/deploy,
+  and `git diff --check` passed. GitHub Actions CI `verify` passed in run
+  `30732053678`.
+- Production deployment from source `2672c02`: Worker version
+  `978c1378-dfda-4f6d-ad96-66786c029b66`, live at `https://881817.xyz` and
+  `https://ai-reader-pwa.hyjsb1817.workers.dev`; deployed BUILD_ID
+  `GnGAwrCkSlLkP06yE6F0k`. Root, BUILD_ID, service worker, manifest,
+  assetlinks, and all 10 discovered JS/CSS assets returned HTTP 200; empty
+  `POST /api/models` returned the expected HTTP 400 validation response.
+- Publication state: draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5)
+  targets `main`; `main` remains untouched. The production browser check uses
+  automated Chromium emulation and does not prove physical iPhone Safari or
+  ProMotion behavior.
+
 ## Provider arrow-only back button polish (2026-08-02, current authoritative follow-up)
 
 - Product commit `b80d0df` replaces the AI provider list/configure text back labels with one icon-only SVG arrow control. The shared control is 44px square, circular, lightly bordered, route-aware for `aria-label` (`返回设置` / `返回服务商`), and includes press, focus-visible, and reduced-motion states.
