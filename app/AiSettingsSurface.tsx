@@ -534,19 +534,20 @@ export default function AiSettingsSurface({
         </button>
         <h2>{title}</h2>
         {mode === "list" ? (
-          hasProviders ? (
-            <div className={styles.providerHeaderActions}>
-            <button
-              type="button"
-              className={styles.providerHeaderEditButton}
-              aria-pressed={providerListEditing}
-              onClick={() => {
-                setProviderListEditing((editing) => !editing);
-                setProviderImportStatus("");
-              }}
-            >
-              {providerListEditing ? "完成" : "编辑"}
-            </button>
+          <div className={styles.providerHeaderActions}>
+            {hasProviders ? (
+              <button
+                type="button"
+                className={styles.providerHeaderEditButton}
+                aria-pressed={providerListEditing}
+                onClick={() => {
+                  setProviderListEditing((editing) => !editing);
+                  setProviderImportStatus("");
+                }}
+              >
+                {providerListEditing ? "完成" : "编辑"}
+              </button>
+            ) : null}
             <button
               ref={addMenuTriggerRef}
               type="button"
@@ -591,10 +592,7 @@ export default function AiSettingsSurface({
                 </m.div>
               ) : null}
             </AnimatePresence>
-            </div>
-          ) : (
-            <span className={styles.providerHeaderSpacer} />
-          )
+          </div>
         ) : (
           <span className={styles.providerHeaderSpacer} />
         )}

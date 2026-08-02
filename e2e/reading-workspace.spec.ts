@@ -459,6 +459,17 @@ test("workspace materials rename failure retains the title and focus", async ({ 
 test("workspace materials keep header and composer geometry stable", async ({ page }) => {
   await openWorkspaceFromLibrary(page);
   const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const panel = workspace.locator('[data-motion-sheet="panel"]');
+  await expect
+    .poll(() =>
+      panel.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
   const header = workspace.locator("header").first();
   const composer = workspace.getByRole("textbox", { name: "问 AI" });
   const beforeHeader = await header.boundingBox();
