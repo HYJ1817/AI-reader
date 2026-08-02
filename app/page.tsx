@@ -702,9 +702,7 @@ export default function Home() {
     if (!file) return;
     setImportError(null);
     if (!hasIndexedDbSupport(window)) {
-      setImportError(
-        getBookImportErrorMessage(new Error("indexeddb-unavailable"))
-      );
+      setImportError(getBookImportErrorMessage(new Error("indexeddb-unavailable")));
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
