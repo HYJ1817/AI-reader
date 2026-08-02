@@ -1298,10 +1298,16 @@ test("AI provider configuration remains usable at 200 percent text", async ({
         return rect.left >= 0 && rect.right <= window.innerWidth;
       }),
       presetLabelsSingleLine: buttons.every((button) => {
-        const label = button.querySelector(":scope > span:nth-child(2)");
-        if (!(label instanceof HTMLElement)) return false;
-        const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight);
-        return label.getBoundingClientRect().height <= lineHeight * 1.1;
+        const labels = Array.from(
+          button.querySelectorAll(":scope > span:nth-child(2) > span")
+        );
+        return labels.every((label) => {
+          if (!(label instanceof HTMLElement)) return false;
+          const lineHeight = Number.parseFloat(
+            getComputedStyle(label).lineHeight
+          );
+          return label.getBoundingClientRect().height <= lineHeight * 1.1;
+        });
       }),
       savePosition: saveRegion ? getComputedStyle(saveRegion).position : "missing",
     };
