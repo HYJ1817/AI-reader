@@ -3214,6 +3214,31 @@ Observed results:
   not prove sustained 120fps on physical iPhone Safari/PWA hardware. A physical
   device remains the final motion-quality acceptance surface.
 
+### Text-entry Focus Material Fix (2026-08-02)
+
+- `029e4c9` fixes the outer blue rectangle that iOS Safari/PWA displayed when
+  text-entry controls received focus. The root cause was the high-specificity
+  global `:root :focus-visible` outline overriding local input styles.
+- Text, search, password, URL, email, telephone and number inputs, textareas,
+  and selects now use a compact inset bottom focus line. Invalid fields use the
+  error color. Buttons, switches, ranges, and other non-text controls keep the
+  existing keyboard focus ring.
+- Fresh verification passed: Vitest 132 files / 1217 tests, full ESLint, the
+  production Next.js build, and the iPhone 15 Pro Max focus-material Playwright
+  check 1/1 with one worker and `--trace=off`.
+- Cloudflare OpenNext deployment published Worker version
+  `70f6c79a-556e-45b3-ae38-bf75adde3939` with BUILD_ID
+  `fN3OzycM3yIM7J5KFIO2m` to the Workers preview URL and `881817.xyz/*`.
+- Production CSS assets `/_next/static/css/e324ecd829384911.css` and
+  `/_next/static/css/ae6e2c9b78816f06.css` both returned HTTP 200 as
+  `text/css`; the first contains the new inset focus rule.
+- A fresh production browser probe found no drawable outline or legacy outer
+  focus shadow on the six rendered provider-form controls. The browser tab was
+  closed after verification without changing user data.
+- Asset upload retried once automatically and then completed. The existing
+  OpenNext Windows, Wrangler compatibility-date, Node `DEP0190`, and multiple
+  lockfile root warnings remain non-blocking.
+
 Before making another code commit, rerun:
 
 ```powershell
