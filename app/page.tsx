@@ -790,8 +790,10 @@ export default function Home() {
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
+  const topPushRoute = navigation.state.pushes.at(-1)?.route;
+  const librarySearchOpen = topPushRoute === "library-search";
   const showBottomTabs =
-    navigation.state.pushes.length === 0 &&
+    (navigation.state.pushes.length === 0 || librarySearchOpen) &&
     shouldShowBottomTabs(activeTab, readerPresented);
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
@@ -1910,6 +1912,9 @@ export default function Home() {
       <AppNavigation
         activeTab={activeTab}
         showBottomTabs={showBottomTabs}
+        searchOpen={librarySearchOpen}
+        searchQuery={librarySearchQuery}
+        navigationRevision={navigation.getState().revision}
         showLibraryBatchBar={
           activeTab === "library" && libraryEditing && books.length > 0
         }
@@ -1922,6 +1927,21 @@ export default function Home() {
         }}
         onOpenReading={handleOpenReadingTab}
         onOpenSettings={switchToSettings}
+        onOpenSearch={() => {
+          if (
+            navigation.getState().pushes.at(-1)?.route === "library-search"
+          ) {
+            return;
+          }
+          setLibrarySearchQuery("");
+          setLibraryEditing(false);
+          setSelectedBookIds([]);
+          navigation.push("library-search", {
+            restoreFocusId: "library-search-button",
+          });
+        }}
+        onCloseSearch={navigation.pop}
+        onSearchQueryChange={setLibrarySearchQuery}
         onToggleSelectAll={handleSelectAllVisible}
         onOpenBatchGroup={openBatchGroupSheet}
         onOpenBatchDelete={() => navigation.presentSheet("batch-delete")}
