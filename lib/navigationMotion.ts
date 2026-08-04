@@ -31,7 +31,9 @@ export type PushMotionProfile = "depth" | "compact";
 export function getPushMotionProfile(
   route: string | undefined
 ): PushMotionProfile {
-  return route === "ai-provider-configure" ? "compact" : "depth";
+  return route === "ai-provider-configure" || route === "library-search"
+    ? "compact"
+    : "depth";
 }
 
 export function getNavigationTabIndex(tab: NavigationTab): number {

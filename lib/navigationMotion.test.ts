@@ -38,8 +38,9 @@ describe("navigation motion", () => {
     });
   });
 
-  it("uses compact navigation motion only for provider configuration", () => {
+  it("uses compact navigation motion for focused configuration and search", () => {
     expect(getPushMotionProfile("ai-provider-configure")).toBe("compact");
+    expect(getPushMotionProfile("library-search")).toBe("compact");
     expect(getPushMotionProfile("ai-providers")).toBe("depth");
     expect(getPushMotionProfile("collections")).toBe("depth");
     expect(getPushMotionProfile("custom-background")).toBe("depth");

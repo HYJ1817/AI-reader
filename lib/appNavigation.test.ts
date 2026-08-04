@@ -46,6 +46,28 @@ describe("app navigation", () => {
     expect(popped.direction).toBe("backward");
   });
 
+  it("presents library search above the current root and restores it on pop", () => {
+    const reading = reduceAppNavigation(createAppNavigationState(), {
+      type: "select-tab",
+      tab: "reading",
+    });
+    const searching = reduceAppNavigation(reading, {
+      type: "push",
+      entry: {
+        key: "push-library-search-1",
+        kind: "push",
+        route: "library-search",
+        restoreFocusId: "library-search-button",
+      },
+    });
+
+    expect(searching.activeTab).toBe("reading");
+    expect(searching.pushes.at(-1)?.route).toBe("library-search");
+    expect(reduceAppNavigation(searching, { type: "pop" }).activeTab).toBe(
+      "reading"
+    );
+  });
+
   it("keeps reader and sheets in separate layers", () => {
     const reader = reduceAppNavigation(createAppNavigationState(), {
       type: "present-reader",
