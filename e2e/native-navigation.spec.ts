@@ -15,6 +15,7 @@ import {
 
 type PushRoute =
   | "collections"
+  | "library-search"
   | "ai-providers"
   | "ai-provider-configure"
   | "custom-background";
@@ -684,6 +685,70 @@ test.beforeEach(async ({ page }) => {
   await importBook(page);
 });
 
+test("split dock morphs into search and restores the source root", async ({
+  page,
+}, testInfo) => {
+  await useLibraryListMode(page);
+  await page.locator('[data-navigation-tab="reading"]').click();
+  await expect(
+    page.locator('[data-navigation-root="reading"][aria-hidden="false"]')
+  ).toBeVisible();
+  await capture(page, testInfo, "split-dock-root");
+
+  await page.getByRole("button", { name: "搜索书库" }).click();
+  const dock = page.locator('[data-navigation-mode="search"]');
+  const searchInput = page.getByRole("searchbox", { name: "搜索书库" });
+  await expect(dock).toBeVisible();
+  await expect(page.locator('[data-library-search-surface="true"]')).toBeVisible();
+  await expect(searchInput).toBeFocused();
+  await searchInput.fill("native-navigation");
+  await expect(
+    page.locator(
+      '[data-library-search-surface="true"] [data-library-result-mode="list"]'
+    )
+  ).toBeVisible();
+
+  const geometry = await dock.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const input = element.querySelector<HTMLInputElement>('input[type="search"]');
+    const inputBox = input?.getBoundingClientRect();
+    return {
+      left: box.left,
+      right: box.right,
+      bottomGap: window.innerHeight - box.bottom,
+      inputWidth: inputBox?.width ?? 0,
+    };
+  });
+  expect(geometry.left).toBeGreaterThanOrEqual(8);
+  expect(geometry.right).toBeLessThanOrEqual(page.viewportSize()?.width ?? 430);
+  expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
+  expect(geometry.inputWidth).toBeGreaterThanOrEqual(160);
+  await capture(page, testInfo, "split-dock-search");
+
+  await page.getByRole("button", { name: "返回" }).click();
+  await expect(page.locator('[data-navigation-mode="root"]')).toBeVisible();
+  await expect(
+    page.locator('[data-navigation-tab="reading"]')
+  ).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-library-search-surface="true"]')).toHaveCount(0);
+});
+
+test("library search follows grid mode and browser back closes once", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "封面" }).click();
+  await page.getByRole("button", { name: "搜索书库" }).click();
+  await expect(
+    page.locator(
+      '[data-library-search-surface="true"] [data-library-result-mode="grid"]'
+    )
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page.locator('[data-navigation-mode="root"]')).toBeVisible();
+  await expect(page.locator('[data-library-search-surface="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-push-route="library-search"]')).toHaveCount(0);
+});
+
 test("reader closes back to its source action and restores focus", async ({
   page,
 }) => {
@@ -779,6 +844,7 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   const navigation = page.getByRole("navigation", {
     name: primaryNavigationName,
   });
+  const dock = page.locator('[data-navigation-mode="root"]');
   const tabs = navigation.locator("[data-navigation-tab]");
   const title = page.locator(`${libraryRootSelector} h1`).first();
 
@@ -801,9 +867,21 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
     "rgb(0, 0, 0)"
   );
 
-  const geometry = await navigation.evaluate((element) => {
+  const geometry = await dock.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
+    const primary = element.querySelector<HTMLElement>(
+      '[class*="navigationPrimarySlot"]'
+    );
+    const navigation = element.querySelector<HTMLElement>("nav");
+    const searchButton = element.querySelector<HTMLElement>(
+      '#library-search-button'
+    );
+    if (!primary || !navigation || !searchButton) {
+      throw new Error("Split root navigation material is incomplete");
+    }
+    const primaryRect = primary.getBoundingClientRect();
+    const searchRect = searchButton.getBoundingClientRect();
+    const style = getComputedStyle(primary);
     const standardBackdrop = style.getPropertyValue("backdrop-filter");
     const prefixedBackdrop = style.getPropertyValue(
       "-webkit-backdrop-filter"
@@ -813,12 +891,12 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
         ? standardBackdrop
         : prefixedBackdrop;
     const tabs = Array.from(
-      element.querySelectorAll<HTMLElement>("[data-navigation-tab]")
+      navigation.querySelectorAll<HTMLElement>("[data-navigation-tab]")
     ).map((tab) => {
       const tabRect = tab.getBoundingClientRect();
       return { width: tabRect.width, height: tabRect.height };
     });
-    const indicator = element.querySelector<HTMLElement>(
+    const indicator = navigation.querySelector<HTMLElement>(
       '[data-root-tab-indicator="true"]'
     );
     if (!indicator) throw new Error("Root tab indicator is missing");
@@ -826,6 +904,9 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
     return {
       width: rect.width,
       height: rect.height,
+      primaryWidth: primaryRect.width,
+      searchWidth: searchRect.width,
+      searchHeight: searchRect.height,
       centerError: Math.abs(rect.left + rect.width / 2 - innerWidth / 2),
       bottomGap: window.innerHeight - rect.bottom,
       borderRadius: style.borderRadius,
@@ -843,14 +924,17 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
     };
   });
 
-  expect(geometry.width).toBeLessThanOrEqual(302.5);
-  expect(geometry.height).toBe(76);
+  expect(geometry.width).toBeLessThanOrEqual(430.5);
+  expect(geometry.height).toBe(68);
+  expect(geometry.primaryWidth).toBeGreaterThanOrEqual(280);
+  expect(geometry.searchWidth).toBeGreaterThanOrEqual(44);
+  expect(geometry.searchHeight).toBeGreaterThanOrEqual(44);
   expect(geometry.centerError).toBeLessThanOrEqual(0.5);
   expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
-  expect(geometry.borderRadius).toBe("33px");
+  expect(geometry.borderRadius).toBe("34px");
   expect(geometry.backdropFilter).toContain("blur(14px)");
   expect(
-    Math.abs(geometry.backingWidth - (geometry.tabs[0].width - 8))
+    Math.abs(geometry.backingWidth - (geometry.tabs[0].width - 6))
   ).toBeLessThanOrEqual(0.5);
   expect(geometry.backingHeight).toBe(60);
   expect(geometry.backingRadius).toBe("30px");
@@ -928,7 +1012,9 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
       element.setAttribute("data-reader-theme", nextTheme);
     }, theme);
     const material = await navigation.evaluate((element) => {
-      const style = getComputedStyle(element);
+      const primary = element.parentElement;
+      if (!primary) throw new Error("Root navigation material is missing");
+      const style = getComputedStyle(primary);
       const standardBackdrop = style.getPropertyValue("backdrop-filter");
       const prefixedBackdrop = style.getPropertyValue(
         "-webkit-backdrop-filter"
@@ -1007,7 +1093,9 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
     element.removeAttribute("data-reader-theme");
   });
   const systemDarkMaterial = await navigation.evaluate((element) => {
-    const style = getComputedStyle(element);
+    const primary = element.parentElement;
+    if (!primary) throw new Error("System-dark root material is missing");
+    const style = getComputedStyle(primary);
     const indicator = element.querySelector<HTMLElement>(
       '[data-root-tab-indicator="true"]'
     );

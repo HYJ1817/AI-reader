@@ -116,9 +116,9 @@ export default function AppNavigation({
                   type="button"
                   className={styles.navigationBackButton}
                   aria-label="返回"
-                  initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.92 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   transition={dockTransition}
                   onClick={handleCloseSearch}
                 >
@@ -208,6 +208,7 @@ export default function AppNavigation({
                       : MOTION_DURATION.state,
                     delay: reduceMotion ? 0 : 0.06,
                   }}
+                  onAnimationComplete={focusSearchInput}
                 >
                   <SearchIcon />
                   <input
@@ -230,9 +231,9 @@ export default function AppNavigation({
                   type="button"
                   className={styles.navigationSearchButton}
                   aria-label="搜索书库"
-                  initial={{ opacity: 0, scale: reduceMotion ? 1 : 0.94 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: reduceMotion ? 1 : 0.94 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
                   transition={dockTransition}
                   onClick={onOpenSearch}
                 >

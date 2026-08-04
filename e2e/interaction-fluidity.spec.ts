@@ -296,8 +296,28 @@ test.beforeEach(async ({ page }) => {
   await expect(covers).toHaveCount(previousCount + 1);
 });
 
+test("search dock remains coherent when the morph is interrupted", async ({ page }) => {
+  await page.getByRole("button", { name: "搜索书库" }).click();
+  const back = page.getByRole("button", { name: "返回" });
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page.locator('[data-navigation-mode="root"]')).toBeVisible();
+  await expect(page.locator('[data-navigation-mode="search"]')).toHaveCount(0);
+  await expect(page.getByRole("searchbox", { name: "搜索书库" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "搜索书库" })).toBeVisible();
+});
+
 test("press feedback appears within 80 ms across daily interaction families", async ({ page }, testInfo) => {
   const latencies: Array<{ control: string; latency: number }> = [];
+  const searchButton = page.getByRole("button", { name: "搜索书库" });
+  latencies.push({
+    control: "search-button",
+    latency: await measurePressFeedback(page, searchButton),
+  });
+  await page.getByRole("button", { name: "返回" }).click();
+  await expect(page.locator('[data-navigation-mode="root"]')).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "搜索书库" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "返回" })).toHaveCount(0);
   const readingTab = page.locator('[data-navigation-tab="reading"]');
   latencies.push({
     control: "root-tab",
