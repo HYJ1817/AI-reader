@@ -125,10 +125,6 @@ import {
 import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
 import type { NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
-import {
-  getInitialVisibleItemCount,
-  getNextVisibleItemCount,
-} from "@/lib/incrementalList";
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
 import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
 import {
@@ -142,6 +138,7 @@ import useWorkspaceChat from "@/app/useWorkspaceChat";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
 import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
 import useBookCoverBackfill from "@/app/useBookCoverBackfill";
+import useIncrementalRenderWindow from "@/app/useIncrementalRenderWindow";
 import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 import { assertBackupImportSize } from "@/lib/backupImport";
@@ -164,16 +161,6 @@ export default function Home() {
   const navigationSheets = useSyncExternalStore(navigation.subscribe,
     () => navigation.getState().sheets, () => navigation.getState().sheets);
   const [books, setBooks] = useState<BookMetadata[]>([]);
-  const [libraryRenderWindow, setLibraryRenderWindow] = useState({
-    key: "",
-    count: LIBRARY_RENDER_BATCH,
-  });
-  const libraryLoadSentinelRef = useRef<HTMLDivElement>(null);
-  const [librarySearchRenderWindow, setLibrarySearchRenderWindow] = useState({
-    key: "",
-    count: LIBRARY_RENDER_BATCH,
-  });
-  const librarySearchLoadSentinelRef = useRef<HTMLDivElement>(null);
   const [readingProgressMap, setReadingProgressMap] = useState<ReadingProgressMap>({});
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
@@ -740,27 +727,29 @@ export default function Home() {
   });
   const libraryShelfBooks = libraryHomePresentation.shelfBooks;
   const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
-  const visibleBookCount = Math.min(
-    libraryShelfBooks.length,
-    libraryRenderWindow.key === libraryRenderKey
-      ? libraryRenderWindow.count
-      : getInitialVisibleItemCount(
-          libraryShelfBooks.length,
-          LIBRARY_RENDER_BATCH
-        )
-  );
+  const {
+    loadSentinelRef: libraryLoadSentinelRef,
+    visibleCount: visibleBookCount,
+  } = useIncrementalRenderWindow({
+    active: activeTab === "library",
+    batchSize: LIBRARY_RENDER_BATCH,
+    renderKey: libraryRenderKey,
+    totalCount: libraryShelfBooks.length,
+  });
   const visibleBooks = libraryShelfBooks.slice(0, visibleBookCount);
   const librarySearchBooks = filterBooksByQuery(books, librarySearchQuery);
   const librarySearchRenderKey = `${librarySearchQuery}\u0000${libraryView}`;
-  const librarySearchVisibleCount = Math.min(
-    librarySearchBooks.length,
-    librarySearchRenderWindow.key === librarySearchRenderKey
-      ? librarySearchRenderWindow.count
-      : getInitialVisibleItemCount(
-          librarySearchBooks.length,
-          LIBRARY_RENDER_BATCH
-        )
-  );
+  const topPushRoute = navigation.state.pushes.at(-1)?.route;
+  const librarySearchOpen = topPushRoute === "library-search";
+  const {
+    loadSentinelRef: librarySearchLoadSentinelRef,
+    visibleCount: librarySearchVisibleCount,
+  } = useIncrementalRenderWindow({
+    active: librarySearchOpen,
+    batchSize: LIBRARY_RENDER_BATCH,
+    renderKey: librarySearchRenderKey,
+    totalCount: librarySearchBooks.length,
+  });
   const visibleLibrarySearchBooks = librarySearchBooks.slice(
     0,
     librarySearchVisibleCount
@@ -790,8 +779,6 @@ export default function Home() {
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
-  const topPushRoute = navigation.state.pushes.at(-1)?.route;
-  const librarySearchOpen = topPushRoute === "library-search";
   const showBottomTabs =
     (navigation.state.pushes.length === 0 || librarySearchOpen) &&
     shouldShowBottomTabs(activeTab, readerPresented);
@@ -877,100 +864,6 @@ export default function Home() {
     () => chunkParagraphs(paragraphs),
     [paragraphs]
   );
-
-  useEffect(() => {
-    if (
-      activeTab !== "library" ||
-      visibleBookCount >= libraryShelfBooks.length
-    ) {
-      return;
-    }
-    const target = libraryLoadSentinelRef.current;
-    if (!target) return;
-    const Observer = (
-      window as Window & {
-        IntersectionObserver?: typeof IntersectionObserver;
-      }
-    ).IntersectionObserver;
-    if (!Observer) {
-      const frame = window.requestAnimationFrame(() => {
-        setLibraryRenderWindow({
-          key: libraryRenderKey,
-          count: libraryShelfBooks.length,
-        });
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const observer = new Observer(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setLibraryRenderWindow({
-          key: libraryRenderKey,
-          count: getNextVisibleItemCount(
-            visibleBookCount,
-            libraryShelfBooks.length,
-            LIBRARY_RENDER_BATCH
-          ),
-        });
-      },
-      { rootMargin: "480px 0px" }
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [
-    activeTab,
-    libraryRenderKey,
-    libraryShelfBooks.length,
-    visibleBookCount,
-  ]);
-
-  useEffect(() => {
-    const searchOpen =
-      navigation.state.pushes.at(-1)?.route === "library-search";
-    if (
-      !searchOpen ||
-      librarySearchVisibleCount >= librarySearchBooks.length
-    ) {
-      return;
-    }
-    const target = librarySearchLoadSentinelRef.current;
-    if (!target) return;
-    const Observer = (
-      window as Window & {
-        IntersectionObserver?: typeof IntersectionObserver;
-      }
-    ).IntersectionObserver;
-    if (!Observer) {
-      const frame = window.requestAnimationFrame(() => {
-        setLibrarySearchRenderWindow({
-          key: librarySearchRenderKey,
-          count: librarySearchBooks.length,
-        });
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const observer = new Observer(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setLibrarySearchRenderWindow({
-          key: librarySearchRenderKey,
-          count: getNextVisibleItemCount(
-            librarySearchVisibleCount,
-            librarySearchBooks.length,
-            LIBRARY_RENDER_BATCH
-          ),
-        });
-      },
-      { rootMargin: "480px 0px" }
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [
-    librarySearchBooks.length,
-    librarySearchRenderKey,
-    librarySearchVisibleCount,
-    navigation.state.pushes,
-  ]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {

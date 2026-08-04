@@ -355,7 +355,7 @@ describe("ambient book background state", () => {
     const backgroundRule = cssRule(moduleCss, ".ambientBookBackground");
     const veilRule = cssRule(moduleCss, ".ambientBookBackground::after");
     const contentRule = cssRule(moduleCss, ".content");
-    const tabBarRule = cssRule(moduleCss, ".tabBar");
+    const navigationDockRule = cssRule(moduleCss, ".navigationDock");
     const readerRule = cssRule(moduleCss, ".readerShell");
 
     expect(appRule).toContain("position: relative");
@@ -369,7 +369,7 @@ describe("ambient book background state", () => {
     expect(backgroundRule).toContain("overflow: hidden");
     expect(veilRule).toContain("background: var(--ambient-veil)");
     expect(contentRule).not.toContain("z-index:");
-    expect(tabBarRule).toContain("z-index: 10");
+    expect(navigationDockRule).toContain("z-index: 30");
     expect(readerRule).toContain("z-index: 20");
   });
 
