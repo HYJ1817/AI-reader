@@ -2,19 +2,28 @@ export const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 export const MOTION_DURATION = {
   press: 0.12,
-  state: 0.2,
-  tab: 0.26,
-  rootTab: 0.42,
-  pushEnter: 0.34,
-  pushExit: 0.24,
-  readerEnter: 0.3,
-  readerExit: 0.22,
-  sheetEnter: 0.3,
-  sheetExit: 0.25,
-  chromeEnter: 0.2,
-  chromeExit: 0.16,
+  state: 0.16,
+  stateExit: 0.12,
+  tab: 0.22,
+  rootTab: 0.16,
+  pushEnter: 0.28,
+  pushExit: 0.2,
+  readerEnter: 0.28,
+  readerExit: 0.21,
+  sheetEnter: 0.28,
+  sheetExit: 0.22,
+  popoverEnter: 0.18,
+  popoverExit: 0.12,
+  chromeEnter: 0.16,
+  chromeExit: 0.12,
   gestureSettle: 0.22,
-  reduced: 0.12,
+  reduced: 0.1,
+} as const;
+
+export const MOTION_EASE = {
+  enter: [0.22, 1, 0.36, 1],
+  exit: [0.4, 0, 1, 1],
+  settle: [0.32, 0.72, 0, 1],
 } as const;
 
 export type ReaderTransitionTiming = {
@@ -53,9 +62,46 @@ export function getReaderTransitionTiming(
 
 export const ROOT_TAB_TRANSITION = {
   type: "tween" as const,
-  duration: MOTION_DURATION.rootTab,
-  ease: [0.22, 1, 0.36, 1] as const,
+  duration: MOTION_DURATION.tab,
+  ease: MOTION_EASE.enter,
 } as const;
+
+export const ROOT_TAB_CONTENT_TRANSITION = {
+  type: "tween" as const,
+  duration: MOTION_DURATION.rootTab,
+  ease: MOTION_EASE.enter,
+} as const;
+
+export type MotionRole =
+  | "push-enter"
+  | "push-exit"
+  | "sheet-enter"
+  | "sheet-exit"
+  | "popover-enter"
+  | "popover-exit"
+  | "state-enter"
+  | "state-exit";
+
+export function getRoleTransition(role: MotionRole, reduceMotion: boolean) {
+  const duration = reduceMotion
+    ? MOTION_DURATION.reduced
+    : {
+        "push-enter": MOTION_DURATION.pushEnter,
+        "push-exit": MOTION_DURATION.pushExit,
+        "sheet-enter": MOTION_DURATION.sheetEnter,
+        "sheet-exit": MOTION_DURATION.sheetExit,
+        "popover-enter": MOTION_DURATION.popoverEnter,
+        "popover-exit": MOTION_DURATION.popoverExit,
+        "state-enter": MOTION_DURATION.state,
+        "state-exit": MOTION_DURATION.stateExit,
+      }[role];
+
+  return {
+    type: "tween" as const,
+    duration,
+    ease: role.endsWith("exit") ? MOTION_EASE.exit : MOTION_EASE.enter,
+  };
+}
 
 export const MOTION_SPRING = {
   navigation: { type: "spring" as const, stiffness: 380, damping: 38, mass: 0.9, bounce: 0 },

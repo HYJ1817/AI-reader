@@ -11,6 +11,10 @@ const motionSheetSource = readFileSync(
   new URL("../app/MotionSheet.tsx", import.meta.url),
   "utf8"
 );
+const motionInteractionsSource = readFileSync(
+  new URL("./motionInteractions.ts", import.meta.url),
+  "utf8"
+);
 
 describe("sheet gestures", () => {
   it("leaves declared horizontal gesture regions to nested scrollers", () => {
@@ -21,22 +25,110 @@ describe("sheet gestures", () => {
 
   it("claims headers and top-of-scroll downward body drags", () => {
     expect(
-      canSheetClaimGesture({ fromHeader: true, scrollTop: 80, deltaY: 12 })
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 80,
+        deltaY: 12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(true);
     expect(
-      canSheetClaimGesture({ fromHeader: false, scrollTop: 0, deltaY: 12 })
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 0,
+        deltaY: 12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(true);
     expect(
-      canSheetClaimGesture({ fromHeader: false, scrollTop: 20, deltaY: 12 })
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 20,
+        deltaY: 12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(false);
+  });
+
+  it("treats labels and common interactive roles as control targets", () => {
+    expect(motionSheetSource).toContain("label");
+    for (const role of [
+      "button",
+      "link",
+      "textbox",
+      "checkbox",
+      "radio",
+      "switch",
+      "combobox",
+    ]) {
+      expect(motionSheetSource).toContain(`[role='${role}']`);
+    }
+
+    expect(
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 0,
+        deltaY: 18,
+        interactiveTarget: true,
+        keyboardVisible: false,
+      })
+    ).toBe(false);
+  });
+
+  it("does not restart settlement from the cancelled drag-end branch", () => {
+    const cancelledBranch = motionSheetSource.slice(
+      motionSheetSource.indexOf("if (cancelledDragRef.current)"),
+      motionSheetSource.indexOf(
+        "const offsetY = Math.max(0, y.get(), info.offset.y)"
+      )
+    );
+    expect(cancelledBranch).toContain("cancelledDragRef.current = false");
+    expect(cancelledBranch).not.toContain('runAnimation(0, "settle")');
   });
 
   it("does not claim upward or stationary movement", () => {
     expect(
-      canSheetClaimGesture({ fromHeader: true, scrollTop: 0, deltaY: 0 })
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 0,
+        deltaY: 0,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
     ).toBe(false);
     expect(
-      canSheetClaimGesture({ fromHeader: true, scrollTop: 0, deltaY: -12 })
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 0,
+        deltaY: -12,
+        interactiveTarget: false,
+        keyboardVisible: false,
+      })
+    ).toBe(false);
+  });
+
+  it("leaves interactive controls and keyboard-visible sheets unclaimed", () => {
+    expect(
+      canSheetClaimGesture({
+        fromHeader: false,
+        scrollTop: 0,
+        deltaY: 18,
+        interactiveTarget: true,
+        keyboardVisible: false,
+      })
+    ).toBe(false);
+
+    expect(
+      canSheetClaimGesture({
+        fromHeader: true,
+        scrollTop: 0,
+        deltaY: 18,
+        interactiveTarget: false,
+        keyboardVisible: true,
+      })
     ).toBe(false);
   });
 
@@ -45,6 +137,15 @@ describe("sheet gestures", () => {
     expect(shouldCompleteSheetDismiss(40, 950, 520)).toBe(true);
     expect(shouldCompleteSheetDismiss(40, 180, 520)).toBe(false);
     expect(shouldCompleteSheetDismiss(40, -950, 520)).toBe(false);
+  });
+
+  it("keeps dismissal boundaries in one canonical policy", () => {
+    expect(shouldCompleteSheetDismiss(139, 520, 700)).toBe(false);
+    expect(shouldCompleteSheetDismiss(140, 120, 700)).toBe(true);
+    expect(shouldCompleteSheetDismiss(23, 900, 700)).toBe(false);
+    expect(shouldCompleteSheetDismiss(24, 900, 700)).toBe(true);
+    expect(motionInteractionsSource).not.toContain("shouldDismissSheet");
+    expect(motionInteractionsSource).not.toContain("SheetDismissInput");
   });
 });
 

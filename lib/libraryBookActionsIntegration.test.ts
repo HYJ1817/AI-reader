@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { formatLibraryProgressValue } from "./libraryProgress";
 
-const librarySource = readFileSync(
-  new URL("../app/LibrarySurface.tsx", import.meta.url),
+const libraryResultsSource = readFileSync(
+  new URL("../app/LibraryBookResults.tsx", import.meta.url),
   "utf8"
 );
 const overlaysSource = readFileSync(
@@ -27,10 +27,10 @@ describe("library book progress presentation", () => {
   });
 
   it("renders semantic progress with a compact visual track", () => {
-    expect(librarySource).toContain("buildLibraryBookPresentation(book, progress)");
-    expect(librarySource).toContain('data-library-book-progress="true"');
-    expect(librarySource).toContain("bookListProgressTrack");
-    expect(librarySource).not.toContain("bookGridProgress");
+    expect(libraryResultsSource).toContain("buildLibraryBookPresentation(book, progress)");
+    expect(libraryResultsSource).toContain('data-library-book-progress="true"');
+    expect(libraryResultsSource).toContain("bookListProgressTrack");
+    expect(libraryResultsSource).not.toContain("bookGridProgress");
     expect(moduleCss).toContain(".bookListProgressTrack");
     expect(moduleCss).not.toContain(".bookGridProgress");
   });
@@ -38,18 +38,18 @@ describe("library book progress presentation", () => {
 
 describe("book delete confirmation", () => {
   it("keeps single-book deletion in a separate navigation sheet route", () => {
-    const sheetStart = overlaysSource.indexOf(
-      "className={styles.bookActionSheet}"
-    );
-    const sheetEnd = overlaysSource.indexOf("</BottomSheet>", sheetStart);
-    const bookActionSheet = overlaysSource.slice(sheetStart, sheetEnd);
+    const sheetStart = overlaysSource.indexOf('case "book-actions"');
+    const sheetEnd = overlaysSource.indexOf('case "book-rename"', sheetStart);
+    const bookActionPage = overlaysSource.slice(sheetStart, sheetEnd);
 
     expect(sheetStart).toBeGreaterThanOrEqual(0);
     expect(sheetEnd).toBeGreaterThan(sheetStart);
-    expect(bookActionSheet).not.toContain("deleteConfirmBox");
-    expect(bookActionSheet).not.toContain("bookAction.deleteConfirmOpen ?");
+    expect(bookActionPage).toContain("<BookActionPage");
+    expect(bookActionPage).not.toContain("deleteConfirmBox");
+    expect(bookActionPage).not.toContain("bookAction.deleteConfirmOpen ?");
+    expect(overlaysSource).toContain("className: styles.bookActionSheet");
     expect(overlaysSource).toContain('case "book-delete"');
-    expect(overlaysSource).toContain("<BookDeleteSheet");
+    expect(overlaysSource).toContain("<BookDeletePage");
     expect(overlaysSource).not.toContain("bookAction.deleteConfirmOpen");
   });
 });

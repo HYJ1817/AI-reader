@@ -13,8 +13,22 @@ const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8"
 );
+const readingGoalStateSource = readFileSync(
+  new URL("../app/useReadingGoalState.ts", import.meta.url),
+  "utf8"
+);
 
 describe("reading goal motion sheet", () => {
+  it("exports a reusable content-only goal page", () => {
+    const goalPageSource = goalSource.slice(
+      goalSource.indexOf("export function ReadingGoalPage")
+    );
+
+    expect(goalSource).toContain("export function ReadingGoalPage");
+    expect(goalPageSource).not.toContain("<BottomSheet");
+    expect(goalPageSource).toContain('data-sheet-autofocus="true"');
+  });
+
   it("uses the shared MotionSheet contract and the minute wheel", () => {
     expect(goalSource).toContain('import BottomSheet, { type CloseSheet } from "./BottomSheet"');
     expect(goalSource).toContain("<BottomSheet");
@@ -40,7 +54,7 @@ describe("reading goal motion sheet", () => {
     expect(goalSource).toMatch(
       /function saveTarget\(\)[\s\S]*onSaveGoal\(\);[\s\S]*setEditingTarget\(false\);/
     );
-    expect(goalSource).toContain("onClick={() => closeSheet()}");
+    expect(goalSource).toContain("onClick={() => close()}");
     expect(goalSource).not.toContain("handleDialogKeyDown");
   });
 
@@ -55,7 +69,7 @@ describe("reading goal motion sheet", () => {
 describe("reading goal orchestration", () => {
   const goalMount =
     overlaysSource.match(
-      /case "reading-goal":[\s\S]*?<ReadingGoalSheet[\s\S]*?\/>/
+      /case "reading-goal":[\s\S]*?<ReadingGoalPage[\s\S]*?\/>/
     )?.[0] ?? "";
 
   it("keeps the goal overlay mounted through AppOverlays", () => {
@@ -66,7 +80,13 @@ describe("reading goal orchestration", () => {
       "onGoalInputChange={actions.setGoalInputValue}"
     );
     expect(goalMount).toContain("onSaveGoal={actions.saveGoal}");
-    expect(goalMount).toContain("onClose={navigation.dismissSheet}");
+    expect(goalMount).toContain("close={closePage}");
+    expect(overlaysSource).toContain(
+      'topSheet.route === "reading-goal"'
+    );
+    expect(overlaysSource).toContain(
+      "actions.setGoalInputValue(reader.targetMinutes)"
+    );
   });
 
   it("does not pass obsolete goal-only props", () => {
@@ -83,6 +103,21 @@ describe("reading goal orchestration", () => {
     );
     expect(pageSource).not.toMatch(
       /setGoalInputValue:\s*\([^)]*\)\s*=>\s*saveReadingGoalToStorage/
+    );
+  });
+
+  it("hydrates the stored goal after the server-compatible first render", () => {
+    expect(pageSource).toContain("useReadingGoalState()");
+    expect(readingGoalStateSource).toMatch(
+      /useState\(\{\s*targetMinutes:\s*DEFAULT_READING_TARGET_MINUTES,?\s*\}\)/
+    );
+    expect(readingGoalStateSource).toContain("const storedGoal = loadReadingGoal()");
+    expect(readingGoalStateSource).toContain("setReadingGoal(storedGoal)");
+    expect(readingGoalStateSource).toContain(
+      "setGoalInputValue(storedGoal.targetMinutes)"
+    );
+    expect(readingGoalStateSource).not.toContain(
+      "useState(() => loadReadingGoal())"
     );
   });
 });

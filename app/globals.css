@@ -20,7 +20,16 @@
   --surface-secondary: rgba(118, 118, 128, 0.14);
   --text-primary: #050505;
   --text-secondary: #6e6e73;
-  --text-tertiary: #9a9aa0;
+  --text-tertiary: #707075;
+  --text-placeholder: #707075;
+  --text-disabled: #9a9aa0;
+  --icon-tertiary: #9a9aa0;
+  --reader-control-surface: #f7f7f4;
+  --reader-control-surface-raised: #ffffff;
+  --reader-control-fill: rgba(60, 60, 67, 0.11);
+  --reader-control-text: #111111;
+  --reader-control-muted: #6e6e73;
+  --reader-control-border: rgba(60, 60, 67, 0.16);
   --separator: rgba(60, 60, 67, 0.18);
   --tint: #007aff;
   --root-tab-fill: rgba(255, 255, 255, 0.68);
@@ -68,7 +77,16 @@
     --surface-secondary: #2c2c2e;
     --text-primary: #ffffff;
     --text-secondary: #8e8e93;
-    --text-tertiary: #636366;
+    --text-tertiary: #a1a1a6;
+    --text-placeholder: #a1a1a6;
+    --text-disabled: #636366;
+    --icon-tertiary: #636366;
+    --reader-control-surface: #1f1f23;
+    --reader-control-surface-raised: #2b2b30;
+    --reader-control-fill: rgba(255, 255, 255, 0.14);
+    --reader-control-text: #f5f5f7;
+    --reader-control-muted: #a1a1a6;
+    --reader-control-border: rgba(255, 255, 255, 0.12);
     --separator: #38383a;
     --tint: #0a84ff;
     --root-tab-fill: rgba(44, 44, 46, 0.72);
@@ -154,6 +172,28 @@ button:disabled {
   box-shadow: 0 0 0 2px var(--surface-primary);
 }
 
+:root :is(
+  input:not([type]),
+  input[type="text"],
+  input[type="search"],
+  input[type="password"],
+  input[type="url"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="number"],
+  textarea,
+  select
+):focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: inset 0 -2px 0 var(--focus-ring);
+  caret-color: var(--tint);
+}
+
+:root :is(input, textarea, select)[aria-invalid="true"]:focus-visible {
+  box-shadow: inset 0 -2px 0 var(--status-error);
+}
+
 @media (prefers-color-scheme: dark) {
   html {
     color-scheme: dark;
@@ -173,7 +213,16 @@ button:disabled {
   --surface-secondary: rgba(118, 118, 128, 0.14);
   --text-primary: #050505;
   --text-secondary: #6e6e73;
-  --text-tertiary: #9a9aa0;
+  --text-tertiary: #707075;
+  --text-placeholder: #707075;
+  --text-disabled: #9a9aa0;
+  --icon-tertiary: #9a9aa0;
+  --reader-control-surface: #f7f7f4;
+  --reader-control-surface-raised: #ffffff;
+  --reader-control-fill: rgba(60, 60, 67, 0.11);
+  --reader-control-text: #111111;
+  --reader-control-muted: #6e6e73;
+  --reader-control-border: rgba(60, 60, 67, 0.16);
   --separator: rgba(60, 60, 67, 0.18);
   --tint: #007aff;
   --root-tab-fill: rgba(255, 255, 255, 0.68);
@@ -217,7 +266,16 @@ button:disabled {
   --surface-secondary: rgba(130, 105, 66, 0.14);
   --text-primary: #332719;
   --text-secondary: #786a55;
-  --text-tertiary: #9c8b70;
+  --text-tertiary: #756750;
+  --text-placeholder: #756750;
+  --text-disabled: #9c8b70;
+  --icon-tertiary: #9c8b70;
+  --reader-control-surface: #f1e6cc;
+  --reader-control-surface-raised: #fff8e9;
+  --reader-control-fill: rgba(92, 74, 46, 0.12);
+  --reader-control-text: #332719;
+  --reader-control-muted: #756750;
+  --reader-control-border: rgba(92, 74, 46, 0.2);
   --separator: rgba(92, 74, 46, 0.18);
   --tint: #8b5e3c;
   --root-tab-fill: rgba(244, 236, 216, 0.68);
@@ -261,7 +319,16 @@ button:disabled {
   --surface-secondary: #2c2c2e;
   --text-primary: #ffffff;
   --text-secondary: #8e8e93;
-  --text-tertiary: #636366;
+  --text-tertiary: #a1a1a6;
+  --text-placeholder: #a1a1a6;
+  --text-disabled: #636366;
+  --icon-tertiary: #636366;
+  --reader-control-surface: #1f1f23;
+  --reader-control-surface-raised: #2b2b30;
+  --reader-control-fill: rgba(255, 255, 255, 0.14);
+  --reader-control-text: #f5f5f7;
+  --reader-control-muted: #a1a1a6;
+  --reader-control-border: rgba(255, 255, 255, 0.12);
   --separator: #38383a;
   --tint: #0a84ff;
   --root-tab-fill: rgba(44, 44, 46, 0.72);
@@ -290,4 +357,16 @@ button:disabled {
   --liquid-glass-shadow: 0 8px 22px rgba(0, 0, 0, 0.2), inset 0 1px 0 var(--glass-highlight), inset 0 -1px 0 rgba(255, 255, 255, 0.025);
   --liquid-glass-tint: color-mix(in srgb, var(--tint) 12%, transparent);
   color-scheme: dark;
+}
+
+@media (prefers-contrast: more) {
+  :root,
+  [data-reader-theme="light"],
+  [data-reader-theme="sepia"],
+  [data-reader-theme="dark"] {
+    --text-secondary: var(--text-primary);
+    --text-tertiary: var(--text-primary);
+    --text-placeholder: var(--text-primary);
+    --separator: color-mix(in srgb, var(--text-primary) 52%, transparent);
+  }
 }

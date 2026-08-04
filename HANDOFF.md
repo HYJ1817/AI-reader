@@ -1,5 +1,110 @@
 ﻿# AI Reader Agent Handoff
 
+## Future integration policy
+
+- For subsequent work in this repository, once the requested change is implemented and the relevant verification passes, the agent may decide autonomously whether to create or update a pull request or merge the work into `main`.
+- Prefer a pull request for broad product changes, risky refactors, or work that benefits from review. A small, well-verified documentation, maintenance, or low-risk fix may be merged into `main` directly when that is clearer and safer.
+- Do not pause only to ask for integration permission after the change is ready. Preserve unrelated user changes and never use reset or clean to prepare the integration.
+- This standing permission covers branch integration only. Production deployment, release publication, destructive data operations, and external announcements still require a separate user request or authorization.
+
+## Split floating navigation and library search (2026-08-04, current authoritative follow-up)
+
+- Scope completed in `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity` on branch `feat/pwa-interaction-fluidity`. The approved design and plan are `docs/superpowers/specs/2026-08-04-split-floating-navigation-search-design.md` and `docs/superpowers/plans/2026-08-04-split-floating-navigation-search.md`; the smaller preceding navigation polish record is `docs/superpowers/specs/2026-08-04-wide-floating-tab-press-typography-polish-design.md`.
+- Product sequence: `4d6effc` adds the history-safe library-search Push route; `532a1b7` extracts shared list/grid book rendering; `41c42bc` adds the all-library search surface; `88dd72e` implements the split floating Dock and interruptible root-to-search morph; `c9cb565` refines press feedback and Chinese TXT rhythm; `f38696c` hardens focus, layering, interruption, and search-button press behavior; `d8a3c38` preserves the Home orchestration budget with a shared incremental-render-window hook and updates stale architecture/search regression contracts.
+- Default navigation is one wide frosted capsule for Library, Reading, and Settings plus a separate 68px search circle. Search converts the left capsule into a back circle while the search circle expands into the field. The transformation uses one persistent Dock, CSS grid track interpolation, Motion presence, safe-area positioning, reduced-motion handling, and a focus-revision guard. It can be reversed mid-transition without ghost controls or duplicate history entries.
+- Search covers all books rather than the active collection, renders above the field, retains the Library's list/grid preference, progressively renders large result sets, exposes clear recovery states, and restores the source root/focus on explicit or browser Back. Search focus uses a quiet container tint and explicitly suppresses the global inset blue line for this integrated field.
+- The root Dock stays above the library-search Push surface, keeps one bounded blur layer, uses 44px-or-larger targets, and supplies deterministic press feedback. Chinese TXT paragraphs receive `lang="zh-CN"` plus strict CJK breaking/line-height treatment without changing English or mixed-text alignment defaults.
+- Fresh source verification on deployed product commit `d8a3c38`: Vitest passed **134 files / 1229 tests**; full ESLint passed; the Next.js 16.2.11 production build and OpenNext build passed; `git diff --check` passed. Focused Playwright passed split-search journeys **4/4**, interruption/press latency **4/4**, and root geometry/theme/indicator checks **6/6** across iPhone 14 and iPhone 15 Pro Max Chromium emulation with one worker and `--trace=off`.
+- Final full Playwright matrix passed **209/210** with one worker, zero retries, and `--trace=off`. Every functional journey and every new Dock/search case passed. The sole failure was the pre-existing 4x-CPU contents-tab cadence probe on iPhone 15 Pro Max: first-click maximum frame interval was 50ms against the 34ms gate, while JavaScript long tasks remained zero; the same source had passed that probe on both profiles in one isolated run and iPhone 14 passed it in the final full matrix. Several attempted product optimizations were explicitly reverted after they did not produce stable causal improvement; no threshold was weakened and the matrix is not represented as fully green.
+- Production deployment from source `d8a3c38`: Worker version `6a37ee7e-d8d1-4dd6-ad2a-4789e416bfe3`, live at `https://881817.xyz` and `https://ai-reader-pwa.hyjsb1817.workers.dev`; deployed BUILD_ID `KFYFX4p_8URttKqehdJoz`. Both roots, BUILD_ID, service worker, manifest, assetlinks, and all 10 discovered page JS/CSS assets returned HTTP 200; empty `POST /api/models` returned the expected HTTP 400 validation response.
+- The immediate production search smoke passed 3/4 because the first iPhone 14 context briefly received the prior single-capsule application shell during deployment propagation. The same run's next iPhone 14 journey and both iPhone 15 Pro Max journeys received the new shell and passed. After the production HTML referenced the new chunk, a separately recorded iPhone 14 split-Dock journey passed **1/1**. This is recorded as propagation convergence, not a retry that replaces the first result.
+- Physical iPhone Safari, installed home-screen PWA, VoiceOver, soft-keyboard, and ProMotion/thermal acceptance remain unclaimed. The worktree must remain available for the existing draft PR #5; `main` remains untouched, and no reset or clean was run.
+
+## Closed-grade UI motion and interaction hardening (2026-08-02, current authoritative follow-up)
+
+- Scope completed in `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity` on branch `feat/pwa-interaction-fluidity`. The approved design and implementation plan are `docs/superpowers/specs/2026-08-02-closed-grade-ui-motion-interaction-hardening-design.md` and `docs/superpowers/plans/2026-08-02-closed-grade-ui-motion-interaction-hardening.md` (`0456ff1`, `d24cc27`).
+- Product commits are `b933eae` deterministic action-row press feedback, `0d2f3f5` contrast and 44px touch targets, `203e638` deferred background-effect commits, `dd8b7df` reader theme and text-scale controls, `862b578` canonical sheet dismissal policy, `a0a3739` deduplicated slider state sync, and `c493a3b` empty-provider and settled-geometry flow alignment.
+- Interaction result: action rows expose pointer, keyboard, blur, cancel, leave, and lost-capture press state immediately; background strength previews remain local while expensive persistence/filter work commits only on interaction settlement; content-height reading sheets are opaque; reader controls use explicit light/dark/sepia tokens; high-frequency controls meet the repository's 44px target; semantic tertiary text and placeholders meet the audited contrast role; 200% text and narrow/landscape viewport safeguards remain operable.
+- Policy result: sheet dismissal now has one authoritative implementation and exact 139/140px plus 23/24px threshold tests. Empty AI provider settings always expose the add/import entry point. Workspace geometry evidence waits for the entry transition to settle before using a baseline.
+- Fresh verification on product source `c493a3b`: `npm.cmd test` passed **132 files / 1218 tests**; `npm.cmd run lint` passed; the final standalone production build passed with Next.js 16.2.11; `git diff --check` passed. The full Playwright matrix passed **204/204** across iPhone 14 and iPhone 15 Pro Max Chromium emulation with one worker, zero retries, and the required `--trace=off` performance mode.
+- Retained performance evidence: TOC first-click p95 was 16.7-16.8ms with zero long tasks; Workspace open measured 17.3ms mount / 61.2ms visible on iPhone 14 and 31.4ms mount / 70.6ms visible on iPhone 15 Pro Max, with zero long tasks and CLS 0. Press feedback passed the 80ms gate on both profiles. Representative light, dark, sepia, 200% text, reader overlay, focus, and sheet-transition screenshots were visually inspected without horizontal overflow, theme discontinuity, or transparent content bleed-through.
+- Production deployment from product source `c493a3b`: Worker version `a36458bc-d1bb-41d3-a2f6-7686d72459bd`, live at `https://881817.xyz` and `https://ai-reader-pwa.hyjsb1817.workers.dev`; deployed BUILD_ID `ZclsKLtWhYQuVcuYtuhFF`. Both roots, BUILD_ID, service worker, manifest, assetlinks, and sampled deployed JS/CSS assets returned HTTP 200; empty `POST /api/models` returned the expected HTTP 400 validation response.
+- Physical iPhone Safari, installed home-screen PWA, VoiceOver, soft-keyboard, and ProMotion/thermal acceptance remain intentionally unclaimed. Chromium emulation and retained screenshots do not replace that device evidence.
+- Publication state: this follow-up is intended for the existing draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5); `main` remains untouched. No reset or clean was run and no unrelated user changes were overwritten.
+
+## Reading dashboard weekly cumulative total fix (2026-08-02, current authoritative follow-up)
+
+- Product commit `2672c02` makes the Reading dashboard's `累计阅读` summary use
+  the same seven-day insight window as the visible bars. Previously the summary
+  summed every historical `dailyReadingStats` row, so older history could show
+  a value such as `72 分钟` while the recent-seven-day bars were empty.
+- The regression seeds 3 minutes for today plus 69 minutes from 14 days ago and
+  asserts that the weekly summary remains `3 分钟`. The Reading dashboard suite
+  passed **12/12** locally across iPhone 14 and iPhone 15 Pro Max emulation and
+  **2/2** against production.
+- Fresh verification: full Vitest passed **127 files / 1198 tests**; source
+  lint, normal Next.js build, standalone Next.js build, OpenNext build/deploy,
+  and `git diff --check` passed. GitHub Actions CI `verify` passed in run
+  `30732053678`.
+- Production deployment from source `2672c02`: Worker version
+  `978c1378-dfda-4f6d-ad96-66786c029b66`, live at `https://881817.xyz` and
+  `https://ai-reader-pwa.hyjsb1817.workers.dev`; deployed BUILD_ID
+  `GnGAwrCkSlLkP06yE6F0k`. Root, BUILD_ID, service worker, manifest,
+  assetlinks, and all 10 discovered JS/CSS assets returned HTTP 200; empty
+  `POST /api/models` returned the expected HTTP 400 validation response.
+- Publication state: draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5)
+  targets `main`; `main` remains untouched. The production browser check uses
+  automated Chromium emulation and does not prove physical iPhone Safari or
+  ProMotion behavior.
+
+## Provider arrow-only back button polish (2026-08-02, current authoritative follow-up)
+
+- Product commit `b80d0df` replaces the AI provider list/configure text back labels with one icon-only SVG arrow control. The shared control is 44px square, circular, lightly bordered, route-aware for `aria-label` (`返回设置` / `返回服务商`), and includes press, focus-visible, and reduced-motion states.
+- Regression coverage: `lib/providerBackButtonIntegration.test.ts` and the updated pushed-surface contract test cover the source/CSS contract; `e2e/native-navigation.spec.ts` covers both provider routes and the click-back behavior on iPhone 14 and iPhone 15 Pro Max emulation.
+- Fresh verification: full Vitest passed **127 files / 1198 tests**; `npm.cmd exec -- eslint app lib e2e`, normal Next build, standalone Next build, OpenNext build, and `git diff --check` passed. The focused provider journey passed **2/2 locally** and **2/2 against production** with `--trace=off`.
+- Production deployment from source `b80d0df`: Worker version `4e7a8de3-0830-4a59-9046-ad6a40c4b12c`, live at `https://881817.xyz` and `https://ai-reader-pwa.hyjsb1817.workers.dev`; deployed BUILD_ID `j4Tgjv8wWmySgdjSKZqH6`. Root, BUILD_ID, service worker, manifest, assetlinks, and all 10 discovered JS/CSS assets returned HTTP 200; `POST /api/models` with `{}` returned the expected HTTP 400 validation response.
+- Publication state: branch `feat/pwa-interaction-fluidity` is pushed; draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5) targets `main` and its description includes this deployment. The handoff-only follow-up commit records this section; `main` remains untouched.
+
+## Minis-inspired text AI provider settings (2026-08-02, current authoritative state)
+
+- Scope completed in `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity` on branch `feat/pwa-interaction-fluidity`: a text-provider-only configuration flow inspired by the OpenMinis provider screens. The implementation is independently written TypeScript/React; no OpenMinis GPL source or assets were copied.
+- Design and implementation records are committed in `docs/superpowers/specs/2026-08-02-minis-text-provider-ui-design.md` and `docs/superpowers/plans/2026-08-02-minis-text-provider-ui.md` (`0bc3c8a`, `7c7739c`).
+- Product commits for this slice: `2718b18` typed model-refresh failure classification; `d5973c4` provider presentation metadata; `a5b6b79` Minis-style provider list and add/import menu; `02f5073` configure-page polish; `42d1810` provider E2E journeys; `af5ca8f` actionable list edit/delete mode; `8562aba` privacy copy alignment.
+- Provider list behavior: adaptive iPhone header with 编辑/+ actions, keyboard- and pointer-dismissable add menu, local JSON provider import, ready/attention/empty status dots, masked API-key summary, model count, active-provider badge, 44px controls, and a confirmed delete mode that selects the next active provider when needed.
+- Configure behavior: text provider catalog cards with descriptions/vendor hints for OpenAI-compatible, Anthropic-compatible, Gemini, OpenRouter, and xAI; API format selection with custom endpoint preservation; API Key show/hide control with explicit labels; automatic default-path switch; remote/manual model source badges; manual model add/remove; sticky 保存并使用 action.
+- Model refresh behavior: `/api/models` returns safe typed `errorCode`/`retryable` fields for auth, billing, rate-limit, network, and invalid-response cases. Retry is shown only for retryable failures; stale refresh results remain ignored after provider or field changes.
+- Appearance and motion: provider surfaces use the existing system light/dark/sepia tokens, no hardcoded dark-only background, semantic Motion roles, reduced-motion handling, focus restoration for the add menu, and theme-aware status/error surfaces.
+- Fresh verification on the current source: `npm.cmd test` passed **126 files / 1194 tests**; `npm.cmd exec -- eslint app lib e2e` passed; `npm.cmd run build` passed with Next.js 16.2.11; `git diff --check` passed. Provider Playwright passed **4/4** across iPhone 14 and iPhone 15 Pro Max emulation with trace off. The existing model-refresh pending journey passed **2/2** across both profiles with trace off.
+- Draft PR #5 GitHub Actions `verify` check completed successfully after the branch push.
+- Production deployment (2026-08-02): OpenNext/Wrangler published Worker version `70c0f4c3-5fdb-4533-a460-fe9da161fe6d` from source commit `0601bf8` to `https://ai-reader-pwa.hyjsb1817.workers.dev` and route `881817.xyz/*`. The deployed BUILD_ID is `FJLFuRcJpE5xF90scRb6N`.
+- Production verification after this provider deployment: both production roots returned HTTP 200; all 10 discovered page JS/CSS assets returned HTTP 200; `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`, and `/.well-known/assetlinks.json` returned HTTP 200; `POST /api/models` with `{}` returned the expected HTTP 400 validation response. Provider settings Playwright passed **4/4** against `https://881817.xyz` on iPhone 14 and iPhone 15 Pro Max emulation with trace off. The APK endpoint remains HTTP 404 because this feature worktree does not contain `public/downloads/ai-reader-twa.apk`; it was not changed as unrelated scope.
+- Follow-up production fix (2026-08-02): commit `78988a3` changed outbound AI requests from the unsupported Cloudflare Workers `redirect: "error"` mode to `redirect: "manual"` and explicitly rejects 3xx responses. The fix's TDD regression passed in the full **126 files / 1195 tests** suite; source lint and standalone/OpenNext builds passed. Worker version `fa149078-8aef-4b9a-9c6c-206de30250b4` is live with BUILD_ID `9-XW1F-Jq4IrQbjjtXfcR`. Repeated production probes now return `401 / auth` for DeepSeek and OpenAI test keys (and `404 / invalid-response` for `example.com`), proving the upstream request reaches the provider instead of failing at the Worker fetch layer. Provider settings Playwright passed **4/4** again after this deployment.
+- The repository-wide `npm.cmd run lint` command can traverse ignored `.wrangler` generated bundles left by prior local builds and emit their pre-existing generated-code diagnostics. Source lint for `app`, `lib`, and `e2e` is the clean gate recorded above; no generated bundle was edited or committed.
+- Deferred by scope: voice providers, native OAuth, iCloud sync, physical iPhone Safari/home-screen PWA acceptance, and arbitrary third-party provider backup schemas. The local JSON import accepts the repository's sanitized provider-settings shape only.
+- Publication state: commits through `78988a3` are pushed to `origin/feat/pwa-interaction-fluidity` and draft PR [#5](https://github.com/HYJ1817/AI-reader/pull/5) targets `main`. The PR is not merged; production deployment is recorded above. Keep the worktree available for PR feedback.
+
+## PWA Interaction Fluidity Candidate (2026-08-01, Current Authoritative UI State)
+
+- Active checkout: `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`, branch `feat/pwa-interaction-fluidity`. Implementation commit `740226d` plus verification record `8241ac1` were pushed to `origin/feat/pwa-interaction-fluidity`; the deployed source was 39 commits ahead of and 0 behind local `main` (`d0d2f99`). No reset or clean was run.
+- Governing documents: `docs/superpowers/specs/2026-07-28-pwa-interaction-fluidity-design.md`, `docs/superpowers/plans/2026-07-28-pwa-interaction-fluidity.md`, and `docs/qa/2026-07-28-iphone15pm-fluidity-checklist.md`.
+- Commit phases: metric foundation `ae50bf1..6230a09`; lifecycle/root/push motion `c4a5f63..435729f`; persistent nested sheets/history/focus `b95b643..429ac7d`; reader lifecycle/transition `0779a57..92b5536`; Workspace streaming/scroll ownership `ea8e895..8a5af46`; inline state coverage and strict budgets `4b2b97e`, `5315629`; final hydration, TOC, root-layer, press, and evidence fixes `740226d`.
+- Root, pushed pages, reader, and sheets use explicit semantic motion roles. Current durations are root 160ms, root indicator 220ms, push 280/200ms, reader 280/210ms, sheet 280/220ms, popover 180/120ms, state 160/120ms, gesture settle 220ms, and reduced motion 100ms.
+- Root tab retargeting keeps one shared bottom indicator but animates only the newly active full-screen root. Inactive roots settle immediately, preventing three hidden full-screen surfaces from consuming compositor work during rapid intent changes.
+- Nested sheet navigation preserves one outer sheet/backdrop and swaps persistent internal pages through measured height snapshots. Focus, keyboard ownership, drag cancellation, browser history, lifecycle interruption, and callback commit-once behavior are covered.
+- Reader presentation has shared-cover geometry, fallback geometry for missing/offscreen origins, lifecycle settlement, real TXT/EPUB gesture ownership, close-during-load handling, and explicit focus return.
+- Contents tabs cache viewport width, split state commit and horizontal scroll across frames, release programmatic ownership on pointer/touch input, and retain fixed sheet geometry. A full-panel opacity/translation animation was replaced with a small 120ms background/color segment fade after 4x CPU evidence showed costly tail frames.
+- Reading-goal state starts from a server-compatible default and restores storage after hydration. Local E2E blocks service workers and supplies `/BUILD_ID`, so deployment-only refresh plumbing no longer creates false local hydration failures.
+- Workspace stays a book-owned persistent sheet. Streaming and viewport follow remain frame-batched, user-scroll aware, generation guarded, and stable across long history, material operations, keyboard geometry, offline state, and rapid inline intents.
+- Fresh repository verification after implementation: `npm.cmd test -- --run` passed 122 files / 1176 tests; `npm.cmd run lint` and `npm.cmd run build` exited 0; the production build compiled, type-checked, and generated all routes. Impeccable returned `[]`; `git diff --check` exited 0.
+- iPhone 14 Chromium full matrix passed 92/92 with one worker, zero retries, and `--trace=off` on the immediately preceding candidate. Retained metrics: TOC first-click p95 16.7ms, max 33.3ms, long task 0; Workspace mount 15.7ms, visible 61.4ms, long task 0, CLS 0. The later root-layer optimization is focused-tested but the exact final commit was not rerun through all 92 iPhone 14 cases.
+- iPhone 15 Pro Max Chromium had an earlier 92/92 full pass before the last TOC/root refinements. Two later full matrices each reached 91/92 because rapid-root p95 intermittently sampled 33.3-33.4ms with no long task or layout shift. After `740226d`, the 17-test interaction file passed the rapid-root case at p95 16.7ms and the focused root navigation gate passed 2/2 with p95/max 16.8ms, long task 0, CLS 0.
+- Retained small issue per user direction: the same final interaction-file run measured list-mode `book-row` press feedback once at 88.0ms against the 80ms target. Navigation still succeeded, other press families passed, and an earlier five-repeat run passed 5/5. This is recorded in the QA checklist and was not changed further.
+- Strict trace-off metrics are authoritative for frame gates. Traced diagnostic runs and earlier failed strict runs are retained as history; no retry was used to convert a failure into a pass.
+- Physical iPhone 15 Pro Max Safari/home-screen PWA evidence is unavailable. iOS/Safari version, standalone lifecycle, real WebKit/ProMotion cadence, thermal/power behavior, weak network, VoiceOver, installed-PWA update lifecycle, and physical screenshots/video remain pending. Chromium emulation is not marked as a physical pass.
+- Publication state: the user authorized branch push and production deployment on 2026-08-01. Commit `8241ac1` was pushed to `origin/feat/pwa-interaction-fluidity`; no pull request, merge, tag, release, or `main` update was performed.
+- Production deployment: OpenNext/Wrangler deployed Worker version `651c4c4a-e70e-42db-9975-6f9870eeed28` to `https://ai-reader-pwa.hyjsb1817.workers.dev` and route `881817.xyz/*`. Deployed BUILD_ID is `EiZRJkvG3PM1IdMF7D9fh`.
+- Public HTTP verification after deployment returned 200 for both roots, `/BUILD_ID`, `/sw.js`, `/manifest.webmanifest`, `/.well-known/assetlinks.json`, the deployed page chunk, and deployed CSS. `/downloads/ai-reader-twa.apk` returned 404; this was recorded only and not changed under the user's small-bug instruction. Physical iPhone 15 Pro Max PWA verification remains pending.
+
 ## Reading Workspace Delivery (2026-07-28, Current Authoritative State)
 
 - Checkout for this delivery: `C:\aaa\ai-reader-pwa`, branch `main`, initially
@@ -3089,6 +3194,75 @@ Observed results:
 - The focused local iPhone 14 Playwright smoke run passed 3/3 with one worker,
   no retries, and `--trace=off`; sheet metrics were click-to-mount 12.5ms,
   frame P95/max 16.8ms, max long task 0ms, and CLS 0.
+
+## Closed-grade Detail Polish (2026-08-02)
+
+- Scope stayed deliberately small: recoverable library empty/search/collection
+  states, safer import errors, a 44px primary import target, clearer provider
+  save requirements, a quieter provider empty state, calmer reading-goal copy,
+  and consistent utility SVG glyphs. Reader control architecture, settings
+  switch guidance, IndexedDB/provider/backup schemas, and imported GPL code or
+  assets were left untouched.
+- Implementation commits:
+  - `6b95cfd` explains provider save requirements and disables invalid saves.
+  - `61ca329` makes library empty states recoverable and sanitizes import errors.
+  - `571a1a3` simplifies the no-provider action hierarchy.
+  - `841bec4` quiets reading-goal copy and unifies utility glyphs.
+  - `b7698fc` keeps architecture and lint gates focused.
+  - `11b85e7` measures provider labels correctly at 200% text scaling.
+  - `8389ee1` records the approved design and implementation plan.
+- Fresh full verification before deployment passed: Vitest 132 files / 1216
+  tests, full ESLint, production Next.js build, and `git diff --check`.
+- The full iPhone 15 Pro Max navigation suite passed 34/34 with one worker on
+  the final rerun. The initial run exposed one incorrect 200% text assertion;
+  inspection confirmed each direct label line remained single-line, so the
+  test selector was corrected without weakening the product budget. Three
+  isolated cadence misses from that initial run passed unchanged when rerun.
+- Cloudflare OpenNext deployment published Worker version
+  `012e20fb-1003-443a-99cf-1abffcbd1767` to both the Workers preview URL and
+  `881817.xyz/*`.
+- Production `/` returned the AI Reader library shell at
+  `https://881817.xyz/`. The deployed CSS asset
+  `/_next/static/css/8d9bf821348dfdd4.css` returned `text/css` (153200
+  characters), and the page JS asset
+  `/_next/static/chunks/app/page-877711d3a9dfa3e7.js` returned
+  `text/javascript` (327012 characters).
+- Fresh-browser iPhone-sized production DOM smoke checks confirmed the empty
+  library shows one primary `导入图书` recovery action plus the local-storage
+  privacy note. The provider empty state shows one `添加 AI 服务商` primary
+  action, one inline `导入服务商配置` action, the local API-key notice, and no
+  provider menu or edit action.
+- OpenNext still emits its Windows compatibility warning, Wrangler recommends
+  a newer compatibility date than `2024-12-30`, and Node emits `DEP0190` during
+  the Windows build path; none blocked the successful deployment.
+- Automated Chromium verifies the configured interaction budgets, but it does
+  not prove sustained 120fps on physical iPhone Safari/PWA hardware. A physical
+  device remains the final motion-quality acceptance surface.
+
+### Text-entry Focus Material Fix (2026-08-02)
+
+- `029e4c9` fixes the outer blue rectangle that iOS Safari/PWA displayed when
+  text-entry controls received focus. The root cause was the high-specificity
+  global `:root :focus-visible` outline overriding local input styles.
+- Text, search, password, URL, email, telephone and number inputs, textareas,
+  and selects now use a compact inset bottom focus line. Invalid fields use the
+  error color. Buttons, switches, ranges, and other non-text controls keep the
+  existing keyboard focus ring.
+- Fresh verification passed: Vitest 132 files / 1217 tests, full ESLint, the
+  production Next.js build, and the iPhone 15 Pro Max focus-material Playwright
+  check 1/1 with one worker and `--trace=off`.
+- Cloudflare OpenNext deployment published Worker version
+  `70f6c79a-556e-45b3-ae38-bf75adde3939` with BUILD_ID
+  `fN3OzycM3yIM7J5KFIO2m` to the Workers preview URL and `881817.xyz/*`.
+- Production CSS assets `/_next/static/css/e324ecd829384911.css` and
+  `/_next/static/css/ae6e2c9b78816f06.css` both returned HTTP 200 as
+  `text/css`; the first contains the new inset focus rule.
+- A fresh production browser probe found no drawable outline or legacy outer
+  focus shadow on the six rendered provider-form controls. The browser tab was
+  closed after verification without changing user data.
+- Asset upload retried once automatically and then completed. The existing
+  OpenNext Windows, Wrangler compatibility-date, Node `DEP0190`, and multiple
+  lockfile root warnings remain non-blocking.
 
 Before making another code commit, rerun:
 

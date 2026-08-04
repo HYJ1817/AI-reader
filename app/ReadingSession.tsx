@@ -20,6 +20,7 @@ import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import type { ReaderTextSelection } from "@/lib/readerAnnotations";
 import { buildTxtHighlightRuns } from "@/lib/txtAnnotations";
+import { getTxtParagraphLanguage } from "@/lib/textLanguage";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -108,6 +109,9 @@ export default function ReadingSession({
   return (
     <div
       className={styles.readerShell}
+      data-reader-content-ready={
+        book && (book.format === "epub" || !loading) ? "true" : "false"
+      }
     >
       <div
         className={styles.readerStage}
@@ -189,6 +193,7 @@ export default function ReadingSession({
                   <p
                     key={`${chunkIndex}-${paragraphIndex}`}
                     className={styles.paragraph}
+                    lang={getTxtParagraphLanguage(paragraph)}
                     data-paragraph-index={
                       paragraphChunkStarts[chunkIndex] + paragraphIndex
                     }

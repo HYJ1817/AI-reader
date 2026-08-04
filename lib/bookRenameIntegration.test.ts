@@ -13,7 +13,7 @@ describe("book rename integration", () => {
     expect(navigation).toContain('| "book-rename"');
     expect(history).toContain('"book-rename"');
     expect(overlays).toContain('case "book-rename"');
-    expect(overlays).toContain("<BookRenameSheet");
+    expect(overlays).toContain("<BookRenamePage");
     expect(overlays).toContain('navigation.presentSheet("book-rename"');
   });
 

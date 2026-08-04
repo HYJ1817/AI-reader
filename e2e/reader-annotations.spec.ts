@@ -182,10 +182,15 @@ async function measureFrameCadence(
   duration: number = 900
 ) {
   const metricsPromise = page.evaluate(async (sampleDuration) => {
-    const intervals: number[] = [];
+    const samples: Array<{ at: number; interval: number }> = [];
     const longTasks: number[] = [];
     let observer: PerformanceObserver | undefined;
+    let interactionAt: number | null = null;
     let previous = performance.now();
+    const capturePointerDown = () => {
+      interactionAt ??= performance.now();
+    };
+    document.addEventListener("pointerdown", capturePointerDown, true);
 
     if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
       observer = new PerformanceObserver((list) => {
@@ -197,7 +202,7 @@ async function measureFrameCadence(
     const startedAt = performance.now();
     await new Promise<void>((resolve) => {
       const sample = (now: number) => {
-        intervals.push(now - previous);
+        samples.push({ at: now, interval: now - previous });
         previous = now;
         if (now - startedAt >= sampleDuration) {
           resolve();
@@ -208,6 +213,8 @@ async function measureFrameCadence(
       requestAnimationFrame(sample);
     });
     observer?.disconnect();
+    document.removeEventListener("pointerdown", capturePointerDown, true);
+    const intervals = samples.map(({ interval }) => interval);
     const sorted = [...intervals].sort((a, b) => a - b);
     return {
       frames: intervals.length,
@@ -215,6 +222,20 @@ async function measureFrameCadence(
       p95Interval: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
       over33ms: intervals.filter((interval) => interval > 33.4).length,
       maxLongTask: longTasks.length ? Math.max(...longTasks) : 0,
+      interactionAt:
+        interactionAt === null ? null : Math.round((interactionAt - startedAt) * 10) / 10,
+      slowFrames: samples
+        .filter(({ interval }) => interval > 25)
+        .map(({ at, interval }) => ({
+          at: Math.round((at - startedAt) * 10) / 10,
+          interval: Math.round(interval * 10) / 10,
+          phase:
+            interactionAt === null
+              ? "idle"
+              : at <= interactionAt
+                ? "before-input"
+                : "after-input",
+        })),
     };
   }, duration);
 
@@ -250,6 +271,7 @@ test("contents tab clicks keep 60fps under CPU pressure and native swipes keep p
     await expect.poll(() => snappedTabIndex(page)).toBe(0);
   });
   await session.send("Emulation.setCPUThrottlingRate", { rate: 1 });
+  await session.detach();
 
   const viewport = page.locator('[data-toc-swipe-viewport="true"]');
   const box = await viewport.boundingBox();
@@ -262,7 +284,11 @@ test("contents tab clicks keep 60fps under CPU pressure and native swipes keep p
     );
     await expect.poll(() => snappedTabIndex(page)).toBe(1);
   });
-  await session.detach();
+
+  console.info(
+    `[toc-cadence] ${test.info().project.name}`,
+    JSON.stringify({ idleMetrics, clickMetrics, warmedClickMetrics, swipeMetrics })
+  );
 
   expect(idleMetrics.p95Interval).toBeLessThanOrEqual(20);
   expect(clickMetrics.p95Interval).toBeLessThanOrEqual(20);

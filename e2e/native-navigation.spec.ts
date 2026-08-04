@@ -6,9 +6,16 @@ import {
   type Page,
   type TestInfo,
 } from "@playwright/test";
+import JSZip from "jszip";
+import {
+  attachInteractionMetrics,
+  collectInteractionMetrics,
+  expectInteractionBudget,
+} from "./helpers/interactionMetrics";
 
 type PushRoute =
   | "collections"
+  | "library-search"
   | "ai-providers"
   | "ai-provider-configure"
   | "custom-background";
@@ -67,6 +74,55 @@ const sampleText = readFileSync(
   path.resolve(process.cwd(), "e2e/fixtures/sample.txt"),
   "utf8"
 );
+
+async function buildReaderGestureEpub(): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+  zip.file(
+    "META-INF/container.xml",
+    `<?xml version="1.0" encoding="UTF-8"?>
+      <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+        <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+      </container>`
+  );
+  const chapters = [1, 2, 3].map((chapter) => {
+    const paragraphs = Array.from(
+      { length: 36 },
+      (_, index) =>
+        `<p>Reader gesture chapter ${chapter}, paragraph ${index + 1}. Horizontal input belongs to EPUB pagination.</p>`
+    ).join("");
+    zip.file(
+      `OEBPS/chapter-${chapter}.xhtml`,
+      `<?xml version="1.0" encoding="utf-8"?>
+        <html xmlns="http://www.w3.org/1999/xhtml"><head><title>Chapter ${chapter}</title></head>
+        <body><h1>Chapter ${chapter}</h1>${paragraphs}</body></html>`
+    );
+    return chapter;
+  });
+  zip.file(
+    "OEBPS/content.opf",
+    `<?xml version="1.0" encoding="utf-8"?>
+      <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+        <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <dc:identifier id="book-id">reader-gesture-epub</dc:identifier>
+          <dc:title>Reader Gesture EPUB</dc:title><dc:language>en</dc:language>
+        </metadata>
+        <manifest>
+          <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+          ${chapters.map((chapter) => `<item id="chapter-${chapter}" href="chapter-${chapter}.xhtml" media-type="application/xhtml+xml"/>`).join("")}
+        </manifest>
+        <spine>${chapters.map((chapter) => `<itemref idref="chapter-${chapter}"/>`).join("")}</spine>
+      </package>`
+  );
+  zip.file(
+    "OEBPS/nav.xhtml",
+    `<?xml version="1.0" encoding="utf-8"?>
+      <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+        <body><nav epub:type="toc"><ol>${chapters.map((chapter) => `<li><a href="chapter-${chapter}.xhtml">Chapter ${chapter}</a></li>`).join("")}</ol></nav></body>
+      </html>`
+  );
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
 const libraryRootSelector =
   '[data-navigation-root="library"][aria-hidden="false"]';
 const settingsRootSelector =
@@ -629,6 +685,70 @@ test.beforeEach(async ({ page }) => {
   await importBook(page);
 });
 
+test("split dock morphs into search and restores the source root", async ({
+  page,
+}, testInfo) => {
+  await useLibraryListMode(page);
+  await page.locator('[data-navigation-tab="reading"]').click();
+  await expect(
+    page.locator('[data-navigation-root="reading"][aria-hidden="false"]')
+  ).toBeVisible();
+  await capture(page, testInfo, "split-dock-root");
+
+  await page.getByRole("button", { name: "搜索书库" }).click();
+  const dock = page.locator('[data-navigation-mode="search"]');
+  const searchInput = page.getByRole("searchbox", { name: "搜索书库" });
+  await expect(dock).toBeVisible();
+  await expect(page.locator('[data-library-search-surface="true"]')).toBeVisible();
+  await expect(searchInput).toBeFocused();
+  await searchInput.fill("native-navigation");
+  await expect(
+    page.locator(
+      '[data-library-search-surface="true"] [data-library-result-mode="list"]'
+    )
+  ).toBeVisible();
+
+  const geometry = await dock.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const input = element.querySelector<HTMLInputElement>('input[type="search"]');
+    const inputBox = input?.getBoundingClientRect();
+    return {
+      left: box.left,
+      right: box.right,
+      bottomGap: window.innerHeight - box.bottom,
+      inputWidth: inputBox?.width ?? 0,
+    };
+  });
+  expect(geometry.left).toBeGreaterThanOrEqual(8);
+  expect(geometry.right).toBeLessThanOrEqual(page.viewportSize()?.width ?? 430);
+  expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
+  expect(geometry.inputWidth).toBeGreaterThanOrEqual(160);
+  await capture(page, testInfo, "split-dock-search");
+
+  await page.getByRole("button", { name: "返回" }).click();
+  await expect(page.locator('[data-navigation-mode="root"]')).toBeVisible();
+  await expect(
+    page.locator('[data-navigation-tab="reading"]')
+  ).toHaveAttribute("aria-current", "page");
+  await expect(page.locator('[data-library-search-surface="true"]')).toHaveCount(0);
+});
+
+test("library search follows grid mode and browser back closes once", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "封面" }).click();
+  await page.getByRole("button", { name: "搜索书库" }).click();
+  await expect(
+    page.locator(
+      '[data-library-search-surface="true"] [data-library-result-mode="grid"]'
+    )
+  ).toBeVisible();
+  await page.goBack();
+  await expect(page.locator('[data-navigation-mode="root"]')).toBeVisible();
+  await expect(page.locator('[data-library-search-surface="true"]')).toHaveCount(0);
+  await expect(page.locator('[data-push-route="library-search"]')).toHaveCount(0);
+});
+
 test("reader closes back to its source action and restores focus", async ({
   page,
 }) => {
@@ -724,6 +844,7 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
   const navigation = page.getByRole("navigation", {
     name: primaryNavigationName,
   });
+  const dock = page.locator('[data-navigation-mode="root"]');
   const tabs = navigation.locator("[data-navigation-tab]");
   const title = page.locator(`${libraryRootSelector} h1`).first();
 
@@ -746,9 +867,21 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
     "rgb(0, 0, 0)"
   );
 
-  const geometry = await navigation.evaluate((element) => {
+  const geometry = await dock.evaluate((element) => {
     const rect = element.getBoundingClientRect();
-    const style = getComputedStyle(element);
+    const primary = element.querySelector<HTMLElement>(
+      '[class*="navigationPrimarySlot"]'
+    );
+    const navigation = element.querySelector<HTMLElement>("nav");
+    const searchButton = element.querySelector<HTMLElement>(
+      '#library-search-button'
+    );
+    if (!primary || !navigation || !searchButton) {
+      throw new Error("Split root navigation material is incomplete");
+    }
+    const primaryRect = primary.getBoundingClientRect();
+    const searchRect = searchButton.getBoundingClientRect();
+    const style = getComputedStyle(primary);
     const standardBackdrop = style.getPropertyValue("backdrop-filter");
     const prefixedBackdrop = style.getPropertyValue(
       "-webkit-backdrop-filter"
@@ -758,12 +891,12 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
         ? standardBackdrop
         : prefixedBackdrop;
     const tabs = Array.from(
-      element.querySelectorAll<HTMLElement>("[data-navigation-tab]")
+      navigation.querySelectorAll<HTMLElement>("[data-navigation-tab]")
     ).map((tab) => {
       const tabRect = tab.getBoundingClientRect();
       return { width: tabRect.width, height: tabRect.height };
     });
-    const indicator = element.querySelector<HTMLElement>(
+    const indicator = navigation.querySelector<HTMLElement>(
       '[data-root-tab-indicator="true"]'
     );
     if (!indicator) throw new Error("Root tab indicator is missing");
@@ -771,6 +904,9 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
     return {
       width: rect.width,
       height: rect.height,
+      primaryWidth: primaryRect.width,
+      searchWidth: searchRect.width,
+      searchHeight: searchRect.height,
       centerError: Math.abs(rect.left + rect.width / 2 - innerWidth / 2),
       bottomGap: window.innerHeight - rect.bottom,
       borderRadius: style.borderRadius,
@@ -788,14 +924,17 @@ test("root chrome stays compact, semantic, and safely tappable", async ({
     };
   });
 
-  expect(geometry.width).toBeLessThanOrEqual(302.5);
-  expect(geometry.height).toBe(76);
+  expect(geometry.width).toBeLessThanOrEqual(430.5);
+  expect(geometry.height).toBe(68);
+  expect(geometry.primaryWidth).toBeGreaterThanOrEqual(280);
+  expect(geometry.searchWidth).toBeGreaterThanOrEqual(44);
+  expect(geometry.searchHeight).toBeGreaterThanOrEqual(44);
   expect(geometry.centerError).toBeLessThanOrEqual(0.5);
   expect(geometry.bottomGap).toBeGreaterThanOrEqual(8);
-  expect(geometry.borderRadius).toBe("33px");
+  expect(geometry.borderRadius).toBe("34px");
   expect(geometry.backdropFilter).toContain("blur(14px)");
   expect(
-    Math.abs(geometry.backingWidth - (geometry.tabs[0].width - 8))
+    Math.abs(geometry.backingWidth - (geometry.tabs[0].width - 6))
   ).toBeLessThanOrEqual(0.5);
   expect(geometry.backingHeight).toBe(60);
   expect(geometry.backingRadius).toBe("30px");
@@ -873,7 +1012,9 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
       element.setAttribute("data-reader-theme", nextTheme);
     }, theme);
     const material = await navigation.evaluate((element) => {
-      const style = getComputedStyle(element);
+      const primary = element.parentElement;
+      if (!primary) throw new Error("Root navigation material is missing");
+      const style = getComputedStyle(primary);
       const standardBackdrop = style.getPropertyValue("backdrop-filter");
       const prefixedBackdrop = style.getPropertyValue(
         "-webkit-backdrop-filter"
@@ -952,7 +1093,9 @@ test("root navigation follows light, sepia, and dark frosted materials", async (
     element.removeAttribute("data-reader-theme");
   });
   const systemDarkMaterial = await navigation.evaluate((element) => {
-    const style = getComputedStyle(element);
+    const primary = element.parentElement;
+    if (!primary) throw new Error("System-dark root material is missing");
+    const style = getComputedStyle(primary);
     const indicator = element.querySelector<HTMLElement>(
       '[data-root-tab-indicator="true"]'
     );
@@ -1126,6 +1269,7 @@ test("AI provider configure transition stays within mobile frame budgets", async
     contentType: "application/json",
   });
 
+  expect(metrics.clickToMount).toBeGreaterThanOrEqual(0);
   expect(metrics.clickToMount).toBeLessThanOrEqual(34);
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
   expect(metrics.p95).toBeLessThanOrEqual(20);
@@ -1179,6 +1323,34 @@ test("provider compact back reverses direction and keeps edge back", async ({
   await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
 });
 
+test("provider surfaces expose icon-only route-aware back buttons", async ({
+  page,
+}) => {
+  await openAiProviderList(page);
+
+  const listBack = page.getByRole("button", { name: "返回设置" });
+  await expect(listBack).toBeVisible();
+  await expect(listBack).toHaveAttribute("aria-label", "返回设置");
+  await expect(listBack).toHaveCSS("width", "44px");
+  expect((await listBack.boundingBox())?.width).toBeGreaterThanOrEqual(43.5);
+
+  await page.locator('[data-open-provider-configure="true"]').click();
+  const configure = page.locator('[data-provider-configure="true"]');
+  await expect(configure).toBeVisible();
+
+  const configureBack = page.getByRole("button", { name: "返回服务商" });
+  await expect(configureBack).toBeVisible();
+  await expect(configureBack).toHaveAttribute("aria-label", "返回服务商");
+  await expect(configureBack).toHaveCSS("width", "44px");
+  expect((await configureBack.boundingBox())?.width).toBeGreaterThanOrEqual(43.5);
+
+  await configureBack.click();
+  await expect(
+    page.locator('[data-push-route="ai-provider-configure"]')
+  ).toHaveCount(0);
+  await expect(page.locator('[data-push-route="ai-providers"]')).toBeVisible();
+});
+
 test("AI provider configuration remains usable at 200 percent text", async ({
   page,
 }, testInfo) => {
@@ -1214,10 +1386,16 @@ test("AI provider configuration remains usable at 200 percent text", async ({
         return rect.left >= 0 && rect.right <= window.innerWidth;
       }),
       presetLabelsSingleLine: buttons.every((button) => {
-        const label = button.querySelector(":scope > span:nth-child(2)");
-        if (!(label instanceof HTMLElement)) return false;
-        const lineHeight = Number.parseFloat(getComputedStyle(label).lineHeight);
-        return label.getBoundingClientRect().height <= lineHeight * 1.1;
+        const labels = Array.from(
+          button.querySelectorAll(":scope > span:nth-child(2) > span")
+        );
+        return labels.every((label) => {
+          if (!(label instanceof HTMLElement)) return false;
+          const lineHeight = Number.parseFloat(
+            getComputedStyle(label).lineHeight
+          );
+          return label.getBoundingClientRect().height <= lineHeight * 1.1;
+        });
       }),
       savePosition: saveRegion ? getComputedStyle(saveRegion).position : "missing",
     };
@@ -1346,6 +1524,571 @@ test("all sheet routes share the motion layer and dismiss with Escape", async ({
     await page.keyboard.press("Escape");
     await expect(host).toHaveCount(0);
   }
+});
+
+test("reader presentation captures a meaningful 70 ms midpoint and opaque settlement", async ({
+  page,
+}, testInfo) => {
+  const midpointPath = testInfo.outputPath(
+    "reader-presentation-midpoint-70ms.png"
+  );
+  const settledPath = testInfo.outputPath("reader-presentation-settled.png");
+  await capture(page, testInfo, "reader-presentation-start");
+  await firstLibraryCover(page).evaluate((cover) => {
+    const trigger = cover.closest<HTMLButtonElement>("button");
+    if (!trigger) throw new Error("Reader trigger is missing");
+    const measuredWindow = window as typeof window & {
+      __readerMidpoint?: {
+        clickedAt: number;
+        sampledAt?: number;
+        contentOpacity?: number;
+        contentBackground?: string;
+        presentationBackground?: string;
+        readableLayers?: number;
+        durations?: number[];
+        spatialDurationMs?: number;
+        ready: boolean;
+      };
+    };
+    const clickedAt = performance.now();
+    measuredWindow.__readerMidpoint = { clickedAt, ready: false };
+    trigger.click();
+
+    const sample = (now: number) => {
+      if (now - clickedAt < 70) {
+        requestAnimationFrame(sample);
+        return;
+      }
+      const presentation = document.querySelector<HTMLElement>(
+        '[data-reader-presented="true"]'
+      );
+      const content = presentation?.querySelector<HTMLElement>(
+        '[data-reader-presentation-content="true"]'
+      );
+      if (!presentation || !content) {
+        if (now - clickedAt < 500) {
+          requestAnimationFrame(sample);
+        } else {
+          measuredWindow.__readerMidpoint = {
+            clickedAt,
+            sampledAt: now,
+            ready: true,
+          };
+        }
+        return;
+      }
+      const animations = presentation.getAnimations({ subtree: true });
+      for (const animation of animations) animation.pause();
+      measuredWindow.__readerMidpoint = {
+        clickedAt,
+        sampledAt: now,
+        contentOpacity: Number(getComputedStyle(content).opacity),
+        contentBackground: getComputedStyle(content).backgroundColor,
+        presentationBackground: getComputedStyle(presentation).backgroundColor,
+        readableLayers: document.querySelectorAll(
+          '[data-reader-content-ready="true"]'
+        ).length,
+        durations: animations.map((animation) =>
+          Number(animation.effect?.getTiming().duration ?? 0)
+        ),
+        spatialDurationMs: Number(
+          presentation.dataset.readerSpatialDurationMs ?? 0
+        ),
+        ready: true,
+      };
+    };
+    requestAnimationFrame(sample);
+  });
+  const presentation = page.locator('[data-reader-presented="true"]');
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const measuredWindow = window as typeof window & {
+          __readerMidpoint?: { ready: boolean };
+        };
+        return measuredWindow.__readerMidpoint?.ready ?? false;
+      })
+    )
+    .toBe(true);
+  await expect(presentation).toHaveAttribute(
+    "data-reader-transition-mode",
+    "shared"
+  );
+  await page.screenshot({ path: midpointPath, fullPage: false });
+  const midpoint = await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __readerMidpoint?: {
+        clickedAt: number;
+        sampledAt?: number;
+        contentOpacity?: number;
+        contentBackground?: string;
+        presentationBackground?: string;
+        readableLayers?: number;
+        durations?: number[];
+        spatialDurationMs?: number;
+      };
+    };
+    return measuredWindow.__readerMidpoint;
+  });
+  expect(midpoint?.sampledAt).toBeDefined();
+  expect((midpoint?.sampledAt ?? 0) - (midpoint?.clickedAt ?? 0)).toBeGreaterThanOrEqual(70);
+  expect((midpoint?.sampledAt ?? 0) - (midpoint?.clickedAt ?? 0)).toBeLessThan(110);
+  expect(midpoint?.spatialDurationMs).toBe(280);
+  expect(midpoint?.presentationBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(midpoint?.contentBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(midpoint?.readableLayers).toBe(1);
+
+  await expect(presentation.locator('[data-reader-content-ready="true"]')).toHaveCount(1);
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(1);
+  await presentation.evaluate((element) => {
+    for (const animation of element.getAnimations({ subtree: true })) {
+      animation.play();
+    }
+  });
+  await expect
+    .poll(() =>
+      presentation.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
+  await page.screenshot({ path: settledPath, fullPage: false });
+  const visualState = await presentation.evaluate((element) => {
+    const contentWrapper = element.querySelector<HTMLElement>(
+      '[data-reader-presentation-content="true"]'
+    );
+    if (!contentWrapper) throw new Error("Reader presentation content is missing");
+    const presentationStyle = getComputedStyle(element);
+    const contentStyle = getComputedStyle(contentWrapper);
+    return {
+      contentOpacity: Number(contentStyle.opacity),
+      presentationOpacity: Number(presentationStyle.opacity),
+      presentationBackground: presentationStyle.backgroundColor,
+      running: element
+        .getAnimations({ subtree: true })
+        .filter((animation) => animation.playState === "running").length,
+    };
+  });
+  expect(visualState).toMatchObject({
+    contentOpacity: 1,
+    presentationOpacity: 1,
+    running: 0,
+  });
+  expect(visualState.presentationBackground).not.toBe("rgba(0, 0, 0, 0)");
+  expect(midpoint?.contentOpacity).not.toBe(visualState.contentOpacity);
+  expect(readFileSync(midpointPath).equals(readFileSync(settledPath))).toBe(false);
+});
+
+test("reader presentation falls back safely when its cover origin is removed", async ({
+  page,
+}) => {
+  const origin = firstLibraryCover(page);
+  const originId = await origin.getAttribute("data-book-cover-origin");
+  if (!originId) throw new Error("Reader source origin is missing");
+  await origin.click();
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(1);
+  await page
+    .locator(`[data-book-cover-origin="${originId}"]`)
+    .evaluate((element) => element.remove());
+
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  if ((await menuToggle.getAttribute("aria-expanded")) !== "true") {
+    await menuToggle.click();
+  }
+  const exitEvidence = await page.locator('[data-reader-close="true"]').evaluate(
+    (button) =>
+      new Promise<{
+        durationMs: number[];
+        exitMode: string | undefined;
+        projectionActive: string | undefined;
+        spatialDurationMs: number;
+      }>((resolve, reject) => {
+        const presentation = document.querySelector<HTMLElement>(
+          '[data-reader-presented="true"]'
+        );
+        if (!presentation) {
+          reject(new Error("Reader presentation is missing before exit"));
+          return;
+        }
+        const captureExit = () => {
+          if (presentation.dataset.readerExitMode === "present") return false;
+          observer.disconnect();
+          window.clearTimeout(timeout);
+          requestAnimationFrame(() => {
+            resolve({
+              durationMs: presentation
+                .getAnimations({ subtree: true })
+                .map((animation) =>
+                  Number(animation.effect?.getTiming().duration ?? 0)
+                ),
+              exitMode: presentation.dataset.readerExitMode,
+              projectionActive: presentation.dataset.readerProjectionActive,
+              spatialDurationMs: Number(
+                presentation.dataset.readerSpatialDurationMs ?? 0
+              ),
+            });
+          });
+          return true;
+        };
+        const observer = new MutationObserver(captureExit);
+        const timeout = window.setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Reader exit state was not committed"));
+        }, 1_000);
+        observer.observe(presentation, {
+          attributes: true,
+          attributeFilter: [
+            "data-reader-exit-mode",
+            "data-reader-projection-active",
+          ],
+        });
+        (button as HTMLButtonElement).click();
+        captureExit();
+      })
+  );
+
+  expect(exitEvidence.exitMode).toBe("fallback");
+  expect(exitEvidence.projectionActive).toBe("false");
+  expect(exitEvidence.spatialDurationMs).toBe(210);
+  expect(exitEvidence.durationMs).toContain(210);
+
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+});
+
+test("reader presentation uses fallback geometry for an offscreen origin", async ({
+  page,
+}) => {
+  for (let index = 0; index < 8; index += 1) {
+    await importBook(page, `reader-fallback-${index}.txt`);
+  }
+  const origin = firstLibraryCover(page);
+  const openButton = origin.locator("xpath=ancestor::button[1]");
+  await page.locator(libraryRootSelector).evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect
+    .poll(() =>
+      origin.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.bottom <= 0 || rect.top >= window.innerHeight;
+      })
+    )
+    .toBe(true);
+
+  await openButton.evaluate((button) => (button as HTMLButtonElement).click());
+
+  await expect(page.locator('[data-reader-presented="true"]')).toHaveAttribute(
+    "data-reader-transition-mode",
+    "fallback"
+  );
+});
+
+test("reader presentation can close while TXT content is still preparing", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    const readText = Blob.prototype.text;
+    Blob.prototype.text = async function delayedText() {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      return readText.call(this);
+    };
+  });
+
+  await firstLibraryCover(page).click();
+  const presentation = page.locator('[data-reader-presented="true"]');
+  await expect(presentation.locator('[data-reader-content-ready="false"]')).toHaveCount(1);
+  await closeReaderWithControls(page);
+
+  await expect(presentation).toHaveCount(0);
+});
+
+test("reader presentation reduced motion uses one short crossfade", async ({
+  page,
+}) => {
+  await page.evaluate(() => {
+    const storageKey = "ai-reader-app-preferences";
+    const stored = localStorage.getItem(storageKey);
+    const preferences = stored ? JSON.parse(stored) : {};
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ ...preferences, reduceMotion: true })
+    );
+  });
+  await page.reload();
+  await expect(page.locator(libraryRootSelector)).toBeVisible();
+
+  await firstLibraryCover(page).click();
+  const presentation = page.locator('[data-reader-presented="true"]');
+  await expect(presentation).toHaveAttribute(
+    "data-reader-transition-mode",
+    /shared|fallback/
+  );
+  await page.waitForTimeout(110);
+  await expect
+    .poll(() =>
+      presentation.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
+});
+
+test("reader gesture ownership preserves TXT scroll selection and controls", async ({
+  page,
+}) => {
+  await openReader(page);
+  const stage = page.locator('[data-navigation-gesture-owner="reader"]');
+  const reader = page.locator('[data-txt-reader="true"]');
+  await expect(stage).toHaveCount(1);
+  await expect(reader).toBeVisible();
+
+  const scrollTop = await reader.evaluate((element) => {
+    element.scrollTop = Math.min(120, element.scrollHeight - element.clientHeight);
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return element.scrollTop;
+  });
+  expect(scrollTop).toBeGreaterThan(0);
+
+  const selectedText = await page.locator('[data-paragraph-index="0"]').evaluate(
+    (paragraph) => {
+      const textNode = document
+        .createTreeWalker(paragraph, NodeFilter.SHOW_TEXT)
+        .nextNode();
+      if (!textNode || !textNode.textContent) return "";
+      const range = document.createRange();
+      range.setStart(textNode, 0);
+      range.setEnd(textNode, Math.min(8, textNode.textContent.length));
+      const selection = window.getSelection();
+      selection?.removeAllRanges();
+      selection?.addRange(range);
+      return selection?.toString() ?? "";
+    }
+  );
+  expect(selectedText.length).toBeGreaterThan(0);
+
+  const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
+  await expect(menuToggle).toBeVisible();
+  await menuToggle.click();
+  await expect(menuToggle).toHaveAttribute("aria-expanded", "false");
+  await menuToggle.click();
+  await expect(page.locator('[data-reader-close="true"]')).toBeVisible();
+});
+
+test("reader gesture ownership keeps real EPUB swipes inside the reader", async ({
+  page,
+}) => {
+  const covers = page.locator(`${libraryRootSelector} [data-book-cover-origin]`);
+  const previousCount = await covers.count();
+  await page.locator('input[type="file"][accept*=".epub"]').setInputFiles({
+    name: "reader-gesture.epub",
+    mimeType: "application/epub+zip",
+    buffer: await buildReaderGestureEpub(),
+  });
+  await expect(covers).toHaveCount(previousCount + 1);
+  await firstLibraryCover(page).click();
+
+  const presentation = page.locator('[data-reader-presented="true"]');
+  const owner = presentation.locator('[data-navigation-gesture-owner="reader"]');
+  const frame = presentation.locator("iframe").first();
+  await expect(owner).toHaveCount(2);
+  await expect(frame).toBeVisible({ timeout: 20_000 });
+  const chrome = presentation.locator('[data-reader-chrome-controls="true"]');
+  await expect(chrome).toContainText(/\d+\/\d+/, { timeout: 30_000 });
+  const beforeLabel = await chrome.innerText();
+
+  await injectPush(page, "collections");
+  const frameBox = await frame.boundingBox();
+  if (!frameBox) throw new Error("EPUB frame geometry is missing");
+  await frame.evaluate((element) => {
+    const iframe = element as HTMLIFrameElement;
+    const doc = iframe.contentDocument;
+    const target = doc?.body;
+    if (!doc || !target) throw new Error("EPUB frame document is unavailable");
+    const makeTouch = (identifier: number, clientX: number, clientY: number) =>
+      new Touch({ identifier, target, clientX, clientY });
+    const y = Math.max(80, doc.documentElement.clientHeight * 0.5);
+    const startX = Math.max(260, doc.documentElement.clientWidth * 0.85);
+    const endX = Math.max(30, doc.documentElement.clientWidth * 0.15);
+    const start = makeTouch(1, startX, y);
+    target.dispatchEvent(
+      new TouchEvent("touchstart", {
+        bubbles: true,
+        cancelable: true,
+        touches: [start],
+        targetTouches: [start],
+        changedTouches: [start],
+      })
+    );
+    for (let index = 1; index <= 8; index += 1) {
+      const x = startX + ((endX - startX) * index) / 8;
+      const move = makeTouch(1, x, y);
+      target.dispatchEvent(
+        new TouchEvent("touchmove", {
+          bubbles: true,
+          cancelable: true,
+          touches: [move],
+          targetTouches: [move],
+          changedTouches: [move],
+        })
+      );
+    }
+    const end = makeTouch(1, endX, y);
+    target.dispatchEvent(
+      new TouchEvent("touchend", {
+        bubbles: true,
+        cancelable: true,
+        touches: [],
+        targetTouches: [],
+        changedTouches: [end],
+      })
+    );
+  });
+
+  await expect(presentation).toHaveCount(1);
+  await expect(page.locator('[data-push-route="collections"]')).toHaveCount(1);
+  await expect.poll(() => chrome.innerText(), { timeout: 20_000 }).not.toBe(beforeLabel);
+});
+
+test("nested sheet stack preserves one panel through history and visible back", async ({
+  page,
+}) => {
+  await useLibraryListMode(page);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+
+  const panel = page.locator('[data-motion-sheet="panel"]');
+  const backdrop = page.locator('[data-motion-sheet="backdrop"]');
+  await expect(panel).toHaveCount(1);
+  await expect(backdrop).toHaveCount(1);
+  await panel.evaluate((element) => {
+    (element as HTMLElement).dataset.e2eIdentity = "persistent-panel";
+  });
+  await backdrop.evaluate((element) => {
+    (element as HTMLElement).dataset.e2eIdentity = "persistent-backdrop";
+  });
+
+  await page.getByRole("button", { name: "重命名书籍" }).click();
+  await expect(page.locator('[data-sheet-route="book-rename"]')).toHaveCount(1);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
+  await expect(panel).toHaveAttribute("data-e2e-identity", "persistent-panel");
+  await expect(backdrop).toHaveAttribute("data-e2e-identity", "persistent-backdrop");
+  await expect(backdrop).not.toHaveCSS("opacity", "0");
+
+  await page.evaluate(() => window.history.back());
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(1);
+  await expect(panel).toHaveAttribute("data-e2e-identity", "persistent-panel");
+
+  await page.evaluate(() => window.history.back());
+  await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+
+  await page.getByRole("button", { name: "重命名书籍" }).click();
+  await page.getByRole("button", { name: "关闭" }).click();
+  await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(1);
+  await expect(panel).toHaveCount(1);
+  await expect(backdrop).toHaveCount(1);
+
+  await page.getByRole("button", { name: "重命名书籍" }).click();
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
+  await page.waitForTimeout(350);
+  const handle = page.locator('[data-sheet-drag-handle="true"]');
+  const handleBox = await handle.boundingBox();
+  const viewport = page.viewportSize();
+  if (!handleBox || !viewport) throw new Error("Nested sheet drag geometry is unavailable");
+  const x = handleBox.x + handleBox.width / 2;
+  const y = handleBox.y + handleBox.height / 2;
+  await dragTouch(page, { x, y }, { x, y: viewport.height - 4 }, 16);
+  await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(0);
+});
+
+test("invalid nested sheet removal removes its descendants without an empty frame", async ({
+  page,
+}) => {
+  await useLibraryListMode(page);
+  await page
+    .locator(`${libraryRootSelector} [data-library-book-more="true"]`)
+    .first()
+    .click();
+  await page.getByRole("button", { name: "删除这本书" }).click();
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(2);
+
+  await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __invalidSheetFrameAudit?: {
+        frames: Array<{ hasActivePage: boolean; activePageEmpty: boolean }>;
+        stop: () => Array<{ hasActivePage: boolean; activePageEmpty: boolean }>;
+      };
+    };
+    const frames: Array<{
+      hasActivePage: boolean;
+      activePageEmpty: boolean;
+    }> = [];
+    let animationFrame = 0;
+    const sample = () => {
+      const panel = document.querySelector('[data-motion-sheet="panel"]');
+      if (panel) {
+        const activePage = panel.querySelector(
+          '[data-sheet-page-active="true"]'
+        );
+        frames.push({
+          hasActivePage: Boolean(activePage),
+          activePageEmpty: activePage
+            ? activePage.childElementCount === 0 &&
+              !(activePage.textContent ?? "").trim()
+            : true,
+        });
+      }
+      animationFrame = requestAnimationFrame(sample);
+    };
+    animationFrame = requestAnimationFrame(sample);
+    measuredWindow.__invalidSheetFrameAudit = {
+      frames,
+      stop: () => {
+        cancelAnimationFrame(animationFrame);
+        return frames;
+      },
+    };
+  });
+
+  await page
+    .locator('[data-sheet-route="book-delete"]')
+    .getByRole("button", { name: "删除这本书", exact: true })
+    .click();
+  await expect(page.locator('[data-motion-sheet="panel"]')).toHaveCount(0);
+  await expect(page.locator("[data-sheet-page]")).toHaveCount(0);
+  await expect(page.locator("[data-sheet-route]")).toHaveCount(0);
+  const exitFrames = await page.evaluate(() => {
+    const measuredWindow = window as typeof window & {
+      __invalidSheetFrameAudit?: {
+        stop: () => Array<{
+          hasActivePage: boolean;
+          activePageEmpty: boolean;
+        }>;
+      };
+    };
+    return measuredWindow.__invalidSheetFrameAudit?.stop() ?? [];
+  });
+  expect(exitFrames.length).toBeGreaterThan(0);
+  expect(
+    exitFrames.every(
+      (frame) => frame.hasActivePage && !frame.activePageEmpty
+    )
+  ).toBe(true);
 });
 
 test("renames a book from its action sheet and validates blank titles", async ({
@@ -1521,6 +2264,17 @@ test("captures root, push, reader, and sheet transition evidence", async ({
   await page.waitForTimeout(80);
   await capture(page, testInfo, "push-mid");
   await page.waitForTimeout(420);
+  const settledPush = page.locator('[data-push-route="collections"]');
+  await expect(settledPush).toBeVisible();
+  await expect(settledPush.getByRole("heading", { name: "藏书" })).toBeVisible();
+  await expect
+    .poll(() =>
+      settledPush.evaluate((element) => {
+        const transform = getComputedStyle(element).transform;
+        return transform === "none" ? 0 : new DOMMatrixReadOnly(transform).m41;
+      })
+    )
+    .toBe(0);
   await capture(page, testInfo, "push-complete");
 
   await page.evaluate(() => window.history.back());
@@ -1551,93 +2305,17 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
     .first();
   await expect(more).toBeVisible();
   await page.waitForTimeout(600);
-
-  const metricsPromise = page.evaluate(async () => {
-    const intervals: number[] = [];
-    const longTasks: number[] = [];
-    let layoutShift = 0;
-    let clickAt: number | null = null;
-    let mountedAt: number | null = null;
-    let previous = performance.now();
-    const observers: PerformanceObserver[] = [];
-    const mutation = new MutationObserver(() => {
-      if (
-        mountedAt === null &&
-        document.querySelector(
-          '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]'
-        )
-      ) {
-        mountedAt = performance.now();
-      }
-    });
-    const clickListener = (event: MouseEvent) => {
-      if (
-        event.target instanceof Element &&
-        event.target.closest('[data-library-book-more="true"]')
-      ) {
-        clickAt = performance.now();
-      }
-    };
-    const handleEntries = (entries: PerformanceEntry[]) => {
-      for (const entry of entries) {
-        if (entry.entryType === "longtask") longTasks.push(entry.duration);
-        if (entry.entryType === "layout-shift") {
-          layoutShift += (entry as PerformanceEntry & { value: number }).value;
-        }
-      }
-    };
-    try {
-      for (const type of ["longtask", "layout-shift"] as const) {
-        if (!PerformanceObserver.supportedEntryTypes.includes(type)) {
-          throw new Error(
-            `Required PerformanceObserver entry type is unavailable: ${type}`
-          );
-        }
-      }
-
-      mutation.observe(document.body, { childList: true, subtree: true });
-      document.addEventListener("click", clickListener, true);
-      for (const type of ["longtask", "layout-shift"] as const) {
-        const observer = new PerformanceObserver((list) =>
-          handleEntries(list.getEntries())
-        );
-        observer.observe({ entryTypes: [type] });
-        observers.push(observer);
-      }
-
-      const startedAt = performance.now();
-      await new Promise<void>((resolve) => {
-        const sample = (now: number) => {
-          intervals.push(now - previous);
-          previous = now;
-          if (now - startedAt >= 800) {
-            resolve();
-            return;
-          }
-          requestAnimationFrame(sample);
-        };
-        requestAnimationFrame(sample);
-      });
-
-      for (const observer of observers) {
-        handleEntries(observer.takeRecords());
-      }
-      const sampledIntervals = intervals.slice(2);
-      const sorted = [...sampledIntervals].sort((a, b) => a - b);
-      return {
-        clickToMount:
-          clickAt === null || mountedAt === null ? null : mountedAt - clickAt,
-        frames: sampledIntervals.length,
-        p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-        maxFrame: Math.max(...sampledIntervals),
-        maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-        layoutShift,
-      };
-    } finally {
-      mutation.disconnect();
-      document.removeEventListener("click", clickListener, true);
-      for (const observer of observers) observer.disconnect();
-    }
+  const observerSupport = await page.evaluate(() => ({
+    longtask: PerformanceObserver.supportedEntryTypes.includes("longtask"),
+    layoutShift: PerformanceObserver.supportedEntryTypes.includes("layout-shift"),
+  }));
+  expect(observerSupport.longtask).toBe(true);
+  expect(observerSupport.layoutShift).toBe(true);
+  const metricsPromise = collectInteractionMetrics(page, {
+    durationMs: 800,
+    clickSelector: '[data-library-book-more="true"]',
+    mountSelector:
+      '[data-sheet-route="book-actions"] [data-motion-sheet="panel"]',
   });
 
   await page.waitForTimeout(40);
@@ -1653,21 +2331,15 @@ test("book action sheet entrance stays within mobile frame budgets", async ({
   await expect(panel).toHaveCSS("will-change", "transform");
   const metrics = await metricsPromise;
 
-  console.info(
-    `[book-sheet-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`
-  );
-  await testInfo.attach("book-sheet-performance.json", {
-    body: JSON.stringify({ project: testInfo.project.name, ...metrics }, null, 2),
-    contentType: "application/json",
-  });
+  await attachInteractionMetrics(testInfo, "book-sheet-performance", metrics);
 
   expect(metrics.clickToMount).not.toBeNull();
+  expect(metrics.clickToMount ?? -1).toBeGreaterThanOrEqual(0);
   expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(34);
   expect(metrics.frames).toBeGreaterThanOrEqual(40);
-  expect(metrics.p95).toBeLessThanOrEqual(20);
+  expect(metrics.p95Frame).toBeLessThanOrEqual(20);
   expect(metrics.maxFrame).toBeLessThanOrEqual(34);
-  expect(metrics.maxLongTask).toBe(0);
-  expect(metrics.layoutShift).toBe(0);
+  expectInteractionBudget(metrics, { requireMount: true });
 });
 
 test("book action sheet preserves light, sepia, dark, and system-dark materials", async ({
@@ -1741,70 +2413,15 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
   page,
 }, testInfo) => {
   await page.waitForTimeout(600);
-
-  const metricsPromise = page.evaluate(async () => {
-    const intervals: number[] = [];
-    const longTasks: number[] = [];
-    let layoutShift = 0;
-    let previous = performance.now();
-    const observers: PerformanceObserver[] = [];
-    const longTaskSupported =
-      PerformanceObserver.supportedEntryTypes.includes("longtask");
-    const layoutShiftSupported =
-      PerformanceObserver.supportedEntryTypes.includes("layout-shift");
-    const handleEntries = (entries: PerformanceEntryList) => {
-      for (const entry of entries) {
-        if (entry.entryType === "longtask") {
-          longTasks.push(entry.duration);
-        } else if (entry.entryType === "layout-shift") {
-          layoutShift += (entry as PerformanceEntry & { value: number }).value;
-        }
-      }
-    };
-
-    if (longTaskSupported) {
-      const observer = new PerformanceObserver((list) => {
-        handleEntries(list.getEntries());
-      });
-      observer.observe({ entryTypes: ["longtask"] });
-      observers.push(observer);
-    }
-    if (layoutShiftSupported) {
-      const observer = new PerformanceObserver((list) => {
-        handleEntries(list.getEntries());
-      });
-      observer.observe({ entryTypes: ["layout-shift"] });
-      observers.push(observer);
-    }
-
-    const startedAt = performance.now();
-    await new Promise<void>((resolve) => {
-      const sample = (now: number) => {
-        intervals.push(now - previous);
-        previous = now;
-        if (now - startedAt >= 700) {
-          resolve();
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    });
-
-    for (const observer of observers) {
-      handleEntries(observer.takeRecords());
-      observer.disconnect();
-    }
-    const sampledIntervals = intervals.slice(2);
-    const sorted = [...sampledIntervals].sort((a, b) => a - b);
-    return {
-      frames: sampledIntervals.length,
-      p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
-      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-      layoutShift,
-      longTaskSupported,
-      layoutShiftSupported,
-    };
+  const observerSupport = await page.evaluate(() => ({
+    longtask: PerformanceObserver.supportedEntryTypes.includes("longtask"),
+    layoutShift: PerformanceObserver.supportedEntryTypes.includes("layout-shift"),
+  }));
+  expect(observerSupport.longtask).toBe(true);
+  expect(observerSupport.layoutShift).toBe(true);
+  const metricsPromise = collectInteractionMetrics(page, {
+    durationMs: 700,
+    clickSelector: '[data-navigation-tab="reading"]',
   });
 
   await page.waitForTimeout(40);
@@ -1816,66 +2433,19 @@ test("root tab retargeting stays within frame and long-task budgets", async ({
     type: "root-tab-performance",
     description: JSON.stringify(metrics),
   });
-  console.info(
-    `[root-tab-performance] ${testInfo.project.name} ${JSON.stringify(metrics)}`
-  );
-  await testInfo.attach("root-tab-performance.json", {
-    body: JSON.stringify(
-      { project: testInfo.project.name, ...metrics },
-      null,
-      2
-    ),
-    contentType: "application/json",
-  });
+  await attachInteractionMetrics(testInfo, "root-tab-performance", metrics);
 
-  expect(metrics.frames).toBeGreaterThanOrEqual(32);
-  expect(metrics.p95).toBeLessThanOrEqual(20);
-  expect(metrics.longTaskSupported).toBe(true);
-  expect(metrics.layoutShiftSupported).toBe(true);
-  expect(metrics.maxLongTask).toBe(0);
-  expect(metrics.layoutShift).toBe(0);
+  expectInteractionBudget(metrics);
 });
 
 test("push transition meets mobile frame cadence and long-task budgets", async ({
   page,
-}) => {
+}, testInfo) => {
   await page.waitForTimeout(600);
-
-  const metricsPromise = page.evaluate(async () => {
-    const intervals: number[] = [];
-    const longTasks: number[] = [];
-    let previous = performance.now();
-    let observer: PerformanceObserver | undefined;
-
-    if (PerformanceObserver.supportedEntryTypes.includes("longtask")) {
-      observer = new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
-          longTasks.push(entry.duration);
-        }
-      });
-      observer.observe({ entryTypes: ["longtask"] });
-    }
-
-    const startedAt = performance.now();
-    await new Promise<void>((resolve) => {
-      const sample = (now: number) => {
-        intervals.push(now - previous);
-        previous = now;
-        if (now - startedAt >= 800) {
-          resolve();
-          return;
-        }
-        requestAnimationFrame(sample);
-      };
-      requestAnimationFrame(sample);
-    });
-
-    observer?.disconnect();
-    return {
-      frames: intervals.length,
-      maxInterval: Math.max(...intervals),
-      maxLongTask: longTasks.length > 0 ? Math.max(...longTasks) : 0,
-    };
+  const metricsPromise = collectInteractionMetrics(page, {
+    durationMs: 800,
+    clickSelector: libraryRootSelector,
+    mountSelector: '[data-push-route="collections"]',
   });
 
   await page.waitForTimeout(40);
@@ -1886,7 +2456,8 @@ test("push transition meets mobile frame cadence and long-task budgets", async (
     .click();
   const metrics = await metricsPromise;
 
-  expect(metrics.frames).toBeGreaterThanOrEqual(40);
-  expect(metrics.maxInterval).toBeLessThanOrEqual(80);
-  expect(metrics.maxLongTask).toBeLessThanOrEqual(100);
+  await attachInteractionMetrics(testInfo, "push-transition-performance", metrics);
+
+  expect(metrics.maxFrame).toBeLessThanOrEqual(80);
+  expectInteractionBudget(metrics, { requireMount: true });
 });

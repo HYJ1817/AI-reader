@@ -2,6 +2,7 @@ import type { NavigationTab } from "./navigationMotion";
 
 export type PushRoute =
   | "collections"
+  | "library-search"
   | "ai-providers"
   | "ai-provider-configure"
   | "custom-background";
@@ -65,6 +66,7 @@ export type AppNavigationAction =
   | { type: "present-sheet"; entry: SheetEntry }
   | { type: "replace-sheet"; entry: SheetEntry }
   | { type: "dismiss-sheet" }
+  | { type: "dismiss-sheet-stack" }
   | { type: "restore"; state: AppNavigationState }
   | { type: "remove-invalid"; key: string };
 
@@ -167,6 +169,9 @@ export function reduceAppNavigation(
         { sheets: state.sheets.slice(0, -1) },
         "backward"
       );
+    case "dismiss-sheet-stack":
+      if (state.sheets.length === 0) return state;
+      return next(state, { sheets: [] }, "backward");
     case "restore":
       return {
         ...action.state,
@@ -174,24 +179,37 @@ export function reduceAppNavigation(
         revision: state.revision + 1,
       };
     case "remove-invalid": {
-      const pushes = state.pushes.filter(
-        (entry) => entry.key !== action.key
+      const invalidPushIndex = state.pushes.findIndex(
+        (entry) => entry.key === action.key
       );
-      const reader =
-        state.reader?.key === action.key ? null : state.reader;
-      const sheets = state.sheets.filter(
-        (entry) => entry.key !== action.key
-      );
-
-      if (
-        pushes.length === state.pushes.length &&
-        reader === state.reader &&
-        sheets.length === state.sheets.length
-      ) {
-        return state;
+      if (invalidPushIndex !== -1) {
+        return next(
+          state,
+          {
+            pushes: state.pushes.slice(0, invalidPushIndex),
+            reader: null,
+            sheets: [],
+          },
+          "backward"
+        );
       }
 
-      return next(state, { pushes, reader, sheets }, "backward");
+      if (state.reader?.key === action.key) {
+        return next(state, { reader: null, sheets: [] }, "backward");
+      }
+
+      const invalidSheetIndex = state.sheets.findIndex(
+        (entry) => entry.key === action.key
+      );
+      if (invalidSheetIndex !== -1) {
+        return next(
+          state,
+          { sheets: state.sheets.slice(0, invalidSheetIndex) },
+          "backward"
+        );
+      }
+
+      return state;
     }
   }
 }

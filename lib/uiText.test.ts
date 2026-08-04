@@ -45,6 +45,12 @@ describe("UI_TEXT", () => {
     expect(UI_TEXT.ASK_AI).toBe("\u95ee AI");
   });
 
+  it("labels the explicit workspace return control", () => {
+    expect(UI_TEXT.WORKSPACE_RETURN_TO_LATEST).toBe(
+      "\u56de\u5230\u6700\u65b0\u6d88\u606f"
+    );
+  });
+
   it("contains Chinese characters for SAVE", () => {
     expect(UI_TEXT.SAVE).toBe("\u4fdd\u5b58");
   });

@@ -197,18 +197,22 @@ test("search and editing restore the complete working shelf", async ({
     `${libraryRoot} [data-library-featured="true"]`
   );
   const shelf = page.locator(`${libraryRoot} [data-library-shelf="true"]`);
-  const search = page.getByRole("searchbox", { name: "搜索" });
 
   await expect(featured).toBeVisible();
+  await page.getByRole("button", { name: "搜索书库" }).click();
+  const searchSurface = page.locator('[data-library-search-surface="true"]');
+  const search = page.getByRole("searchbox", { name: "搜索书库" });
+  await expect(searchSurface).toBeVisible();
   await search.fill("library book first sample");
-  await expect(featured).toHaveCount(0);
-  const matchingBook = shelf.locator("[data-book-id]");
+  const matchingBook = searchSurface.locator("[data-book-id]");
   await expect(matchingBook).toHaveCount(1);
   await expect(
     matchingBook.locator("xpath=ancestor::button[1]")
   ).toHaveAccessibleName(/library book first sample/);
 
   await search.fill("");
+  await expect(searchSurface.locator("[data-book-id]")).toHaveCount(2);
+  await page.getByRole("button", { name: "返回" }).click();
   await expect(featured).toBeVisible();
   await expect(shelf.locator("[data-book-id]")).toHaveCount(1);
 

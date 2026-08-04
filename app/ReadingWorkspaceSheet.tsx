@@ -1,14 +1,24 @@
 "use client";
 
-import { useState, type ComponentProps } from "react";
+import { AnimatePresence, m } from "motion/react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import type { BookMetadata } from "@/lib/db";
+import { getRoleTransition } from "@/lib/motionSystem";
 import type {
   ReadingWorkspaceRecord,
   WorkspaceMessageRecord,
   WorkspaceSessionRecord,
 } from "@/lib/readingWorkspace";
 import { UI_TEXT } from "@/lib/uiText";
-import BottomSheet from "./BottomSheet";
+import { useAppReducedMotion } from "./AppMotionRoot";
+import BottomSheet, { type CloseSheet } from "./BottomSheet";
+import { MoreHorizontalIcon } from "./UiGlyphs";
 import WorkspaceConversation from "./WorkspaceConversation";
 import WorkspaceMaterials from "./WorkspaceMaterials";
 import styles from "./page.module.css";
@@ -33,7 +43,29 @@ export type ReadingWorkspaceSheetProps = {
   materials: ComponentProps<typeof WorkspaceMaterials>;
 };
 
+export type ReadingWorkspacePageProps = Omit<
+  ReadingWorkspaceSheetProps,
+  "onClose"
+> & {
+  close: CloseSheet;
+};
+
 export default function ReadingWorkspaceSheet({
+  onClose,
+  ...pageProps
+}: ReadingWorkspaceSheetProps) {
+  return (
+    <BottomSheet
+      onClose={onClose}
+      ariaLabel={`${UI_TEXT.READING_WORKSPACE} · ${pageProps.book.title}`}
+      className={styles.readingWorkspaceSheet}
+    >
+      {(close) => <ReadingWorkspacePage {...pageProps} close={close} />}
+    </BottomSheet>
+  );
+}
+
+export function ReadingWorkspacePage({
   book,
   workspace,
   sessions,
@@ -45,23 +77,61 @@ export default function ReadingWorkspaceSheet({
   onNewSession,
   canCompactConversation,
   onCompactConversation,
-  onClose,
+  close,
   conversation,
   materials,
-}: ReadingWorkspaceSheetProps) {
+}: ReadingWorkspacePageProps) {
+  const reduceMotion = useAppReducedMotion();
   const [view, setView] = useState<"conversation" | "materials">(
     "conversation"
   );
+  const [direction, setDirection] = useState(1);
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false);
+  const sessionMenuHostRef = useRef<HTMLDivElement>(null);
+  const sessionMenuTriggerRef = useRef<HTMLButtonElement>(null);
+
+  const closeSessionMenu = useCallback((returnFocus = true) => {
+    setSessionMenuOpen(false);
+    if (!returnFocus) return;
+    window.requestAnimationFrame(() =>
+      sessionMenuTriggerRef.current?.focus({ preventScroll: true })
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!sessionMenuOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeSessionMenu();
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (
+        event.type === "pointerdown" &&
+        !sessionMenuHostRef.current?.contains(event.target as Node)
+      ) {
+        closeSessionMenu();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [closeSessionMenu, sessionMenuOpen]);
+
+  const selectView = (nextView: "conversation" | "materials") => {
+    if (nextView === view) return;
+    setDirection(nextView === "materials" ? 1 : -1);
+    setSessionMenuOpen(false);
+    setView(nextView);
+  };
 
   return (
-    <BottomSheet
-      onClose={onClose}
-      ariaLabel={`${UI_TEXT.READING_WORKSPACE} · ${book.title}`}
-      className={styles.readingWorkspaceSheet}
-    >
-      {(close) => (
-        <div
+    <div
           className={styles.workspaceShell}
           data-workspace-id={workspace?.id ?? undefined}
         >
@@ -72,18 +142,51 @@ export default function ReadingWorkspaceSheet({
             </div>
             <div className={styles.workspaceHeaderActions}>
               {view === "conversation" ? (
-                <div className={styles.workspaceSessionMenuHost}>
+                <div
+                  ref={sessionMenuHostRef}
+                  className={styles.workspaceSessionMenuHost}
+                >
                   <button
+                    ref={sessionMenuTriggerRef}
                     type="button"
                     className={styles.workspaceHeaderButton}
                     aria-label={UI_TEXT.WORKSPACE_SESSIONS}
                     aria-expanded={sessionMenuOpen}
                     onClick={() => setSessionMenuOpen((current) => !current)}
                   >
-                    •••
+                    <MoreHorizontalIcon />
                   </button>
+                  <AnimatePresence initial={false}>
                   {sessionMenuOpen ? (
-                    <div className={styles.workspaceSessionMenu} role="menu">
+                    <m.div
+                      className={styles.workspaceSessionMenu}
+                      role="menu"
+                      data-motion-role="popover"
+                      style={{ transformOrigin: "100% 0%" }}
+                      initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+                      animate={
+                        reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }
+                      }
+                      exit={
+                        reduceMotion
+                          ? {
+                              opacity: 0,
+                              transition: getRoleTransition(
+                                "popover-exit",
+                                reduceMotion
+                              ),
+                            }
+                          : {
+                              opacity: 0,
+                              scale: 0.96,
+                              transition: getRoleTransition(
+                                "popover-exit",
+                                reduceMotion
+                              ),
+                            }
+                      }
+                      transition={getRoleTransition("popover-enter", reduceMotion)}
+                    >
                       {sessions.map((session) => (
                         <button
                           key={session.id}
@@ -92,7 +195,7 @@ export default function ReadingWorkspaceSheet({
                           aria-checked={session.id === activeSessionId}
                           onClick={() => {
                             onSelectSession(session.id);
-                            setSessionMenuOpen(false);
+                            closeSessionMenu();
                           }}
                         >
                           {session.title}
@@ -105,7 +208,7 @@ export default function ReadingWorkspaceSheet({
                         onClick={() => {
                           if (!workspace) return;
                           onNewSession();
-                          setSessionMenuOpen(false);
+                          closeSessionMenu();
                         }}
                       >
                         {UI_TEXT.WORKSPACE_NEW_SESSION}
@@ -116,15 +219,16 @@ export default function ReadingWorkspaceSheet({
                           role="menuitem"
                           disabled={loading}
                           onClick={() => {
-                            setSessionMenuOpen(false);
+                            closeSessionMenu();
                             void onCompactConversation();
                           }}
                         >
                           {UI_TEXT.COMPACT_EARLY_CONVERSATION}
                         </button>
                       ) : null}
-                    </div>
+                    </m.div>
                   ) : null}
+                  </AnimatePresence>
                 </div>
               ) : null}
               <button
@@ -145,9 +249,17 @@ export default function ReadingWorkspaceSheet({
               role="tab"
               aria-selected={view === "conversation"}
               aria-controls="workspace-conversation-panel"
-              onClick={() => setView("conversation")}
+              onClick={() => selectView("conversation")}
             >
-              {UI_TEXT.WORKSPACE_CONVERSATION}
+              {view === "conversation" ? (
+                <m.span
+                  aria-hidden="true"
+                  className={styles.workspaceSegmentIndicator}
+                  layoutId="workspace-segment-indicator"
+                  transition={getRoleTransition("state-enter", reduceMotion)}
+                />
+              ) : null}
+              <span>{UI_TEXT.WORKSPACE_CONVERSATION}</span>
             </button>
             <button
               type="button"
@@ -156,44 +268,115 @@ export default function ReadingWorkspaceSheet({
               role="tab"
               aria-selected={view === "materials"}
               aria-controls="workspace-materials-panel"
-              onClick={() => setView("materials")}
+              onClick={() => selectView("materials")}
             >
-              {UI_TEXT.WORKSPACE_MATERIALS}
+              {view === "materials" ? (
+                <m.span
+                  aria-hidden="true"
+                  className={styles.workspaceSegmentIndicator}
+                  layoutId="workspace-segment-indicator"
+                  transition={getRoleTransition("state-enter", reduceMotion)}
+                />
+              ) : null}
+              <span>{UI_TEXT.WORKSPACE_MATERIALS}</span>
             </button>
           </div>
 
-          <div className={styles.workspaceViewport}>
+          <div
+            className={styles.workspaceViewport}
+            data-layout-shift-contained="true"
+          >
+            <AnimatePresence initial={false} mode="sync">
             {loading ? (
-              <div className={styles.workspaceStatus}>{UI_TEXT.LOADING}</div>
+              <m.div
+                key="loading"
+                className={`${styles.workspaceStatus} ${styles.workspaceStatusRegion}`}
+                data-motion-role="inline-status"
+                role="status"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  transition: getRoleTransition("state-exit", reduceMotion),
+                }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
+              >
+                {UI_TEXT.LOADING}
+              </m.div>
             ) : error ? (
-              <div className={styles.workspaceStatus} role="alert">
+              <m.div
+                key="error"
+                className={`${styles.workspaceStatus} ${styles.workspaceStatusRegion}`}
+                data-motion-role="inline-status"
+                role="alert"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  transition: getRoleTransition("state-exit", reduceMotion),
+                }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
+              >
                 {error}
-              </div>
+              </m.div>
             ) : view === "conversation" ? (
-              <div
+              <m.div
+                key="conversation"
                 id="workspace-conversation-panel"
                 role="tabpanel"
                 aria-labelledby="workspace-conversation-tab"
                 className={styles.workspacePanel}
+                data-motion-role="inline-state"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 10 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                exit={
+                  reduceMotion
+                    ? {
+                        opacity: 0,
+                        transition: getRoleTransition("state-exit", reduceMotion),
+                      }
+                    : {
+                        opacity: 0,
+                        x: direction * -10,
+                        transition: getRoleTransition("state-exit", reduceMotion),
+                      }
+                }
+                transition={getRoleTransition("state-enter", reduceMotion)}
               >
                 <WorkspaceConversation
                   {...conversation}
                   messages={messages}
                 />
-              </div>
+              </m.div>
             ) : (
-              <div
+              <m.div
+                key="materials"
                 id="workspace-materials-panel"
                 role="tabpanel"
                 aria-labelledby="workspace-materials-tab"
                 className={styles.workspacePanel}
+                data-motion-role="inline-state"
+                initial={reduceMotion ? { opacity: 0 } : { opacity: 0, x: direction * 10 }}
+                animate={reduceMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+                exit={
+                  reduceMotion
+                    ? {
+                        opacity: 0,
+                        transition: getRoleTransition("state-exit", reduceMotion),
+                      }
+                    : {
+                        opacity: 0,
+                        x: direction * -10,
+                        transition: getRoleTransition("state-exit", reduceMotion),
+                      }
+                }
+                transition={getRoleTransition("state-enter", reduceMotion)}
               >
                 <WorkspaceMaterials {...materials} />
-              </div>
+              </m.div>
             )}
+            </AnimatePresence>
           </div>
-        </div>
-      )}
-    </BottomSheet>
+    </div>
   );
 }

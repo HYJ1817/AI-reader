@@ -2,8 +2,15 @@ export function canSheetClaimGesture(input: {
   fromHeader: boolean;
   scrollTop: number;
   deltaY: number;
+  interactiveTarget: boolean;
+  keyboardVisible: boolean;
 }): boolean {
-  return input.deltaY > 0 && (input.fromHeader || input.scrollTop <= 0);
+  return (
+    !input.interactiveTarget &&
+    !input.keyboardVisible &&
+    input.deltaY > 0 &&
+    (input.fromHeader || input.scrollTop <= 0)
+  );
 }
 
 export function shouldCompleteSheetDismiss(

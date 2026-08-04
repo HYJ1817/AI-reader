@@ -29,6 +29,10 @@ const askHookSource = readFileSync(
   new URL("../app/useWorkspaceChat.ts", import.meta.url),
   "utf8"
 );
+const viewportFollowHookSource = readFileSync(
+  new URL("../app/useWorkspaceViewportFollow.ts", import.meta.url),
+  "utf8"
+);
 const cssSource = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -71,18 +75,27 @@ describe("Ask AI reader context integration", () => {
     expect(workspaceConversationSource).not.toContain("bookTitle");
     expect(messagesIndex).toBeGreaterThanOrEqual(0);
     expect(inputIndex).toBeGreaterThan(messagesIndex);
-    expect(overlaysSource).toContain("className={styles.askBottomSheet}");
+    expect(overlaysSource).toContain(
+      '"ask-ai": {'
+    );
+    expect(overlaysSource).toContain("className: styles.askBottomSheet");
     expect(cssSource).toContain(".askBottomSheet .sheetBody");
-    expect(cssSource).toContain(".workspaceConversationThread");
-    expect(cssSource).toContain("overflow-y: auto");
+    const threadRuleStart = cssSource.indexOf(".workspaceConversationThread {");
+    const threadRuleEnd = cssSource.indexOf("}", threadRuleStart);
+    const threadRule = cssSource.slice(threadRuleStart, threadRuleEnd);
+    expect(threadRuleStart).toBeGreaterThanOrEqual(0);
+    expect(threadRule).toContain("overflow-y: auto");
+    expect(threadRule).toContain("overflow-anchor: none");
     expect(cssSource).toContain(".workspaceComposer");
     expect(cssSource).toContain("flex-shrink: 0");
+    expect(cssSource).toContain("--sheet-page-viewport-flex: 1");
+    expect(cssSource).toContain("height: var(--sheet-page-viewport-height) !important");
   });
 
   it("opens Ask AI through the navigation sheet route", () => {
     expect(pageSource).toContain('navigation.presentSheet("ask-ai")');
     expect(overlaysSource).toContain('case "ask-ai"');
-    expect(overlaysSource).toContain("onClose={navigation.dismissSheet}");
+    expect(overlaysSource).toContain("close={closePage}");
     expect(pageSource).not.toContain("setAskSheetOpen");
   });
 
@@ -90,7 +103,9 @@ describe("Ask AI reader context integration", () => {
     expect(overlaysSource).toContain("reader.bookId");
     expect(overlaysSource).toContain("UI_TEXT.READING_WORKSPACE");
     expect(overlaysSource).toContain("openReadingWorkspace(bookId)");
-    expect(overlaysSource).toContain("close(() =>");
+    expect(pageSource).toContain(
+      'navigation.replaceSheet("reading-workspace", { entityId: bookId })'
+    );
   });
 
   it("clears submitted input and sends prior messages plus current reader text", () => {
@@ -101,13 +116,63 @@ describe("Ask AI reader context integration", () => {
     expect(askHookSource).toContain("question: trimmedQuestion");
   });
 
-  it("aborts stale requests and scrolls new conversation content into view", () => {
+  it("aborts stale requests and follows conversation content without stealing user scroll", () => {
     expect(askHookSource).toContain("new AbortController()");
     expect(askHookSource).toContain("requestControllerRef.current?.abort()");
     expect(askHookSource).toContain("signal: controller.signal");
-    expect(workspaceConversationSource).toContain(
+    expect(workspaceConversationSource).toContain("useWorkspaceViewportFollow");
+    expect(workspaceConversationSource).toContain("contentRevision");
+    expect(workspaceConversationSource).toContain("onPointerDown={onUserInteractionStart}");
+    expect(workspaceConversationSource).toContain("onPointerUp={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onPointerCancel={onUserInteractionCancel}");
+    expect(workspaceConversationSource).toContain("onTouchStart={onUserInteractionStart}");
+    expect(workspaceConversationSource).toContain("onTouchEnd={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onTouchCancel={onUserInteractionEnd}");
+    expect(workspaceConversationSource).toContain("onWheel={onWheel}");
+    expect(workspaceConversationSource).not.toContain(
       "thread.scrollTop = thread.scrollHeight"
     );
+    expect(viewportFollowHookSource).toContain("activeAnimationRef.current?.stop()");
+    expect(viewportFollowHookSource).toContain("MOTION_DURATION.pushExit");
+    expect(viewportFollowHookSource).toContain("MOTION_EASE.enter");
+    expect(viewportFollowHookSource).toContain("isThreadActuallyVisible");
+    expect(viewportFollowHookSource).toContain("new MutationObserver");
+    expect(viewportFollowHookSource).toContain("preservingPrependRef.current");
+    expect(viewportFollowHookSource).toContain("findVisiblePrependAnchor");
+    expect(viewportFollowHookSource).toContain("waitForWorkspacePrependCommit");
+    expect(viewportFollowHookSource).toContain("prependCommitControllerRef");
+    expect(viewportFollowHookSource).toContain("controller.abort()");
+    expect(viewportFollowHookSource).toContain("thread.isConnected");
+    expect(viewportFollowHookSource).toContain("previousMessageCount");
+    expect(viewportFollowHookSource).toContain("childList: true");
+    expect(viewportFollowHookSource).toContain("subtree: true");
+    expect(viewportFollowHookSource).toContain("interactionGenerationRef");
+    expect(
+      viewportFollowHookSource.match(
+        /interactionGenerationRef\.current \+= 1/g
+      )
+    ).toHaveLength(1);
+    expect(viewportFollowHookSource).toContain("returnLayoutFrameRef");
+  });
+
+  it("publishes stream frames as transitions and serializes checkpoint persistence", () => {
+    expect(askHookSource).toContain("startTransition(() =>");
+    expect(askHookSource).toContain("WorkspacePersistenceCoordinator");
+    expect(askHookSource).toContain("enqueueCheckpoint");
+    expect(askHookSource).toContain("commitOwned");
+    expect(askHookSource).toContain("cancel(async () =>");
+    expect(askHookSource).toContain("await previousWorkspacePersistence");
+  });
+
+  it("keeps the return control in layout instead of overlaying workspace actions", () => {
+    const start = cssSource.indexOf(".workspaceReturnToLatest {");
+    const end = cssSource.indexOf("}", start);
+    const rule = cssSource.slice(start, end);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(rule).toContain("align-self: center");
+    expect(rule).toContain("flex-shrink: 0");
+    expect(rule).not.toContain("position: absolute");
+    expect(rule).not.toContain("bottom:");
   });
 
   it("collects visible TXT and EPUB text for AI context", () => {

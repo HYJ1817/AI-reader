@@ -20,6 +20,11 @@ type Props = {
   onClose: () => void;
 };
 
+export type ReadingGoalPageProps = Omit<Props, "onClose"> & {
+  close: CloseSheet;
+  closeButtonRef?: RefObject<HTMLButtonElement | null>;
+};
+
 export default function ReadingGoalSheet(props: Props) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -34,14 +39,14 @@ export default function ReadingGoalSheet(props: Props) {
       showGrabber={false}
       initialFocusRef={closeButtonRef}
     >
-      {(closeSheet) => (
-        <ReadingGoalContent
+      {(close) => (
+        <ReadingGoalPage
           todayMinutes={props.todayMinutes}
           targetMinutes={props.targetMinutes}
           goalInputValue={props.goalInputValue}
           onGoalInputChange={props.onGoalInputChange}
           onSaveGoal={props.onSaveGoal}
-          closeSheet={closeSheet}
+          close={close}
           closeButtonRef={closeButtonRef}
         />
       )}
@@ -49,18 +54,17 @@ export default function ReadingGoalSheet(props: Props) {
   );
 }
 
-function ReadingGoalContent({
+export function ReadingGoalPage({
   todayMinutes,
   targetMinutes,
   goalInputValue,
   onGoalInputChange,
   onSaveGoal,
-  closeSheet,
+  close,
   closeButtonRef,
-}: Omit<Props, "onClose"> & {
-  closeSheet: CloseSheet;
-  closeButtonRef: RefObject<HTMLButtonElement | null>;
-}) {
+}: ReadingGoalPageProps) {
+  const localCloseButtonRef = useRef<HTMLButtonElement>(null);
+  const resolvedCloseButtonRef = closeButtonRef ?? localCloseButtonRef;
   const [editingTarget, setEditingTarget] = useState(false);
   const progressPercent = useMemo(
     () => getReadingGoalArcPercent(todayMinutes, targetMinutes),
@@ -89,11 +93,12 @@ function ReadingGoalContent({
     <div className={styles.goalOverlay}>
       <div className={styles.goalScreen}>
         <button
-          ref={closeButtonRef}
+          ref={resolvedCloseButtonRef}
           className={styles.goalCloseButton}
-          onClick={() => closeSheet()}
+          onClick={() => close()}
           title={UI_TEXT.CLOSE}
           aria-label={UI_TEXT.CLOSE}
+          data-sheet-autofocus="true"
         >
           <svg
             width="22"
@@ -162,9 +167,7 @@ function ReadingGoalContent({
                 : `还需 ${display.remainingMinutes} 分钟`}
             </p>
             <p className={styles.goalStatus}>
-              {display.completed
-                ? "继续保持阅读节奏"
-                : "你正朝着每日目标奋进"}
+              今日已阅读 {todayMinutes} 分钟
             </p>
           </div>
         </div>

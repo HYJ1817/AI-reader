@@ -22,10 +22,20 @@ describe("sheet navigation isolation", () => {
 
   it("subscribes AppOverlays directly to sheet navigation", () => {
     expect(overlaysSource).toMatch(
-      /import \{[^}]*useNavigationSheets[^}]*\} from "@\/app\/NavigationProvider"/s
+      /import \{[^}]*useNavigationState[^}]*\} from "@\/app\/NavigationProvider"/s
     );
-    expect(overlaysSource).toContain("const sheets = useNavigationSheets()");
-    expect(overlaysSource).toContain("const sheet = sheets.at(-1)");
+    expect(overlaysSource).toContain("const navigationState = useNavigationState()");
+    expect(overlaysSource).toContain("const [visualEntries");
+    expect(overlaysSource).toContain("navigationState.sheets.length > 0");
+    expect(overlaysSource).toContain("navigation.dismissSheetStack");
+    expect(overlaysSource).toContain("navigation.dismissSheet");
+  });
+
+  it("validates every book-backed sheet entry and removes the first invalid branch", () => {
+    expect(overlaysSource).toContain("renderedEntries.find(");
+    expect(overlaysSource).toContain("BOOK_ROUTES.has(entry.route)");
+    expect(overlaysSource).toContain("navigation.removeInvalid(invalidEntry.key)");
+    expect(overlaysSource).not.toContain("BOOK_ROUTES.has(sheet.route)");
   });
 
   it("isolates pending reader and settings navigation in a sheet subscriber", () => {

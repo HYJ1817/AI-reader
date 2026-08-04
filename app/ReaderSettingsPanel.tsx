@@ -1,6 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getRoleTransition } from "@/lib/motionSystem";
 import type { ReaderMode } from "@/lib/readerMode";
 import {
   updateReaderPreferenceDraft,
@@ -8,7 +10,8 @@ import {
   type ReaderTheme,
 } from "@/lib/readerPreferences";
 import { UI_TEXT } from "@/lib/uiText";
-import BottomSheet from "./BottomSheet";
+import { useAppReducedMotion } from "./AppMotionRoot";
+import BottomSheet, { type CloseSheet } from "./BottomSheet";
 import styles from "./page.module.css";
 
 type Props = {
@@ -44,17 +47,89 @@ const FONT_MAX = 28;
 const FONT_STEP = 2;
 const FONT_SCALE_DOTS = Math.round((FONT_MAX - FONT_MIN) / FONT_STEP) + 1;
 
-export default function ReaderSettingsPanel({
+export type ReaderSettingsPageProps = Omit<Props, "onClose"> & {
+  close: CloseSheet;
+};
+
+export default function ReaderSettingsPanel(props: Props) {
+  return (
+    <BottomSheet
+      onClose={props.onClose}
+      ariaLabel="主题与设置"
+      className={styles.readerSettingsSheet}
+    >
+      {(close) => (
+        <ReaderSettingsPage
+          preferences={props.preferences}
+          mode={props.mode}
+          onChange={props.onChange}
+          onModeChange={props.onModeChange}
+          onOpenCustomSettings={props.onOpenCustomSettings}
+          close={close}
+        />
+      )}
+    </BottomSheet>
+  );
+}
+
+export function ReaderSettingsPage({
   preferences,
   mode,
   onChange,
   onModeChange,
   onOpenCustomSettings,
-  onClose,
-}: Props) {
+  close,
+}: ReaderSettingsPageProps) {
+  const reduceMotion = useAppReducedMotion();
   const [draft, setDraft] = useState(preferences);
   const [openMenu, setOpenMenu] = useState<ReaderSettingsMenu | null>(null);
   const draftRef = useRef(preferences);
+  const modeMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const themeMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+
+  const closeReaderMenu = useCallback(
+    (menu: ReaderSettingsMenu | null = openMenu, returnFocus = true) => {
+      setOpenMenu(null);
+      if (!menu || !returnFocus) return;
+      window.requestAnimationFrame(() => {
+        const trigger =
+          menu === "mode"
+            ? modeMenuTriggerRef.current
+            : themeMenuTriggerRef.current;
+        trigger?.focus({ preventScroll: true });
+      });
+    },
+    [openMenu]
+  );
+
+  useEffect(() => {
+    if (!openMenu) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeReaderMenu(openMenu);
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (
+        event.type === "pointerdown" &&
+        !popoverRef.current?.contains(target) &&
+        !modeMenuTriggerRef.current?.contains(target) &&
+        !themeMenuTriggerRef.current?.contains(target)
+      ) {
+        closeReaderMenu(openMenu);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [closeReaderMenu, openMenu]);
 
   function updateImmediately<K extends keyof ReaderPreferences>(
     key: K,
@@ -81,13 +156,6 @@ export default function ReaderSettingsPanel({
 
   return (
     <>
-      <BottomSheet
-        onClose={onClose}
-        ariaLabel="主题与设置"
-        className={styles.readerSettingsSheet}
-      >
-        {(close) => (
-          <>
             <div className={styles.readerSettingsHeader}>
               <h2>主题与设置</h2>
               <button onClick={() => close()} title={UI_TEXT.CLOSE} aria-label={UI_TEXT.CLOSE}>
@@ -118,6 +186,7 @@ export default function ReaderSettingsPanel({
                 </div>
                 <div className={styles.readerModeSegment}>
                   <button
+                    ref={modeMenuTriggerRef}
                     type="button"
                     className={openMenu === "mode" ? styles.readerModeSegmentActive : ""}
                     onClick={() => setOpenMenu(openMenu === "mode" ? null : "mode")}
@@ -133,6 +202,7 @@ export default function ReaderSettingsPanel({
                     </span>
                   </button>
                   <button
+                    ref={themeMenuTriggerRef}
                     type="button"
                     className={openMenu === "theme" ? styles.readerModeSegmentActive : ""}
                     onClick={() => setOpenMenu(openMenu === "theme" ? null : "theme")}
@@ -150,8 +220,24 @@ export default function ReaderSettingsPanel({
                 </div>
               </div>
 
+              <AnimatePresence initial={false}>
               {openMenu === "mode" && (
-                <div className={styles.readerSettingsPopover} data-menu="mode">
+                <m.div
+                  ref={popoverRef}
+                  className={styles.readerSettingsPopover}
+                  data-menu="mode"
+                  data-motion-role="popover"
+                  role="menu"
+                  style={{ transformOrigin: "100% 0%" }}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    scale: reduceMotion ? 1 : 0.96,
+                    transition: getRoleTransition("popover-exit", reduceMotion),
+                  }}
+                  transition={getRoleTransition("popover-enter", reduceMotion)}
+                >
                   {READER_MODE_MENU_OPTIONS.map((item) => (
                     <button
                       key={item.value}
@@ -159,7 +245,7 @@ export default function ReaderSettingsPanel({
                       className={styles.readerSettingsPopoverRow}
                       onClick={() => {
                         onModeChange(item.value);
-                        setOpenMenu(null);
+                        closeReaderMenu("mode");
                       }}
                     >
                       <span className={styles.readerSettingsPopoverCheck}>
@@ -181,11 +267,26 @@ export default function ReaderSettingsPanel({
                       <span>{item.label}</span>
                     </button>
                   ))}
-                </div>
+                </m.div>
               )}
 
               {openMenu === "theme" && (
-                <div className={styles.readerSettingsPopover} data-menu="theme">
+                <m.div
+                  ref={popoverRef}
+                  className={styles.readerSettingsPopover}
+                  data-menu="theme"
+                  data-motion-role="popover"
+                  role="menu"
+                  style={{ transformOrigin: "100% 0%" }}
+                  initial={reduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+                  animate={reduceMotion ? { opacity: 1 } : { opacity: 1, scale: 1 }}
+                  exit={{
+                    opacity: 0,
+                    scale: reduceMotion ? 1 : 0.96,
+                    transition: getRoleTransition("popover-exit", reduceMotion),
+                  }}
+                  transition={getRoleTransition("popover-enter", reduceMotion)}
+                >
                   {READER_THEME_MENU_OPTIONS.map((item) => (
                     <button
                       key={item.value}
@@ -193,7 +294,7 @@ export default function ReaderSettingsPanel({
                       className={styles.readerSettingsPopoverRow}
                       onClick={() => {
                         updateImmediately("theme", item.value);
-                        setOpenMenu(null);
+                        closeReaderMenu("theme");
                       }}
                     >
                       <span className={styles.readerSettingsPopoverCheck}>
@@ -228,8 +329,9 @@ export default function ReaderSettingsPanel({
                       <span>{item.label}</span>
                     </button>
                   ))}
-                </div>
+                </m.div>
               )}
+              </AnimatePresence>
 
               <div className={styles.readerFontScale} aria-hidden="true">
                 {Array.from({ length: FONT_SCALE_DOTS }, (_, index) => (
@@ -270,6 +372,7 @@ export default function ReaderSettingsPanel({
               <button
                 className={styles.readerCustomEntryButton}
                 onClick={onOpenCustomSettings}
+                data-sheet-return-focus="reader-custom-settings"
               >
                 <span className={styles.readerCustomGearIcon} aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -284,9 +387,6 @@ export default function ReaderSettingsPanel({
                 自定义
               </button>
             </div>
-          </>
-        )}
-      </BottomSheet>
     </>
   );
 }

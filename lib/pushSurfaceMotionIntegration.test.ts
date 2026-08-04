@@ -5,6 +5,10 @@ const navigationSource = readFileSync(
   new URL("../app/NavigationStack.tsx", import.meta.url),
   "utf8"
 );
+const appNavigationSource = readFileSync(
+  new URL("../app/AppNavigation.tsx", import.meta.url),
+  "utf8"
+);
 const pageCss = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -51,5 +55,50 @@ describe("push surface motion integration", () => {
     expect(pageCss).not.toMatch(
       /\.pushSurface\s*\{[^}]*box-shadow:\s*none;/s
     );
+  });
+
+  it("cancels edge back on pointer cancellation and lost capture", () => {
+    expect(navigationSource).toContain(
+      "onPointerCancel={handlePointerCancel}"
+    );
+    expect(navigationSource).toContain(
+      "onLostPointerCapture={handlePointerCancel}"
+    );
+  });
+
+  it("uses the dedicated root content transition", () => {
+    expect(navigationSource).toContain("ROOT_TAB_CONTENT_TRANSITION");
+    expect(navigationSource).toContain('data-motion-role="root-content"');
+    expect(navigationSource).toContain("const rootTabTransition =");
+    expect(navigationSource).toMatch(
+      /pushDepth === 0[\s\S]*?active[\s\S]*?ROOT_TAB_CONTENT_TRANSITION[\s\S]*?: \{ duration: 0 \}/
+    );
+    expect(pageCss).toMatch(
+      /\[data-motion-role="root-content"\][\s\S]*?--motion-role-duration:\s*var\(--motion-root\);/
+    );
+  });
+
+  it("labels the shared root indicator with its motion role", () => {
+    expect(appNavigationSource).toContain('data-motion-role="root-indicator"');
+    expect(pageCss).toMatch(
+      /\[data-motion-role="root-indicator"\][\s\S]*?--motion-role-duration:\s*var\(--motion-tab-indicator\);/
+    );
+  });
+
+  it("uses role transitions for ordinary push entry and exit", () => {
+    expect(navigationSource).toContain(
+      'getPushTransition("enter", reduceMotion)'
+    );
+    expect(navigationSource).toContain(
+      'transition: getPushTransition("exit", reduceMotion)'
+    );
+  });
+
+  it("settles edge ownership without navigation on lifecycle changes", () => {
+    expect(navigationSource).toContain("useAppMotionLifecycle");
+    expect(navigationSource).toContain("edgeBackPointerRef.current = null");
+    expect(navigationSource).toContain("edgeBackX.stop()");
+    expect(navigationSource).toContain("edgeFinishHandledRef.current = true");
+    expect(navigationSource).not.toMatch(/key=\{[^}]*epoch/);
   });
 });

@@ -4,7 +4,10 @@ import {
   type AppNavigationState,
 } from "./appNavigation";
 import {
+  createNavigationHistoryPosition,
+  decodeNavigationHistoryPosition,
   decodeNavigationHistory,
+  deriveNavigationHistoryPosition,
   encodeNavigationHistory,
   mergeNavigationHistory,
 } from "./navigationHistory";
@@ -59,6 +62,89 @@ describe("navigation history", () => {
       app: "ai-reader",
       version: 1,
       state,
+    });
+  });
+
+  it("round-trips the library search push route", () => {
+    const state: AppNavigationState = {
+      ...createAppNavigationState(),
+      pushes: [
+        {
+          key: "library-search-1",
+          kind: "push",
+          route: "library-search",
+          restoreFocusId: "library-search-button",
+        },
+      ],
+    };
+
+    expect(decodeNavigationHistory(encodeNavigationHistory(state))).toEqual(
+      state
+    );
+  });
+
+  it("derives positions for legacy v1 payloads without metadata", () => {
+    const state = createLayeredState();
+
+    expect(decodeNavigationHistoryPosition(encodeNavigationHistory(state))).toEqual(
+      deriveNavigationHistoryPosition(state)
+    );
+  });
+
+  it("falls back to derived positions when v1 metadata is malformed", () => {
+    const state = createLayeredState();
+    const malformed = {
+      ...encodeNavigationHistory(state),
+      position: {
+        cursor: -1,
+        entryCursors: { "sheet-1": 99 },
+        redirectTargetCursor: "not-a-number",
+      },
+    };
+
+    expect(decodeNavigationHistory(malformed)).toEqual(state);
+    expect(decodeNavigationHistoryPosition(malformed)).toEqual(
+      deriveNavigationHistoryPosition(state)
+    );
+  });
+
+  it("round-trips optional v1 position metadata without replacing framework fields", () => {
+    const state = createLayeredState();
+    const position = {
+      cursor: 8,
+      entryCursors: {
+        "push-1": 1,
+        "reader-1": 2,
+        "sheet-1": 8,
+      },
+      redirectTargetCursor: 3,
+    };
+    const merged = mergeNavigationHistory({ __NA: true }, state, position);
+
+    expect(merged).toMatchObject({ __NA: true, version: 1, position });
+    expect(decodeNavigationHistoryPosition(merged)).toEqual(position);
+  });
+
+  it("records pushed layers at new cursors and replacements at the current cursor", () => {
+    const root = createAppNavigationState();
+    const sheet = {
+      ...root,
+      sheets: [{ key: "sheet-1", kind: "sheet" as const, route: "ask-ai" as const }],
+    };
+    const sheetPosition = createNavigationHistoryPosition(
+      sheet,
+      1,
+      createNavigationHistoryPosition(root, 0)
+    );
+    const reader = {
+      ...sheet,
+      reader: { key: "reader-1", kind: "reader" as const, bookId: "book-1" },
+      sheets: [],
+    };
+
+    expect(createNavigationHistoryPosition(reader, 1, sheetPosition)).toEqual({
+      cursor: 1,
+      entryCursors: { "reader-1": 1 },
     });
   });
 

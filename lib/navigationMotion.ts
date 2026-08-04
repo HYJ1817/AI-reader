@@ -1,3 +1,5 @@
+import { getRoleTransition } from "./motionSystem";
+
 export const NAVIGATION_TABS = [
   "library",
   "reading",
@@ -12,12 +14,26 @@ export const COMPACT_PUSH_OFFSETS = {
   covered: -12,
 } as const;
 
+export const ROOT_TAB_OFFSETS = {
+  outgoing: 6,
+  incoming: 10,
+} as const;
+
+export function getCompactPushOffsets(direction: number) {
+  return {
+    covered: direction * COMPACT_PUSH_OFFSETS.covered,
+    incoming: direction * COMPACT_PUSH_OFFSETS.incoming,
+  };
+}
+
 export type PushMotionProfile = "depth" | "compact";
 
 export function getPushMotionProfile(
   route: string | undefined
 ): PushMotionProfile {
-  return route === "ai-provider-configure" ? "compact" : "depth";
+  return route === "ai-provider-configure" || route === "library-search"
+    ? "compact"
+    : "depth";
 }
 
 export function getNavigationTabIndex(tab: NavigationTab): number {
@@ -47,7 +63,14 @@ export function getRootTabOffsets(
   }
 
   return {
-    outgoing: direction * COMPACT_PUSH_OFFSETS.covered,
-    incoming: direction * COMPACT_PUSH_OFFSETS.incoming,
+    outgoing: -direction * ROOT_TAB_OFFSETS.outgoing,
+    incoming: direction * ROOT_TAB_OFFSETS.incoming,
   };
+}
+
+export function getPushTransition(
+  phase: "enter" | "exit",
+  reduceMotion: boolean
+) {
+  return getRoleTransition(`push-${phase}`, reduceMotion);
 }
