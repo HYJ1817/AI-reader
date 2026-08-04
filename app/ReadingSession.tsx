@@ -20,6 +20,7 @@ import type { ReaderMode } from "@/lib/readerMode";
 import type { ReaderPreferences } from "@/lib/readerPreferences";
 import type { ReaderTextSelection } from "@/lib/readerAnnotations";
 import { buildTxtHighlightRuns } from "@/lib/txtAnnotations";
+import { getTxtParagraphLanguage } from "@/lib/textLanguage";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
@@ -192,6 +193,7 @@ export default function ReadingSession({
                   <p
                     key={`${chunkIndex}-${paragraphIndex}`}
                     className={styles.paragraph}
+                    lang={getTxtParagraphLanguage(paragraph)}
                     data-paragraph-index={
                       paragraphChunkStarts[chunkIndex] + paragraphIndex
                     }

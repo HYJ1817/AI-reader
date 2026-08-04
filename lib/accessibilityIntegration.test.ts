@@ -67,6 +67,10 @@ const readingWorkspaceSheet = readFileSync(
   new URL("../app/ReadingWorkspaceSheet.tsx", import.meta.url),
   "utf8"
 );
+const readingSession = readFileSync(
+  new URL("../app/ReadingSession.tsx", import.meta.url),
+  "utf8"
+);
 
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -184,6 +188,18 @@ describe("daily-path accessibility contract", () => {
       expect(value, selector).toMatch(/(?:width|min-width):\s*44px/);
       expect(value, selector).toMatch(/(?:height|min-height):\s*44px/);
     }
+  });
+
+  it("marks Han TXT paragraphs for native Chinese line breaking", () => {
+    expect(readingSession).toContain(
+      "lang={getTxtParagraphLanguage(paragraph)}"
+    );
+    expect(rule(css, '.paragraph:lang(zh-CN)')).toContain(
+      "line-break: strict"
+    );
+    expect(rule(css, '.paragraph:lang(zh-CN)')).toContain(
+      "word-break: normal"
+    );
   });
 
   it("keeps audited text-entry and workspace targets at least 44px tall", () => {

@@ -1149,4 +1149,25 @@ describe("motion CSS", () => {
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.providerFormRow,[\s\S]*?\.providerManualModelRow,[\s\S]*?\.providerManualModelRow input\s*\{[\s\S]*?transition:\s*none;/s
     );
   });
+
+  it("gives frequent compact controls one deterministic press language", () => {
+    for (const selector of [
+      ".iconButton:not(:disabled):active",
+      ".primaryButton:not(:disabled):active",
+      ".emptyRecoveryButton:not(:disabled):active",
+      ".navigationSearchButton:not(:disabled):active",
+      ".navigationBackButton:not(:disabled):active",
+    ]) {
+      const start = css.indexOf(`${selector} {`);
+      const end = css.indexOf("}", start);
+      const activeRule = css.slice(start, end);
+      expect(start, selector).toBeGreaterThanOrEqual(0);
+      expect(activeRule).toContain("var(--press-translate-y)");
+      expect(activeRule).toMatch(/var\(--press-(?:control|icon)-scale\)/);
+    }
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.iconButton:not\(:disabled\):active,[\s\S]*?\.primaryButton:not\(:disabled\):active,[\s\S]*?\.emptyRecoveryButton:not\(:disabled\):active,[\s\S]*?\.navigationSearchButton:not\(:disabled\):active,[\s\S]*?\.navigationBackButton:not\(:disabled\):active[\s\S]*?transform:\s*none;/s
+    );
+  });
 });

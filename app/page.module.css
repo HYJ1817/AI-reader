@@ -4,6 +4,9 @@
   --row-min: 58px;
   --root-tab-height: 76px;
   --root-tab-offset: 8px;
+  --press-control-scale: 0.97;
+  --press-icon-scale: 0.94;
+  --press-translate-y: 1px;
   --motion-fast: 120ms;
   --motion-standard: 160ms;
   --motion-state-exit: 120ms;
@@ -157,11 +160,19 @@
   height: 44px;
   border-radius: 50%;
   color: var(--tint);
-  transition: opacity var(--motion-fast) var(--ease-standard);
+  transform: translate3d(0, 0, 0) scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .iconButton:not(:disabled):hover {
   opacity: 0.7;
+}
+
+.iconButton:not(:disabled):active {
+  transform: translate3d(0, var(--press-translate-y), 0)
+    scale(var(--press-icon-scale));
 }
 
 .content {
@@ -1471,11 +1482,19 @@
   border-radius: 10px;
   font-size: 15px;
   font-weight: 600;
-  transition: opacity var(--motion-fast) var(--ease-standard);
+  transform: translate3d(0, 0, 0) scale(1);
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
 }
 
 .primaryButton:not(:disabled):hover {
   opacity: 0.85;
+}
+
+.primaryButton:not(:disabled):active {
+  transform: translate3d(0, var(--press-translate-y), 0)
+    scale(var(--press-control-scale));
 }
 
 .askInput {
@@ -1580,9 +1599,14 @@
     transform var(--motion-fast) var(--ease-standard);
 }
 
-.navigationBackButton:not(:disabled):active,
 .navigationSearchButton:not(:disabled):active {
-  transform: translate3d(0, 1px, 0) scale(0.94);
+  transform: translate3d(0, var(--press-translate-y), 0)
+    scale(var(--press-icon-scale));
+}
+
+.navigationBackButton:not(:disabled):active {
+  transform: translate3d(0, var(--press-translate-y), 0)
+    scale(var(--press-icon-scale));
 }
 
 .navigationBackButton:focus-visible,
@@ -1673,6 +1697,36 @@
   background: transparent;
   font-size: 15px;
   font-weight: 600;
+  transform: translate3d(0, 0, 0) scale(1);
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard);
+}
+
+.emptyRecoveryButton:not(:disabled):active {
+  background: color-mix(in srgb, var(--tint) 10%, transparent);
+  transform: translate3d(0, var(--press-translate-y), 0)
+    scale(var(--press-control-scale));
+}
+
+.app[data-reduce-motion="true"] .iconButton:not(:disabled):active,
+.app[data-reduce-motion="true"] .primaryButton:not(:disabled):active,
+.app[data-reduce-motion="true"] .emptyRecoveryButton:not(:disabled):active,
+.app[data-reduce-motion="true"] .navigationSearchButton:not(:disabled):active,
+.app[data-reduce-motion="true"] .navigationBackButton:not(:disabled):active {
+  transition: none;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iconButton:not(:disabled):active,
+  .primaryButton:not(:disabled):active,
+  .emptyRecoveryButton:not(:disabled):active,
+  .navigationSearchButton:not(:disabled):active,
+  .navigationBackButton:not(:disabled):active {
+    transition: none;
+    transform: none;
+  }
 }
 
 .tabIndicator[data-motion-role="root-indicator"] {
@@ -2564,6 +2618,13 @@
   text-align: start;
   text-wrap: pretty;
   overflow-wrap: break-word;
+}
+
+.paragraph:lang(zh-CN) {
+  line-break: strict;
+  word-break: normal;
+  overflow-wrap: break-word;
+  hanging-punctuation: first allow-end last;
 }
 
 .paragraphChunk {
