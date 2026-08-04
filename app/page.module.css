@@ -226,6 +226,30 @@
   padding-top: calc(var(--safe-top) + 8px);
 }
 
+.librarySearchSurface {
+  min-height: 100%;
+  padding-top: calc(var(--safe-top) + 64px);
+  padding-bottom: calc(
+    var(--root-tab-height) + var(--root-tab-offset) + 22px + var(--safe-bottom)
+  );
+}
+
+.librarySearchResults {
+  min-height: 1px;
+}
+
+.screenReaderOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 .settingsPage {
   padding-top: calc(var(--safe-top) + 8px);
 }

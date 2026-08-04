@@ -7,6 +7,10 @@ const surface = readFileSync(
 );
 const resultsUrl = new URL("../app/LibraryBookResults.tsx", import.meta.url);
 const results = existsSync(resultsUrl) ? readFileSync(resultsUrl, "utf8") : "";
+const searchSurface = readFileSync(
+  new URL("../app/LibrarySearchSurface.tsx", import.meta.url),
+  "utf8"
+);
 const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const copy = readFileSync(new URL("./uiText.ts", import.meta.url), "utf8");
 const css = readFileSync(
@@ -28,7 +32,8 @@ describe("library empty and recovery states", () => {
 
   it("recovers search and collection empty states one condition at a time", () => {
     expect(surface).toContain("actions.showAllBooks");
-    expect(surface).toContain("UI_TEXT.CLEAR_SEARCH");
+    expect(surface).not.toContain("actions.setSearchQuery");
+    expect(searchSurface).toContain("UI_TEXT.CLEAR_SEARCH");
     expect(surface).toContain("UI_TEXT.VIEW_ALL_BOOKS");
     expect(page).toContain("showAllBooks: () => setGroupFilter(null)");
   });

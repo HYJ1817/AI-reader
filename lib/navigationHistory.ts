@@ -22,6 +22,7 @@ const NAVIGATION_TABS = ["library", "reading", "settings"] as const satisfies re
 const NAVIGATION_DIRECTIONS = ["forward", "backward", "replace"] as const satisfies readonly NavigationDirection[];
 const PUSH_ROUTES = [
   "collections",
+  "library-search",
   "ai-providers",
   "ai-provider-configure",
   "custom-background",

@@ -169,6 +169,11 @@ export default function Home() {
     count: LIBRARY_RENDER_BATCH,
   });
   const libraryLoadSentinelRef = useRef<HTMLDivElement>(null);
+  const [librarySearchRenderWindow, setLibrarySearchRenderWindow] = useState({
+    key: "",
+    count: LIBRARY_RENDER_BATCH,
+  });
+  const librarySearchLoadSentinelRef = useRef<HTMLDivElement>(null);
   const [readingProgressMap, setReadingProgressMap] = useState<ReadingProgressMap>({});
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
@@ -526,11 +531,13 @@ export default function Home() {
   function handleSelectAllVisible() {
     if (allVisibleSelected) {
       setSelectedBookIds((ids) =>
-        ids.filter((id) => !filteredBooks.some((book) => book.id === id))
+        ids.filter((id) => !groupFilteredBooks.some((book) => book.id === id))
       );
       return;
     }
-    setSelectedBookIds((ids) => selectAllBookIds(ids, filteredBooks.map((book) => book.id)));
+    setSelectedBookIds((ids) =>
+      selectAllBookIds(ids, groupFilteredBooks.map((book) => book.id))
+    );
   }
 
   function openBatchGroupSheet() {
@@ -724,19 +731,15 @@ export default function Home() {
     : groupFilter === "__ungrouped"
       ? books.filter((book) => !book.groupIds || book.groupIds.length === 0)
       : books.filter((book) => book.groupIds?.includes(groupFilter));
-  const filteredBooks = filterBooksByQuery(
-    groupFilteredBooks,
-    librarySearchQuery
-  );
   const libraryHomePresentation = buildLibraryHomePresentation({
     books,
-    filteredBooks,
-    searchQuery: librarySearchQuery,
+    filteredBooks: groupFilteredBooks,
+    searchQuery: "",
     groupFilter,
     editing: libraryEditing,
   });
   const libraryShelfBooks = libraryHomePresentation.shelfBooks;
-  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
+  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
   const visibleBookCount = Math.min(
     libraryShelfBooks.length,
     libraryRenderWindow.key === libraryRenderKey
@@ -747,6 +750,21 @@ export default function Home() {
         )
   );
   const visibleBooks = libraryShelfBooks.slice(0, visibleBookCount);
+  const librarySearchBooks = filterBooksByQuery(books, librarySearchQuery);
+  const librarySearchRenderKey = `${librarySearchQuery}\u0000${libraryView}`;
+  const librarySearchVisibleCount = Math.min(
+    librarySearchBooks.length,
+    librarySearchRenderWindow.key === librarySearchRenderKey
+      ? librarySearchRenderWindow.count
+      : getInitialVisibleItemCount(
+          librarySearchBooks.length,
+          LIBRARY_RENDER_BATCH
+        )
+  );
+  const visibleLibrarySearchBooks = librarySearchBooks.slice(
+    0,
+    librarySearchVisibleCount
+  );
   useEffect(() => {
     const visibleBookIds = [
       ...(libraryHomePresentation.featuredBook
@@ -902,6 +920,54 @@ export default function Home() {
     libraryRenderKey,
     libraryShelfBooks.length,
     visibleBookCount,
+  ]);
+
+  useEffect(() => {
+    const searchOpen =
+      navigation.state.pushes.at(-1)?.route === "library-search";
+    if (
+      !searchOpen ||
+      librarySearchVisibleCount >= librarySearchBooks.length
+    ) {
+      return;
+    }
+    const target = librarySearchLoadSentinelRef.current;
+    if (!target) return;
+    const Observer = (
+      window as Window & {
+        IntersectionObserver?: typeof IntersectionObserver;
+      }
+    ).IntersectionObserver;
+    if (!Observer) {
+      const frame = window.requestAnimationFrame(() => {
+        setLibrarySearchRenderWindow({
+          key: librarySearchRenderKey,
+          count: librarySearchBooks.length,
+        });
+      });
+      return () => window.cancelAnimationFrame(frame);
+    }
+    const observer = new Observer(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        setLibrarySearchRenderWindow({
+          key: librarySearchRenderKey,
+          count: getNextVisibleItemCount(
+            librarySearchVisibleCount,
+            librarySearchBooks.length,
+            LIBRARY_RENDER_BATCH
+          ),
+        });
+      },
+      { rootMargin: "480px 0px" }
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [
+    librarySearchBooks.length,
+    librarySearchRenderKey,
+    librarySearchVisibleCount,
+    navigation.state.pushes,
   ]);
 
   useEffect(() => {
@@ -1672,6 +1738,22 @@ export default function Home() {
             <AppPushSurfaces
               entry={entry}
               data={{
+                library: {
+                  books,
+                  groups,
+                  visibleBooks: visibleLibrarySearchBooks,
+                  query: librarySearchQuery,
+                  mode: libraryView,
+                  progressMap: readingProgressMap,
+                  loading,
+                  importError,
+                  totalMatchCount: librarySearchBooks.length,
+                  sentinelRef: librarySearchLoadSentinelRef,
+                  onClearQuery: () => setLibrarySearchQuery(""),
+                  onImportBooks: () => fileInputRef.current?.click(),
+                  onPressBook: handleBookPress,
+                  onOpenBookActions: openBookActionSheet,
+                },
                 collections: {
                   collectionItems: collectionListItems,
                   groupFilter,
@@ -1739,7 +1821,6 @@ export default function Home() {
             importError,
           }}
           view={{
-            searchQuery: librarySearchQuery,
             mode: libraryView,
             activeCollectionName,
             groupFilter,
@@ -1759,7 +1840,6 @@ export default function Home() {
               setLibraryEditing(false);
               setSelectedBookIds([]);
             },
-            setSearchQuery: setLibrarySearchQuery,
             showAllBooks: () => setGroupFilter(null),
             setViewMode: handleLibraryViewChange,
             toggleLibraryEditing: libraryEditing

@@ -65,6 +65,24 @@ describe("navigation history", () => {
     });
   });
 
+  it("round-trips the library search push route", () => {
+    const state: AppNavigationState = {
+      ...createAppNavigationState(),
+      pushes: [
+        {
+          key: "library-search-1",
+          kind: "push",
+          route: "library-search",
+          restoreFocusId: "library-search-button",
+        },
+      ],
+    };
+
+    expect(decodeNavigationHistory(encodeNavigationHistory(state))).toEqual(
+      state
+    );
+  });
+
   it("derives positions for legacy v1 payloads without metadata", () => {
     const state = createLayeredState();
 

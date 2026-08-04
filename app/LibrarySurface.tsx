@@ -31,7 +31,6 @@ export type LibrarySurfaceProps = {
     importError: string | null;
   };
   view: {
-    searchQuery: string;
     mode: LibraryViewMode;
     activeCollectionName: string;
     groupFilter: string | null;
@@ -48,7 +47,6 @@ export type LibrarySurfaceProps = {
     importBooks: () => void;
     openCollections: () => void;
     showAllBooks: () => void;
-    setSearchQuery: (query: string) => void;
     setViewMode: (mode: LibraryViewMode) => void;
     toggleLibraryEditing: () => void;
     selectAllVisible: () => void;
@@ -78,7 +76,6 @@ export default function LibrarySurface({
     importError,
   } = data;
   const reduceMotion = useAppReducedMotion();
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const collectionsButtonRef = useRef<HTMLButtonElement>(null);
   const bookIds = books.map((book) => book.id);
   const visibleBookIds = visibleBooks.map(({ id }) => id);
@@ -86,7 +83,6 @@ export default function LibrarySurface({
     bookIds,
     visibleBookIds,
     count: view.visibleBookCount,
-    searchQuery: view.searchQuery,
     groupFilter: view.groupFilter,
   });
   const [libraryMotionSnapshot, setLibraryMotionSnapshot] = useState<{
@@ -94,7 +90,6 @@ export default function LibrarySurface({
     bookIds: Set<string>;
     ids: Set<string>;
     count: number;
-    searchQuery: string;
     groupFilter: string | null;
     entranceOrder: Map<string, number>;
   }>(() => ({
@@ -102,7 +97,6 @@ export default function LibrarySurface({
     bookIds: new Set(bookIds),
     ids: new Set(visibleBookIds),
     count: view.visibleBookCount,
-    searchQuery: view.searchQuery,
     groupFilter: view.groupFilter,
     entranceOrder: new Map(),
   }));
@@ -114,7 +108,6 @@ export default function LibrarySurface({
     );
 
     if (
-      previousBookSnapshot.searchQuery === view.searchQuery &&
       previousBookSnapshot.groupFilter === view.groupFilter &&
       view.visibleBookCount > previousBookSnapshot.count
     ) {
@@ -130,7 +123,6 @@ export default function LibrarySurface({
       bookIds: new Set(bookIds),
       ids: new Set(visibleBookIds),
       count: view.visibleBookCount,
-      searchQuery: view.searchQuery,
       groupFilter: view.groupFilter,
       entranceOrder: new Map(
         visibleBooks
@@ -352,27 +344,10 @@ export default function LibrarySurface({
               {filteredBookCount === 0 && !featuredLayout ? (
                 <div className={styles.emptyStateCompact}>
                   <h2 className={styles.emptyTitle}>
-                    {view.searchQuery.trim()
-                      ? UI_TEXT.NO_MATCHING_BOOKS
-                      : UI_TEXT.EMPTY_COLLECTION}
+                    {UI_TEXT.EMPTY_COLLECTION}
                   </h2>
-                  <p className={styles.emptyText}>
-                    {view.searchQuery || view.activeCollectionName}
-                  </p>
-                  {view.searchQuery.trim() ? (
-                    <button
-                      type="button"
-                      className={styles.emptyRecoveryButton}
-                      onClick={() => {
-                        actions.setSearchQuery("");
-                        window.requestAnimationFrame(() => {
-                          searchInputRef.current?.focus({ preventScroll: true });
-                        });
-                      }}
-                    >
-                      {UI_TEXT.CLEAR_SEARCH}
-                    </button>
-                  ) : view.groupFilter !== null ? (
+                  <p className={styles.emptyText}>{view.activeCollectionName}</p>
+                  {view.groupFilter !== null ? (
                     <button
                       type="button"
                       className={styles.emptyRecoveryButton}
