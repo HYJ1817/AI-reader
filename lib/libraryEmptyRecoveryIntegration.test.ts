@@ -1,10 +1,12 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const surface = readFileSync(
   new URL("../app/LibrarySurface.tsx", import.meta.url),
   "utf8"
 );
+const resultsUrl = new URL("../app/LibraryBookResults.tsx", import.meta.url);
+const results = existsSync(resultsUrl) ? readFileSync(resultsUrl, "utf8") : "";
 const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
 const copy = readFileSync(new URL("./uiText.ts", import.meta.url), "utf8");
 const css = readFileSync(
@@ -29,6 +31,15 @@ describe("library empty and recovery states", () => {
     expect(surface).toContain("UI_TEXT.CLEAR_SEARCH");
     expect(surface).toContain("UI_TEXT.VIEW_ALL_BOOKS");
     expect(page).toContain("showAllBooks: () => setGroupFilter(null)");
+  });
+
+  it("shares the complete list and grid renderer with search", () => {
+    expect(results).toContain('mode === "grid"');
+    expect(results).toContain("data-library-result-mode={mode}");
+    expect(results).toContain("originPrefix");
+    expect(results).toContain("layoutGroupId");
+    expect(surface).toContain("<LibraryBookResults");
+    expect(surface).not.toContain("visibleBooks.map((book)");
   });
 
   it("keeps primary touch targets at least 44px high", () => {

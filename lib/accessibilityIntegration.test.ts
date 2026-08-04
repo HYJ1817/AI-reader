@@ -13,6 +13,13 @@ const library = readFileSync(
   new URL("../app/LibrarySurface.tsx", import.meta.url),
   "utf8"
 );
+const libraryResultsUrl = new URL(
+  "../app/LibraryBookResults.tsx",
+  import.meta.url
+);
+const libraryResults = existsSync(libraryResultsUrl)
+  ? readFileSync(libraryResultsUrl, "utf8")
+  : "";
 const askAi = readFileSync(
   new URL("../app/WorkspaceConversation.tsx", import.meta.url),
   "utf8"
@@ -104,9 +111,9 @@ describe("daily-path accessibility contract", () => {
   it("uses native, separate Library controls with explicit view state", () => {
     expect(library).toContain('role="group"');
     expect(library).toContain("aria-pressed={view.mode === mode}");
-    expect(library).toContain('data-library-book-open="true"');
-    expect(library).toContain('data-library-book-more="true"');
-    expect(library).toContain("className={styles.bookItemMain}");
+    expect(libraryResults).toContain('data-library-book-open="true"');
+    expect(libraryResults).toContain('data-library-book-more="true"');
+    expect(libraryResults).toContain("className={styles.bookItemMain}");
   });
 
   it("names Ask AI actions and announces async state", () => {

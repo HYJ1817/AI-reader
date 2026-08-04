@@ -9,6 +9,7 @@ function optionalSource(path: string): string {
 const transitionSource = optionalSource("../app/SharedBookTransition.tsx");
 const coverSource = optionalSource("../app/MotionBookCover.tsx");
 const librarySource = optionalSource("../app/LibrarySurface.tsx");
+const libraryResultsSource = optionalSource("../app/LibraryBookResults.tsx");
 const dashboardSource = optionalSource("../app/ReadingDashboard.tsx");
 const stackSource = optionalSource("../app/NavigationStack.tsx");
 const pageSource = optionalSource("../app/page.tsx");
@@ -58,8 +59,10 @@ describe("shared reader presentation integration", () => {
 
   it("uses unique origins at every book entry point", () => {
     expect(librarySource).toContain("MotionBookCover");
-    expect(librarySource).toContain('library-grid-${book.id}');
-    expect(librarySource).toContain('library-list-${book.id}');
+    expect(librarySource).toContain('originPrefix="library"');
+    expect(libraryResultsSource).toContain(
+      "`${originPrefix}-${mode}-${book.id}`"
+    );
     expect(dashboardSource).toContain("MotionBookCover");
     expect(dashboardSource).toContain('reading-dashboard-${latestBook.id}');
   });
