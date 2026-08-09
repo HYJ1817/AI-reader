@@ -3309,6 +3309,23 @@ Observed results:
   search round trip, complete public metadata without AI, and root exit with
   reduced motion.
 
+### Zero-minute Seven-day Reading Summary Restore (2026-08-09)
+
+- `b5d01b1` restores the original stable reading-dashboard behavior: whenever
+  the library has a book, the seven-day section stays visible. A week without
+  recorded minutes shows total 0 and seven empty bars; the empty-library state
+  still hides goal and weekly progress surfaces.
+- The fix was rebased normally on top of remote security commit `d57355e`
+  (`nanoid` lockfile update), then pushed without force to
+  `origin/feat/pwa-interaction-fluidity`.
+- Fresh local verification passed: Vitest 145 files / 1306 tests, ESLint,
+  production Next.js build, `git diff --check`, and the complete iPhone 14
+  reading-dashboard Playwright suite 6/6.
+- Cloudflare deployment published Worker version
+  `fdbf6abe-04c8-4654-ab37-85125dfbf0e1` to the Workers preview URL and
+  `881817.xyz/*`. The deployed iPhone 14 zero-minute weekly-summary smoke test
+  passed 1/1 against `https://881817.xyz`.
+
 Before making another code commit, rerun:
 
 ```powershell
