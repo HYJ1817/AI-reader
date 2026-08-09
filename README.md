@@ -118,7 +118,7 @@ Cloudflare 部署说明见 [docs/cloudflare-deploy.md](docs/cloudflare-deploy.md
 
 ## GitHub 协作
 
-新贡献先阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。实现新功能时，先明确它属于哪个 surface 和哪个领域模块，再补对应的领域测试或 E2E 路径。不要提交 `.next/`、`.open-next/`、`.wrangler/`、`test-results/`、`node_modules/` 或本地书籍文件。
+新贡献先阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)；安全问题请按 [SECURITY.md](SECURITY.md) 私下报告。实现新功能时，先明确它属于哪个 surface 和哪个领域模块，再补对应的领域测试或 E2E 路径。不要提交 `.next/`、`.open-next/`、`.wrangler/`、`test-results/`、`node_modules/` 或本地书籍文件。
 
 ## 许可证
 
