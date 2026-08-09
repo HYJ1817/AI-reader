@@ -170,6 +170,7 @@ export default function Home() {
   const readerPresented = readerEntry !== null;
   const pendingReaderTargetRef = useRef<NavigationTab | null>(null);
   const pendingPushAfterReaderRef = useRef<"ai-providers" | null>(null);
+  const pendingOpenTocBookIdRef = useRef<string | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
@@ -399,6 +400,7 @@ export default function Home() {
   }
 
   function dismissReader(targetTab?: NavigationTab) {
+    pendingOpenTocBookIdRef.current = null;
     if (!readerPresented) {
       if (targetTab) navigation.selectTab(targetTab);
       return;
@@ -746,8 +748,9 @@ export default function Home() {
   const librarySearchRenderKey = `${librarySearchQuery}\u0000${libraryView}`;
   const topPushRoute = navigation.state.pushes.at(-1)?.route;
   const librarySearchOpen = topPushRoute === "library-search";
+  const bookDetailsOpen = topPushRoute === "book-details";
   const detailEntry =
-    topPushRoute === "book-details"
+    bookDetailsOpen
       ? navigation.state.pushes.at(-1)
       : undefined;
   const detailBook = detailEntry?.entityId
@@ -804,8 +807,9 @@ export default function Home() {
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
   const showBottomTabs =
-    (navigation.state.pushes.length === 0 || librarySearchOpen) &&
+    (navigation.state.pushes.length === 0 || librarySearchOpen || bookDetailsOpen) &&
     shouldShowBottomTabs(activeTab, readerPresented);
+  const ambientBook = detailBook ?? latestBook ?? null;
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
@@ -904,9 +908,18 @@ export default function Home() {
     book: BookMetadata,
     originId?: string
   ) => {
+    if (
+      pendingOpenTocBookIdRef.current &&
+      pendingOpenTocBookIdRef.current !== book.id
+    ) {
+      pendingOpenTocBookIdRef.current = null;
+    }
     await positionCoordinator.flush();
     const fullBook = await getBook(book.id);
     if (!fullBook) {
+      if (pendingOpenTocBookIdRef.current === book.id) {
+        pendingOpenTocBookIdRef.current = null;
+      }
       setImportError(UI_TEXT.ERROR_READ_FILE);
       return;
     }
@@ -924,6 +937,17 @@ export default function Home() {
     navigation.presentReader(book.id, { originId });
     await contentReady;
   }, [navigation, positionCoordinator, prepareReaderBook, stopWorkspaceRequest]);
+
+  useEffect(() => {
+    if (!readerPresented) pendingOpenTocBookIdRef.current = null;
+  }, [readerPresented]);
+
+  useEffect(
+    () => () => {
+      pendingOpenTocBookIdRef.current = null;
+    },
+    []
+  );
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1601,6 +1625,17 @@ export default function Home() {
         void turnReaderPage(direction, { instant: true })
       }
       onTocChange={setTocItems}
+      onTocReady={(bookId) => {
+        if (pendingOpenTocBookIdRef.current !== bookId) return;
+        if (navigation.getState().reader?.bookId !== bookId) return;
+        pendingOpenTocBookIdRef.current = null;
+        navigation.presentSheet("toc");
+      }}
+      onEpubLoadError={(bookId) => {
+        if (pendingOpenTocBookIdRef.current === bookId) {
+          pendingOpenTocBookIdRef.current = null;
+        }
+      }}
       onProgressChange={handleEpubProgressChange}
       onPageInfoChange={setReaderPageInfo}
       onTextReaderScroll={handleReaderScroll}
@@ -1632,7 +1667,7 @@ export default function Home() {
         {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
         {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
       >
-      <AmbientBookBackground book={useCustomBackgroundImage ? null : latestBook ?? null} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
+      <AmbientBookBackground book={useCustomBackgroundImage ? null : ambientBook} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
       <input
         ref={fileInputRef}
         type="file"
@@ -1687,7 +1722,14 @@ export default function Home() {
                       onRead: (originId) =>
                         void openBookForReading(detailBook, originId),
                       onOpenContents: (originId) =>
-                        void openBookForReading(detailBook, originId),
+                        {
+                          pendingOpenTocBookIdRef.current = detailBook.id;
+                          void openBookForReading(detailBook, originId).catch(() => {
+                            if (pendingOpenTocBookIdRef.current === detailBook.id) {
+                              pendingOpenTocBookIdRef.current = null;
+                            }
+                          });
+                        },
                       onEnrich: (mode) =>
                         void metadataEnrichment.run(detailBook, mode),
                     }
