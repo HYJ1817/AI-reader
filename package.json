@@ -40,7 +40,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.11",
+    "eslint-config-next": "16.3.0",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5",
     "vitest": "^4.1.7",
