@@ -278,15 +278,29 @@ describe("applyEpubReaderPreferences", () => {
     applyEpubReaderPreferences(
       controller,
       { ...DEFAULT_READER_PREFERENCES, theme: "dark" },
-      { foreground: "#f3f4f6", background: "#171717" },
+      { foreground: "#f3f4f6", background: "#000000" },
       EMPTY_EPUB_PREFERENCE_STATE
     );
 
     const rules = vi.mocked(controller.register).mock.calls[0]?.[1];
+    expect(rules?.["html, body"]).toMatchObject({
+      background: "#000000 !important",
+      "background-color": "#000000 !important",
+    });
     expect(rules?.body).toMatchObject({
       color: "#f3f4f6 !important",
-      background: "transparent !important",
-      "background-color": "transparent !important",
+      background: "#000000 !important",
+      "background-color": "#000000 !important",
+    });
+    expect(
+      rules?.["body *:not(img):not(svg):not(video):not(canvas):not(picture)"]
+    ).toMatchObject({
+      background: "#000000 !important",
+      "background-color": "#000000 !important",
+    });
+    expect(rules?.["body *::before, body *::after"]).toMatchObject({
+      background: "#000000 !important",
+      "background-color": "#000000 !important",
     });
     expect(
       rules?.[
