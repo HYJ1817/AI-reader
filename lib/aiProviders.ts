@@ -51,6 +51,8 @@ export interface AiProviderPresetOption {
   kind: Exclude<AiProviderKind, "custom">;
   label: string;
   iconLabel: string;
+  description: string;
+  vendors: string[];
   protocol: AiProviderProtocol;
   defaultBaseUrl: string;
 }
@@ -84,6 +86,9 @@ export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
     kind: "openai",
     label: "OpenAI / Compatible API",
     iconLabel: "AI",
+    description:
+      "支持 OpenAI、DeepSeek、Moonshot、Groq 等兼容服务商，也支持自定义 API 地址",
+    vendors: ["OpenAI", "DeepSeek", "Moonshot", "Groq"],
     protocol: "openai-compatible",
     defaultBaseUrl: "https://api.openai.com",
   },
@@ -91,6 +96,8 @@ export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
     kind: "anthropic",
     label: "Anthropic / Compatible API",
     iconLabel: "A",
+    description: "支持 Claude 及兼容 Anthropic Messages 协议的服务商",
+    vendors: ["Anthropic", "Claude"],
     protocol: "anthropic-compatible",
     defaultBaseUrl: "https://api.anthropic.com",
   },
@@ -98,6 +105,8 @@ export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
     kind: "gemini",
     label: "Google Gemini",
     iconLabel: "G",
+    description: "支持 Gemini 系列及 Google AI Studio",
+    vendors: ["Google Gemini", "Google AI Studio"],
     protocol: "gemini",
     defaultBaseUrl: "https://generativelanguage.googleapis.com",
   },
@@ -105,6 +114,8 @@ export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
     kind: "openrouter",
     label: "OpenRouter",
     iconLabel: "OR",
+    description: "聚合 GPT、Claude、Gemini、Llama 等主流模型",
+    vendors: ["GPT", "Claude", "Gemini", "Llama"],
     protocol: "openai-compatible",
     defaultBaseUrl: "https://openrouter.ai/api",
   },
@@ -112,6 +123,8 @@ export const AI_PROVIDER_PRESETS: AiProviderPresetOption[] = [
     kind: "xai",
     label: "xAI",
     iconLabel: "x",
+    description: "支持 Grok 系列模型",
+    vendors: ["Grok"],
     protocol: "openai-compatible",
     defaultBaseUrl: "https://api.x.ai",
   },

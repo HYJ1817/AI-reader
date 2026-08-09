@@ -84,6 +84,8 @@ type EpubReaderProps = {
     direction: Exclude<ReaderSwipeAction, "none">
   ) => void | Promise<void>;
   onTocChange?: (items: EpubTocItem[]) => void;
+  onTocReady?: (bookId: string) => void;
+  onLoadError?: (bookId: string) => void;
   onProgressChange?: (progressPercent: number) => void;
   onPageInfoChange?: (pageInfo: ReaderPageInfo) => void;
   preferences?: ReaderPreferences;
@@ -155,6 +157,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     onReaderScrollStart,
     onSwipeTurn,
     onTocChange,
+    onTocReady,
+    onLoadError,
     onProgressChange,
     onPageInfoChange,
     preferences,
@@ -183,6 +187,8 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   const onReaderScrollStartRef = useRef(onReaderScrollStart);
   const onSwipeTurnRef = useRef(onSwipeTurn);
   const onTocChangeRef = useRef(onTocChange);
+  const onTocReadyRef = useRef(onTocReady);
+  const onLoadErrorRef = useRef(onLoadError);
   const onProgressChangeRef = useRef(onProgressChange);
   const onPageInfoChangeRef = useRef(onPageInfoChange);
   const hasResolvedPageInfoRef = useRef(false);
@@ -252,6 +258,14 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
   useEffect(() => {
     onTocChangeRef.current = onTocChange;
   }, [onTocChange]);
+
+  useEffect(() => {
+    onTocReadyRef.current = onTocReady;
+  }, [onTocReady]);
+
+  useEffect(() => {
+    onLoadErrorRef.current = onLoadError;
+  }, [onLoadError]);
 
   useEffect(() => {
     onProgressChangeRef.current = onProgressChange;
@@ -403,14 +417,22 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     ]
   );
 
+  const getCanvasBackground = useCallback(() => {
+    const root = containerRef.current ?? document.documentElement;
+    const cs = getComputedStyle(root);
+    return (
+      cs.getPropertyValue("--reader-canvas-background").trim() || "transparent"
+    );
+  }, []);
+
   const getThemeColors = useCallback(() => {
     const root = containerRef.current ?? document.documentElement;
     const cs = getComputedStyle(root);
     return {
       foreground: cs.getPropertyValue("--foreground").trim() || "#1a1a1a",
-      background: cs.getPropertyValue("--background").trim() || "#ffffff",
+      background: getCanvasBackground(),
     };
-  }, []);
+  }, [getCanvasBackground]);
 
   const applyPreferences = useCallback(
     (r: Rendition, prefs: ReaderPreferences) => {
@@ -430,15 +452,16 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       const renderedContents = (
         r as Rendition & { getContents?: () => unknown }
       ).getContents?.();
+      const canvasBackground = getCanvasBackground();
       if (Array.isArray(renderedContents)) {
         renderedContents.forEach((contents) =>
-          applyEpubAmbientCanvas(contents)
+          applyEpubAmbientCanvas(contents, canvasBackground)
         );
       } else {
-        applyEpubAmbientCanvas(renderedContents);
+        applyEpubAmbientCanvas(renderedContents, canvasBackground);
       }
     },
-    []
+    [getCanvasBackground]
   );
 
   const handleRelocated = useCallback(
@@ -881,10 +904,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
   const handleRenderedContents = useCallback(
     (contents: unknown) => {
-      applyEpubAmbientCanvas(contents);
+      applyEpubAmbientCanvas(contents, getCanvasBackground());
       attachTapHandlers(contents);
     },
-    [attachTapHandlers]
+    [attachTapHandlers, getCanvasBackground]
   );
 
   useEffect(() => {
@@ -922,7 +945,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         rendition.on("relocated", handleRelocated);
         rendition.on("selected", handleSelected);
         rendition.on("rendered", (_section: unknown, view: unknown) => {
-          applyEpubViewTransparency(view);
+          applyEpubViewTransparency(view, getCanvasBackground());
           const contents = (view as { contents?: unknown } | null)?.contents;
           handleRenderedContents(contents);
         });
@@ -931,15 +954,16 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
           applyPreferences(rendition as Rendition, preferencesRef.current);
         }
 
+        let navigationItems: EpubTocItem[] = [];
         try {
           const navigation = await book.loaded?.navigation;
-          if (!cancelled) {
-            onTocChangeRef.current?.(normalizeEpubNavigation(navigation));
-          }
+          navigationItems = normalizeEpubNavigation(navigation);
         } catch {
-          if (!cancelled) {
-            onTocChangeRef.current?.([]);
-          }
+          navigationItems = [];
+        }
+        if (!cancelled) {
+          onTocChangeRef.current?.(navigationItems);
+          onTocReadyRef.current?.(bookId);
         }
 
         const savedPosition = await getReadingPosition(bookId);
@@ -1011,6 +1035,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         }
       } catch (err) {
         if (!cancelled) {
+          onLoadErrorRef.current?.(bookId);
           setStatus("error");
           setErrorMsg(
             err instanceof Error ? err.message : UI_TEXT.ERROR_LOADING_EPUB
@@ -1052,7 +1077,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         objectUrlRef.current = null;
       }
     };
-  }, [bookId, fileBlob, mode, getReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, syncHighlights]);
+  }, [bookId, fileBlob, mode, getReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, getCanvasBackground, syncHighlights]);
 
   useEffect(() => {
     const rendition = renditionRef.current as AnnotatedRendition | null;

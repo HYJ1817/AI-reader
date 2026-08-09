@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  startTransition,
   useCallback,
   useEffect,
   useRef,
@@ -57,6 +58,7 @@ import {
   type WorkspaceRequestIdentity,
 } from "@/lib/workspaceChat";
 import { UI_TEXT } from "@/lib/uiText";
+import { WorkspacePersistenceCoordinator } from "@/lib/workspacePersistenceCoordinator";
 
 type UseWorkspaceChatOptions = {
   book: BookMetadata | null;
@@ -133,6 +135,9 @@ export default function useWorkspaceChat({
     typeof navigator === "undefined" ? true : navigator.onLine
   );
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [persistenceCoordinator] = useState(
+    () => new WorkspacePersistenceCoordinator()
+  );
 
   const workspaceRef = useRef<ReadingWorkspaceRecord | null>(null);
   const sessionsRef = useRef<WorkspaceSessionRecord[]>([]);
@@ -181,29 +186,50 @@ export default function useWorkspaceChat({
 
   useEffect(() => {
     const pendingIdentity = requestIdentityRef.current;
+    let previousWorkspacePersistence: Promise<void>;
     if (pendingIdentity) {
       const now = new Date().toISOString();
       const pendingAssistant = messagesRef.current.find(
         (message) => message.id === pendingIdentity.assistantMessageId
       );
-      if (pendingAssistant?.state === "streaming") {
-        void putWorkspaceMessage({
-          ...pendingAssistant,
-          content: streamingContentRef.current || pendingAssistant.content,
-          state: "cancelled",
-          updatedAt: now,
-        }).catch(() => undefined);
-      }
+      const cancelledMessage: WorkspaceMessageRecord | null =
+        pendingAssistant?.state === "streaming"
+          ? {
+              ...pendingAssistant,
+              content:
+                streamingContentRef.current || pendingAssistant.content,
+              state: "cancelled",
+              updatedAt: now,
+            }
+          : null;
       const pendingSession = sessionsRef.current.find(
         (session) => session.id === pendingIdentity.sessionId
       );
-      if (pendingSession) {
-        void putWorkspaceSession({
-          ...pendingSession,
-          status: "paused",
-          updatedAt: now,
-        }).catch(() => undefined);
+      const pausedSession: WorkspaceSessionRecord | null = pendingSession
+        ? {
+            ...pendingSession,
+            status: "paused",
+            updatedAt: now,
+          }
+        : null;
+      if (cancelledMessage || pausedSession) {
+        previousWorkspacePersistence = persistenceCoordinator.cancel(
+          async () => {
+            if (cancelledMessage) {
+              await putWorkspaceMessage(cancelledMessage).catch(
+                () => undefined
+              );
+            }
+            if (pausedSession) {
+              await putWorkspaceSession(pausedSession).catch(() => undefined);
+            }
+          }
+        );
+      } else {
+        previousWorkspacePersistence = persistenceCoordinator.drain();
       }
+    } else {
+      previousWorkspacePersistence = persistenceCoordinator.drain();
     }
     generationRef.current += 1;
     requestControllerRef.current?.abort();
@@ -241,6 +267,8 @@ export default function useWorkspaceChat({
       setWorkspaceLoading(true);
       void (async () => {
         try {
+          await previousWorkspacePersistence;
+          if (cancelled || generationRef.current !== generation) return;
           const owner = await ensureDefaultBookWorkspace(workspaceBookId);
           const nextSessions = await listWorkspaceSessions(owner.workspace.id);
           let activeSession = nextSessions[0] ?? owner.session;
@@ -313,7 +341,14 @@ export default function useWorkspaceChat({
       cancelled = true;
       window.clearTimeout(resetTimer);
     };
-  }, [publishArtifacts, publishMemories, publishMessages, publishSessions, workspaceBookId]);
+  }, [
+    persistenceCoordinator,
+    publishArtifacts,
+    publishMemories,
+    publishMessages,
+    publishSessions,
+    workspaceBookId,
+  ]);
 
   useEffect(() => {
     return () => requestControllerRef.current?.abort();
@@ -341,6 +376,7 @@ export default function useWorkspaceChat({
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
       generationRef.current += 1;
+      await persistenceCoordinator.drain();
       setLoading(false);
       return;
     }
@@ -357,40 +393,51 @@ export default function useWorkspaceChat({
     const assistant = messagesRef.current.find(
       (message) => message.id === identity.assistantMessageId
     );
+    let cancelledMessage: WorkspaceMessageRecord | null = null;
     if (assistant && assistant.state === "streaming") {
-      const cancelledMessage: WorkspaceMessageRecord = {
+      const nextCancelledMessage: WorkspaceMessageRecord = {
         ...assistant,
         content: streamingContentRef.current || assistant.content,
         state: "cancelled",
         updatedAt: now,
       };
-      await putWorkspaceMessage(cancelledMessage).catch(() => undefined);
+      cancelledMessage = nextCancelledMessage;
       publishMessages(
         messagesRef.current.map((message) =>
-          message.id === cancelledMessage.id ? cancelledMessage : message
+          message.id === nextCancelledMessage.id
+            ? nextCancelledMessage
+            : message
         )
       );
     }
-    streamingContentRef.current = "";
-
     const session = sessionsRef.current.find(
       (item) => item.id === identity.sessionId
     );
+    let pausedSession: WorkspaceSessionRecord | null = null;
     if (session) {
-      const pausedSession: WorkspaceSessionRecord = {
+      const nextPausedSession: WorkspaceSessionRecord = {
         ...session,
         status: "paused",
         updatedAt: now,
       };
-      await putWorkspaceSession(pausedSession).catch(() => undefined);
+      pausedSession = nextPausedSession;
       publishSessions(
         sessionsRef.current.map((item) =>
-          item.id === pausedSession.id ? pausedSession : item
+          item.id === nextPausedSession.id ? nextPausedSession : item
         )
       );
     }
     setLoading(false);
-  }, [publishMessages, publishSessions]);
+    await persistenceCoordinator.cancel(async () => {
+      if (cancelledMessage) {
+        await putWorkspaceMessage(cancelledMessage).catch(() => undefined);
+      }
+      if (pausedSession) {
+        await putWorkspaceSession(pausedSession).catch(() => undefined);
+      }
+    });
+    streamingContentRef.current = "";
+  }, [persistenceCoordinator, publishMessages, publishSessions]);
 
   const selectSession = useCallback(
     async (sessionId: string) => {
@@ -656,13 +703,15 @@ export default function useWorkspaceChat({
             return;
           }
           const content = streamingContentRef.current;
-          publishMessages(
-            messagesRef.current.map((message) =>
-              message.id === pair.assistant.id
-                ? { ...message, content, updatedAt: new Date().toISOString() }
-                : message
-            )
-          );
+          startTransition(() => {
+            publishMessages(
+              messagesRef.current.map((message) =>
+                message.id === pair.assistant.id
+                  ? { ...message, content, updatedAt: new Date().toISOString() }
+                  : message
+              )
+            );
+          });
         };
 
         for await (const event of readWorkspaceEventStream(response.body)) {
@@ -695,7 +744,9 @@ export default function useWorkspaceChat({
               content: streamingContentRef.current,
               updatedAt: new Date(nowMs).toISOString(),
             };
-            await putWorkspaceMessage(checkpoint);
+            persistenceCoordinator.enqueueCheckpoint(() =>
+              putWorkspaceMessage(checkpoint)
+            );
             lastCheckpointAt = nowMs;
             checkpointLength = checkpoint.content.length;
           }
@@ -714,25 +765,41 @@ export default function useWorkspaceChat({
           state: "complete",
           updatedAt: now,
         };
-        await putWorkspaceMessage(completedAssistant);
-        publishMessages(
-          messagesRef.current.map((message) =>
-            message.id === completedAssistant.id ? completedAssistant : message
-          )
-        );
-        if (streamingSession) {
-          const idleSession: WorkspaceSessionRecord = {
-            ...streamingSession,
-            status: "idle",
-            updatedAt: now,
-          };
-          await putWorkspaceSession(idleSession);
-          publishSessions(
-            sessionsRef.current.map((session) =>
-              session.id === idleSession.id ? idleSession : session
-            )
+        const ownsRequest = () => {
+          const currentIdentity = requestIdentityRef.current;
+          return Boolean(
+            currentIdentity &&
+              shouldAcceptWorkspaceEvent(currentIdentity, identity)
           );
-        }
+        };
+        const completed = await persistenceCoordinator.commitOwned(
+          ownsRequest,
+          async (stillOwned) => {
+            await putWorkspaceMessage(completedAssistant);
+            if (!stillOwned()) return;
+            publishMessages(
+              messagesRef.current.map((message) =>
+                message.id === completedAssistant.id
+                  ? completedAssistant
+                  : message
+              )
+            );
+            if (!streamingSession || !stillOwned()) return;
+            const idleSession: WorkspaceSessionRecord = {
+              ...streamingSession,
+              status: "idle",
+              updatedAt: now,
+            };
+            await putWorkspaceSession(idleSession);
+            if (!stillOwned()) return;
+            publishSessions(
+              sessionsRef.current.map((session) =>
+                session.id === idleSession.id ? idleSession : session
+              )
+            );
+          }
+        );
+        if (!completed) return;
       } catch (requestError) {
         if (controller.signal.aborted) return;
         const currentIdentity = requestIdentityRef.current;
@@ -754,25 +821,39 @@ export default function useWorkspaceChat({
           error: message,
           updatedAt: now,
         };
-        await putWorkspaceMessage(failedAssistant).catch(() => undefined);
-        publishMessages(
-          messagesRef.current.map((item) =>
-            item.id === failedAssistant.id ? failedAssistant : item
-          )
-        );
-        if (streamingSession) {
-          const failedSession: WorkspaceSessionRecord = {
-            ...streamingSession,
-            status: "error",
-            updatedAt: now,
-          };
-          await putWorkspaceSession(failedSession).catch(() => undefined);
-          publishSessions(
-            sessionsRef.current.map((session) =>
-              session.id === failedSession.id ? failedSession : session
-            )
+        const ownsRequest = () => {
+          const latestIdentity = requestIdentityRef.current;
+          return Boolean(
+            latestIdentity &&
+              shouldAcceptWorkspaceEvent(latestIdentity, identity)
           );
-        }
+        };
+        const failed = await persistenceCoordinator.commitOwned(
+          ownsRequest,
+          async (stillOwned) => {
+            await putWorkspaceMessage(failedAssistant).catch(() => undefined);
+            if (!stillOwned()) return;
+            publishMessages(
+              messagesRef.current.map((item) =>
+                item.id === failedAssistant.id ? failedAssistant : item
+              )
+            );
+            if (!streamingSession || !stillOwned()) return;
+            const failedSession: WorkspaceSessionRecord = {
+              ...streamingSession,
+              status: "error",
+              updatedAt: now,
+            };
+            await putWorkspaceSession(failedSession).catch(() => undefined);
+            if (!stillOwned()) return;
+            publishSessions(
+              sessionsRef.current.map((session) =>
+                session.id === failedSession.id ? failedSession : session
+              )
+            );
+          }
+        );
+        if (!failed) return;
         setError(message);
       } finally {
         const currentIdentity = requestIdentityRef.current;
@@ -798,6 +879,7 @@ export default function useWorkspaceChat({
       captureCurrentContext,
       markRequestCancelled,
       online,
+      persistenceCoordinator,
       publishMessages,
       publishSessions,
     ]

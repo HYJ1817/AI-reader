@@ -6,6 +6,7 @@ const readSource = (path: string) =>
   readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
 const pageSource = readSource("app/page.tsx");
+const detailsIntegrationSource = readSource("app/useBookDetailsIntegration.ts");
 const epubSource = readSource("app/EpubReader.tsx");
 const sessionSource = readSource("app/ReadingSession.tsx");
 const registrationSource = readSource("app/ServiceWorkerRegistration.tsx");
@@ -25,7 +26,7 @@ describe("reading position persistence integration", () => {
   });
 
   it("flushes pending positions before book switches and lifecycle exits", () => {
-    expect(pageSource).toContain("await positionCoordinator.flush()");
+    expect(detailsIntegrationSource).toContain("await flushReadingPosition()");
     expect(pageSource).toContain("useReaderPositionLifecycle(");
     expect(lifecycleSource).toContain('document.addEventListener("visibilitychange"');
     expect(lifecycleSource).toContain('window.addEventListener("pagehide"');

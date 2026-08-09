@@ -1,5 +1,5 @@
 import type { BookRecord } from "./db";
-import { extractEpubCoverImage } from "./epubCover";
+import { extractEpubPackage } from "./epubPackage";
 import { createLocalId } from "./localId";
 
 export const SUPPORTED_BOOK_EXTENSIONS = ["epub", "txt"] as const;
@@ -33,8 +33,19 @@ export async function createBookRecordFromFile(
 
   const buffer = await file.arrayBuffer();
   const fileBlob = new Blob([buffer], { type: file.type || "application/octet-stream" });
-  const coverImageBlob =
-    format === "epub" ? await extractEpubCoverImage(fileBlob) : undefined;
+  const epubPackage =
+    format === "epub"
+      ? await extractEpubPackage(fileBlob, { includeExcerpt: false })
+      : undefined;
+  const coverImageBlob = epubPackage?.coverImageBlob;
+  const packageMetadata = epubPackage?.metadata;
+  const hasMetadataHints = Boolean(
+    packageMetadata?.title ||
+      packageMetadata?.authors?.length ||
+      packageMetadata?.identifiers?.length ||
+      packageMetadata?.language
+  );
+  const createdAt = new Date().toISOString();
 
   return {
     id: createLocalId(),
@@ -43,7 +54,27 @@ export async function createBookRecordFromFile(
     fileName: file.name,
     fileBlob,
     size: buffer.byteLength,
-    createdAt: new Date().toISOString(),
+    createdAt,
+    ...(hasMetadataHints
+      ? {
+          enrichment: {
+            ...(packageMetadata?.title
+              ? { bibliographicTitle: packageMetadata.title }
+              : {}),
+            ...(packageMetadata?.authors
+              ? { authors: packageMetadata.authors }
+              : {}),
+            ...(packageMetadata?.identifiers
+              ? { identifiers: packageMetadata.identifiers }
+              : {}),
+            ...(packageMetadata?.language
+              ? { language: packageMetadata.language }
+              : {}),
+            status: "pending" as const,
+            attemptedAt: createdAt,
+          },
+        }
+      : {}),
     ...(coverImageBlob ? { coverImageBlob } : {}),
   };
 }

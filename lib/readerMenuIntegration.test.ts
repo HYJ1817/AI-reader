@@ -189,6 +189,20 @@ describe("reader action menu", () => {
 });
 
 describe("reader contents and theme sheets", () => {
+  it("exports content-only reader sheet pages", () => {
+    const pageSources = [
+      [settingsSource, "ReaderSettingsPage"],
+      [customSettingsSource, "ReaderCustomSettingsPage"],
+      [tocSource, "TocPage"],
+    ] as const;
+
+    for (const [source, page] of pageSources) {
+      const pageSource = source.slice(source.indexOf(`export function ${page}`));
+      expect(source).toContain(`export function ${page}`);
+      expect(pageSource).not.toContain("<BottomSheet");
+    }
+  });
+
   it("passes book and page metadata into the contents sheet", () => {
     expect(overlaysSource).toContain("bookTitle: string | null");
     expect(overlaysSource).toContain("pageInfo");

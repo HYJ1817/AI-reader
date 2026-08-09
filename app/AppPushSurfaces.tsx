@@ -5,6 +5,8 @@ import type { PushEntry } from "@/lib/appNavigation";
 import AiSettingsSurface from "./AiSettingsSurface";
 import CustomBackgroundSettingsSurface from "./CustomBackgroundSettingsSurface";
 import LibraryCollectionsSurface from "./LibraryCollectionsSurface";
+import LibrarySearchSurface from "./LibrarySearchSurface";
+import BookDetailsSurface from "./BookDetailsSurface";
 
 type Props = {
   entry: PushEntry;
@@ -13,6 +15,8 @@ type Props = {
       ComponentProps<typeof LibraryCollectionsSurface>,
       "onBack"
     >;
+    library: ComponentProps<typeof LibrarySearchSurface>;
+    details: Omit<ComponentProps<typeof BookDetailsSurface>, "onBack"> | null;
     ai: Omit<
       ComponentProps<typeof AiSettingsSurface>,
       "mode" | "providerId" | "onBack" | "onPushConfigure"
@@ -37,6 +41,12 @@ export default function AppPushSurfaces({ entry, data, actions }: Props) {
           onBack={actions.pop}
         />
       );
+    case "library-search":
+      return <LibrarySearchSurface {...data.library} />;
+    case "book-details":
+      return data.details ? (
+        <BookDetailsSurface {...data.details} onBack={actions.pop} />
+      ) : null;
     case "ai-providers":
       return (
         <AiSettingsSurface

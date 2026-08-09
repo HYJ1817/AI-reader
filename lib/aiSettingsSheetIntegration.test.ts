@@ -23,8 +23,8 @@ describe("AI settings provider surface", () => {
     expect(aiSettingsSource).toContain('aria-pressed={draft.model === model.id}');
     expect(aiSettingsSource).toContain('data-selected={draft.model === model.id ? "true" : undefined}');
 
-    expect(aiSettingsSource).not.toContain("AI_API_FORMATS.map");
-    expect(aiSettingsSource).not.toContain("changeProtocol");
+    expect(aiSettingsSource).toContain("AI_API_FORMATS.map");
+    expect(aiSettingsSource).toContain("changeProtocol");
     expect(aiSettingsSource).not.toContain("slice(0, 1)");
   });
 

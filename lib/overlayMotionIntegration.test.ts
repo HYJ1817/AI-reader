@@ -1,5 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import {
+  createSheetCloseRequestGuard,
+  shouldCommitSheetExit,
+} from "./sheetPresentationState";
 
 const bottomSheetSource = readFileSync(
   new URL("../app/BottomSheet.tsx", import.meta.url),
@@ -29,22 +33,101 @@ const readerSettingsSource = readFileSync(
   new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
   "utf8"
 );
+const readingWorkspaceSource = readFileSync(
+  new URL("../app/ReadingWorkspaceSheet.tsx", import.meta.url),
+  "utf8"
+);
+const librarySheetPagesUrl = new URL(
+  "../app/LibrarySheetPages.tsx",
+  import.meta.url
+);
+const librarySheetPagesSource = existsSync(librarySheetPagesUrl)
+  ? readFileSync(librarySheetPagesUrl, "utf8")
+  : "";
 const css = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
 
 describe("overlay and nested view motion", () => {
+  it("extracts reusable content-only workspace and library sheet pages", () => {
+    const workspacePageSource = readingWorkspaceSource.slice(
+      readingWorkspaceSource.indexOf("export function ReadingWorkspacePage")
+    );
+
+    expect(readingWorkspaceSource).toContain(
+      "export function ReadingWorkspacePage"
+    );
+    expect(workspacePageSource).not.toContain("<BottomSheet");
+    for (const page of [
+      "BatchDeletePage",
+      "BatchGroupPage",
+      "BookActionPage",
+      "BookDeletePage",
+      "BookGroupPage",
+      "BookRenamePage",
+      "CollectionCreatePage",
+    ]) {
+      expect(librarySheetPagesSource).toContain(`function ${page}`);
+      expect(librarySheetPagesSource).toMatch(
+        new RegExp(`export \\{[\\s\\S]*?\\b${page}\\b[\\s\\S]*?\\};`)
+      );
+    }
+    expect(librarySheetPagesSource).not.toContain("<BottomSheet");
+    const renamePageSource = librarySheetPagesSource.slice(
+      librarySheetPagesSource.indexOf("function BookRenamePage"),
+      librarySheetPagesSource.indexOf("function BookDeletePage")
+    );
+    const renameFailure = renamePageSource.match(
+      /catch \{([\s\S]*?)\n\s*\}/
+    )?.[1] ?? "";
+    const focusAfterCommit = renamePageSource.match(
+      /useLayoutEffect\(\(\) => \{([\s\S]*?)\n\s*\}, \[[^\]]*error[^\]]*saving[^\]]*\]\);/
+    )?.[1] ?? "";
+
+    expect(renamePageSource).toContain(
+      "requiredMessage = UI_TEXT.BOOK_TITLE_REQUIRED"
+    );
+    expect(renamePageSource).toContain("setError(requiredMessage)");
+    expect(renamePageSource).toContain(
+      'isSubmitKey = (event) => event.key === "Enter"'
+    );
+    expect(renamePageSource).toContain(
+      "if (isSubmitKey(event) && !event.nativeEvent.isComposing)"
+    );
+    expect(renameFailure).toContain("setError(UI_TEXT.RENAME_BOOK_FAILED)");
+    expect(renameFailure).toContain("setSaving(false)");
+    expect(renameFailure).toContain("restoreFocusAfterFailureRef.current = true");
+    expect(renameFailure).not.toContain("focus(");
+    expect(focusAfterCommit).toContain("!saving");
+    expect(focusAfterCommit).toContain("error === UI_TEXT.RENAME_BOOK_FAILED");
+    expect(focusAfterCommit).toContain(
+      "restoreFocusAfterFailureRef.current"
+    );
+    expect(focusAfterCommit).toContain(
+      "inputRef.current?.focus({ preventScroll: true })"
+    );
+    expect(librarySheetPagesSource).toContain(
+      'data-sheet-autofocus="true"'
+    );
+    expect(overlaysSource).toContain("<BookActionPage");
+    expect(overlaysSource).toContain("<BookRenamePage");
+    expect(overlaysSource).toContain("<CollectionCreatePage");
+  });
+
   it("adapts the legacy sheet contract to one interruptible Motion owner", () => {
     expect(bottomSheetSource).toContain('import MotionSheet from "./MotionSheet"');
-    expect(bottomSheetSource).toContain("return <MotionSheet {...props} />");
+    expect(bottomSheetSource).toContain("<MotionSheet");
+    expect(bottomSheetSource).toContain("open={open}");
+    expect(bottomSheetSource).toContain("onRequestClose={() => setOpen(false)}");
+    expect(bottomSheetSource).toContain("onExitComplete={onClose}");
     expect(motionSheetSource).toContain("AnimatePresence");
     expect(motionSheetSource).toContain("useMotionValue");
     expect(motionSheetSource).toContain("useTransform");
     expect(motionSheetSource).toContain('drag="y"');
     expect(motionSheetSource).toContain("dragControls");
     expect(motionSheetSource).toContain("shouldCompleteSheetDismiss");
-    expect(motionSheetSource).toContain("onExitComplete={finishClose}");
+    expect(motionSheetSource).toContain("setExitCommitGeneration");
     expect(motionSheetSource).toContain("useAppReducedMotion");
     expect(motionSheetSource).toContain("window.visualViewport");
     expect(motionSheetSource).toContain('viewport.addEventListener("resize"');
@@ -71,13 +154,13 @@ describe("overlay and nested view motion", () => {
     expect(motionSheetSource).toContain(
       "className={styles.motionSheetBackdrop}"
     );
-    expect(motionSheetSource).toContain("style={{ opacity: progress }}");
+    expect(motionSheetSource).toContain("reduceMotion ? reducedOpacity : progress");
     expect(motionSheetSource).toContain('data-motion-sheet="backdrop"');
     expect(motionSheetSource).not.toContain("--sheet-backdrop-opacity");
     expect(motionSheetSource).not.toContain("initial={{ opacity: 0 }}");
     expect(motionSheetSource).not.toContain("animate={{ opacity: 1 }}");
     expect(motionSheetSource).not.toContain("exit={{ opacity: 0 }}");
-    expect(motionSheetSource).toContain("const interruptClose");
+    expect(motionSheetSource).toContain("exitRequestedRef");
     expect(motionSheetSource).toContain("activeAnimationRef.current?.stop()");
   });
 
@@ -163,12 +246,33 @@ describe("overlay and nested view motion", () => {
     }
   });
 
-  it("renders exactly one overlay from the navigation sheet stack", () => {
+  it("renders one persistent outer presentation around the full sheet stack", () => {
     expect(overlaysSource).toContain("useNavigation()");
-    expect(overlaysSource).toContain("useNavigationSheets()");
-    expect(overlaysSource).toContain("sheets.at(-1)");
-    expect(overlaysSource).toContain("switch (sheet.route)");
-    expect(overlaysSource).toContain("data-sheet-route={sheet.route}");
+    expect(overlaysSource).toContain("useNavigationState()");
+    expect(overlaysSource).toContain("<MotionSheet");
+    expect(overlaysSource).toContain("<SheetPageStack");
+    expect(overlaysSource).toContain("entries={renderedEntries}");
+    expect(overlaysSource).not.toContain("const sheet = sheets.at(-1)");
+    expect(overlaysSource).not.toMatch(/case [\s\S]*?<BottomSheet/);
+    expect(overlaysSource).toContain("data-sheet-route={topSheet.route}");
+    expect(overlaysSource).toContain("data-sheet-stack-root={renderedEntries[0]?.route}");
+    expect(motionSheetSource).toContain("open: boolean");
+    expect(motionSheetSource).toContain("stackDepth?: number");
+    expect(motionSheetSource).toContain("onRequestClose: () => void");
+    expect(motionSheetSource).toContain("onExitComplete?: () => void");
+    expect(motionSheetSource).toContain("useAppMotionLifecycle");
+    expect(motionSheetSource).toContain("getRoleTransition");
+    expect(motionSheetSource).toContain("data-sheet-stack-depth={stackDepth}");
+    expect(motionSheetSource).toContain("lifecycle.epoch");
+    expect(motionSheetSource).toContain("animationGenerationRef.current += 1");
+    expect(motionSheetSource).toContain("completedExitGenerationRef.current");
+    expect(motionSheetSource).toContain("onExitComplete?.()");
+    expect(motionSheetSource).toContain("reduceMotion ? reducedOpacity : progress");
+    expect(motionSheetSource).toContain("closeRequestGuardRef");
+    expect(motionSheetSource).toContain("exitCommitGeneration");
+    expect(motionSheetSource).not.toContain(
+      "onExitComplete={finishClose}"
+    );
     for (const route of [
       "reader-settings",
       "reader-custom-settings",
@@ -179,12 +283,88 @@ describe("overlay and nested view motion", () => {
       "book-rename",
       "book-delete",
       "book-groups",
+      "reading-workspace",
       "batch-groups",
       "batch-delete",
       "collection-create",
     ]) {
-      expect(overlaysSource).toContain(`case "${route}"`);
+      expect(overlaysSource).toContain(`"${route}":`);
     }
+  });
+
+  it("keeps the first close callback and rejects duplicate same-tick requests", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const onRequestClose = vi.fn();
+    const guard = createSheetCloseRequestGuard();
+    const requestClose = (callback: () => void) => {
+      if (!guard.request(callback)) return;
+      onRequestClose();
+    };
+
+    requestClose(first);
+    requestClose(second);
+    expect(onRequestClose).toHaveBeenCalledOnce();
+    guard.takeCallback()?.();
+    expect(first).toHaveBeenCalledOnce();
+    expect(second).not.toHaveBeenCalled();
+    expect(guard.takeCallback()).toBeNull();
+
+    guard.reset();
+    expect(guard.request(second)).toBe(true);
+  });
+
+  it("commits an exit only for the current closed generation", () => {
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 3,
+      })
+    ).toBe(true);
+    expect(
+      shouldCommitSheetExit({
+        open: true,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 3,
+      })
+    ).toBe(false);
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 5,
+        completedGeneration: 3,
+      })
+    ).toBe(false);
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 4,
+      })
+    ).toBe(false);
+    expect(
+      shouldCommitSheetExit({
+        open: false,
+        requestedGeneration: 4,
+        currentGeneration: 4,
+        completedGeneration: 5,
+      })
+    ).toBe(false);
+  });
+
+  it("pre-promotes the sheet compositor layers before entrance motion", () => {
+    const runtimeCss = css.replace(/\/\*[\s\S]*?\*\//g, "");
+    const backdropRule = runtimeCss.match(/\.motionSheetBackdrop\s*\{[^}]*\}/s)?.[0] ?? "";
+    const panelRule = runtimeCss.match(/\.motionSheetPanel\s*\{[^}]*\}/s)?.[0] ?? "";
+    expect(backdropRule).toContain("will-change: opacity;");
+    expect(panelRule).toContain("will-change: transform;");
+    expect(motionSheetSource).not.toContain('willChange: isAnimating ? "opacity" : "auto"');
+    expect(motionSheetSource).not.toContain('willChange: isAnimating ? "transform" : "auto"');
   });
 
   it("removes independent overlay-open booleans", () => {

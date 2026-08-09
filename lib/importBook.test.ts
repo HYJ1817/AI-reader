@@ -83,6 +83,35 @@ describe("createBookRecordFromFile", () => {
     return new File([data], "covered.epub", { type: "application/epub+zip" });
   }
 
+  async function makeEpubFileWithMetadata(): Promise<File> {
+    const zip = new JSZip();
+    zip.file(
+      "META-INF/container.xml",
+      `<container><rootfiles><rootfile full-path="OPS/package.opf"/></rootfiles></container>`
+    );
+    zip.file(
+      "OPS/package.opf",
+      `<package xmlns:dc="http://purl.org/dc/elements/1.1/">
+        <metadata>
+          <dc:title>标准书名</dc:title>
+          <dc:creator>本地作者</dc:creator>
+          <dc:identifier>9787010000000</dc:identifier>
+          <dc:language>zh-CN</dc:language>
+        </metadata>
+        <manifest>
+          <item id="cover" href="cover.png" media-type="image/png" properties="cover-image"/>
+        </manifest>
+      </package>`
+    );
+    zip.file("OPS/cover.png", "cover bytes");
+    const bytes = await zip.generateAsync({ type: "uint8array" });
+    const copied = new Uint8Array(bytes.byteLength);
+    copied.set(bytes);
+    return new File([copied.buffer], "user-name.epub", {
+      type: "application/epub+zip",
+    });
+  }
+
   it("creates a record from an epub file", async () => {
     const file = makeFile("my-book.epub", "epub data");
     const record = await createBookRecordFromFile(file);
@@ -104,6 +133,20 @@ describe("createBookRecordFromFile", () => {
     expect(record.coverImageBlob).toBeInstanceOf(Blob);
     expect(record.coverImageBlob?.type).toBe("image/png");
     expect(await record.coverImageBlob?.text()).toBe("cover bytes");
+  });
+
+  it("stores EPUB package hints without replacing the display title", async () => {
+    const record = await createBookRecordFromFile(await makeEpubFileWithMetadata());
+
+    expect(record.title).toBe("user name");
+    expect(record.enrichment).toMatchObject({
+      bibliographicTitle: "标准书名",
+      authors: ["本地作者"],
+      identifiers: [{ type: "ISBN", value: "9787010000000" }],
+      language: "zh-CN",
+      status: "pending",
+    });
+    expect(record.enrichment?.fieldSources).toBeUndefined();
   });
 
   it("creates a record from a txt file", async () => {

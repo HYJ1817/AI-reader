@@ -78,7 +78,7 @@ describe("pushed application surfaces", () => {
 
   it("keeps compact provider navigation and long metadata inside the viewport", () => {
     expect(stylesSource).toMatch(
-      /\.providerNavButton\s*\{[^}]*white-space:\s*nowrap;/s
+      /\.providerNavButton\s*\{[^}]*width:\s*44px;[^}]*height:\s*44px;/s
     );
     expect(stylesSource).toMatch(
       /\.providerChoiceText small\s*\{[^}]*overflow:\s*hidden;[^}]*text-overflow:\s*ellipsis;[^}]*white-space:\s*nowrap;/s

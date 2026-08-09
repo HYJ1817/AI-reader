@@ -29,6 +29,15 @@ import {
 } from "./aiProviders";
 import { DEFAULT_AI_SETTINGS, saveAiSettingsToStorage } from "./aiSettings";
 import {
+  BOOK_METADATA_LIMITS,
+  type BookEnrichment,
+  type BookEnrichmentError,
+  type BookEnrichmentStatus,
+  type BookMetadataField,
+  type BookMetadataProvenance,
+  type BookMetadataSource,
+} from "./bookMetadata";
+import {
   emptyWorkspaceBackupData,
   validateWorkspaceBackupData,
   type WorkspaceBackupData,
@@ -44,6 +53,7 @@ export interface BackupBookMeta {
   lastOpenedAt?: string;
   fileContent: string;
   groupIds?: string[];
+  enrichment?: BookEnrichment;
 }
 
 type LegacyAiSettings = { baseUrl?: string; model?: string };
@@ -197,6 +207,7 @@ export async function createBackupPayload(input?: {
       lastOpenedAt: book.lastOpenedAt,
       fileContent: await blobToBase64(fileBlob),
       groupIds: book.groupIds,
+      enrichment: book.enrichment,
     });
   }
 
@@ -237,6 +248,200 @@ export async function createBackupPayload(input?: {
   };
 }
 
+function optionalBoundedString(
+  value: unknown,
+  label: string,
+  maxLength: number
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== "string" || !value.trim() || value.length > maxLength) {
+    throw new Error(`Invalid backup: ${label}`);
+  }
+  return value;
+}
+
+function validateBoundedStringArray(
+  value: unknown,
+  label: string,
+  maxItems: number,
+  maxLength: number
+): string[] | undefined {
+  if (value === undefined) return undefined;
+  if (
+    !Array.isArray(value) ||
+    value.length > maxItems ||
+    value.some(
+      (item) =>
+        typeof item !== "string" || !item.trim() || item.length > maxLength
+    )
+  ) {
+    throw new Error(`Invalid backup: ${label}`);
+  }
+  return [...value];
+}
+
+const ENRICHMENT_STATUSES = new Set<BookEnrichmentStatus>([
+  "pending",
+  "complete",
+  "partial",
+  "failed",
+]);
+const ENRICHMENT_ERRORS = new Set<BookEnrichmentError>([
+  "no-match",
+  "offline",
+  "timeout",
+  "provider",
+  "invalid-response",
+]);
+const ENRICHMENT_SOURCES = new Set<BookMetadataSource>([
+  "open-library",
+  "google-books",
+  "ai",
+]);
+const ENRICHMENT_FIELDS = new Set<BookMetadataField>([
+  "bibliographicTitle",
+  "authors",
+  "description",
+  "subjects",
+  "publisher",
+  "publishedDate",
+  "language",
+  "identifiers",
+  "cover",
+]);
+
+function validateProvenance(
+  value: unknown,
+  label: string
+): BookMetadataProvenance {
+  if (!isRecord(value) || !ENRICHMENT_SOURCES.has(value.source as BookMetadataSource)) {
+    throw new Error(`Invalid backup: ${label}`);
+  }
+  if (value.generated !== undefined && typeof value.generated !== "boolean") {
+    throw new Error(`Invalid backup: ${label}.generated`);
+  }
+  return {
+    source: value.source as BookMetadataSource,
+    sourceId: optionalBoundedString(value.sourceId, `${label}.sourceId`, 300),
+    generated: value.generated as boolean | undefined,
+  };
+}
+
+function validateBookEnrichment(value: unknown): BookEnrichment | undefined {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) throw new Error("Invalid backup: enrichment");
+  if (!ENRICHMENT_STATUSES.has(value.status as BookEnrichmentStatus)) {
+    throw new Error("Invalid backup: enrichment.status");
+  }
+
+  let identifiers: BookEnrichment["identifiers"];
+  if (value.identifiers !== undefined) {
+    if (
+      !Array.isArray(value.identifiers) ||
+      value.identifiers.length > BOOK_METADATA_LIMITS.identifiers
+    ) {
+      throw new Error("Invalid backup: enrichment.identifiers");
+    }
+    identifiers = value.identifiers.map((identifier, index) => {
+      if (!isRecord(identifier)) {
+        throw new Error(`Invalid backup: enrichment.identifiers.${index}`);
+      }
+      const type = optionalBoundedString(
+        identifier.type,
+        `enrichment.identifiers.${index}.type`,
+        BOOK_METADATA_LIMITS.identifierType
+      );
+      const identifierValue = optionalBoundedString(
+        identifier.value,
+        `enrichment.identifiers.${index}.value`,
+        BOOK_METADATA_LIMITS.identifierValue
+      );
+      if (!type || !identifierValue) {
+        throw new Error(`Invalid backup: enrichment.identifiers.${index}`);
+      }
+      return { type, value: identifierValue };
+    });
+  }
+
+  let fieldSources: BookEnrichment["fieldSources"];
+  if (value.fieldSources !== undefined) {
+    if (!isRecord(value.fieldSources)) {
+      throw new Error("Invalid backup: enrichment.fieldSources");
+    }
+    fieldSources = {};
+    for (const [field, source] of Object.entries(value.fieldSources)) {
+      if (!ENRICHMENT_FIELDS.has(field as BookMetadataField)) continue;
+      fieldSources[field as BookMetadataField] = validateProvenance(
+        source,
+        `enrichment.fieldSources.${field}`
+      );
+    }
+  }
+
+  if (
+    value.matchScore !== undefined &&
+    (typeof value.matchScore !== "number" ||
+      !Number.isFinite(value.matchScore) ||
+      value.matchScore < 0 ||
+      value.matchScore > 1)
+  ) {
+    throw new Error("Invalid backup: enrichment.matchScore");
+  }
+  if (
+    value.errorCode !== undefined &&
+    !ENRICHMENT_ERRORS.has(value.errorCode as BookEnrichmentError)
+  ) {
+    throw new Error("Invalid backup: enrichment.errorCode");
+  }
+
+  return {
+    bibliographicTitle: optionalBoundedString(
+      value.bibliographicTitle,
+      "enrichment.bibliographicTitle",
+      BOOK_METADATA_LIMITS.title
+    ),
+    authors: validateBoundedStringArray(
+      value.authors,
+      "enrichment.authors",
+      BOOK_METADATA_LIMITS.authorCount,
+      BOOK_METADATA_LIMITS.author
+    ),
+    description: optionalBoundedString(
+      value.description,
+      "enrichment.description",
+      BOOK_METADATA_LIMITS.description
+    ),
+    subjects: validateBoundedStringArray(
+      value.subjects,
+      "enrichment.subjects",
+      BOOK_METADATA_LIMITS.subjectCount,
+      BOOK_METADATA_LIMITS.subject
+    ),
+    publisher: optionalBoundedString(
+      value.publisher,
+      "enrichment.publisher",
+      BOOK_METADATA_LIMITS.publisher
+    ),
+    publishedDate: optionalBoundedString(
+      value.publishedDate,
+      "enrichment.publishedDate",
+      BOOK_METADATA_LIMITS.publishedDate
+    ),
+    language: optionalBoundedString(
+      value.language,
+      "enrichment.language",
+      BOOK_METADATA_LIMITS.language
+    ),
+    identifiers,
+    status: value.status as BookEnrichmentStatus,
+    matchScore: value.matchScore as number | undefined,
+    attemptedAt: requireString(value, "attemptedAt"),
+    updatedAt: optionalBoundedString(value.updatedAt, "enrichment.updatedAt", 80),
+    errorCode: value.errorCode as BookEnrichmentError | undefined,
+    fieldSources,
+  };
+}
+
 function validateBook(value: unknown): BackupBookMeta {
   if (!isRecord(value)) throw new Error("Invalid backup: book");
   const format = value.format;
@@ -257,6 +462,7 @@ function validateBook(value: unknown): BackupBookMeta {
     lastOpenedAt: typeof value.lastOpenedAt === "string" ? value.lastOpenedAt : undefined,
     fileContent: requireString(value, "fileContent"),
     groupIds: groupIds as string[] | undefined,
+    enrichment: validateBookEnrichment(value.enrichment),
   };
 }
 
@@ -423,6 +629,7 @@ export async function restoreBackupPayload(data: unknown): Promise<void> {
     createdAt: book.createdAt,
     lastOpenedAt: book.lastOpenedAt,
     ...(book.groupIds ? { groupIds: book.groupIds } : {}),
+    ...(book.enrichment ? { enrichment: book.enrichment } : {}),
   }));
 
   let customBackground: CustomBackgroundRecord | null | undefined;

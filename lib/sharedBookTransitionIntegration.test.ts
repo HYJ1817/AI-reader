@@ -8,11 +8,14 @@ function optionalSource(path: string): string {
 
 const transitionSource = optionalSource("../app/SharedBookTransition.tsx");
 const coverSource = optionalSource("../app/MotionBookCover.tsx");
+const detailsSource = optionalSource("../app/BookDetailsSurface.tsx");
 const librarySource = optionalSource("../app/LibrarySurface.tsx");
+const libraryResultsSource = optionalSource("../app/LibraryBookResults.tsx");
 const dashboardSource = optionalSource("../app/ReadingDashboard.tsx");
 const stackSource = optionalSource("../app/NavigationStack.tsx");
 const pageSource = optionalSource("../app/page.tsx");
 const readerBookStateSource = optionalSource("../app/useReaderBookState.ts");
+const detailsIntegrationSource = optionalSource("../app/useBookDetailsIntegration.ts");
 const legacyPresentationUrl = new URL(
   "../app/useReaderPresentation.ts",
   import.meta.url
@@ -26,10 +29,18 @@ describe("shared reader presentation integration", () => {
     expect(coverSource).toContain("useAppReducedMotion");
   });
 
+  it("revalidates a transformed details cover when the reader is requested", () => {
+    expect(transitionSource).toContain("refreshSourceVisibility");
+    expect(transitionSource).toContain("isSourceVisible(source.element)");
+    expect(detailsSource).toContain("refreshSourceVisibility(detailOriginId)");
+  });
+
   it("keeps reader exits present and restores a visible source", () => {
     expect(transitionSource).toContain("AnimatePresence");
     expect(transitionSource).toContain("getBookTransitionMode");
-    expect(transitionSource).toContain("MOTION_SPRING.sharedBook");
+    expect(transitionSource).toContain("MOTION_DURATION.readerEnter");
+    expect(transitionSource).toContain("MOTION_DURATION.readerExit");
+    expect(transitionSource).not.toContain("MOTION_SPRING.sharedBook");
     expect(transitionSource).toContain('data-reader-presented="true"');
     expect(transitionSource).toContain("closest<HTMLButtonElement>");
     expect(transitionSource).not.toContain("EpubReader");
@@ -56,15 +67,17 @@ describe("shared reader presentation integration", () => {
 
   it("uses unique origins at every book entry point", () => {
     expect(librarySource).toContain("MotionBookCover");
-    expect(librarySource).toContain('library-grid-${book.id}');
-    expect(librarySource).toContain('library-list-${book.id}');
+    expect(librarySource).toContain('originPrefix="library"');
+    expect(libraryResultsSource).toContain(
+      "`${originPrefix}-${mode}-${book.id}`"
+    );
     expect(dashboardSource).toContain("MotionBookCover");
     expect(dashboardSource).toContain('reading-dashboard-${latestBook.id}');
   });
 
   it("drives the reader from navigation state without the two-frame hook", () => {
     expect(pageSource).toContain("navigation.state.reader");
-    expect(pageSource).toContain("navigation.presentReader(book.id");
+    expect(detailsIntegrationSource).toContain("navigation.presentReader(book.id");
     expect(pageSource).toContain("<SharedBookTransition");
     expect(pageSource).toContain("navigation.dismissReader()");
     expect(readerBookStateSource).toContain(

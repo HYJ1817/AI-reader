@@ -129,24 +129,3 @@ export function canInterruptSheetPhase(phase: string): boolean {
     phase === "closing"
   );
 }
-
-export type SheetDismissInput = {
-  translationY: number;
-  velocityY: number;
-  sheetHeight: number;
-};
-
-export function shouldDismissSheet({
-  translationY,
-  velocityY,
-  sheetHeight,
-}: SheetDismissInput): boolean {
-  const safeHeight = Math.max(1, sheetHeight);
-  const distanceThreshold = Math.min(140, safeHeight * 0.28);
-  const intentDistanceThreshold = Math.min(120, safeHeight * 0.18);
-  const fastFlick = velocityY >= 900 && translationY >= 24;
-  const committedDrag =
-    velocityY >= 480 && translationY >= intentDistanceThreshold;
-
-  return translationY >= distanceThreshold || committedDrag || fastFlick;
-}

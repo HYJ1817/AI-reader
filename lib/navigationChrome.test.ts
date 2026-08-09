@@ -47,10 +47,40 @@ function nestedGlobalRule(container: string, selector: string): string {
 }
 
 describe("compact root chrome", () => {
+  it("keeps one persistent split dock across root and search modes", () => {
+    const dockRule = cssRule(".navigationDock");
+    const searchModeRule = cssRule(
+      '.navigationDock[data-navigation-mode="search"]'
+    );
+    const primaryRule = cssRule(".navigationPrimarySlot");
+    const searchRule = cssRule(".navigationSearchSlot");
+
+    expect(navigationSource).toContain(
+      'data-navigation-mode={searchOpen ? "search" : "root"}'
+    );
+    expect(navigationSource).toContain('layoutId="navigation-primary-slot"');
+    expect(navigationSource).toContain('layoutId="navigation-search-slot"');
+    expect(navigationSource).toContain('id="library-search-button"');
+    expect(navigationSource).toContain('type="search"');
+    expect(navigationSource).toContain("onLayoutAnimationComplete");
+    expect(navigationSource).toContain("navigationRevision");
+    expect(dockRule).toContain(
+      "grid-template-columns: minmax(0, 1fr) 68px"
+    );
+    expect(dockRule).toContain("gap: 10px");
+    expect(searchModeRule).toContain(
+      "grid-template-columns: 68px minmax(0, 1fr)"
+    );
+    expect(primaryRule).toContain(
+      "backdrop-filter: blur(14px) saturate(112%)"
+    );
+    expect(searchRule).not.toContain("backdrop-filter");
+  });
+
   it("uses one safe-area-aware dimension contract", () => {
     const appRule = cssRule(".app");
     const surfaceRule = cssRule(".appSurface");
-    const barRule = cssRule(".tabBar");
+    const dockRule = cssRule(".navigationDock");
     const batchRule = cssRule(".libraryBatchBar");
 
     expect(appRule).toContain("--root-tab-height: 76px");
@@ -58,12 +88,12 @@ describe("compact root chrome", () => {
     expect(surfaceRule).toContain("var(--root-tab-height)");
     expect(surfaceRule).toContain("var(--root-tab-offset)");
     expect(surfaceRule).toContain("var(--safe-bottom)");
-    expect(barRule).toContain("bottom: calc(var(--safe-bottom) + var(--root-tab-offset))");
-    expect(barRule).toContain("height: var(--root-tab-height)");
-    expect(barRule).toContain("width: min(302px, calc(100vw - 32px))");
-    expect(barRule).toContain("left: 50%");
-    expect(barRule).toContain("right: auto");
-    expect(barRule).toContain("transform: translate3d(-50%, 0, 0)");
+    expect(dockRule).toContain("bottom: calc(var(--safe-bottom) + var(--root-tab-offset))");
+    expect(dockRule).toContain("height: 68px");
+    expect(dockRule).toContain("width: min(430px, calc(100vw - 20px))");
+    expect(dockRule).toContain("left: 50%");
+    expect(dockRule).toContain("right: auto");
+    expect(dockRule).toContain("transform: translate3d(-50%, 0, 0)");
     expect(batchRule).toContain("var(--root-tab-height)");
     expect(batchRule).toContain("var(--root-tab-offset)");
   });
@@ -89,20 +119,18 @@ describe("compact root chrome", () => {
 
   it("uses a theme-aware frosted pill with a translucent active backing", () => {
     const barRule = cssRule(".tabBar");
+    const primaryRule = cssRule(".navigationPrimarySlot");
     const indicatorRule = cssRule(".tabIndicator");
     const backingRule = cssRule(".tabIndicator::after");
     const solidIconRule = cssRule(".tabIconSolid");
 
-    expect(barRule).toContain("border-radius: 33px");
-    expect(barRule).toContain("padding: 3px 16px 5px");
-    expect(barRule).toContain("background: var(--root-tab-fill)");
-    expect(barRule).toContain("backdrop-filter: blur(14px) saturate(112%)");
-    expect(barRule).toContain("border: 0.5px solid var(--root-tab-border)");
-    expect(barRule).toContain("box-shadow: var(--root-tab-shadow)");
-    expect(indicatorRule).toContain("top: 8px");
-    expect(indicatorRule).toContain("width: calc((100% - 32px) / 3)");
+    expect(primaryRule).toContain("backdrop-filter: blur(14px) saturate(112%)");
+    expect(barRule).toContain("border-radius: inherit");
+    expect(barRule).toContain("padding: 0 10px");
+    expect(indicatorRule).toContain("top: 4px");
+    expect(indicatorRule).toContain("width: calc((100% - 20px) / 3)");
     expect(indicatorRule).toContain("height: 60px");
-    expect(backingRule).toContain("inset: 0 4px");
+    expect(backingRule).toContain("inset: 0 3px");
     expect(backingRule).toContain("border-radius: 30px");
     expect(backingRule).toContain("background: var(--root-tab-active-fill)");
     expect(backingRule).not.toContain("box-shadow");

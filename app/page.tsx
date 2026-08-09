@@ -22,7 +22,6 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  updateBookLastOpenedAt,
   renameBook,
   type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
@@ -85,7 +84,9 @@ import SharedBookTransition from "@/app/SharedBookTransition";
 import SettingsSurface from "@/app/SettingsSurface";
 import useAppNavigation from "@/app/useAppNavigation";
 import useReaderBookState from "@/app/useReaderBookState";
+import useReadingGoalState from "@/app/useReadingGoalState";
 import { UI_TEXT } from "@/lib/uiText";
+import { getBookImportErrorMessage } from "@/lib/bookImportError";
 import {
   DEFAULT_READER_MODE,
   type ReaderMode,
@@ -100,10 +101,7 @@ import {
   formatReadingMinutes,
   shouldPublishReadingSeconds,
 } from "@/lib/readingGoal";
-import {
-  buildSevenDayReadingInsights,
-  totalReadingMinutes,
-} from "@/lib/readingInsights";
+import { buildSevenDayReadingInsights } from "@/lib/readingInsights";
 import {
   pruneSelectedBookIds,
   selectAllBookIds,
@@ -123,13 +121,8 @@ import {
   getBookProgressPercent,
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
-import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
 import type { NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
-import {
-  getInitialVisibleItemCount,
-  getNextVisibleItemCount,
-} from "@/lib/incrementalList";
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
 import { createReaderChromeState, reduceReaderChromeState } from "@/lib/readerChromeState";
 import {
@@ -143,6 +136,9 @@ import useWorkspaceChat from "@/app/useWorkspaceChat";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
 import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
 import useBookCoverBackfill from "@/app/useBookCoverBackfill";
+import useIncrementalRenderWindow from "@/app/useIncrementalRenderWindow";
+import useBookMetadataEnrichment from "@/app/useBookMetadataEnrichment";
+import useBookDetailsIntegration from "@/app/useBookDetailsIntegration";
 import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 import { assertBackupImportSize } from "@/lib/backupImport";
@@ -165,11 +161,6 @@ export default function Home() {
   const navigationSheets = useSyncExternalStore(navigation.subscribe,
     () => navigation.getState().sheets, () => navigation.getState().sheets);
   const [books, setBooks] = useState<BookMetadata[]>([]);
-  const [libraryRenderWindow, setLibraryRenderWindow] = useState({
-    key: "",
-    count: LIBRARY_RENDER_BATCH,
-  });
-  const libraryLoadSentinelRef = useRef<HTMLDivElement>(null);
   const [readingProgressMap, setReadingProgressMap] = useState<ReadingProgressMap>({});
   const [loading, setLoading] = useState(true);
   const [importError, setImportError] = useState<string | null>(null);
@@ -252,10 +243,9 @@ export default function Home() {
   const pendingReaderPrefsRef = useRef<ReaderPreferences | null>(null);
   const readerPrefsGenerationRef = useRef(0);
 
-  const [readingGoal, setReadingGoal] = useState(() => loadReadingGoal());
+  const { readingGoal, setReadingGoal, goalInputValue, setGoalInputValue } = useReadingGoalState();
   const [todaySeconds, setTodaySeconds] = useState(0);
   const [readingStats, setReadingStats] = useState<DailyReadingStat[]>([]);
-  const [goalInputValue, setGoalInputValue] = useState(readingGoal.targetMinutes);
   const tickRef = useRef<{
     date: string;
     lastVis: boolean;
@@ -408,6 +398,7 @@ export default function Home() {
   }
 
   function dismissReader(targetTab?: NavigationTab) {
+    bookDetailsIntegration.clearPendingToc();
     if (!readerPresented) {
       if (targetTab) navigation.selectTab(targetTab);
       return;
@@ -522,17 +513,22 @@ export default function Home() {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
     }
-    void openBookForReading(book, originId);
+    navigation.push("book-details", {
+      entityId: book.id,
+      restoreFocusId: originId,
+    });
   }
 
   function handleSelectAllVisible() {
     if (allVisibleSelected) {
       setSelectedBookIds((ids) =>
-        ids.filter((id) => !filteredBooks.some((book) => book.id === id))
+        ids.filter((id) => !groupFilteredBooks.some((book) => book.id === id))
       );
       return;
     }
-    setSelectedBookIds((ids) => selectAllBookIds(ids, filteredBooks.map((book) => book.id)));
+    setSelectedBookIds((ids) =>
+      selectAllBookIds(ids, groupFilteredBooks.map((book) => book.id))
+    );
   }
 
   function openBatchGroupSheet() {
@@ -704,7 +700,7 @@ export default function Home() {
     if (!file) return;
     setImportError(null);
     if (!hasIndexedDbSupport(window)) {
-      setImportError(UI_TEXT.ERROR_READ_FILE);
+      setImportError(getBookImportErrorMessage(new Error("indexeddb-unavailable")));
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
@@ -714,10 +710,9 @@ export default function Home() {
       await saveBook(record);
       autoOpenAttemptedRef.current = true;
       setBooks(await listBookMetadata());
+      void metadataEnrichment.run(record, "automatic");
     } catch (err) {
-      setImportError(
-        err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED
-      );
+      setImportError(getBookImportErrorMessage(err));
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -728,29 +723,42 @@ export default function Home() {
     : groupFilter === "__ungrouped"
       ? books.filter((book) => !book.groupIds || book.groupIds.length === 0)
       : books.filter((book) => book.groupIds?.includes(groupFilter));
-  const filteredBooks = filterBooksByQuery(
-    groupFilteredBooks,
-    librarySearchQuery
-  );
   const libraryHomePresentation = buildLibraryHomePresentation({
     books,
-    filteredBooks,
-    searchQuery: librarySearchQuery,
+    filteredBooks: groupFilteredBooks,
+    searchQuery: "",
     groupFilter,
     editing: libraryEditing,
   });
   const libraryShelfBooks = libraryHomePresentation.shelfBooks;
-  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${librarySearchQuery}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
-  const visibleBookCount = Math.min(
-    libraryShelfBooks.length,
-    libraryRenderWindow.key === libraryRenderKey
-      ? libraryRenderWindow.count
-      : getInitialVisibleItemCount(
-          libraryShelfBooks.length,
-          LIBRARY_RENDER_BATCH
-        )
-  );
+  const libraryRenderKey = `${groupFilter ?? "__all"}\u0000${libraryView}\u0000${libraryHomePresentation.featuredBook?.id ?? "__none"}`;
+  const {
+    loadSentinelRef: libraryLoadSentinelRef,
+    visibleCount: visibleBookCount,
+  } = useIncrementalRenderWindow({
+    active: activeTab === "library",
+    batchSize: LIBRARY_RENDER_BATCH,
+    renderKey: libraryRenderKey,
+    totalCount: libraryShelfBooks.length,
+  });
   const visibleBooks = libraryShelfBooks.slice(0, visibleBookCount);
+  const librarySearchBooks = filterBooksByQuery(books, librarySearchQuery);
+  const librarySearchRenderKey = `${librarySearchQuery}\u0000${libraryView}`;
+  const topPushRoute = navigation.state.pushes.at(-1)?.route;
+  const librarySearchOpen = topPushRoute === "library-search";
+  const {
+    loadSentinelRef: librarySearchLoadSentinelRef,
+    visibleCount: librarySearchVisibleCount,
+  } = useIncrementalRenderWindow({
+    active: librarySearchOpen,
+    batchSize: LIBRARY_RENDER_BATCH,
+    renderKey: librarySearchRenderKey,
+    totalCount: librarySearchBooks.length,
+  });
+  const visibleLibrarySearchBooks = librarySearchBooks.slice(
+    0,
+    librarySearchVisibleCount
+  );
   useEffect(() => {
     const visibleBookIds = [
       ...(libraryHomePresentation.featuredBook
@@ -776,13 +784,14 @@ export default function Home() {
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
-  const showBottomTabs =
-    navigation.state.pushes.length === 0 &&
-    shouldShowBottomTabs(activeTab, readerPresented);
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
   );
+  const metadataEnrichment = useBookMetadataEnrichment({
+    aiProvider: activeAiProvider,
+    onMetadataChanged: setBooks,
+  });
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
   const topSheet = navigationSheets.at(-1);
   const routedWorkspaceBook = topSheet?.route === "reading-workspace" && topSheet.entityId
@@ -815,6 +824,18 @@ export default function Home() {
     readerLocator: openBook?.format === "txt" ? `txt-${readerMode}` : undefined,
     progressPercent: readerProgressPercent,
   });
+  const bookDetailsIntegration = useBookDetailsIntegration({
+    activeTab, topPushRoute, pushes: navigation.state.pushes, books, loading,
+    progressMap: readingProgressMap, latestBook: latestBook ?? null,
+    readerPresented, navigation, flushReadingPosition: positionCoordinator.flush,
+    prepareReaderBook, stopWorkspaceRequest,
+    resetScrollRestoration: () => { scrollRestoredRef.current = false; },
+    setBooks, setImportError,
+  });
+  const {
+    detailEntry, detailBook, detailProgress, ambientBook, showBottomTabs,
+    openBookForReading,
+  } = bookDetailsIntegration;
   const annotations = useReaderAnnotationsController({
     openBook, readerMode,
     reduceMotion: appPrefs.reduceMotion,
@@ -853,57 +874,14 @@ export default function Home() {
     todayKey,
     readingGoal.targetMinutes
   );
-  const totalMinutesValue = totalReadingMinutes(readingStatsWithToday);
+  const totalMinutesValue = weeklyReadingInsights.reduce(
+    (total, day) => total + day.minutes,
+    0
+  );
   const paragraphChunks = useMemo(
     () => chunkParagraphs(paragraphs),
     [paragraphs]
   );
-
-  useEffect(() => {
-    if (
-      activeTab !== "library" ||
-      visibleBookCount >= libraryShelfBooks.length
-    ) {
-      return;
-    }
-    const target = libraryLoadSentinelRef.current;
-    if (!target) return;
-    const Observer = (
-      window as Window & {
-        IntersectionObserver?: typeof IntersectionObserver;
-      }
-    ).IntersectionObserver;
-    if (!Observer) {
-      const frame = window.requestAnimationFrame(() => {
-        setLibraryRenderWindow({
-          key: libraryRenderKey,
-          count: libraryShelfBooks.length,
-        });
-      });
-      return () => window.cancelAnimationFrame(frame);
-    }
-    const observer = new Observer(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) return;
-        setLibraryRenderWindow({
-          key: libraryRenderKey,
-          count: getNextVisibleItemCount(
-            visibleBookCount,
-            libraryShelfBooks.length,
-            LIBRARY_RENDER_BATCH
-          ),
-        });
-      },
-      { rootMargin: "480px 0px" }
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [
-    activeTab,
-    libraryRenderKey,
-    libraryShelfBooks.length,
-    visibleBookCount,
-  ]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -911,31 +889,6 @@ export default function Home() {
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [books]);
-
-  const openBookForReading = useCallback(async (
-    book: BookMetadata,
-    originId?: string
-  ) => {
-    await positionCoordinator.flush();
-    const fullBook = await getBook(book.id);
-    if (!fullBook) {
-      setImportError(UI_TEXT.ERROR_READ_FILE);
-      return;
-    }
-    const now = new Date().toISOString();
-    await updateBookLastOpenedAt(book.id, now);
-    const [nextBooks, savedPosition] = await Promise.all([
-      listBookMetadata(),
-      getReadingPosition(book.id),
-    ]);
-    setBooks(nextBooks);
-
-    scrollRestoredRef.current = false;
-    await stopWorkspaceRequest();
-    const contentReady = prepareReaderBook(fullBook, savedPosition);
-    navigation.presentReader(book.id, { originId });
-    await contentReady;
-  }, [navigation, positionCoordinator, prepareReaderBook, stopWorkspaceRequest]);
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1613,6 +1566,8 @@ export default function Home() {
         void turnReaderPage(direction, { instant: true })
       }
       onTocChange={setTocItems}
+      onTocReady={bookDetailsIntegration.onTocReady}
+      onEpubLoadError={bookDetailsIntegration.failReader}
       onProgressChange={handleEpubProgressChange}
       onPageInfoChange={setReaderPageInfo}
       onTextReaderScroll={handleReaderScroll}
@@ -1644,7 +1599,7 @@ export default function Home() {
         {...(readerPrefs.theme !== "system" ? { "data-reader-theme": readerPrefs.theme } : {})}
         {...(appPrefs.reduceMotion ? { "data-reduce-motion": "true" } : {})}
       >
-      <AmbientBookBackground book={useCustomBackgroundImage ? null : latestBook ?? null} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
+      <AmbientBookBackground book={useCustomBackgroundImage ? null : ambientBook} customBackgroundBlob={useCustomBackgroundImage ? background.customBackgroundBlob : null} customBackgroundOpacity={appPrefs.customBackgroundOpacity} reduceMotion={appPrefs.reduceMotion} />
       <input
         ref={fileInputRef}
         type="file"
@@ -1673,6 +1628,34 @@ export default function Home() {
             <AppPushSurfaces
               entry={entry}
               data={{
+                library: {
+                  books,
+                  groups,
+                  visibleBooks: visibleLibrarySearchBooks,
+                  query: librarySearchQuery,
+                  mode: libraryView,
+                  progressMap: readingProgressMap,
+                  loading,
+                  importError,
+                  totalMatchCount: librarySearchBooks.length,
+                  sentinelRef: librarySearchLoadSentinelRef,
+                  onClearQuery: () => setLibrarySearchQuery(""),
+                  onImportBooks: () => fileInputRef.current?.click(),
+                  onPressBook: handleBookPress,
+                  onOpenBookActions: openBookActionSheet,
+                },
+                details: detailBook ? {
+                  book: detailBook,
+                  progressPercent: detailProgress,
+                  lastReadAt: detailBook.lastOpenedAt,
+                  originId: detailEntry?.restoreFocusId,
+                  metadataRunning: metadataEnrichment.isRunning(detailBook.id),
+                  onRead: (originId) => void openBookForReading(detailBook, originId),
+                  onOpenContents: (originId) => bookDetailsIntegration.openContents(
+                    detailBook, originId, openBookForReading
+                  ),
+                  onEnrich: (mode) => void metadataEnrichment.run(detailBook, mode),
+                } : null,
                 collections: {
                   collectionItems: collectionListItems,
                   groupFilter,
@@ -1740,7 +1723,6 @@ export default function Home() {
             importError,
           }}
           view={{
-            searchQuery: librarySearchQuery,
             mode: libraryView,
             activeCollectionName,
             groupFilter,
@@ -1760,7 +1742,7 @@ export default function Home() {
               setLibraryEditing(false);
               setSelectedBookIds([]);
             },
-            setSearchQuery: setLibrarySearchQuery,
+            showAllBooks: () => setGroupFilter(null),
             setViewMode: handleLibraryViewChange,
             toggleLibraryEditing: libraryEditing
               ? exitLibraryEditing
@@ -1830,6 +1812,9 @@ export default function Home() {
       <AppNavigation
         activeTab={activeTab}
         showBottomTabs={showBottomTabs}
+        searchOpen={librarySearchOpen}
+        searchQuery={librarySearchQuery}
+        navigationRevision={navigation.getState().revision}
         showLibraryBatchBar={
           activeTab === "library" && libraryEditing && books.length > 0
         }
@@ -1842,6 +1827,21 @@ export default function Home() {
         }}
         onOpenReading={handleOpenReadingTab}
         onOpenSettings={switchToSettings}
+        onOpenSearch={() => {
+          if (
+            navigation.getState().pushes.at(-1)?.route === "library-search"
+          ) {
+            return;
+          }
+          setLibrarySearchQuery("");
+          setLibraryEditing(false);
+          setSelectedBookIds([]);
+          navigation.push("library-search", {
+            restoreFocusId: "library-search-button",
+          });
+        }}
+        onCloseSearch={navigation.pop}
+        onSearchQueryChange={setLibrarySearchQuery}
         onToggleSelectAll={handleSelectAllVisible}
         onOpenBatchGroup={openBatchGroupSheet}
         onOpenBatchDelete={() => navigation.presentSheet("batch-delete")}

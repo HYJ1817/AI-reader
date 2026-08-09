@@ -6,6 +6,10 @@ const source = readFileSync(
   path.resolve(process.cwd(), "app/LibrarySurface.tsx"),
   "utf8"
 );
+const resultsSource = readFileSync(
+  path.resolve(process.cwd(), "app/LibraryBookResults.tsx"),
+  "utf8"
+);
 const css = readFileSync(
   path.resolve(process.cwd(), "app/page.module.css"),
   "utf8"
@@ -33,10 +37,10 @@ describe("book-first library hierarchy", () => {
   });
 
   it("uses semantic book state and compact progress geometry", () => {
-    expect(source).toContain("data-library-book-state={presentation.state}");
-    expect(source).toContain('data-library-book-progress="true"');
-    expect(source).toContain("presentation.lastReadLabel");
-    expect(source).toContain("presentation.sourceLabel");
+    expect(resultsSource).toContain("data-library-book-state={presentation.state}");
+    expect(resultsSource).toContain('data-library-book-progress="true"');
+    expect(resultsSource).toContain("presentation.lastReadLabel");
+    expect(resultsSource).toContain("presentation.sourceLabel");
 
     const progressRule = rule(".bookListProgressRow");
     const trackRule = rule(".bookListProgressTrack");

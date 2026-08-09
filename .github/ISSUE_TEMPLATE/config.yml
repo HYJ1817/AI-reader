@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security report
+    url: https://github.com/HYJ1817/AI-reader/security/advisories/new
+    about: Report vulnerabilities or sensitive data exposure privately.

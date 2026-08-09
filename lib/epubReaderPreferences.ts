@@ -61,6 +61,10 @@ export function applyEpubReaderPreferences(
     };
   const themeSignature = `${colors.foreground}|${colors.background}`;
   const contentForeground = colors.foreground;
+  const canvasBackground =
+    colors.background.trim().toLowerCase() === "#000000"
+      ? "#000000"
+      : "transparent";
 
   if (
     changes.theme ||
@@ -68,8 +72,8 @@ export function applyEpubReaderPreferences(
   ) {
     controller.register("reader-prefs", {
       "html, body": {
-        background: "transparent !important",
-        "background-color": "transparent !important",
+        background: `${canvasBackground} !important`,
+        "background-color": `${canvasBackground} !important`,
         "color-scheme": "normal",
         "touch-action": "pan-y pinch-zoom",
         "overscroll-behavior-inline": "contain",
@@ -84,17 +88,17 @@ export function applyEpubReaderPreferences(
       },
       body: {
         color: `${contentForeground} !important`,
-        background: "transparent !important",
-        "background-color": "transparent !important",
+        background: `${canvasBackground} !important`,
+        "background-color": `${canvasBackground} !important`,
         transition: "color 180ms cubic-bezier(0.25, 1, 0.5, 1)",
       },
       "body *:not(img):not(svg):not(video):not(canvas):not(picture)": {
-        background: "transparent !important",
-        "background-color": "transparent !important",
+        background: `${canvasBackground} !important`,
+        "background-color": `${canvasBackground} !important`,
       },
       "body *::before, body *::after": {
-        background: "transparent !important",
-        "background-color": "transparent !important",
+        background: `${canvasBackground} !important`,
+        "background-color": `${canvasBackground} !important`,
       },
       "p, div, span, li, a, em, strong, b, i, u, small, blockquote, figcaption, dt, dd, td, th, font, h1, h2, h3, h4, h5, h6": {
         color: `${contentForeground} !important`,

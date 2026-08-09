@@ -355,7 +355,7 @@ describe("ambient book background state", () => {
     const backgroundRule = cssRule(moduleCss, ".ambientBookBackground");
     const veilRule = cssRule(moduleCss, ".ambientBookBackground::after");
     const contentRule = cssRule(moduleCss, ".content");
-    const tabBarRule = cssRule(moduleCss, ".tabBar");
+    const navigationDockRule = cssRule(moduleCss, ".navigationDock");
     const readerRule = cssRule(moduleCss, ".readerShell");
 
     expect(appRule).toContain("position: relative");
@@ -369,7 +369,7 @@ describe("ambient book background state", () => {
     expect(backgroundRule).toContain("overflow: hidden");
     expect(veilRule).toContain("background: var(--ambient-veil)");
     expect(contentRule).not.toContain("z-index:");
-    expect(tabBarRule).toContain("z-index: 10");
+    expect(navigationDockRule).toContain("z-index: 30");
     expect(readerRule).toContain("z-index: 20");
   });
 
@@ -416,15 +416,20 @@ describe("ambient book background state", () => {
     expect(fallbackRule).not.toContain("url(");
   });
 
-  it("keeps app and reader canvases transparent without glassifying content", () => {
-    for (const selector of [".app", ".readerShell", ".readerStage"]) {
+  it("keeps the app transparent while reader canvases follow their scoped theme", () => {
+    expect(cssRule(moduleCss, ".app")).toContain("background: transparent");
+    for (const selector of [
+      ".readerShell",
+      ".readerStage",
+      ".epubReaderShell",
+    ]) {
       expect(cssRule(moduleCss, selector)).toContain(
-        "background: transparent"
+        "background: var(--reader-canvas-background)"
       );
     }
     expect(moduleCss).not.toContain(".readerEpubLightCanvas");
 
-    for (const selector of [".readerBody", ".epubReaderShell"]) {
+    for (const selector of [".readerBody"]) {
       const rule = cssRule(moduleCss, selector);
       expect(rule).not.toMatch(/(?:^|\n)\s*background\s*:/);
       expect(rule).not.toMatch(/(?:^|\n)\s*background-color\s*:/);

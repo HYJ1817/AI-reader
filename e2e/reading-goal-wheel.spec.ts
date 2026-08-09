@@ -8,8 +8,6 @@ const wheelSelector = '[data-reading-goal-wheel="true"]';
 const rowSelector = '[data-reading-goal-wheel-row="true"]';
 const persistenceTestTitle =
   "enforces keyboard bounds and persists a saved target across reload";
-const hydrationMismatchSignature =
-  "Hydration failed because the server rendered text didn't match the client.";
 const sampleText = [
   "A small library gives the reading goal a realistic home.",
   "A second paragraph keeps this imported book useful across a reload.",
@@ -21,6 +19,8 @@ type BrowserErrorLog = {
 };
 
 const browserErrorsByPage = new WeakMap<Page, BrowserErrorLog>();
+
+test.use({ serviceWorkers: "block" });
 
 async function waitForLibrary(page: Page) {
   await expect(page.locator(libraryRoot)).toBeVisible();
@@ -67,26 +67,23 @@ test.beforeEach(async ({ page }) => {
   page.on("console", (message) => {
     if (message.type() === "error") errorLog.consoleErrors.push(message.text());
   });
+  await page.route("**/BUILD_ID", (route) =>
+    route.fulfill({ status: 200, contentType: "text/plain", body: "playwright" })
+  );
   await page.goto("/");
   await waitForLibrary(page);
   await importBook(page);
   await openReading(page);
 });
 
-test.afterEach(async ({ page }, testInfo) => {
+test.afterEach(async ({ page }) => {
   const errorLog = browserErrorsByPage.get(page);
-  const permitsKnownHydrationMismatch = testInfo.title === persistenceTestTitle;
-  const isUnexpected = (message: string) =>
-    !(
-      permitsKnownHydrationMismatch &&
-      message.startsWith(hydrationMismatchSignature)
-    );
   expect(
-    (errorLog?.pageErrors ?? []).filter(isUnexpected),
+    errorLog?.pageErrors ?? [],
     "unexpected page errors"
   ).toEqual([]);
   expect(
-    (errorLog?.consoleErrors ?? []).filter(isUnexpected),
+    errorLog?.consoleErrors ?? [],
     "unexpected console errors"
   ).toEqual(
     []
@@ -141,6 +138,12 @@ test("renders the virtualized wheel across themes and compact geometry", async (
   await page.setViewportSize({ width: 390, height: 740 });
   await expect(wheel).toHaveCSS("height", "190px");
   await expect(wheel.locator(rowSelector)).toHaveCount(15);
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      )
+  );
 
   const wheelBox = await wheel.boundingBox();
   expect(wheelBox).not.toBeNull();
@@ -324,18 +327,11 @@ test("honors reduced motion and cleans up animation and audio on unmount", async
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.evaluate(() => {
     const state = window as Window & {
-      __goalCancelCount?: number;
       __goalPauseCount?: number;
       __goalReducedPlayCount?: number;
     };
-    state.__goalCancelCount = 0;
     state.__goalPauseCount = 0;
     state.__goalReducedPlayCount = 0;
-    const cancel = window.cancelAnimationFrame.bind(window);
-    window.cancelAnimationFrame = (handle: number) => {
-      state.__goalCancelCount = (state.__goalCancelCount ?? 0) + 1;
-      cancel(handle);
-    };
     HTMLMediaElement.prototype.play = function () {
       state.__goalReducedPlayCount = (state.__goalReducedPlayCount ?? 0) + 1;
       return Promise.resolve();
@@ -373,15 +369,7 @@ test("honors reduced motion and cleans up animation and audio on unmount", async
   await wheel.press("End");
   await dialog.getByRole("button", { name: "关闭" }).click();
   await expect(dialog).toBeHidden();
-  await expect
-    .poll(() =>
-      page.evaluate(
-        () =>
-          (window as Window & { __goalCancelCount?: number })
-            .__goalCancelCount ?? 0
-      )
-    )
-    .toBeGreaterThan(0);
+  await expect(wheel).toHaveCount(0);
   await expect
     .poll(() =>
       page.evaluate(

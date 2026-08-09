@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, m } from "motion/react";
 import {
   memo,
   useCallback,
@@ -23,6 +24,7 @@ import {
   formatReaderPageSummary,
   type ReaderPageInfo,
 } from "@/lib/readerPageInfo";
+import { getRoleTransition } from "@/lib/motionSystem";
 import {
   READER_TOC_TABS,
   getNearestReaderTocTabIndex,
@@ -48,6 +50,10 @@ type Props = {
 };
 
 const TOC_RENDER_BATCH = 60;
+
+export type TocPageProps = Omit<Props, "onClose"> & {
+  close: CloseSheet;
+};
 
 function formatAnnotationMeta(record: AnnotationRecord): string {
   const location = record.pageNumber
@@ -121,7 +127,19 @@ const ChapterContents = memo(function ChapterContents({
   );
 });
 
-export default function TocDrawer({
+export default function TocDrawer({ onClose, ...pageProps }: Props) {
+  return (
+    <BottomSheet
+      onClose={onClose}
+      className={styles.tocSheet}
+      ariaLabel="目录与标记"
+    >
+      {(close) => <TocPage {...pageProps} close={close} />}
+    </BottomSheet>
+  );
+}
+
+export function TocPage({
   items,
   bookmarks,
   highlights,
@@ -132,8 +150,8 @@ export default function TocDrawer({
   onToggleBookmark,
   onSelectAnnotation,
   onDeleteAnnotation,
-  onClose,
-}: Props) {
+  close,
+}: TocPageProps) {
   const reduceMotion = useAppReducedMotion();
   const flatItems = useMemo(() => flattenEpubNavigation(items), [items]);
   const [activeTab, setActiveTab] =
@@ -145,6 +163,8 @@ export default function TocDrawer({
   const chapterScrollRootRef = useRef<HTMLDivElement>(null);
   const loadSentinelRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const tabScrollFrameRef = useRef<number | null>(null);
+  const viewportWidthRef = useRef(0);
   const activeTabRef = useRef<ReaderTocTab>("chapters");
   const programmaticTabRef = useRef<ReaderTocTab | null>(null);
   const visibleItems = useMemo(
@@ -153,45 +173,41 @@ export default function TocDrawer({
   );
 
   const updateActiveTab = useCallback((tab: ReaderTocTab) => {
+    const previousTab = activeTabRef.current;
+    if (previousTab === tab) return;
     activeTabRef.current = tab;
     setActiveTab(tab);
+  }, []);
+
+  const releaseProgrammaticTab = useCallback(() => {
+    programmaticTabRef.current = null;
   }, []);
 
   const selectTab = useCallback(
     (tab: ReaderTocTab) => {
       const viewport = viewportRef.current;
-      const previousTab = activeTabRef.current;
       programmaticTabRef.current = tab;
       updateActiveTab(tab);
       if (!viewport) return;
-      viewport.scrollTo({
-        left: getReaderTocTabScrollLeft(
-          READER_TOC_TABS.indexOf(tab),
-          viewport.clientWidth
-        ),
-        behavior: "auto",
+      if (tabScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(tabScrollFrameRef.current);
+      }
+      tabScrollFrameRef.current = window.requestAnimationFrame(() => {
+        tabScrollFrameRef.current = null;
+        const currentViewport = viewportRef.current;
+        if (!currentViewport) return;
+        const viewportWidth =
+          viewportWidthRef.current || currentViewport.clientWidth;
+        currentViewport.scrollTo({
+          left: getReaderTocTabScrollLeft(
+            READER_TOC_TABS.indexOf(tab),
+            viewportWidth
+          ),
+          behavior: "auto",
+        });
       });
-      if (reduceMotion || previousTab === tab) return;
-      const direction =
-        READER_TOC_TABS.indexOf(tab) > READER_TOC_TABS.indexOf(previousTab)
-          ? 1
-          : -1;
-      const panel = viewport.querySelector<HTMLElement>(
-        `#toc-panel-${tab} [data-toc-panel-scroller="true"]`
-      );
-      panel?.getAnimations().forEach((animation) => animation.cancel());
-      panel?.animate(
-        [
-          { opacity: 0.7, transform: `translate3d(${direction * 24}px, 0, 0)` },
-          { opacity: 1, transform: "translate3d(0, 0, 0)" },
-        ],
-        {
-          duration: 240,
-          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        }
-      );
     },
-    [reduceMotion, updateActiveTab]
+    [updateActiveTab]
   );
 
   const handleViewportScroll = useCallback(() => {
@@ -202,7 +218,7 @@ export default function TocDrawer({
       if (!viewport) return;
       const index = getNearestReaderTocTabIndex(
         viewport.scrollLeft,
-        viewport.clientWidth
+        viewportWidthRef.current || viewport.clientWidth
       );
       const nearestTab = READER_TOC_TABS[index];
       const targetTab = programmaticTabRef.current;
@@ -216,16 +232,20 @@ export default function TocDrawer({
     const viewport = viewportRef.current;
     if (!viewport) return;
 
-    const resnap = () => {
+    viewportWidthRef.current = viewport.clientWidth;
+    const resnap = (width: number) => {
+      viewportWidthRef.current = width;
       viewport.scrollTo({
         left: getReaderTocTabScrollLeft(
           READER_TOC_TABS.indexOf(activeTabRef.current),
-          viewport.clientWidth
+          width
         ),
         behavior: "auto",
       });
     };
-    const observer = new ResizeObserver(resnap);
+    const observer = new ResizeObserver(([entry]) =>
+      resnap(entry?.contentRect.width || viewport.clientWidth)
+    );
     observer.observe(viewport);
     return () => observer.disconnect();
   }, []);
@@ -234,6 +254,9 @@ export default function TocDrawer({
     () => () => {
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (tabScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(tabScrollFrameRef.current);
       }
     },
     []
@@ -255,6 +278,10 @@ export default function TocDrawer({
     const observer = new Observer(
       (entries) => {
         if (!entries.some((entry) => entry.isIntersecting)) return;
+        const scrollRoot = chapterScrollRootRef.current;
+        if (!scrollRoot || scrollRoot.scrollHeight <= scrollRoot.clientHeight + 1) {
+          return;
+        }
         setVisibleCount((current) =>
           getNextVisibleItemCount(current, flatItems.length, TOC_RENDER_BATCH)
         );
@@ -283,13 +310,23 @@ export default function TocDrawer({
     records.length === 0 ? (
       <p className={styles.tocEmptyText}>{emptyText}</p>
     ) : (
-      <ul className={styles.annotationList}>
+      <m.ul className={styles.annotationList}>
+        <AnimatePresence initial={false} mode="popLayout">
         {records.map((record) => (
-          <li
+          <m.li
             key={record.id}
+            layout={reduceMotion ? false : "position"}
             className={styles.annotationRow}
             data-annotation-id={record.id}
             data-annotation-kind={record.kind}
+            initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={{
+              opacity: 0,
+              y: reduceMotion ? 0 : 6,
+              transition: getRoleTransition("state-exit", reduceMotion),
+            }}
+            transition={getRoleTransition("state-enter", reduceMotion)}
           >
             <button
               className={styles.annotationJumpButton}
@@ -321,9 +358,10 @@ export default function TocDrawer({
             >
               <TrashIcon />
             </button>
-          </li>
+          </m.li>
         ))}
-      </ul>
+        </AnimatePresence>
+      </m.ul>
     );
 
   const renderPanel = (
@@ -370,9 +408,7 @@ export default function TocDrawer({
   };
 
   return (
-    <BottomSheet onClose={onClose} className={styles.tocSheet} ariaLabel="目录与标记">
-      {(close) => (
-        <>
+    <div className={styles.tocPage}>
           <div className={styles.tocHeader}>
             <div className={styles.tocHeaderText}>
               <h2 className={styles.tocHeaderTitle}>{bookTitle || "目录与标记"}</h2>
@@ -390,7 +426,6 @@ export default function TocDrawer({
             aria-label="目录视图"
             data-active-tab={activeTab}
           >
-            <span className={styles.tocTabIndicator} aria-hidden="true" />
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -416,9 +451,8 @@ export default function TocDrawer({
             className={styles.tocSwipeViewport}
             data-sheet-horizontal-gesture="true"
             data-toc-swipe-viewport="true"
-            onPointerDown={() => {
-              programmaticTabRef.current = null;
-            }}
+            onPointerDown={releaseProgrammaticTab}
+            onTouchStart={releaseProgrammaticTab}
             onScroll={handleViewportScroll}
           >
             {tabs.map((tab) => (
@@ -435,14 +469,13 @@ export default function TocDrawer({
                   ref={tab.id === "chapters" ? chapterScrollRootRef : undefined}
                   className={styles.tocPanelScroller}
                   data-toc-panel-scroller="true"
+                  data-motion-role="inline-state"
                 >
                   {renderPanel(tab.id, close)}
                 </div>
               </section>
             ))}
           </div>
-        </>
-      )}
-    </BottomSheet>
+    </div>
   );
 }

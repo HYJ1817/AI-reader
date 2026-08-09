@@ -163,4 +163,40 @@ describe("applyEpubAmbientCanvas", () => {
       "true"
     );
   });
+
+  it("paints every non-media EPUB canvas layer pure black in dark mode", () => {
+    const image = createElement("IMG");
+    const paragraph = createElement("P");
+    const document = createDocument([paragraph, image]);
+    const container = createElement("DIV");
+    const element = createElement("DIV");
+    const iframe = createElement("IFRAME");
+
+    applyEpubAmbientCanvas({ document }, "#000000");
+    applyEpubViewTransparency(
+      { container, element, iframe },
+      "#000000"
+    );
+
+    for (const layer of [
+      document.documentElement,
+      document.body,
+      paragraph,
+      container,
+      element,
+      iframe,
+    ]) {
+      expect(layer.style.setProperty).toHaveBeenCalledWith(
+        "background",
+        "#000000",
+        "important"
+      );
+      expect(layer.style.setProperty).toHaveBeenCalledWith(
+        "background-color",
+        "#000000",
+        "important"
+      );
+    }
+    expect(image.style.setProperty).not.toHaveBeenCalled();
+  });
 });

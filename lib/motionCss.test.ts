@@ -29,8 +29,167 @@ const navigationMotionSource = readFileSync(
   new URL("./navigationMotion.ts", import.meta.url),
   "utf8"
 );
+const readingWorkspaceSource = readFileSync(
+  new URL("../app/ReadingWorkspaceSheet.tsx", import.meta.url),
+  "utf8"
+);
+const workspaceConversationSource = readFileSync(
+  new URL("../app/WorkspaceConversation.tsx", import.meta.url),
+  "utf8"
+);
+const workspaceMaterialsSource = readFileSync(
+  new URL("../app/WorkspaceMaterials.tsx", import.meta.url),
+  "utf8"
+);
+const workspaceArtifactPreviewSource = readFileSync(
+  new URL("../app/WorkspaceArtifactPreview.tsx", import.meta.url),
+  "utf8"
+);
+const readerSettingsSource = readFileSync(
+  new URL("../app/ReaderSettingsPanel.tsx", import.meta.url),
+  "utf8"
+);
+const tocDrawerSource = readFileSync(
+  new URL("../app/TocDrawer.tsx", import.meta.url),
+  "utf8"
+);
+const aiSettingsSource = readFileSync(
+  new URL("../app/AiSettingsSurface.tsx", import.meta.url),
+  "utf8"
+);
+const interactionMetricsSource = readFileSync(
+  new URL("../e2e/helpers/interactionMetrics.ts", import.meta.url),
+  "utf8"
+);
 
 describe("motion CSS", () => {
+  it("enforces one shared interaction budget and isolates local layout regions", () => {
+    expect(interactionMetricsSource).toContain("expectInteractionBudget");
+    expect(interactionMetricsSource).toContain("toBeLessThanOrEqual(50)");
+    expect(interactionMetricsSource).toContain("toBeLessThanOrEqual(17)");
+    expect(interactionMetricsSource).toContain("data-layout-shift-contained");
+    expect(readingWorkspaceSource).toContain(
+      'data-layout-shift-contained="true"'
+    );
+    expect(aiSettingsSource).toContain('data-layout-shift-contained="true"');
+  });
+
+  it("uses shared inline motion roles for workspace segments and local state", () => {
+    expect(readingWorkspaceSource).toContain(
+      'layoutId="workspace-segment-indicator"'
+    );
+    expect(readingWorkspaceSource).toContain(
+      '<AnimatePresence initial={false} mode="sync">'
+    );
+    expect(readingWorkspaceSource).toContain('data-motion-role="inline-state"');
+    expect(readingWorkspaceSource).toMatch(/x:\s*direction\s*\*\s*10/);
+    expect(readingWorkspaceSource).toContain(
+      'getRoleTransition("state-enter", reduceMotion)'
+    );
+    expect(readingWorkspaceSource).toContain(
+      'getRoleTransition("state-exit", reduceMotion)'
+    );
+  });
+
+  it("keeps workspace popovers local, reversible, and focus-owned", () => {
+    expect(readingWorkspaceSource).toContain('data-motion-role="popover"');
+    expect(readingWorkspaceSource).toContain('transformOrigin: "100% 0%"');
+    expect(readingWorkspaceSource).toContain(
+      'getRoleTransition("popover-enter", reduceMotion)'
+    );
+    expect(readingWorkspaceSource).toMatch(
+      /getRoleTransition\(\s*"popover-exit",\s*reduceMotion\s*\)/
+    );
+    expect(readingWorkspaceSource).toContain('event.key === "Escape"');
+    expect(readingWorkspaceSource).toContain("sessionMenuTriggerRef.current?.focus");
+    expect(readingWorkspaceSource).not.toContain("duration: 180");
+    expect(readingWorkspaceSource).not.toContain("duration: 120");
+  });
+
+  it("animates material rows by position and never lays out streaming messages", () => {
+    expect(workspaceMaterialsSource).toContain(
+      '<AnimatePresence initial={false} mode="popLayout">'
+    );
+    expect(workspaceMaterialsSource).toContain(
+      'layout={reduceMotion ? false : "position"}'
+    );
+    expect(workspaceMaterialsSource).toMatch(/y:\s*reduceMotion\s*\?\s*0\s*:\s*6/);
+    expect(workspaceMaterialsSource).toContain(
+      'data-materials-empty-state="true"'
+    );
+    expect(workspaceConversationSource).toContain(
+      'data-motion-role="message-entrance"'
+    );
+    expect(workspaceConversationSource).not.toMatch(
+      /data-workspace-message-id[\s\S]{0,500}\blayout(?:=|\s)/
+    );
+    expect(workspaceConversationSource).not.toContain("layoutId={message.id}");
+  });
+
+  it("uses fixed semantic local status transitions", () => {
+    for (const source of [
+      readingWorkspaceSource,
+      workspaceConversationSource,
+      workspaceMaterialsSource,
+      aiSettingsSource,
+    ]) {
+      expect(source).toContain('data-motion-role="inline-status"');
+      expect(source).toContain(
+        'getRoleTransition("state-enter", reduceMotion)'
+      );
+      expect(source).toContain(
+        'getRoleTransition("state-exit", reduceMotion)'
+      );
+    }
+  });
+
+  it("keeps artifact rename feedback local without replacing the title field", () => {
+    expect(workspaceArtifactPreviewSource).toContain(
+      'data-motion-role="inline-status"'
+    );
+    expect(workspaceArtifactPreviewSource).toContain(
+      'getRoleTransition("state-enter", reduceMotion)'
+    );
+    expect(workspaceArtifactPreviewSource).toContain(
+      'getRoleTransition("state-exit", reduceMotion)'
+    );
+    expect(workspaceArtifactPreviewSource).toContain("disabled={saving}");
+    expect(workspaceArtifactPreviewSource).toContain("value={title}");
+  });
+
+  it("uses semantic popover, TOC, and provider list motion without local timing literals", () => {
+    expect(readerSettingsSource).toContain('data-motion-role="popover"');
+    expect(readerSettingsSource).toContain('transformOrigin: "100% 0%"');
+    expect(tocDrawerSource).toContain('data-motion-role="inline-state"');
+    expect(css).not.toMatch(
+      /\.tocPanelScroller\s*\{[^}]*transition:\s*opacity/s
+    );
+    expect(tocDrawerSource).not.toMatch(/direction\s*\*\s*10/);
+    expect(tocDrawerSource).not.toContain("panelAnimationRef");
+    expect(tocDrawerSource).toContain("viewportWidthRef.current");
+    expect(tocDrawerSource).not.toContain("panel?.animate(");
+    expect(tocDrawerSource).not.toContain("duration: 240");
+    expect(aiSettingsSource).toContain('data-motion-role="inline-status"');
+    expect(aiSettingsSource).toContain('data-motion-role="inline-state"');
+    expect(aiSettingsSource).toContain(
+      'layout={reduceMotion ? false : "position"}'
+    );
+    expect(aiSettingsSource).toContain(
+      "refreshRequestIdRef.current !== requestId"
+    );
+
+    for (const source of [
+      readingWorkspaceSource,
+      workspaceConversationSource,
+      workspaceMaterialsSource,
+      readerSettingsSource,
+      tocDrawerSource,
+      aiSettingsSource,
+    ]) {
+      expect(source).not.toMatch(/duration:\s*(?:120|160|180|240)\b/);
+    }
+  });
+
   it("uses an explicit project easing curve for timed transitions", () => {
     const declarations = css.match(/transition:\s*[^;]+;/g) ?? [];
     const uncurved = declarations.filter((declaration) => {
@@ -53,10 +212,10 @@ describe("motion CSS", () => {
   });
 
   it("uses one navigation timing and easing protocol", () => {
-    expect(css).toContain("--motion-navigation: 340ms;");
-    expect(css).toContain("--motion-sheet: 300ms;");
+    expect(css).toContain("--motion-navigation: 280ms;");
+    expect(css).toContain("--motion-sheet: 280ms;");
     expect(css).toContain("--motion-sheet-settle: 220ms;");
-    expect(css).toContain("--motion-sheet-exit: 250ms;");
+    expect(css).toContain("--motion-sheet-exit: 220ms;");
     expect(css).toContain(
       "--ease-sheet-settle: cubic-bezier(0.2, 0.86, 0.18, 1);"
     );
@@ -73,8 +232,15 @@ describe("motion CSS", () => {
     const readerShellRule = css.slice(readerShellStart, readerShellEnd);
     expect(readerShellRule).not.toMatch(/(?:opacity|transform)\s+var\(--motion-navigation\)/);
     expect(motionSheetSource).toContain("MOTION_SPRING.sheet");
-    expect(motionSheetSource).toContain("MOTION_DURATION.sheetExit");
-    expect(motionSheetSource).toContain("ease: [0.32, 0.72, 0, 1]");
+    expect(motionSheetSource).toContain(
+      'kind: "enter" | "settle" | "close"'
+    );
+    expect(motionSheetSource).toContain(
+      'const role = kind === "close" ? "sheet-exit" : "sheet-enter"'
+    );
+    expect(motionSheetSource).toContain("getRoleTransition(role, false)");
+    expect(motionSheetSource).toContain('runAnimation(0, "enter")');
+    expect(motionSheetSource).toContain("getRoleTransition(role, true)");
     expect(motionSheetSource).toContain("useAppReducedMotion");
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.app,[\s\S]*?transition-duration:\s*0\.001ms !important;/s
@@ -125,13 +291,11 @@ describe("motion CSS", () => {
     expect(pageSource).not.toContain("readerPrefsMotionTimerRef");
     expect(pageSource).not.toContain("readerPreferencesAdjusting");
     const willChangeDeclarations = css.match(/will-change:\s*[^;]+;/g) ?? [];
-    expect([...willChangeDeclarations].sort()).toEqual(
-      [
-        "will-change: opacity;",
-        "will-change: transform;",
-        "will-change: transform;",
-      ].sort()
-    );
+    expect([...willChangeDeclarations].sort()).toEqual([
+      "will-change: opacity;",
+      "will-change: transform;",
+      "will-change: transform;",
+    ]);
     const swipeStart = css.indexOf(".readerSwipeTracking {");
     const swipeEnd = css.indexOf("}", swipeStart);
     expect(css.slice(swipeStart, swipeEnd)).toContain("will-change: transform;");
@@ -159,6 +323,7 @@ describe("motion CSS", () => {
     expect(css).not.toContain("--sheet-backdrop-opacity");
     expect(css).not.toContain(".sheetOverlay::before");
     expect(css).not.toContain(".motionSheetOverlay::before");
+    expect(motionSheetSource).not.toContain("isAnimating");
   });
 
   it("uses persistent tab surfaces instead of display switching or mount fades", () => {
@@ -204,6 +369,9 @@ describe("motion CSS", () => {
     expect(css).toMatch(
       /\.bookItem:active\s+\.bookCover\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.985\)/s
     );
+    expect(css).toMatch(
+      /\.bookItemMain:active\s*\{[^}]*translate3d\(0,\s*1px,\s*0\)[^}]*scale\(0\.985\)/s
+    );
 
     const moreStart = css.indexOf(".bookMoreButton {");
     const moreEnd = css.indexOf("}", moreStart);
@@ -232,6 +400,8 @@ describe("motion CSS", () => {
     const reduceRule = css.slice(reduceStart, reduceEnd);
     for (const selector of [
       ".bookCover",
+      ".bookItemMain",
+      ".bookItemMain:active",
       ".bookGridItem:active .bookCover",
       ".bookItem:active .bookCover",
       ".bookMoreButton",
@@ -459,7 +629,7 @@ describe("motion CSS", () => {
     );
     const fontButtonEnd = css.indexOf("}", fontButtonStart);
     const fontButtonRule = css.slice(fontButtonStart, fontButtonEnd);
-    expect(fontButtonRule).toContain("font-size: 17px");
+    expect(fontButtonRule).toContain("font-size: 1.0625rem");
   });
 
   it("styles reader settings popover menus independently from font sizing", () => {
@@ -482,7 +652,8 @@ describe("motion CSS", () => {
     const rowStart = css.indexOf(".readerSettingsPopoverRow {");
     const rowEnd = css.indexOf("}", rowStart);
     const rowRule = css.slice(rowStart, rowEnd);
-    expect(rowRule).toContain("font-size: 15px");
+    expect(rowRule).toContain("font-size: var(--type-body)");
+    expect(rowRule).toContain("min-height: 44px");
     expect(rowRule).toMatch(/transition:[^}]*background[^}]*transform/s);
 
     const checkStart = css.indexOf(".readerSettingsPopoverCheck {");
@@ -510,26 +681,62 @@ describe("motion CSS", () => {
     expect(customIconRule).toContain("display: inline-flex");
   });
 
+  it("themes reader settings with semantic control tokens", () => {
+    for (const [selector, declarations] of [
+      [
+        ".readerSettingsSheet {",
+        [
+          "background: var(--reader-control-surface)",
+          "color: var(--reader-control-text)",
+        ],
+      ],
+      [
+        ".readerSettingsPopover {",
+        [
+          "background: var(--reader-control-surface-raised)",
+          "color: var(--reader-control-text)",
+        ],
+      ],
+      [
+        ".readerCustomSettingsSheet {",
+        [
+          "background: var(--reader-control-surface)",
+          "color: var(--reader-control-text)",
+        ],
+      ],
+      [
+        ".readerCustomBody {",
+        ["background: var(--reader-control-surface)"],
+      ],
+    ] as const) {
+      const start = css.indexOf(selector);
+      const end = css.indexOf("}", start);
+      const rule = css.slice(start, end);
+      for (const declaration of declarations) expect(rule).toContain(declaration);
+    }
+    expect(css).toContain("@media (max-width: 380px)");
+  });
+
   it("keeps reader settings typography at a normal menu scale", () => {
     const headerStart = css.indexOf(".readerSettingsHeader h2 {");
     const headerEnd = css.indexOf("}", headerStart);
     const headerRule = css.slice(headerStart, headerEnd);
-    expect(headerRule).toContain("font-size: 17px");
+    expect(headerRule).toContain("font-size: 1.0625rem");
 
     const sampleStart = css.indexOf(".readerThemePreviewSample {");
     const sampleEnd = css.indexOf("}", sampleStart);
     const sampleRule = css.slice(sampleStart, sampleEnd);
-    expect(sampleRule).toContain("font-size: 30px");
+    expect(sampleRule).toContain("font-size: 1.875rem");
 
     const previewLabelStart = css.indexOf(".readerThemePreview span:last-child {");
     const previewLabelEnd = css.indexOf("}", previewLabelStart);
     const previewLabelRule = css.slice(previewLabelStart, previewLabelEnd);
-    expect(previewLabelRule).toContain("font-size: 15px");
+    expect(previewLabelRule).toContain("font-size: var(--type-body)");
 
     const customEntryStart = css.indexOf(".readerCustomEntryButton {");
     const customEntryEnd = css.indexOf("}", customEntryStart);
     const customEntryRule = css.slice(customEntryStart, customEntryEnd);
-    expect(customEntryRule).toContain("font-size: 22px");
+    expect(customEntryRule).toContain("font-size: 1.375rem");
     expect(customEntryRule).toContain("min-height: 64px");
 
     const customGearStart = css.indexOf(".readerCustomGearIcon {");
@@ -569,7 +776,7 @@ describe("motion CSS", () => {
     const previewTextStart = css.indexOf(".readerCustomPreviewText {");
     const previewTextEnd = css.indexOf("}", previewTextStart);
     const previewTextRule = css.slice(previewTextStart, previewTextEnd);
-    expect(previewTextRule).toContain("font-size: 16px");
+    expect(previewTextRule).toContain("font-size: 1rem");
     expect(previewTextRule).toContain("line-height: inherit");
 
     const cardStart = css.indexOf(".readerCustomControlCard {");
@@ -940,6 +1147,27 @@ describe("motion CSS", () => {
 
     expect(css).toMatch(
       /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.providerFormRow,[\s\S]*?\.providerManualModelRow,[\s\S]*?\.providerManualModelRow input\s*\{[\s\S]*?transition:\s*none;/s
+    );
+  });
+
+  it("gives frequent compact controls one deterministic press language", () => {
+    for (const selector of [
+      ".iconButton:not(:disabled):active",
+      ".primaryButton:not(:disabled):active",
+      ".emptyRecoveryButton:not(:disabled):active",
+      ".navigationSearchButton:not(:disabled):active",
+      ".navigationBackButton:not(:disabled):active",
+    ]) {
+      const start = css.indexOf(`${selector} {`);
+      const end = css.indexOf("}", start);
+      const activeRule = css.slice(start, end);
+      expect(start, selector).toBeGreaterThanOrEqual(0);
+      expect(activeRule).toContain("var(--press-translate-y)");
+      expect(activeRule).toMatch(/var\(--press-(?:control|icon)-scale\)/);
+    }
+
+    expect(css).toMatch(
+      /@media \(prefers-reduced-motion: reduce\)\s*\{[\s\S]*?\.iconButton:not\(:disabled\):active,[\s\S]*?\.primaryButton:not\(:disabled\):active,[\s\S]*?\.emptyRecoveryButton:not\(:disabled\):active,[\s\S]*?\.navigationSearchButton:not\(:disabled\):active,[\s\S]*?\.navigationBackButton:not\(:disabled\):active[\s\S]*?transform:\s*none;/s
     );
   });
 });

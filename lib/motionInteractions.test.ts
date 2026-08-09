@@ -10,7 +10,6 @@ import {
   isTapGesture,
   shouldReduceReaderMotion,
   shouldHideChromeForScroll,
-  shouldDismissSheet,
 } from "./motionInteractions";
 
 describe("isTapGesture", () => {
@@ -149,58 +148,6 @@ describe("shouldReduceReaderMotion", () => {
       shouldReduceReaderMotion({
         appPreference: false,
         systemPreference: false,
-      })
-    ).toBe(false);
-  });
-});
-
-describe("shouldDismissSheet", () => {
-  it("dismisses after a substantial downward drag", () => {
-    expect(
-      shouldDismissSheet({
-        translationY: 180,
-        velocityY: 120,
-        sheetHeight: 520,
-      })
-    ).toBe(true);
-  });
-
-  it("dismisses a short but fast downward flick", () => {
-    expect(
-      shouldDismissSheet({
-        translationY: 42,
-        velocityY: 1080,
-        sheetHeight: 520,
-      })
-    ).toBe(true);
-  });
-
-  it("dismisses a confident medium drag before it reaches the old hard threshold", () => {
-    expect(
-      shouldDismissSheet({
-        translationY: 128,
-        velocityY: 520,
-        sheetHeight: 700,
-      })
-    ).toBe(true);
-  });
-
-  it("keeps a short indecisive drag open even with moderate velocity", () => {
-    expect(
-      shouldDismissSheet({
-        translationY: 40,
-        velocityY: 620,
-        sheetHeight: 700,
-      })
-    ).toBe(false);
-  });
-
-  it("returns a slow short drag to the open position", () => {
-    expect(
-      shouldDismissSheet({
-        translationY: 54,
-        velocityY: 220,
-        sheetHeight: 520,
       })
     ).toBe(false);
   });

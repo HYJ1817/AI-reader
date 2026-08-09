@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
 import { createLocalId } from "./localId";
+import type { BookEnrichment } from "./bookMetadata";
 import type { ReaderMode } from "./readerMode";
 import {
   createBookWorkspaceRecords,
@@ -21,6 +22,7 @@ export type BookMetadata = {
   lastOpenedAt?: string;
   groupIds?: string[];
   coverImageBlob?: Blob;
+  enrichment?: BookEnrichment;
 };
 
 export type BookRecord = BookMetadata & {
@@ -324,6 +326,7 @@ function toBookMetadata(
       ? { lastOpenedAt: storedBook.lastOpenedAt }
       : {}),
     ...(storedBook.groupIds ? { groupIds: storedBook.groupIds } : {}),
+    ...(storedBook.enrichment ? { enrichment: storedBook.enrichment } : {}),
     ...(coverImageBlob ? { coverImageBlob } : {}),
   };
 }
@@ -857,6 +860,27 @@ export async function updateBookLastOpenedAt(
   lastOpenedAt: string
 ): Promise<void> {
   await getDb().books.update(id, { lastOpenedAt });
+}
+
+export async function updateBookEnrichment(
+  bookId: string,
+  enrichment: BookEnrichment,
+  coverImageBlob?: Blob
+): Promise<void> {
+  const db = getDb();
+  const coverRecord: BookCoverRecord | undefined = coverImageBlob
+    ? {
+        bookId,
+        coverImageData: await coverImageBlob.arrayBuffer(),
+        coverImageType: coverImageBlob.type || "application/octet-stream",
+      }
+    : undefined;
+
+  await db.transaction("rw", [db.books, db.bookCovers], async () => {
+    const updated = await db.books.update(bookId, { enrichment });
+    if (updated === 0) throw new Error(`Book not found: ${bookId}.`);
+    if (coverRecord) await db.bookCovers.put(coverRecord);
+  });
 }
 
 export async function renameBook(id: string, title: string): Promise<void> {

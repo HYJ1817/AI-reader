@@ -1,9 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { getRoleTransition } from "@/lib/motionSystem";
 import type { WorkspaceMessageRecord } from "@/lib/readingWorkspace";
 import type { ReadingSkill, ReadingSkillId } from "@/lib/readingSkills";
 import { UI_TEXT } from "@/lib/uiText";
+import { useAppReducedMotion } from "./AppMotionRoot";
+import useWorkspaceViewportFollow from "./useWorkspaceViewportFollow";
 import WorkspaceMessageBody from "./WorkspaceMessageBody";
 import styles from "./page.module.css";
 
@@ -52,29 +56,60 @@ export default function WorkspaceConversation({
   onSaveToMaterials,
   onRemember,
 }: WorkspaceConversationProps) {
-  const threadRef = useRef<HTMLDivElement>(null);
-  const nearBottomRef = useRef(true);
+  const reduceMotion = useAppReducedMotion();
+  const memoryReviewTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const memoryReviewTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [memoryReview, setMemoryReview] = useState<{
     messageId: string;
     content: string;
   } | null>(null);
+  const [seenMessageIds] = useState(
+    () => new Set(messages.map((message) => message.id))
+  );
+  const enteringMessageIds = new Set(
+    messages
+      .filter((message) => !seenMessageIds.has(message.id))
+      .map((message) => message.id)
+  );
+  const memoryReviewOpen = memoryReview !== null;
+  const lastMessage = messages.at(-1);
+  const contentRevision = lastMessage
+    ? `${lastMessage.id}:${lastMessage.state}:${lastMessage.content.length}`
+    : `empty:${loading}`;
+  const {
+    threadRef,
+    showReturnToBottom,
+    onScroll,
+    onUserInteractionStart,
+    onUserInteractionEnd,
+    onUserInteractionCancel,
+    onWheel,
+    preservePrependAnchor,
+    returnToBottom,
+  } = useWorkspaceViewportFollow({
+    contentRevision,
+    visible: !memoryReviewOpen,
+  });
 
-  useEffect(() => {
-    const thread = threadRef.current;
-    if (thread && nearBottomRef.current) thread.scrollTop = thread.scrollHeight;
-  }, [loading, messages]);
+  useLayoutEffect(() => {
+    if (memoryReviewOpen) {
+      memoryReviewTextareaRef.current?.focus({ preventScroll: true });
+      return;
+    }
+
+    const trigger = memoryReviewTriggerRef.current;
+    memoryReviewTriggerRef.current = null;
+    if (trigger?.isConnected) {
+      trigger.focus({ preventScroll: true });
+    }
+  }, [memoryReviewOpen]);
+
+  useLayoutEffect(() => {
+    messages.forEach((message) => seenMessageIds.add(message.id));
+  }, [messages, seenMessageIds]);
 
   const handleLoadOlder = async () => {
-    const thread = threadRef.current;
-    if (!thread) return;
-    const previousScrollHeight = thread.scrollHeight;
-    const previousScrollTop = thread.scrollTop;
-    await onLoadOlder();
-    requestAnimationFrame(() => {
-      if (!threadRef.current) return;
-      const thread = threadRef.current;
-      thread.scrollTop = thread.scrollHeight - previousScrollHeight + previousScrollTop;
-    });
+    await preservePrependAnchor(onLoadOlder);
   };
 
   return (
@@ -85,17 +120,24 @@ export default function WorkspaceConversation({
     >
       <div
         ref={threadRef}
+        data-workspace-thread="true"
         className={styles.workspaceConversationThread}
         aria-busy={loading}
-        onScroll={(event) => {
-          const thread = event.currentTarget;
-          nearBottomRef.current =
-            thread.scrollHeight - thread.scrollTop - thread.clientHeight <= 48;
-        }}
+        aria-hidden={memoryReview ? true : undefined}
+        inert={memoryReview ? true : undefined}
+        onScroll={onScroll}
+        onPointerDown={onUserInteractionStart}
+        onPointerUp={onUserInteractionEnd}
+        onPointerCancel={onUserInteractionCancel}
+        onTouchStart={onUserInteractionStart}
+        onTouchEnd={onUserInteractionEnd}
+        onTouchCancel={onUserInteractionEnd}
+        onWheel={onWheel}
       >
         {hasOlderMessages ? (
           <button
             type="button"
+            data-workspace-prepend-anchor="true"
             className={styles.workspaceLoadOlderButton}
             onClick={() => void handleLoadOlder()}
           >
@@ -135,23 +177,52 @@ export default function WorkspaceConversation({
           </div>
         ) : null}
 
+        <AnimatePresence initial={false} mode="sync">
         {messages.length === 0 && !loading ? (
-          <div className={styles.workspaceEmptyState}>
+          <m.div
+            key="empty"
+            className={styles.workspaceEmptyState}
+            data-motion-role="inline-status"
+            role="status"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: getRoleTransition("state-exit", reduceMotion),
+            }}
+            transition={getRoleTransition("state-enter", reduceMotion)}
+          >
             <strong>{UI_TEXT.WORKSPACE_EMPTY_TITLE}</strong>
             <span>{UI_TEXT.WORKSPACE_EMPTY_HINT}</span>
-          </div>
+          </m.div>
         ) : (
-          <div className={styles.workspaceMessages} aria-live="polite">
-            {messages.map((message) => (
-              <div
+          <m.div
+            key="messages"
+            className={styles.workspaceMessages}
+            aria-live="polite"
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              transition: getRoleTransition("state-exit", reduceMotion),
+            }}
+          >
+            {messages.map((message) => {
+              const isEntering = enteringMessageIds.has(message.id);
+              return (
+              <m.div
                 key={message.id}
                 data-workspace-message-id={message.id}
                 data-workspace-message-state={message.state}
+                data-motion-role="message-entrance"
                 className={`${styles.workspaceMessage} ${
                   message.role === "user"
                     ? styles.workspaceMessageUser
                     : styles.workspaceMessageAssistant
-                }`}
+                  }`}
+                initial={isEntering ? { opacity: 0 } : false}
+                animate={{ opacity: 1 }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
               >
                 <WorkspaceMessageBody message={message} />
                 {message.role === "assistant" && message.state === "complete" ? (
@@ -167,9 +238,13 @@ export default function WorkspaceConversation({
                   <button
                     type="button"
                     className={styles.workspaceMessageAction}
-                    onClick={() =>
-                      setMemoryReview({ messageId: message.id, content: message.content })
-                    }
+                    onClick={(event) => {
+                      memoryReviewTriggerRef.current = event.currentTarget;
+                      setMemoryReview({
+                        messageId: message.id,
+                        content: message.content,
+                      });
+                    }}
                   >
                     {UI_TEXT.REMEMBER}
                   </button>
@@ -183,27 +258,74 @@ export default function WorkspaceConversation({
                     {UI_TEXT.RETRY}
                   </button>
                 ) : null}
-              </div>
-            ))}
-          </div>
+              </m.div>
+              );
+            })}
+          </m.div>
         )}
+        </AnimatePresence>
 
-        {loading ? (
-          <div className={styles.workspaceThinking} role="status">
-            {UI_TEXT.AI_THINKING}
-          </div>
-        ) : null}
-        {error ? (
-          <div className={styles.errorBox} role="alert">
-            {error}
-          </div>
-        ) : null}
+        <div className={styles.workspaceConversationStatusRegion}>
+          <AnimatePresence initial={false} mode="sync">
+            {error ? (
+              <m.div
+                key="error"
+                className={styles.errorBox}
+                data-motion-role="inline-status"
+                role="alert"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  transition: getRoleTransition("state-exit", reduceMotion),
+                }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
+              >
+                {error}
+              </m.div>
+            ) : loading ? (
+              <m.div
+                key="loading"
+                className={styles.workspaceThinking}
+                data-motion-role="inline-status"
+                role="status"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{
+                  opacity: 0,
+                  transition: getRoleTransition("state-exit", reduceMotion),
+                }}
+                transition={getRoleTransition("state-enter", reduceMotion)}
+              >
+                {UI_TEXT.AI_THINKING}
+              </m.div>
+            ) : null}
+          </AnimatePresence>
+        </div>
       </div>
 
+      {showReturnToBottom && !memoryReview ? (
+        <button
+          type="button"
+          className={styles.workspaceReturnToLatest}
+          onClick={returnToBottom}
+        >
+          {UI_TEXT.WORKSPACE_RETURN_TO_LATEST}
+        </button>
+      ) : null}
+
       {memoryReview ? (
-        <div className={styles.workspaceMemoryReview} role="dialog" aria-modal="true">
-          <strong>{UI_TEXT.REVIEW_MEMORY}</strong>
+        <div
+          className={styles.workspaceMemoryReview}
+          role="region"
+          aria-labelledby="workspace-memory-review-title"
+          aria-live="polite"
+        >
+          <strong id="workspace-memory-review-title">
+            {UI_TEXT.REVIEW_MEMORY}
+          </strong>
           <textarea
+            ref={memoryReviewTextareaRef}
             aria-label={UI_TEXT.WORKSPACE_MEMORY}
             value={memoryReview.content}
             onChange={(event) =>
@@ -229,7 +351,12 @@ export default function WorkspaceConversation({
       ) : null}
 
       {eligibleSkills.length > 0 && (messages.length === 0 || selectedText) ? (
-        <div className={styles.workspaceSkills} aria-label={UI_TEXT.READING_SKILLS}>
+        <div
+          className={styles.workspaceSkills}
+          aria-label={UI_TEXT.READING_SKILLS}
+          aria-hidden={memoryReview ? true : undefined}
+          inert={memoryReview ? true : undefined}
+        >
           {eligibleSkills.map((skill) => (
             <button
               key={skill.id}
@@ -244,7 +371,11 @@ export default function WorkspaceConversation({
         </div>
       ) : null}
 
-      <div className={styles.workspaceComposer}>
+      <div
+        className={styles.workspaceComposer}
+        aria-hidden={memoryReview ? true : undefined}
+        inert={memoryReview ? true : undefined}
+      >
         <textarea
           rows={1}
           aria-label={UI_TEXT.ASK_AI}

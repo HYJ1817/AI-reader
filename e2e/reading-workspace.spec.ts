@@ -1,4 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
+import {
+  attachInteractionMetrics,
+  collectInteractionMetrics,
+  expectInteractionBudget,
+} from "./helpers/interactionMetrics";
 
 const libraryRoot = '[data-navigation-root="library"][aria-hidden="false"]';
 
@@ -39,11 +44,14 @@ async function installLocalAiFixture(page: Page) {
       const signal = init?.signal;
       const mode = (window as typeof window & { __workspaceStreamMode?: string })
         .__workspaceStreamMode;
-      const events = mode === "long"
+      const events = mode === "long" || mode === "prepend"
         ? [
-            { type: "delta", text: "A".repeat(3_000) },
-            { type: "delta", text: "B".repeat(3_000) },
-            { type: "delta", text: "C".repeat(3_000) },
+            ...Array.from({ length: mode === "prepend" ? 120 : 24 }, (_, index) => ({
+              type: "delta",
+              text: mode === "long"
+                ? "x".repeat(1_200)
+                : `chunk-${index}${"\n".repeat(index < 14 ? 4 : index - 9)}${String(index % 10).repeat(1_200)}\n`,
+            })),
             { type: "done" },
           ]
         : [
@@ -63,12 +71,22 @@ async function installLocalAiFixture(page: Page) {
           }, { once: true });
           const publish = () => {
             if (signal?.aborted) return;
+            if ((mode === "long" || mode === "prepend") && events[index].type === "delta") {
+              const fixtureWindow = window as typeof window & {
+                __workspacePublishedChunks?: number;
+              };
+              fixtureWindow.__workspacePublishedChunks =
+                (fixtureWindow.__workspacePublishedChunks ?? 0) + 1;
+            }
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(events[index])}\n\n`));
             index += 1;
             if (index === events.length) {
               closed = true;
               controller.close();
-            } else timer = window.setTimeout(publish, 30);
+            } else timer = window.setTimeout(
+              publish,
+              mode === "prepend" ? 16 : mode === "long" ? 300 : 30
+            );
           };
           publish();
         },
@@ -115,6 +133,18 @@ async function openAskFromReader(page: Page) {
   await expect(page.locator('[data-sheet-route="ask-ai"]')).toBeVisible();
 }
 
+async function saveFixtureMaterial(page: Page) {
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const composer = workspace.getByRole("textbox", { name: "问 AI" });
+  await composer.fill("Create a material");
+  await workspace.getByRole("button", { name: "发送" }).click();
+  await expect(
+    workspace.locator('[data-workspace-message-state="complete"]')
+  ).toHaveCount(2);
+  await workspace.getByRole("button", { name: "保存到资料" }).click();
+  await expect(workspace.getByRole("tab", { name: "资料" })).toBeEnabled();
+}
+
 test.beforeEach(async ({ page }) => {
   await installLocalAiFixture(page);
   await waitForLibrary(page);
@@ -135,6 +165,81 @@ test("reader question streams locally, persists, and opens the same workspace", 
   expect(await workspace.locator('[data-workspace-message-id]').evaluateAll(
     (items) => new Set(items.map((item) => item.getAttribute("data-workspace-message-id"))).size
   )).toBe(2);
+});
+
+test("Ask AI assistant replies stay in the conversation flow without a covering card", async ({ page }) => {
+  await setListMode(page);
+  await openAskFromReader(page);
+  const askSheet = page.locator('[data-sheet-route="ask-ai"]');
+  await askSheet.getByRole("textbox", { name: "\u95ee AI" }).fill("Reply inline");
+  await askSheet.getByRole("button", { name: "\u53d1\u9001" }).click();
+  await expect(askSheet.locator('[data-workspace-message-state="complete"]')).toHaveCount(2);
+
+  const assistant = askSheet.locator('[data-workspace-message-id]').nth(1);
+  const assistantStyle = await assistant.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      position: style.position,
+      maxWidth: style.maxWidth,
+      backgroundColor: style.backgroundColor,
+      borderTopWidth: style.borderTopWidth,
+      borderBottomLeftRadius: style.borderBottomLeftRadius,
+    };
+  });
+
+  expect(assistantStyle.position).toBe("static");
+  expect(assistantStyle.maxWidth).toBe("100%");
+  expect(assistantStyle.backgroundColor).toBe("rgba(0, 0, 0, 0)");
+  expect(assistantStyle.borderTopWidth).toBe("0px");
+  expect(assistantStyle.borderBottomLeftRadius).toBe("0px");
+});
+
+test("Ask AI keeps a long conversation scrollable above its fixed composer", async ({ page }) => {
+  await page.evaluate(() => {
+    const fixtureWindow = window as typeof window & {
+      __workspaceStreamMode?: string;
+      __workspacePublishedChunks?: number;
+    };
+    fixtureWindow.__workspaceStreamMode = "long";
+    fixtureWindow.__workspacePublishedChunks = 0;
+  });
+  await setListMode(page);
+  await openAskFromReader(page);
+
+  const askSheet = page.locator('[data-sheet-route="ask-ai"]');
+  const thread = askSheet.locator('[data-workspace-thread="true"]');
+  const composer = askSheet.getByRole("textbox", { name: "\u95ee AI" });
+  await composer.fill("Scroll through the answer");
+  await askSheet.getByRole("button", { name: "\u53d1\u9001" }).click();
+
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(9);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight
+  )).toBeGreaterThan(240);
+
+  const geometry = await thread.evaluate((element) => {
+    const maxScrollTop = Math.max(0, element.scrollHeight - element.clientHeight);
+    element.scrollTop = Math.max(0, maxScrollTop - 240);
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    const composer = element.parentElement?.querySelector("textarea");
+    const panel = element.closest('[data-motion-sheet="panel"]');
+    return {
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      scrollTop: element.scrollTop,
+      composerBottom: composer?.getBoundingClientRect().bottom ?? 0,
+      panelBottom: panel?.getBoundingClientRect().bottom ?? 0,
+    };
+  });
+
+  expect(geometry.scrollHeight - geometry.clientHeight).toBeGreaterThan(240);
+  expect(geometry.scrollTop).toBeGreaterThan(0);
+  expect(geometry.composerBottom).toBeLessThanOrEqual(geometry.panelBottom + 1);
+  await expect(
+    askSheet.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
+  ).toBeVisible();
 });
 
 test("offline workspace stays readable and preserves a disabled draft", async ({ page, context }) => {
@@ -194,22 +299,358 @@ test("long history pages without scroll jumps and long content is explicit", asy
   await openWorkspaceFromLibrary(page);
   const reopened = page.locator('[data-sheet-route="reading-workspace"]');
   await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(100);
+  await page.evaluate(() => {
+    const fixtureWindow = window as typeof window & {
+      __workspaceStreamMode?: string;
+      __workspacePublishedChunks?: number;
+    };
+    fixtureWindow.__workspaceStreamMode = "prepend";
+    fixtureWindow.__workspacePublishedChunks = 0;
+  });
+  const composer = reopened.getByRole("textbox", { name: "\u95ee AI" });
+  await composer.fill("Keep streaming while older messages load");
+  await reopened.getByRole("button", { name: "\u53d1\u9001" }).click();
+  await expect(reopened.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(3);
   const loadOlder = reopened.getByRole("button", { name: "\u52a0\u8f7d\u66f4\u65e9\u6d88\u606f" });
   await loadOlder.scrollIntoViewIfNeeded();
+  const thread = reopened.locator('[data-workspace-thread="true"]');
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await thread.evaluate((element) => {
+    element.scrollTop = 0;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  });
+  await thread.dispatchEvent("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await expect(
+    reopened.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
+  ).toBeVisible();
   const oldFirst = reopened.locator('[data-workspace-message-id]').first();
   const firstId = await oldFirst.getAttribute("data-workspace-message-id");
   const before = await oldFirst.boundingBox();
+  const chunksBeforePrepend = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
   await loadOlder.click();
-  await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(150);
-  const after = await reopened.locator(`[data-workspace-message-id="${firstId}"]`).boundingBox();
-  expect(Math.abs((after?.y ?? 0) - (before?.y ?? 0))).toBeLessThanOrEqual(1);
-  await expect(reopened.getByText("\u5185\u5bb9\u8f83\u957f\uff0c\u5df2\u6298\u53e0\u9884\u89c8\u3002")).toBeVisible();
-  await reopened.getByRole("button", { name: "\u5c55\u5f00\u5168\u6587" }).click();
+  await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(152);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(
+    chunksBeforePrepend + 2
+  );
+  await expect.poll(async () => {
+    const after = await reopened
+      .locator(`[data-workspace-message-id="${firstId}"]`)
+      .boundingBox();
+    return Math.abs((after?.y ?? 0) - (before?.y ?? 0));
+  }).toBeLessThanOrEqual(1);
+  await expect(loadOlder).toHaveCount(1);
+  const pendingUserScrollTop = await page.evaluate(() => {
+    const workspace = document.querySelector<HTMLElement>(
+      '[data-sheet-route="reading-workspace"]'
+    );
+    const thread = workspace?.querySelector<HTMLElement>(
+      '[data-workspace-thread="true"]'
+    );
+    const button = workspace?.querySelector<HTMLButtonElement>(
+      '[data-workspace-prepend-anchor="true"]'
+    );
+    if (!thread || !button) throw new Error("Workspace pagination controls missing");
+    button.click();
+    thread.dispatchEvent(new PointerEvent("pointerdown", {
+      bubbles: true,
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+    }));
+    const target = Math.min(
+      thread.scrollHeight - thread.clientHeight,
+      thread.scrollTop + 137
+    );
+    thread.scrollTop = target;
+    thread.dispatchEvent(new Event("scroll", { bubbles: true }));
+    thread.dispatchEvent(new PointerEvent("pointerup", {
+      bubbles: true,
+      pointerId: 2,
+      pointerType: "touch",
+      isPrimary: true,
+    }));
+    return thread.scrollTop;
+  });
+  await expect(reopened.locator('[data-workspace-message-id]')).toHaveCount(202);
+  expect(Math.abs(
+    (await thread.evaluate((element) => element.scrollTop)) - pendingUserScrollTop
+  )).toBeLessThanOrEqual(1);
+  await reopened.getByRole("button", { name: "\u505c\u6b62" }).click();
+  await expect(reopened.getByText("\u5185\u5bb9\u8f83\u957f\uff0c\u5df2\u6298\u53e0\u9884\u89c8\u3002").first()).toBeVisible();
+  await reopened.getByRole("button", { name: "\u5c55\u5f00\u5168\u6587" }).first().click();
   await expect(reopened.getByRole("button", { name: "\u5bfc\u51fa" }).last()).toBeVisible();
   const overflow = await page.evaluate(() =>
     document.documentElement.scrollWidth - document.documentElement.clientWidth
   );
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("workspace inline state and popover settle on the last rapid intent", async ({ page }, testInfo) => {
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const conversationTab = workspace.getByRole("tab", { name: "对话" });
+  const materialsTab = workspace.getByRole("tab", { name: "资料" });
+  const sessionTrigger = workspace.getByRole("button", { name: "对话会话" });
+
+  for (let index = 0; index < 6; index += 1) {
+    await sessionTrigger.click();
+    await sessionTrigger.click();
+  }
+  await expect(workspace.getByRole("menu")).toHaveCount(0);
+  await materialsTab.click();
+
+  const metricsPromise = collectInteractionMetrics(page, { durationMs: 700 });
+  for (let index = 0; index < 10; index += 1) {
+    await (index % 2 === 0 ? conversationTab : materialsTab).click();
+  }
+
+  await expect(materialsTab).toHaveAttribute("aria-selected", "true");
+  await expect(
+    workspace.locator('[role="tabpanel"][data-motion-role="inline-state"]')
+  ).toHaveCount(1);
+  await expect(workspace.getByText("还没有资料")).toBeVisible();
+  const metrics = await metricsPromise;
+  await attachInteractionMetrics(testInfo, "workspace-tab-inline-state", metrics);
+  expectInteractionBudget(metrics);
+});
+
+test("workspace materials rename failure retains the title and focus", async ({ page }) => {
+  await openWorkspaceFromLibrary(page);
+  await saveFixtureMaterial(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  await workspace.getByRole("tab", { name: "资料" }).click();
+  const material = workspace.locator("[data-workspace-material-id]").first();
+  await expect(material).toBeVisible();
+  await material.getByRole("button", { name: /打开/ }).click();
+
+  const title = workspace.getByRole("textbox", { name: "资料标题" });
+  await title.fill("保留这个标题");
+  await page.evaluate(() => {
+    const originalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function failArtifactPut(...args) {
+      if (this.name === "workspaceArtifacts") {
+        throw new DOMException("fixture rename failed", "AbortError");
+      }
+      return originalPut.apply(this, args as Parameters<IDBObjectStore["put"]>);
+    };
+  });
+  await workspace.getByRole("button", { name: "重命名" }).click();
+
+  await expect(workspace.getByRole("alert")).toContainText("fixture rename failed");
+  await expect(title).toHaveValue("保留这个标题");
+  await expect(title).toBeFocused();
+});
+
+test("workspace materials keep header and composer geometry stable", async ({ page }) => {
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const panel = workspace.locator('[data-motion-sheet="panel"]');
+  await expect
+    .poll(() =>
+      panel.evaluate(
+        (element) =>
+          element
+            .getAnimations({ subtree: true })
+            .filter((animation) => animation.playState === "running").length
+      )
+    )
+    .toBe(0);
+  const header = workspace.locator("header").first();
+  const composer = workspace.getByRole("textbox", { name: "问 AI" });
+  const beforeHeader = await header.boundingBox();
+  const beforeComposer = await composer.boundingBox();
+
+  await saveFixtureMaterial(page);
+  await workspace.getByRole("tab", { name: "资料" }).click();
+  await expect(workspace.locator("[data-workspace-material-id]")).toHaveCount(1);
+  await workspace.getByRole("tab", { name: "对话" }).click();
+
+  const afterHeader = await header.boundingBox();
+  const afterComposer = await composer.boundingBox();
+  expect(Math.abs((afterHeader?.y ?? 0) - (beforeHeader?.y ?? 0))).toBeLessThanOrEqual(1);
+  expect(Math.abs((afterComposer?.y ?? 0) - (beforeComposer?.y ?? 0))).toBeLessThanOrEqual(1);
+});
+
+test("workspace streaming preserves user scroll and keeps the composer responsive", async ({ page }, testInfo) => {
+  await page.evaluate(() => {
+    const fixtureWindow = window as typeof window & {
+      __workspaceStreamMode?: string;
+      __workspacePublishedChunks?: number;
+    };
+    fixtureWindow.__workspaceStreamMode = "long";
+    fixtureWindow.__workspacePublishedChunks = 0;
+  });
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  const composer = workspace.getByRole("textbox", { name: "\u95ee AI" });
+  const thread = workspace.locator('[data-workspace-thread="true"]');
+  await expect.poll(() => thread.evaluate((element) =>
+    getComputedStyle(element).overflowAnchor
+  )).toBe("none");
+
+  await composer.fill("Stream a long answer");
+  const streamMetricsPromise = collectInteractionMetrics(page, { durationMs: 700 });
+  await workspace.getByRole("button", { name: "\u53d1\u9001" }).click();
+  await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(9);
+  const streamMetrics = await streamMetricsPromise;
+  await attachInteractionMetrics(testInfo, "workspace-streaming-inline-state", streamMetrics);
+  expectInteractionBudget(streamMetrics);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight
+  )).toBeGreaterThan(500);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight - element.scrollTop
+  )).toBeLessThanOrEqual(48);
+
+  const chunksBeforeLongPress = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await page.waitForTimeout(180);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(
+    chunksBeforeLongPress + 1
+  );
+  const scrollTop = await thread.evaluate((element) => {
+    element.scrollTop = Math.max(
+      0,
+      element.scrollHeight - element.clientHeight - 300
+    );
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return element.scrollTop;
+  });
+  await thread.dispatchEvent("pointerup", {
+    pointerId: 1,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await expect(
+    workspace.getByRole("button", { name: "\u56de\u5230\u6700\u65b0\u6d88\u606f" })
+  ).toBeVisible();
+
+  const momentumTarget = Math.max(0, scrollTop - 128);
+  await thread.evaluate((element, target) => {
+    const firstStep = Math.max(target, element.scrollTop - 64);
+    element.scrollTop = firstStep;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    element.scrollTop = target;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, momentumTarget);
+  await expect.poll(() => thread.evaluate((element) => element.scrollTop))
+    .toBe(momentumTarget);
+
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 2,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await thread.dispatchEvent("pointercancel", {
+    pointerId: 2,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  const cancelledMomentumTarget = Math.max(0, momentumTarget - 64);
+  await thread.evaluate((element, target) => {
+    element.scrollTop = target;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, cancelledMomentumTarget);
+  await expect.poll(() => thread.evaluate((element) => element.scrollTop))
+    .toBe(cancelledMomentumTarget);
+
+  const chunksBeforeTyping = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await composer.pressSequentially("draft stays responsive", { delay: 12 });
+  await expect(composer).toHaveValue("draft stays responsive");
+  await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toHaveCount(1);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksBeforeTyping + 3);
+  expect(Math.abs(
+    (await thread.evaluate((element) => element.scrollTop)) - cancelledMomentumTarget
+  ))
+    .toBeLessThanOrEqual(1);
+
+  const clientHeightBeforeReturn = await thread.evaluate(
+    (element) => element.clientHeight
+  );
+  await workspace.getByRole("button", {
+    name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
+  }).click();
+  await expect(workspace.getByRole("button", {
+    name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
+  })).toHaveCount(0);
+  await expect.poll(() => thread.evaluate((element) => element.clientHeight))
+    .toBeGreaterThan(clientHeightBeforeReturn);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight - element.scrollTop
+  )).toBeLessThanOrEqual(1);
+  const chunksAfterReturn = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksAfterReturn + 2);
+  await expect.poll(() => thread.evaluate((element) =>
+    element.scrollHeight - element.clientHeight - element.scrollTop
+  )).toBeLessThanOrEqual(48);
+
+  await thread.dispatchEvent("pointerdown", {
+    pointerId: 3,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  await thread.dispatchEvent("pointercancel", {
+    pointerId: 3,
+    pointerType: "touch",
+    isPrimary: true,
+  });
+  const cancelledFromBottomTarget = await thread.evaluate((element) => {
+    const target = Math.max(
+      0,
+      element.scrollHeight - element.clientHeight - 180
+    );
+    element.scrollTop = target;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+    return target;
+  });
+  await expect.poll(() => thread.evaluate((element) => element.scrollTop))
+    .toBe(cancelledFromBottomTarget);
+  await expect(workspace.getByRole("button", {
+    name: "\u56de\u5230\u6700\u65b0\u6d88\u606f",
+  })).toBeVisible();
+  const chunksAfterCancel = await page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0);
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & { __workspacePublishedChunks?: number }
+  ).__workspacePublishedChunks ?? 0)).toBeGreaterThanOrEqual(chunksAfterCancel + 1);
+  expect(Math.abs(
+    (await thread.evaluate((element) => element.scrollTop)) - cancelledFromBottomTarget
+  )).toBeLessThanOrEqual(1);
 });
 
 test("workspace opens within the architecture budget", async ({ page }, testInfo) => {
@@ -219,10 +660,23 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
   await workspaceButton.evaluate((button) => {
     const state = {
       clickAt: 0,
+      mountedAt: 0,
       longTasks: [] as number[],
       layoutShift: 0,
       observers: [] as PerformanceObserver[],
+      mountObserver: null as MutationObserver | null,
     };
+    const recordMount = () => {
+      if (
+        state.clickAt > 0 &&
+        state.mountedAt === 0 &&
+        document.querySelector('[data-sheet-route="reading-workspace"]')
+      ) {
+        state.mountedAt = performance.now();
+      }
+    };
+    state.mountObserver = new MutationObserver(recordMount);
+    state.mountObserver.observe(document.body, { childList: true, subtree: true });
     for (const type of ["longtask", "layout-shift"]) {
       try {
         const observer = new PerformanceObserver((list) => {
@@ -241,8 +695,13 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
     (window as typeof window & { __workspacePerf?: typeof state }).__workspacePerf = state;
     button.addEventListener("click", () => {
       state.clickAt = performance.now();
+      recordMount();
     }, { once: true });
   });
+  const sharedMetricsPromise = collectInteractionMetrics(page, {
+    durationMs: 700,
+  });
+  await page.waitForTimeout(40);
   await workspaceButton.click();
   await expect(page.locator('[data-sheet-route="reading-workspace"]')).toBeVisible();
   const metrics = await page.evaluate(async () => {
@@ -250,13 +709,18 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
     const state = (window as typeof window & {
       __workspacePerf: {
         clickAt: number;
+        mountedAt: number;
         longTasks: number[];
         layoutShift: number;
         observers: PerformanceObserver[];
+        mountObserver: MutationObserver | null;
       };
     }).__workspacePerf;
     state.observers.forEach((observer) => observer.disconnect());
+    state.mountObserver?.disconnect();
     return {
+      clickToMount:
+        state.mountedAt > 0 ? state.mountedAt - state.clickAt : null,
       clickToVisible: performance.now() - state.clickAt,
       maxLongTask: state.longTasks.length ? Math.max(...state.longTasks) : 0,
       layoutShift: state.layoutShift,
@@ -268,8 +732,16 @@ test("workspace opens within the architecture budget", async ({ page }, testInfo
     contentType: "application/json",
   });
   expect(metrics.clickToVisible).toBeLessThanOrEqual(100);
+  expect(metrics.clickToMount).not.toBeNull();
+  expect(metrics.clickToMount ?? Number.POSITIVE_INFINITY).toBeLessThanOrEqual(50);
   expect(metrics.maxLongTask).toBeLessThan(50);
   expect(metrics.layoutShift).toBe(0);
+  const sharedMetrics = await sharedMetricsPromise;
+  await attachInteractionMetrics(testInfo, "workspace-open-performance", sharedMetrics);
+  expectInteractionBudget(
+    { ...sharedMetrics, clickToMount: metrics.clickToMount },
+    { requireMount: true }
+  );
 });
 
 test.afterEach(async ({ context }) => {

@@ -40,11 +40,22 @@ describe("app navigation hook integration", () => {
     expect(hookSource).toContain("state: AppNavigationCoreState");
   });
 
-  it("uses replace, push, and browser traversal for their distinct roles", () => {
+  it("uses replace, push, and position-aware browser traversal for their distinct roles", () => {
     expect(hookSource).toContain("window.history.replaceState");
     expect(hookSource).toContain("window.history.pushState");
     expect(hookSource).toContain("mergeNavigationHistory(");
-    expect(hookSource).toContain("window.history.back()");
+    expect(hookSource).toContain("createNavigationHistoryPosition");
+    expect(hookSource).toContain("decodeNavigationHistoryPosition");
+    expect(hookSource).toContain("traverseBackWithHistory");
+    expect(hookSource).toContain("history.go(");
+    expect(hookSource).toContain("createNavigationTraversalCoordinator");
+    expect(hookSource).toContain("getNavigationTraversalCoordinator");
+    expect(hookSource).toContain("shouldNavigate");
+    expect(hookSource).toContain("coordinator.enqueue");
+    expect(hookSource).toContain("coordinator.settle");
+    expect(hookSource).toContain("coordinator.drain");
+    expect(hookSource).toContain("coordinator.rebase");
+    expect(hookSource).not.toContain("window.history.back()");
   });
 
   it("replaces a transient sheet when it presents the reader", () => {
@@ -58,6 +69,7 @@ describe("app navigation hook integration", () => {
     expect(hookSource).toContain("decodeNavigationHistory(event.state)");
     expect(hookSource).toContain('type: "restore"');
     expect(hookSource).toContain("createAppNavigationState()");
+    expect(hookSource).toContain("redirectNavigationHistoryTombstone");
   });
 
   it("exposes navigation through a guarded context", () => {

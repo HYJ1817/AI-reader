@@ -13,6 +13,10 @@ const moduleCss = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
 );
+const globalCss = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8"
+);
 
 function cssRule(css: string, selector: string): string {
   const start = css.indexOf(`${selector} {`);
@@ -55,9 +59,9 @@ describe("EPUB ambient background integration", () => {
     ).toHaveLength(1);
   });
 
-  it("keeps the viewport and epub.js outer canvas transparent", () => {
+  it("uses the reader canvas token across the viewport and epub.js layers", () => {
     expect(moduleCss).toMatch(
-      /\.epubReaderViewport,\s*\.epubReaderViewport :global\(\.epub-container\),\s*\.epubReaderViewport :global\(\.epub-view\),\s*\.epubReaderViewport :global\(iframe\)\s*\{[^}]*background:\s*transparent !important;/s
+      /\.epubReaderViewport,\s*\.epubReaderViewport :global\(\.epub-container\),\s*\.epubReaderViewport :global\(\.epub-view\),\s*\.epubReaderViewport :global\(iframe\)\s*\{[^}]*background:\s*var\(--reader-canvas-background\) !important;/s
     );
   });
 
@@ -73,14 +77,48 @@ describe("EPUB ambient background integration", () => {
     );
   });
 
-  it("lets EPUB inherit the active reader theme without covering the ambient background", () => {
+  it("scopes the pure-black dark canvas to the reading interface", () => {
     expect(readingSessionSource).not.toContain("styles.readerEpubLightCanvas");
     expect(readingSessionSource).toContain('book?.format === "epub"');
     expect(moduleCss).not.toContain(".readerEpubLightCanvas");
-    expect(cssRule(moduleCss, ".readerShell")).toContain("background: transparent;");
-    expect(cssRule(moduleCss, ".readerStage")).toContain(
-      "background: transparent;"
+    expect(cssRule(moduleCss, ".readerPresentationContent")).toContain(
+      "background: var(--reader-surface-background);"
     );
+    expect(cssRule(moduleCss, ".readerShell")).toContain(
+      "background: var(--reader-canvas-background);"
+    );
+    expect(cssRule(moduleCss, ".readerStage")).toContain(
+      "background: var(--reader-canvas-background);"
+    );
+    expect(globalCss).toMatch(
+      /:root\s*\{[^}]*--reader-canvas-background:\s*transparent;/s
+    );
+    expect(globalCss).toMatch(
+      /:root\s*\{[^}]*--reader-surface-background:\s*var\(--background\);/s
+    );
+    expect(globalCss).toMatch(
+      /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*--reader-canvas-background:\s*#000000;/s
+    );
+    expect(globalCss).toMatch(
+      /\[data-reader-theme="dark"\]\s*\{[^}]*--reader-canvas-background:\s*#000000;/s
+    );
+    expect(globalCss).toMatch(
+      /\[data-reader-theme="dark"\]\s*\{[^}]*--reader-surface-background:\s*#000000;/s
+    );
+    for (const theme of ["light", "sepia"]) {
+      expect(globalCss).toMatch(
+        new RegExp(
+          `\\[data-reader-theme="${theme}"\\]\\s*\\{[^}]*--reader-canvas-background:\\s*transparent;`,
+          "s"
+        )
+      );
+      expect(globalCss).toMatch(
+        new RegExp(
+          `\\[data-reader-theme="${theme}"\\]\\s*\\{[^}]*--reader-surface-background:\\s*var\\(--background\\);`,
+          "s"
+        )
+      );
+    }
   });
 
   it("applies the inline ambient canvas override before attaching tap handlers", () => {
@@ -93,7 +131,7 @@ describe("EPUB ambient background integration", () => {
     );
     const handlerSource = epubSource.slice(handlerStart, handlerEnd);
     const ambientIndex = handlerSource.indexOf(
-      "applyEpubAmbientCanvas(contents)"
+      "applyEpubAmbientCanvas(contents, getCanvasBackground())"
     );
     const tapIndex = handlerSource.indexOf("attachTapHandlers(contents)");
 
@@ -112,14 +150,18 @@ describe("EPUB ambient background integration", () => {
       epubSource.indexOf("if (preferencesRef.current)")
     );
 
-    expect(renderedHandler).toContain("applyEpubViewTransparency(view)");
-    expect(renderedHandler.indexOf("applyEpubViewTransparency(view)")).toBeLessThan(
+    expect(renderedHandler).toContain(
+      "applyEpubViewTransparency(view, getCanvasBackground())"
+    );
+    expect(renderedHandler.indexOf("applyEpubViewTransparency(view, getCanvasBackground())")).toBeLessThan(
       renderedHandler.indexOf("handleRenderedContents(contents)")
     );
   });
 
   it("removes publisher backgrounds while preserving media elements", () => {
-    expect(epubSource).toContain("applyEpubAmbientCanvas(contents)");
+    expect(epubSource).toContain(
+      "applyEpubAmbientCanvas(contents, getCanvasBackground())"
+    );
     expect(
       readFileSync(
         new URL("./epubReaderPreferences.ts", import.meta.url),
@@ -165,6 +207,11 @@ describe("EPUB ambient background integration", () => {
     const getContentsIndex = initializationSource.indexOf(
       "const renderedContents"
     );
+    const dependencyStart = epubSource.indexOf("}, [bookId", initializationStart);
+    const dependencies = epubSource.slice(
+      dependencyStart,
+      epubSource.indexOf("]);", dependencyStart) + 3
+    );
 
     expect(initializationSource).toContain(
       "handleRenderedContents(contents)"
@@ -176,6 +223,8 @@ describe("EPUB ambient background integration", () => {
       "handleRenderedContents(renderedContents)"
     );
     expect(getContentsIndex).toBeGreaterThan(displayIndex);
+    expect(dependencyStart).toBeGreaterThan(initializationStart);
+    expect(dependencies).toContain("getCanvasBackground");
   });
 
   it("falls back to the default EPUB location when a saved locator cannot be displayed", () => {

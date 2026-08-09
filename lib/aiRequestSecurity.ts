@@ -162,9 +162,12 @@ export async function fetchAiUpstream(
   try {
     const response = await fetch(url, {
       ...init,
-      redirect: "error",
+      redirect: "manual",
       signal: controller.signal,
     });
+    if (response.status >= 300 && response.status < 400) {
+      throw new AiRequestError("AI upstream redirects are not allowed", 502);
+    }
     if (!response.body) return response;
 
     const maxResponseBytes = options.maxResponseBytes ?? 2_000_000;
