@@ -3,6 +3,7 @@ import type { NavigationTab } from "./navigationMotion";
 export type PushRoute =
   | "collections"
   | "library-search"
+  | "book-details"
   | "ai-providers"
   | "ai-provider-configure"
   | "custom-background";

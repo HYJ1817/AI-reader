@@ -68,6 +68,47 @@ describe("app navigation", () => {
     );
   });
 
+  it("pushes book details above search and restores search on pop", () => {
+    const searching = reduceAppNavigation(createAppNavigationState(), {
+      type: "push",
+      entry: { key: "search", kind: "push", route: "library-search" },
+    });
+    const details = reduceAppNavigation(searching, {
+      type: "push",
+      entry: {
+        key: "details",
+        kind: "push",
+        route: "book-details",
+        entityId: "book-1",
+        restoreFocusId: "library-search-grid-book-1",
+      },
+    });
+
+    expect(details.pushes.map((entry) => entry.route)).toEqual([
+      "library-search",
+      "book-details",
+    ]);
+    expect(reduceAppNavigation(details, { type: "pop" }).pushes).toEqual(
+      searching.pushes
+    );
+  });
+
+  it("clears book details when a root tab is selected", () => {
+    const details = reduceAppNavigation(createAppNavigationState(), {
+      type: "push",
+      entry: {
+        key: "details",
+        kind: "push",
+        route: "book-details",
+        entityId: "book-1",
+      },
+    });
+    expect(
+      reduceAppNavigation(details, { type: "select-tab", tab: "settings" })
+        .pushes
+    ).toEqual([]);
+  });
+
   it("keeps reader and sheets in separate layers", () => {
     const reader = reduceAppNavigation(createAppNavigationState(), {
       type: "present-reader",

@@ -513,7 +513,10 @@ export default function Home() {
       setSelectedBookIds((ids) => toggleBookSelection(ids, book.id));
       return;
     }
-    void openBookForReading(book, originId);
+    navigation.push("book-details", {
+      entityId: book.id,
+      restoreFocusId: originId,
+    });
   }
 
   function handleSelectAllVisible() {
@@ -743,6 +746,25 @@ export default function Home() {
   const librarySearchRenderKey = `${librarySearchQuery}\u0000${libraryView}`;
   const topPushRoute = navigation.state.pushes.at(-1)?.route;
   const librarySearchOpen = topPushRoute === "library-search";
+  const detailEntry =
+    topPushRoute === "book-details"
+      ? navigation.state.pushes.at(-1)
+      : undefined;
+  const detailBook = detailEntry?.entityId
+    ? books.find((book) => book.id === detailEntry.entityId) ?? null
+    : null;
+  const detailProgress = detailBook
+    ? getBookProgressPercent(readingProgressMap, detailBook.id)
+    : 0;
+  useEffect(() => {
+    if (
+      !loading &&
+      detailEntry?.entityId &&
+      !books.some((book) => book.id === detailEntry.entityId)
+    ) {
+      navigation.removeInvalid(detailEntry.key);
+    }
+  }, [books, detailEntry?.entityId, detailEntry?.key, loading, navigation]);
   const {
     loadSentinelRef: librarySearchLoadSentinelRef,
     visibleCount: librarySearchVisibleCount,
@@ -1655,6 +1677,21 @@ export default function Home() {
                   onPressBook: handleBookPress,
                   onOpenBookActions: openBookActionSheet,
                 },
+                details: detailBook
+                  ? {
+                      book: detailBook,
+                      progressPercent: detailProgress,
+                      lastReadAt: detailBook.lastOpenedAt,
+                      originId: detailEntry?.restoreFocusId,
+                      metadataRunning: metadataEnrichment.isRunning(detailBook.id),
+                      onRead: (originId) =>
+                        void openBookForReading(detailBook, originId),
+                      onOpenContents: (originId) =>
+                        void openBookForReading(detailBook, originId),
+                      onEnrich: (mode) =>
+                        void metadataEnrichment.run(detailBook, mode),
+                    }
+                  : null,
                 collections: {
                   collectionItems: collectionListItems,
                   groupFilter,

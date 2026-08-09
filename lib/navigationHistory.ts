@@ -23,6 +23,7 @@ const NAVIGATION_DIRECTIONS = ["forward", "backward", "replace"] as const satisf
 const PUSH_ROUTES = [
   "collections",
   "library-search",
+  "book-details",
   "ai-providers",
   "ai-provider-configure",
   "custom-background",
