@@ -42,7 +42,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.11",
     "fake-indexeddb": "^6.2.5",
-    "typescript": "^5",
+    "typescript": "^7",
     "vitest": "^4.1.7",
     "wrangler": "^4.113.0"
   }
