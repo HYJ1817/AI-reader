@@ -44,6 +44,7 @@ type SharedBookSourceContextValue = {
     element: HTMLElement
   ) => () => void;
   setSourceVisibility: (originId: string, visible: boolean) => void;
+  refreshSourceVisibility: (originId: string) => void;
   sourceLayoutTransition: ReaderSpatialTransition;
 };
 
@@ -340,9 +341,31 @@ export default function SharedBookTransition({
     []
   );
 
+  const refreshSourceVisibility = useCallback((originId: string) => {
+    setSources((currentSources) => {
+      const source = currentSources.get(originId);
+      if (!source) return currentSources;
+      const visible = isSourceVisible(source.element);
+      if (source.visible === visible) return currentSources;
+      const nextSources = new Map(currentSources);
+      nextSources.set(originId, { ...source, visible });
+      return nextSources;
+    });
+  }, []);
+
   const contextValue = useMemo(
-    () => ({ registerSource, setSourceVisibility, sourceLayoutTransition }),
-    [registerSource, setSourceVisibility, sourceLayoutTransition]
+    () => ({
+      registerSource,
+      setSourceVisibility,
+      refreshSourceVisibility,
+      sourceLayoutTransition,
+    }),
+    [
+      refreshSourceVisibility,
+      registerSource,
+      setSourceVisibility,
+      sourceLayoutTransition,
+    ]
   );
 
   const source = readerEntry?.originId

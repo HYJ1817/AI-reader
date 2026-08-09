@@ -8,6 +8,7 @@ function optionalSource(path: string): string {
 
 const transitionSource = optionalSource("../app/SharedBookTransition.tsx");
 const coverSource = optionalSource("../app/MotionBookCover.tsx");
+const detailsSource = optionalSource("../app/BookDetailsSurface.tsx");
 const librarySource = optionalSource("../app/LibrarySurface.tsx");
 const libraryResultsSource = optionalSource("../app/LibraryBookResults.tsx");
 const dashboardSource = optionalSource("../app/ReadingDashboard.tsx");
@@ -26,6 +27,12 @@ describe("shared reader presentation integration", () => {
     expect(coverSource).toContain("data-book-cover-origin={originId}");
     expect(coverSource).toContain("IntersectionObserver");
     expect(coverSource).toContain("useAppReducedMotion");
+  });
+
+  it("revalidates a transformed details cover when the reader is requested", () => {
+    expect(transitionSource).toContain("refreshSourceVisibility");
+    expect(transitionSource).toContain("isSourceVisible(source.element)");
+    expect(detailsSource).toContain("refreshSourceVisibility(detailOriginId)");
   });
 
   it("keeps reader exits present and restores a visible source", () => {

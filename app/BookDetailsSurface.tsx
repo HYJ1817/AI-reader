@@ -14,6 +14,7 @@ import { UI_TEXT } from "@/lib/uiText";
 import MotionBookCover from "./MotionBookCover";
 import { MoreHorizontalIcon } from "./UiGlyphs";
 import { useAppReducedMotion } from "./AppMotionRoot";
+import { useSharedBookSource } from "./SharedBookTransition";
 import styles from "./page.module.css";
 
 export type BookDetailsSurfaceProps = {
@@ -40,6 +41,7 @@ export default function BookDetailsSurface({
 }: BookDetailsSurfaceProps) {
   const presentation = buildBookDetailsPresentation(book, progressPercent);
   const reduceMotion = useAppReducedMotion();
+  const { refreshSourceVisibility } = useSharedBookSource();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -173,7 +175,10 @@ export default function BookDetailsSurface({
           type="button"
           data-book-details-read="true"
           className={styles.bookDetailsPrimaryAction}
-          onClick={() => onRead(detailOriginId)}
+          onClick={() => {
+            refreshSourceVisibility(detailOriginId);
+            onRead(detailOriginId);
+          }}
         >
           <BookOpenIcon />
           <span>{presentation.primaryActionLabel}</span>
@@ -182,7 +187,10 @@ export default function BookDetailsSurface({
           <button
             type="button"
             className={styles.bookDetailsSecondaryAction}
-            onClick={() => onOpenContents(detailOriginId)}
+            onClick={() => {
+              refreshSourceVisibility(detailOriginId);
+              onOpenContents(detailOriginId);
+            }}
           >
             <ContentsIcon />
             <span>{UI_TEXT.CONTENTS}</span>
