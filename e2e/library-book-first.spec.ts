@@ -241,6 +241,9 @@ test("featured continuation opens the reader and restores focus on close", async
     .getByRole("button", { name: /继续阅读/ });
 
   await continuation.click();
+  const details = page.locator('[data-book-details="true"]');
+  await expect(details).toBeVisible();
+  await details.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   await expect(page.locator('[data-txt-reader="true"]')).toContainText(
     sampleText
@@ -248,6 +251,8 @@ test("featured continuation opens the reader and restores focus on close", async
   await closeReaderWithControls(page);
 
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+  await expect(details).toBeVisible();
+  await details.locator('[data-book-details-back="true"]').click();
   await expect(continuation).toBeFocused();
 });
 

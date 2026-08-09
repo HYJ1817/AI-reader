@@ -22,7 +22,6 @@ import {
   deleteBookGroup,
   updateBookGroupName,
   updateBookGroupMembership,
-  updateBookLastOpenedAt,
   renameBook,
   type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
@@ -122,7 +121,6 @@ import {
   getBookProgressPercent,
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
-import { shouldShowBottomTabs } from "@/lib/navigationVisibility";
 import type { NavigationTab } from "@/lib/navigationMotion";
 import { buildCollectionListItems } from "@/lib/collectionList";
 import { isScrollIntent, isTapGesture, shouldReduceReaderMotion } from "@/lib/motionInteractions";
@@ -140,6 +138,7 @@ import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
 import useBookCoverBackfill from "@/app/useBookCoverBackfill";
 import useIncrementalRenderWindow from "@/app/useIncrementalRenderWindow";
 import useBookMetadataEnrichment from "@/app/useBookMetadataEnrichment";
+import useBookDetailsIntegration from "@/app/useBookDetailsIntegration";
 import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 import { assertBackupImportSize } from "@/lib/backupImport";
@@ -170,7 +169,6 @@ export default function Home() {
   const readerPresented = readerEntry !== null;
   const pendingReaderTargetRef = useRef<NavigationTab | null>(null);
   const pendingPushAfterReaderRef = useRef<"ai-providers" | null>(null);
-  const pendingOpenTocBookIdRef = useRef<string | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
@@ -400,7 +398,7 @@ export default function Home() {
   }
 
   function dismissReader(targetTab?: NavigationTab) {
-    pendingOpenTocBookIdRef.current = null;
+    bookDetailsIntegration.clearPendingToc();
     if (!readerPresented) {
       if (targetTab) navigation.selectTab(targetTab);
       return;
@@ -748,26 +746,6 @@ export default function Home() {
   const librarySearchRenderKey = `${librarySearchQuery}\u0000${libraryView}`;
   const topPushRoute = navigation.state.pushes.at(-1)?.route;
   const librarySearchOpen = topPushRoute === "library-search";
-  const bookDetailsOpen = topPushRoute === "book-details";
-  const detailEntry =
-    bookDetailsOpen
-      ? navigation.state.pushes.at(-1)
-      : undefined;
-  const detailBook = detailEntry?.entityId
-    ? books.find((book) => book.id === detailEntry.entityId) ?? null
-    : null;
-  const detailProgress = detailBook
-    ? getBookProgressPercent(readingProgressMap, detailBook.id)
-    : 0;
-  useEffect(() => {
-    if (
-      !loading &&
-      detailEntry?.entityId &&
-      !books.some((book) => book.id === detailEntry.entityId)
-    ) {
-      navigation.removeInvalid(detailEntry.key);
-    }
-  }, [books, detailEntry?.entityId, detailEntry?.key, loading, navigation]);
   const {
     loadSentinelRef: librarySearchLoadSentinelRef,
     visibleCount: librarySearchVisibleCount,
@@ -806,10 +784,6 @@ export default function Home() {
   const latestBookProgress = latestBook
     ? getBookProgressPercent(readingProgressMap, latestBook.id)
     : 0;
-  const showBottomTabs =
-    (navigation.state.pushes.length === 0 || librarySearchOpen || bookDetailsOpen) &&
-    shouldShowBottomTabs(activeTab, readerPresented);
-  const ambientBook = detailBook ?? latestBook ?? null;
   const activeAiProvider = useMemo(
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
@@ -850,6 +824,18 @@ export default function Home() {
     readerLocator: openBook?.format === "txt" ? `txt-${readerMode}` : undefined,
     progressPercent: readerProgressPercent,
   });
+  const bookDetailsIntegration = useBookDetailsIntegration({
+    activeTab, topPushRoute, pushes: navigation.state.pushes, books, loading,
+    progressMap: readingProgressMap, latestBook: latestBook ?? null,
+    readerPresented, navigation, flushReadingPosition: positionCoordinator.flush,
+    prepareReaderBook, stopWorkspaceRequest,
+    resetScrollRestoration: () => { scrollRestoredRef.current = false; },
+    setBooks, setImportError,
+  });
+  const {
+    detailEntry, detailBook, detailProgress, ambientBook, showBottomTabs,
+    openBookForReading,
+  } = bookDetailsIntegration;
   const annotations = useReaderAnnotationsController({
     openBook, readerMode,
     reduceMotion: appPrefs.reduceMotion,
@@ -903,51 +889,6 @@ export default function Home() {
     }, 0);
     return () => window.clearTimeout(timeout);
   }, [books]);
-
-  const openBookForReading = useCallback(async (
-    book: BookMetadata,
-    originId?: string
-  ) => {
-    if (
-      pendingOpenTocBookIdRef.current &&
-      pendingOpenTocBookIdRef.current !== book.id
-    ) {
-      pendingOpenTocBookIdRef.current = null;
-    }
-    await positionCoordinator.flush();
-    const fullBook = await getBook(book.id);
-    if (!fullBook) {
-      if (pendingOpenTocBookIdRef.current === book.id) {
-        pendingOpenTocBookIdRef.current = null;
-      }
-      setImportError(UI_TEXT.ERROR_READ_FILE);
-      return;
-    }
-    const now = new Date().toISOString();
-    await updateBookLastOpenedAt(book.id, now);
-    const [nextBooks, savedPosition] = await Promise.all([
-      listBookMetadata(),
-      getReadingPosition(book.id),
-    ]);
-    setBooks(nextBooks);
-
-    scrollRestoredRef.current = false;
-    await stopWorkspaceRequest();
-    const contentReady = prepareReaderBook(fullBook, savedPosition);
-    navigation.presentReader(book.id, { originId });
-    await contentReady;
-  }, [navigation, positionCoordinator, prepareReaderBook, stopWorkspaceRequest]);
-
-  useEffect(() => {
-    if (!readerPresented) pendingOpenTocBookIdRef.current = null;
-  }, [readerPresented]);
-
-  useEffect(
-    () => () => {
-      pendingOpenTocBookIdRef.current = null;
-    },
-    []
-  );
 
   useEffect(() => {
     if (autoOpenAttemptedRef.current) return;
@@ -1625,17 +1566,8 @@ export default function Home() {
         void turnReaderPage(direction, { instant: true })
       }
       onTocChange={setTocItems}
-      onTocReady={(bookId) => {
-        if (pendingOpenTocBookIdRef.current !== bookId) return;
-        if (navigation.getState().reader?.bookId !== bookId) return;
-        pendingOpenTocBookIdRef.current = null;
-        navigation.presentSheet("toc");
-      }}
-      onEpubLoadError={(bookId) => {
-        if (pendingOpenTocBookIdRef.current === bookId) {
-          pendingOpenTocBookIdRef.current = null;
-        }
-      }}
+      onTocReady={bookDetailsIntegration.onTocReady}
+      onEpubLoadError={bookDetailsIntegration.failReader}
       onProgressChange={handleEpubProgressChange}
       onPageInfoChange={setReaderPageInfo}
       onTextReaderScroll={handleReaderScroll}
@@ -1712,28 +1644,18 @@ export default function Home() {
                   onPressBook: handleBookPress,
                   onOpenBookActions: openBookActionSheet,
                 },
-                details: detailBook
-                  ? {
-                      book: detailBook,
-                      progressPercent: detailProgress,
-                      lastReadAt: detailBook.lastOpenedAt,
-                      originId: detailEntry?.restoreFocusId,
-                      metadataRunning: metadataEnrichment.isRunning(detailBook.id),
-                      onRead: (originId) =>
-                        void openBookForReading(detailBook, originId),
-                      onOpenContents: (originId) =>
-                        {
-                          pendingOpenTocBookIdRef.current = detailBook.id;
-                          void openBookForReading(detailBook, originId).catch(() => {
-                            if (pendingOpenTocBookIdRef.current === detailBook.id) {
-                              pendingOpenTocBookIdRef.current = null;
-                            }
-                          });
-                        },
-                      onEnrich: (mode) =>
-                        void metadataEnrichment.run(detailBook, mode),
-                    }
-                  : null,
+                details: detailBook ? {
+                  book: detailBook,
+                  progressPercent: detailProgress,
+                  lastReadAt: detailBook.lastOpenedAt,
+                  originId: detailEntry?.restoreFocusId,
+                  metadataRunning: metadataEnrichment.isRunning(detailBook.id),
+                  onRead: (originId) => void openBookForReading(detailBook, originId),
+                  onOpenContents: (originId) => bookDetailsIntegration.openContents(
+                    detailBook, originId, openBookForReading
+                  ),
+                  onEnrich: (mode) => void metadataEnrichment.run(detailBook, mode),
+                } : null,
                 collections: {
                   collectionItems: collectionListItems,
                   groupFilter,

@@ -471,6 +471,10 @@
     scale(var(--press-control-scale));
 }
 
+.bookDetailsActions > button:only-child {
+  grid-column: 1 / -1;
+}
+
 .bookDetailsActions svg {
   flex: 0 0 auto;
   width: 21px;

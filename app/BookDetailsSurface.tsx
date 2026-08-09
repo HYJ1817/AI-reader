@@ -82,11 +82,11 @@ export default function BookDetailsSurface({
     <section
       className={styles.bookDetailsSurface}
       data-book-details="true"
-      data-push-route="book-details"
     >
       <header className={styles.bookDetailsNavigation}>
         <button
           type="button"
+          data-book-details-back="true"
           className={styles.bookDetailsCircleButton}
           onClick={onBack}
           aria-label={UI_TEXT.BACK}
@@ -171,6 +171,7 @@ export default function BookDetailsSurface({
       <div className={styles.bookDetailsActions}>
         <button
           type="button"
+          data-book-details-read="true"
           className={styles.bookDetailsPrimaryAction}
           onClick={() => onRead(detailOriginId)}
         >

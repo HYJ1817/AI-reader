@@ -21,6 +21,10 @@ const pageSource = readFileSync(
   new URL("../app/page.tsx", import.meta.url),
   "utf8"
 );
+const detailsIntegrationSource = readFileSync(
+  new URL("../app/useBookDetailsIntegration.ts", import.meta.url),
+  "utf8"
+);
 const cssSource = readFileSync(
   new URL("../app/page.module.css", import.meta.url),
   "utf8"
@@ -124,13 +128,13 @@ describe("shared reader transition timing", () => {
   });
 
   it("keeps reader presentation visual-first and close persistence non-blocking", () => {
-    const prepareIndex = pageSource.indexOf(
+    const prepareIndex = detailsIntegrationSource.indexOf(
       "const contentReady = prepareReaderBook(fullBook, savedPosition)"
     );
-    const presentIndex = pageSource.indexOf(
+    const presentIndex = detailsIntegrationSource.indexOf(
       "navigation.presentReader(book.id, { originId })"
     );
-    const awaitIndex = pageSource.indexOf("await contentReady", presentIndex);
+    const awaitIndex = detailsIntegrationSource.indexOf("await contentReady", presentIndex);
 
     expect(prepareIndex).toBeGreaterThan(-1);
     expect(presentIndex).toBeGreaterThan(prepareIndex);

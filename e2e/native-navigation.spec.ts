@@ -177,6 +177,20 @@ function firstLibraryCover(page: Page) {
     .first();
 }
 
+function detailsReadButton(page: Page) {
+  return page.locator('[data-book-details-read="true"]');
+}
+
+async function openBookDetails(page: Page) {
+  await firstLibraryCover(page).click();
+  await expect(page.locator('[data-book-details="true"]')).toBeVisible();
+}
+
+async function startReaderFromDetails(page: Page) {
+  await detailsReadButton(page).click();
+  await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
+}
+
 async function useLibraryListMode(page: Page) {
   await page.getByRole("button", { name: "\u5217\u8868" }).click();
   await expect(
@@ -187,8 +201,8 @@ async function useLibraryListMode(page: Page) {
 }
 
 async function openReader(page: Page) {
-  await firstLibraryCover(page).click();
-  await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
+  await openBookDetails(page);
+  await startReaderFromDetails(page);
 }
 
 async function closeReaderWithControls(page: Page) {
@@ -759,6 +773,9 @@ test("reader closes back to its source action and restores focus", async ({
   await closeReaderWithControls(page);
 
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+  const details = page.locator('[data-book-details="true"]');
+  await expect(details).toBeVisible();
+  await details.locator('[data-book-details-back="true"]').click();
   const featured = page.locator('[data-library-featured="true"]');
   await expect(featured).toBeVisible();
   const restoredCover = featured.locator(
@@ -795,6 +812,7 @@ test("first reader controls stay visible until an explicit toggle", async ({
   await menuToggle.click();
   await page.locator('[data-reader-close="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+  await page.locator('[data-book-details-back="true"]').click();
 
   await page.reload();
   await expect(page.locator(libraryRootSelector)).toBeVisible();
@@ -1534,9 +1552,8 @@ test("reader presentation captures a meaningful 70 ms midpoint and opaque settle
   );
   const settledPath = testInfo.outputPath("reader-presentation-settled.png");
   await capture(page, testInfo, "reader-presentation-start");
-  await firstLibraryCover(page).evaluate((cover) => {
-    const trigger = cover.closest<HTMLButtonElement>("button");
-    if (!trigger) throw new Error("Reader trigger is missing");
+  await openBookDetails(page);
+  await detailsReadButton(page).evaluate((trigger) => {
     const measuredWindow = window as typeof window & {
       __readerMidpoint?: {
         clickedAt: number;
@@ -1685,10 +1702,11 @@ test("reader presentation captures a meaningful 70 ms midpoint and opaque settle
 test("reader presentation falls back safely when its cover origin is removed", async ({
   page,
 }) => {
-  const origin = firstLibraryCover(page);
+  await openBookDetails(page);
+  const origin = page.locator('[data-book-details="true"] [data-book-cover-origin]').first();
   const originId = await origin.getAttribute("data-book-cover-origin");
   if (!originId) throw new Error("Reader source origin is missing");
-  await origin.click();
+  await detailsReadButton(page).click();
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(1);
   await page
     .locator(`[data-book-cover-origin="${originId}"]`)
@@ -1764,10 +1782,12 @@ test("reader presentation uses fallback geometry for an offscreen origin", async
   for (let index = 0; index < 8; index += 1) {
     await importBook(page, `reader-fallback-${index}.txt`);
   }
-  const origin = firstLibraryCover(page);
-  const openButton = origin.locator("xpath=ancestor::button[1]");
-  await page.locator(libraryRootSelector).evaluate((element) => {
-    element.scrollTop = element.scrollHeight;
+  await openBookDetails(page);
+  const details = page.locator('[data-push-route="book-details"]');
+  const origin = details.locator('[data-book-cover-origin]').first();
+  const openButton = detailsReadButton(page);
+  await origin.evaluate((element) => {
+    (element as HTMLElement).style.transform = "translateY(-200vh)";
   });
   await expect
     .poll(() =>
@@ -1797,7 +1817,8 @@ test("reader presentation can close while TXT content is still preparing", async
     };
   });
 
-  await firstLibraryCover(page).click();
+  await openBookDetails(page);
+  await detailsReadButton(page).click();
   const presentation = page.locator('[data-reader-presented="true"]');
   await expect(presentation.locator('[data-reader-content-ready="false"]')).toHaveCount(1);
   await closeReaderWithControls(page);
@@ -1820,7 +1841,8 @@ test("reader presentation reduced motion uses one short crossfade", async ({
   await page.reload();
   await expect(page.locator(libraryRootSelector)).toBeVisible();
 
-  await firstLibraryCover(page).click();
+  await openBookDetails(page);
+  await detailsReadButton(page).click();
   const presentation = page.locator('[data-reader-presented="true"]');
   await expect(presentation).toHaveAttribute(
     "data-reader-transition-mode",
@@ -1891,7 +1913,8 @@ test("reader gesture ownership keeps real EPUB swipes inside the reader", async 
     buffer: await buildReaderGestureEpub(),
   });
   await expect(covers).toHaveCount(previousCount + 1);
-  await firstLibraryCover(page).click();
+  await openBookDetails(page);
+  await detailsReadButton(page).click();
 
   const presentation = page.locator('[data-reader-presented="true"]');
   const owner = presentation.locator('[data-navigation-gesture-owner="reader"]');
@@ -2280,7 +2303,8 @@ test("captures root, push, reader, and sheet transition evidence", async ({
   await page.evaluate(() => window.history.back());
   await expect(page.locator('[data-push-route="collections"]')).toHaveCount(0);
   await capture(page, testInfo, "reader-start");
-  await firstLibraryCover(page).click();
+  await openBookDetails(page);
+  await detailsReadButton(page).click();
   await page.waitForTimeout(80);
   await capture(page, testInfo, "reader-mid");
   await page.waitForTimeout(520);

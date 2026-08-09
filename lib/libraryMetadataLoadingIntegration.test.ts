@@ -9,6 +9,10 @@ const readerStateSource = readFileSync(
   new URL("../app/useReaderBookState.ts", import.meta.url),
   "utf8"
 );
+const detailsIntegrationSource = readFileSync(
+  new URL("../app/useBookDetailsIntegration.ts", import.meta.url),
+  "utf8"
+);
 const coverBackfillQueueSource = readFileSync(
   new URL("./bookCoverBackfill.ts", import.meta.url),
   "utf8"
@@ -58,7 +62,7 @@ describe("metadata-only library integration", () => {
   });
 
   it("updates last-opened metadata without rewriting source bytes", () => {
-    expect(pageSource).toContain("updateBookLastOpenedAt(book.id, now)");
+    expect(detailsIntegrationSource).toContain("updateBookLastOpenedAt(book.id, now)");
     expect(pageSource).not.toContain("saveBook({ ...book, lastOpenedAt: now })");
   });
 });

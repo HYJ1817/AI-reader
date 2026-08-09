@@ -267,8 +267,10 @@ export default function LibrarySurface({
                   }
                 >
                   <button
+                    id={featuredOriginId}
                     type="button"
                     className={styles.libraryFeaturedButton}
+                    data-book-focus-id={featuredBook.id}
                     aria-label={`${UI_TEXT.CONTINUE_READING}：${featuredBook.title}`}
                     onClick={() =>
                       actions.pressBook(featuredBook, featuredOriginId)

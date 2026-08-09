@@ -11,6 +11,10 @@ const details = readFileSync(
   "utf8"
 );
 const epub = readFileSync(new URL("../app/EpubReader.tsx", import.meta.url), "utf8");
+const integrationHook = readFileSync(
+  new URL("../app/useBookDetailsIntegration.ts", import.meta.url),
+  "utf8"
+);
 
 describe("book details app integration", () => {
   it("routes a library press to details without hydrating reader bytes", () => {
@@ -24,9 +28,9 @@ describe("book details app integration", () => {
   });
 
   it("keeps details in the ambient and Dock visibility rules", () => {
-    expect(page).toContain('topPushRoute === "book-details"');
-    expect(page).toContain("detailBook ?? latestBook ?? null");
-    expect(page).toContain("navigation.state.pushes.length === 0 || librarySearchOpen || bookDetailsOpen");
+    expect(integrationHook).toContain('topPushRoute === "book-details"');
+    expect(integrationHook).toContain("detailBook ?? latestBook ?? null");
+    expect(integrationHook).toContain('topPushRoute === "library-search" || bookDetailsOpen');
   });
 
   it("opens the reader from the detail cover transition source", () => {
@@ -39,8 +43,8 @@ describe("book details app integration", () => {
     const tocReady = epub.indexOf("onTocReadyRef.current?.(bookId)", tocChange);
     expect(tocChange).toBeGreaterThan(-1);
     expect(tocReady).toBeGreaterThan(tocChange);
-    expect(page).toContain("pendingOpenTocBookIdRef.current !== bookId");
-    expect(page).toContain("navigation.getState().reader?.bookId !== bookId");
+    expect(integrationHook).toContain("pendingTocBookIdRef.current !== bookId");
+    expect(integrationHook).toContain("navigation.getState().reader?.bookId !== bookId");
   });
 
   it("keeps metadata controls accessible", () => {

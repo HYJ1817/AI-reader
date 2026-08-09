@@ -3264,6 +3264,42 @@ Observed results:
   OpenNext Windows, Wrangler compatibility-date, Node `DEP0190`, and multiple
   lockfile root warnings remain non-blocking.
 
+### Book Details and Metadata Enrichment (2026-08-09)
+
+- Branch: `feat/pwa-interaction-fluidity` in
+  `C:\aaa\ai-reader-pwa\.worktrees\pwa-interaction-fluidity`.
+- Library and search book presses now push a local-first detail surface before
+  reading. The route preserves search state, scroll position, focus, the current
+  library view, the existing ambient background, and the persistent Dock.
+- The detail surface provides start/continue reading, EPUB contents, progress,
+  local file facts, description, subjects, provider attribution, and a manual
+  metadata retry menu. TXT books intentionally omit the contents action.
+- Import remains non-blocking. EPUB package metadata is extracted locally, then
+  public providers are ranked behind `/api/book-metadata/search`; only candidates
+  meeting the confidence threshold are applied. Open Library is always available.
+- Google Books is optional and uses only the server-side
+  `GOOGLE_BOOKS_API_KEY` Cloudflare secret. The key is never returned to the
+  browser or included in backups. If the secret or any provider is unavailable,
+  import and reading continue normally.
+- AI completion runs only for missing description or tags and receives a bounded
+  excerpt only when necessary. Cover bytes are fetched through the fixed
+  `/api/book-metadata/cover` proxy and validated before persistence.
+- Existing progress, TOC, groups, bookmarks, highlights, annotations, workspace,
+  provider settings, and backup semantics are preserved. Metadata failures do
+  not block import or opening a reader.
+- Navigation/reader integration lives in `app/useBookDetailsIntegration.ts` so
+  `app/page.tsx` remains within its 1935-line architecture budget. EPUB contents
+  waits for a matching `onTocReady` signal and rejects stale book callbacks.
+- Design and plan: `docs/plans/2026-08-09-book-details-metadata-design.md` and
+  `docs/plans/2026-08-09-book-details-metadata-plan.md`.
+- Implementation commits through the reader integration are `8ea9d9d` through
+  `1a2376b`; final regression/deployment commit and Worker version are recorded
+  by the completing session below.
+- Fresh verification already completed during finalization: Vitest 145 files /
+  1306 tests, ESLint, production Next.js build, detail E2E 8/8 across iPhone 14
+  and iPhone 15 Pro Max, plus the migrated reader/navigation cases. Re-run final
+  gates after the documentation commit and record deployment evidence here.
+
 Before making another code commit, rerun:
 
 ```powershell

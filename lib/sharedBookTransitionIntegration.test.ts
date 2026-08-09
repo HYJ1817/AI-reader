@@ -14,6 +14,7 @@ const dashboardSource = optionalSource("../app/ReadingDashboard.tsx");
 const stackSource = optionalSource("../app/NavigationStack.tsx");
 const pageSource = optionalSource("../app/page.tsx");
 const readerBookStateSource = optionalSource("../app/useReaderBookState.ts");
+const detailsIntegrationSource = optionalSource("../app/useBookDetailsIntegration.ts");
 const legacyPresentationUrl = new URL(
   "../app/useReaderPresentation.ts",
   import.meta.url
@@ -69,7 +70,7 @@ describe("shared reader presentation integration", () => {
 
   it("drives the reader from navigation state without the two-frame hook", () => {
     expect(pageSource).toContain("navigation.state.reader");
-    expect(pageSource).toContain("navigation.presentReader(book.id");
+    expect(detailsIntegrationSource).toContain("navigation.presentReader(book.id");
     expect(pageSource).toContain("<SharedBookTransition");
     expect(pageSource).toContain("navigation.dismissReader()");
     expect(readerBookStateSource).toContain(

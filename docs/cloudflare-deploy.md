@@ -44,3 +44,10 @@ https://881817.xyz/manifest.webmanifest
 https://881817.xyz/.well-known/assetlinks.json
 https://881817.xyz/downloads/ai-reader-twa.apk
 ```
+
+## Optional Google Books metadata source
+
+Book metadata enrichment always supports Open Library. To add Google Books,
+configure `GOOGLE_BOOKS_API_KEY` as a server-side Cloudflare secret. The key is
+never exposed to the browser or included in reader backups. Without the secret,
+the Google provider is skipped and import and reading remain fully functional.

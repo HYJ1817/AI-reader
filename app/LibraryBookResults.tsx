@@ -91,9 +91,11 @@ export default function LibraryBookResults({
                     data-library-book-state={presentation.state}
                   >
                     <button
+                      id={originId}
                       type="button"
                       className={styles.bookGridItem}
                       data-library-book-open="true"
+                      data-book-focus-id={book.id}
                       onClick={() => onPressBook(book, originId)}
                       aria-pressed={editing ? isSelected : undefined}
                     >
@@ -163,9 +165,11 @@ export default function LibraryBookResults({
                     data-library-book-state={presentation.state}
                   >
                     <button
+                      id={originId}
                       type="button"
                       className={styles.bookItemMain}
                       data-library-book-open="true"
+                      data-book-focus-id={book.id}
                       aria-pressed={editing ? isSelected : undefined}
                       onClick={() => onPressBook(book, originId)}
                     >
