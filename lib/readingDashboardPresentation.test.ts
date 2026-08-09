@@ -19,7 +19,7 @@ describe("reading dashboard presentation", () => {
     });
   });
 
-  it("offers start reading after import without showing an empty chart", () => {
+  it("offers start reading after import and keeps the weekly summary visible", () => {
     expect(
       buildReadingDashboardPresentation({
         hasBook: true,
@@ -31,12 +31,12 @@ describe("reading dashboard presentation", () => {
       primaryHeading: "开始阅读",
       primaryActionLabel: "开始阅读",
       showGoal: true,
-      showWeek: false,
+      showWeek: true,
       showProgress: false,
     });
   });
 
-  it("offers continue reading when the book has progress", () => {
+  it("offers continue reading and keeps a zero-minute week visible", () => {
     expect(
       buildReadingDashboardPresentation({
         hasBook: true,
@@ -48,7 +48,7 @@ describe("reading dashboard presentation", () => {
       primaryHeading: "继续阅读",
       primaryActionLabel: "继续阅读",
       showGoal: true,
-      showWeek: false,
+      showWeek: true,
       showProgress: true,
     });
   });

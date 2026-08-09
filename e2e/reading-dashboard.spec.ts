@@ -165,7 +165,7 @@ test("empty library prioritizes import and hides progress surfaces", async ({
   await capture(page, testInfo, "reading-empty");
 });
 
-test("imported unread book offers start reading without an empty chart", async ({
+test("imported unread book offers start reading with a zero-minute week", async ({
   page,
 }, testInfo) => {
   await importBook(page);
@@ -180,7 +180,10 @@ test("imported unread book offers start reading without an empty chart", async (
     dashboard.getByRole("button", { name: /^\u5f00\u59cb\u9605\u8bfb\uff1a/ })
   ).toBeVisible();
   await expect(dashboard.locator('[data-reading-goal="true"]')).toHaveCount(1);
-  await expect(dashboard.locator('[data-reading-week="true"]')).toHaveCount(0);
+  await expect(dashboard.locator('[data-reading-week="true"]')).toHaveCount(1);
+  await expect(
+    dashboard.locator('[data-reading-week="true"] [aria-label="0"]')
+  ).toBeVisible();
   await expect(dashboard.locator('[class*="libraryProgressTrack"]')).toHaveCount(0);
 
   await capture(page, testInfo, "reading-unread");
@@ -245,7 +248,7 @@ test("active book prioritizes continue reading and semantic progress", async ({
   ).toBeVisible();
   await expect(dashboard.getByText(/42%/)).toHaveCount(1);
   await expect(dashboard.locator('[data-reading-goal="true"]')).toHaveCount(1);
-  await expect(dashboard.locator('[data-reading-week="true"]')).toHaveCount(0);
+  await expect(dashboard.locator('[data-reading-week="true"]')).toHaveCount(1);
 
   await capture(page, testInfo, "reading-active");
 });

@@ -37,10 +37,10 @@ export function buildReadingDashboardPresentation(input: {
   }
 
   const showProgress = progressPercent > 0;
-  const showWeek = totalMinutes > 0;
+  const hasRecordedWeek = totalMinutes > 0;
 
   return {
-    state: showWeek
+    state: hasRecordedWeek
       ? "populated-week"
       : showProgress
         ? "active-reading"
@@ -48,7 +48,7 @@ export function buildReadingDashboardPresentation(input: {
     primaryHeading: showProgress ? "继续阅读" : "开始阅读",
     primaryActionLabel: showProgress ? "继续阅读" : "开始阅读",
     showGoal: true,
-    showWeek,
+    showWeek: true,
     showProgress,
   };
 }
