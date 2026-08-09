@@ -139,6 +139,7 @@ import useReaderAnnotationsController from "@/app/useReaderAnnotationsController
 import useReaderPositionLifecycle from "@/app/useReaderPositionLifecycle";
 import useBookCoverBackfill from "@/app/useBookCoverBackfill";
 import useIncrementalRenderWindow from "@/app/useIncrementalRenderWindow";
+import useBookMetadataEnrichment from "@/app/useBookMetadataEnrichment";
 import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
 import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
 import { assertBackupImportSize } from "@/lib/backupImport";
@@ -706,6 +707,7 @@ export default function Home() {
       await saveBook(record);
       autoOpenAttemptedRef.current = true;
       setBooks(await listBookMetadata());
+      void metadataEnrichment.run(record, "automatic");
     } catch (err) {
       setImportError(getBookImportErrorMessage(err));
     } finally {
@@ -786,6 +788,10 @@ export default function Home() {
     () => getActiveAiProvider(aiProviderSettings),
     [aiProviderSettings]
   );
+  const metadataEnrichment = useBookMetadataEnrichment({
+    aiProvider: activeAiProvider,
+    onMetadataChanged: setBooks,
+  });
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
   const topSheet = navigationSheets.at(-1);
   const routedWorkspaceBook = topSheet?.route === "reading-workspace" && topSheet.entityId

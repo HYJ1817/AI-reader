@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     );
   }
   const provider = sanitizeAiProvider(value.provider);
-  if (!hasUsableAiProvider(provider)) {
+  if (!provider || !hasUsableAiProvider(provider)) {
     return Response.json({ error: "Missing usable AI provider" }, { status: 400 });
   }
   if (

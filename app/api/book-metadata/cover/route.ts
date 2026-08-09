@@ -90,7 +90,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const source = requestUrl.searchParams.get("source");
   const id = requestUrl.searchParams.get("id");
-  if (!isValidReference(source, id)) {
+  if (!id || !isValidReference(source, id)) {
     return Response.json({ error: "Invalid cover reference" }, { status: 400 });
   }
 
