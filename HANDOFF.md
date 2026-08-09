@@ -3297,8 +3297,17 @@ Observed results:
   by the completing session below.
 - Fresh verification already completed during finalization: Vitest 145 files /
   1306 tests, ESLint, production Next.js build, detail E2E 8/8 across iPhone 14
-  and iPhone 15 Pro Max, plus the migrated reader/navigation cases. Re-run final
-  gates after the documentation commit and record deployment evidence here.
+  and iPhone 15 Pro Max, and the complete iPhone 14 legacy library/navigation
+  suite 43/43. `git diff --check` also passed.
+- Final implementation/regression commit `d2ee8d9` was pushed to
+  `origin/feat/pwa-interaction-fluidity`.
+- Cloudflare deployment published Worker version
+  `100fc172-c308-4cdd-a3b3-ae1102e673a9` to
+  `https://ai-reader-pwa.hyjsb1817.workers.dev` and `881817.xyz/*`.
+- Production `https://881817.xyz/` returned HTTP 200 as HTML. The deployed
+  iPhone 14 detail smoke suite passed 4/4: details-before-reader/focus restore,
+  search round trip, complete public metadata without AI, and root exit with
+  reduced motion.
 
 Before making another code commit, rerun:
 
