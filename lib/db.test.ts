@@ -23,6 +23,7 @@ import {
   updateBookGroupName,
   updateBookGroupMembership,
   updateBookLastOpenedAt,
+  updateBookEnrichment,
   renameBook,
   saveCustomBackgroundImage,
   getCustomBackgroundImage,
@@ -268,6 +269,74 @@ describe("Book storage", () => {
       groupIds: ["group-1"],
     });
     expect(await (await getBookFile("rename-me"))?.text()).toBe("test");
+  });
+
+  it("updates enrichment without rewriting source bytes or reading data", async () => {
+    await saveBook(
+      makeBook({
+        id: "enriched",
+        groupIds: ["g1"],
+        fileBlob: new Blob(["unchanged source"], { type: "text/plain" }),
+      })
+    );
+    await saveReadingPosition(
+      makePosition({ bookId: "enriched", progressPercent: 42 })
+    );
+
+    await updateBookEnrichment("enriched", {
+      status: "complete",
+      authors: ["Author"],
+      description: "Description",
+      attemptedAt: "2026-08-09T00:00:00.000Z",
+      updatedAt: "2026-08-09T00:00:01.000Z",
+    });
+
+    const book = await getBook("enriched");
+    expect(book?.enrichment?.authors).toEqual(["Author"]);
+    expect(book?.groupIds).toEqual(["g1"]);
+    expect(await book?.fileBlob.text()).toBe("unchanged source");
+    expect((await getReadingPosition("enriched"))?.progressPercent).toBe(42);
+  });
+
+  it("writes a scraped cover and enrichment provenance atomically", async () => {
+    await saveBook(makeBook({ id: "remote-cover" }));
+
+    await updateBookEnrichment(
+      "remote-cover",
+      {
+        status: "partial",
+        attemptedAt: "2026-08-09T00:00:00.000Z",
+        fieldSources: {
+          cover: { source: "open-library", sourceId: "OL1M" },
+        },
+      },
+      new Blob(["image"], { type: "image/jpeg" })
+    );
+
+    const book = await getBook("remote-cover");
+    expect(await book?.coverImageBlob?.text()).toBe("image");
+    expect(book?.enrichment?.fieldSources?.cover).toEqual({
+      source: "open-library",
+      sourceId: "OL1M",
+    });
+  });
+
+  it("rejects enrichment updates for a missing book without writing a cover", async () => {
+    await expect(
+      updateBookEnrichment(
+        "missing",
+        { status: "failed", attemptedAt: "2026-08-09T00:00:00.000Z" },
+        new Blob(["orphan"], { type: "image/png" })
+      )
+    ).rejects.toThrow("Book not found: missing.");
+
+    const inspectionDb = new Dexie("AiReader");
+    await inspectionDb.open();
+    try {
+      expect(await inspectionDb.table("bookCovers").get("missing")).toBeUndefined();
+    } finally {
+      inspectionDb.close();
+    }
   });
 
   it("rejects a blank display title", async () => {

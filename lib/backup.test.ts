@@ -35,6 +35,7 @@ import {
   validateBackupPayload,
 } from "./backup";
 import { createAiProviderFromPreset } from "./aiProviders";
+import { BOOK_METADATA_LIMITS } from "./bookMetadata";
 
 const backupSource = readFileSync(new URL("./backup.ts", import.meta.url), "utf8");
 
@@ -127,6 +128,59 @@ describe("createBackupPayload", () => {
     expect(payload.books[0].title).toBe("My Book");
     expect(payload.books[0].fileContent).toBeTruthy();
     expect(typeof payload.books[0].fileContent).toBe("string");
+  });
+
+  it("round-trips bounded enrichment in a version 3 backup", async () => {
+    await saveBook(
+      makeBook({
+        id: "enriched-backup",
+        enrichment: {
+          status: "complete",
+          authors: ["Author"],
+          description: "Description",
+          subjects: ["Subject"],
+          attemptedAt: "2026-08-09T00:00:00.000Z",
+          updatedAt: "2026-08-09T00:00:01.000Z",
+          fieldSources: {
+            description: { source: "open-library", sourceId: "OL1M" },
+          },
+        },
+      })
+    );
+
+    const payload = await createBackupPayload();
+    expect(payload.books[0].enrichment).toEqual(
+      expect.objectContaining({
+        status: "complete",
+        authors: ["Author"],
+        description: "Description",
+      })
+    );
+
+    await clearAllReaderData();
+    await restoreBackupPayload(payload);
+
+    expect((await getBook("enriched-backup"))?.enrichment).toEqual(
+      payload.books[0].enrichment
+    );
+  });
+
+  it("rejects an overlong nested enrichment description", async () => {
+    await saveBook(makeBook({ id: "invalid-enrichment" }));
+    const payload = await createBackupPayload();
+    const invalid = {
+      ...payload,
+      books: payload.books.map((book) => ({
+        ...book,
+        enrichment: {
+          status: "complete",
+          attemptedAt: "2026-08-09T00:00:00.000Z",
+          description: "x".repeat(BOOK_METADATA_LIMITS.description + 1),
+        },
+      })),
+    };
+
+    expect(() => validateBackupPayload(invalid)).toThrow("enrichment.description");
   });
 
   it("enumerates metadata and reports the specific missing backup source", async () => {
