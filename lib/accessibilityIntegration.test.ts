@@ -71,6 +71,10 @@ const readingSession = readFileSync(
   new URL("../app/ReadingSession.tsx", import.meta.url),
   "utf8"
 );
+const bookDetails = readFileSync(
+  new URL("../app/BookDetailsSurface.tsx", import.meta.url),
+  "utf8"
+);
 
 function rule(source: string, selector: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -82,6 +86,17 @@ function rule(source: string, selector: string): string {
 }
 
 describe("daily-path accessibility contract", () => {
+  it("gives book details semantic headings, live status and an accessible menu", () => {
+    expect(bookDetails.match(/<h1>/g)).toHaveLength(1);
+    expect(bookDetails).toContain('aria-live="polite"');
+    expect(bookDetails).toContain('role="menu"');
+    expect(bookDetails).toContain('role="menuitem"');
+    expect(bookDetails).toContain('event.key !== "Escape"');
+    expect(rule(css, ".bookDetailsCircleButton")).toContain("width: 44px");
+    expect(rule(css, ".bookDetailsCircleButton")).toContain("height: 44px");
+    expect(rule(css, ".bookDetailsActions > button")).toContain("min-height: 50px");
+  });
+
   it("returns focus when dismissing local workspace and reader popovers", () => {
     for (const source of [readingWorkspaceSheet, readerSettingsPanel]) {
       expect(source).toContain('event.key === "Escape"');
