@@ -207,6 +207,11 @@ describe("EPUB ambient background integration", () => {
     const getContentsIndex = initializationSource.indexOf(
       "const renderedContents"
     );
+    const dependencyStart = epubSource.indexOf("}, [bookId", initializationStart);
+    const dependencies = epubSource.slice(
+      dependencyStart,
+      epubSource.indexOf("]);", dependencyStart) + 3
+    );
 
     expect(initializationSource).toContain(
       "handleRenderedContents(contents)"
@@ -218,6 +223,8 @@ describe("EPUB ambient background integration", () => {
       "handleRenderedContents(renderedContents)"
     );
     expect(getContentsIndex).toBeGreaterThan(displayIndex);
+    expect(dependencyStart).toBeGreaterThan(initializationStart);
+    expect(dependencies).toContain("getCanvasBackground");
   });
 
   it("falls back to the default EPUB location when a saved locator cannot be displayed", () => {

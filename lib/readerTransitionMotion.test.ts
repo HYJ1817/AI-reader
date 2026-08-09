@@ -147,7 +147,7 @@ describe("shared reader transition timing", () => {
 
   it("keeps the full reader layer opaque while content crossfades", () => {
     expect(cssSource).toMatch(
-      /\.readerPresentationContent\s*\{[\s\S]*?background:\s*var\(--background\)/
+      /\.readerPresentationContent\s*\{[\s\S]*?background:\s*var\(--reader-surface-background\)/
     );
   });
 });

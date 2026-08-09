@@ -1077,7 +1077,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         objectUrlRef.current = null;
       }
     };
-  }, [bookId, fileBlob, mode, getReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, syncHighlights]);
+  }, [bookId, fileBlob, mode, getReadingPosition, handleRelocated, handleSelected, handleRenderedContents, applyPreferences, getCanvasBackground, syncHighlights]);
 
   useEffect(() => {
     const rendition = renditionRef.current as AnnotatedRendition | null;
