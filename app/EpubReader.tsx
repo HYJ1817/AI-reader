@@ -417,14 +417,22 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
     ]
   );
 
+  const getCanvasBackground = useCallback(() => {
+    const root = containerRef.current ?? document.documentElement;
+    const cs = getComputedStyle(root);
+    return (
+      cs.getPropertyValue("--reader-canvas-background").trim() || "transparent"
+    );
+  }, []);
+
   const getThemeColors = useCallback(() => {
     const root = containerRef.current ?? document.documentElement;
     const cs = getComputedStyle(root);
     return {
       foreground: cs.getPropertyValue("--foreground").trim() || "#1a1a1a",
-      background: cs.getPropertyValue("--background").trim() || "#ffffff",
+      background: getCanvasBackground(),
     };
-  }, []);
+  }, [getCanvasBackground]);
 
   const applyPreferences = useCallback(
     (r: Rendition, prefs: ReaderPreferences) => {
@@ -444,15 +452,16 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
       const renderedContents = (
         r as Rendition & { getContents?: () => unknown }
       ).getContents?.();
+      const canvasBackground = getCanvasBackground();
       if (Array.isArray(renderedContents)) {
         renderedContents.forEach((contents) =>
-          applyEpubAmbientCanvas(contents)
+          applyEpubAmbientCanvas(contents, canvasBackground)
         );
       } else {
-        applyEpubAmbientCanvas(renderedContents);
+        applyEpubAmbientCanvas(renderedContents, canvasBackground);
       }
     },
-    []
+    [getCanvasBackground]
   );
 
   const handleRelocated = useCallback(
@@ -895,10 +904,10 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
 
   const handleRenderedContents = useCallback(
     (contents: unknown) => {
-      applyEpubAmbientCanvas(contents);
+      applyEpubAmbientCanvas(contents, getCanvasBackground());
       attachTapHandlers(contents);
     },
-    [attachTapHandlers]
+    [attachTapHandlers, getCanvasBackground]
   );
 
   useEffect(() => {
@@ -936,7 +945,7 @@ const EpubReader = forwardRef<EpubReaderHandle, EpubReaderProps>(function EpubRe
         rendition.on("relocated", handleRelocated);
         rendition.on("selected", handleSelected);
         rendition.on("rendered", (_section: unknown, view: unknown) => {
-          applyEpubViewTransparency(view);
+          applyEpubViewTransparency(view, getCanvasBackground());
           const contents = (view as { contents?: unknown } | null)?.contents;
           handleRenderedContents(contents);
         });

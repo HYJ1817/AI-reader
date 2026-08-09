@@ -82,7 +82,7 @@ describe("EPUB ambient background integration", () => {
     expect(readingSessionSource).toContain('book?.format === "epub"');
     expect(moduleCss).not.toContain(".readerEpubLightCanvas");
     expect(cssRule(moduleCss, ".readerPresentationContent")).toContain(
-      "background: var(--reader-canvas-background);"
+      "background: var(--reader-surface-background);"
     );
     expect(cssRule(moduleCss, ".readerShell")).toContain(
       "background: var(--reader-canvas-background);"
@@ -94,15 +94,27 @@ describe("EPUB ambient background integration", () => {
       /:root\s*\{[^}]*--reader-canvas-background:\s*transparent;/s
     );
     expect(globalCss).toMatch(
+      /:root\s*\{[^}]*--reader-surface-background:\s*var\(--background\);/s
+    );
+    expect(globalCss).toMatch(
       /@media \(prefers-color-scheme: dark\)\s*\{\s*:root\s*\{[^}]*--reader-canvas-background:\s*#000000;/s
     );
     expect(globalCss).toMatch(
       /\[data-reader-theme="dark"\]\s*\{[^}]*--reader-canvas-background:\s*#000000;/s
     );
+    expect(globalCss).toMatch(
+      /\[data-reader-theme="dark"\]\s*\{[^}]*--reader-surface-background:\s*#000000;/s
+    );
     for (const theme of ["light", "sepia"]) {
       expect(globalCss).toMatch(
         new RegExp(
           `\\[data-reader-theme="${theme}"\\]\\s*\\{[^}]*--reader-canvas-background:\\s*transparent;`,
+          "s"
+        )
+      );
+      expect(globalCss).toMatch(
+        new RegExp(
+          `\\[data-reader-theme="${theme}"\\]\\s*\\{[^}]*--reader-surface-background:\\s*var\\(--background\\);`,
           "s"
         )
       );

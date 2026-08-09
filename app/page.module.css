@@ -3099,6 +3099,7 @@
 .epubReaderShell {
   width: 100%;
   padding: 0 20px 18px;
+  background: var(--reader-canvas-background);
   transition:
     opacity 110ms var(--ease-standard),
     color 180ms var(--ease-standard),
@@ -3127,7 +3128,7 @@
 .epubReaderViewport :global(.epub-container),
 .epubReaderViewport :global(.epub-view),
 .epubReaderViewport :global(iframe) {
-  background: transparent !important;
+  background: var(--reader-canvas-background) !important;
 }
 
 .epubReaderViewport :global(.epub-container) {
@@ -3434,7 +3435,7 @@
   justify-items: center;
   align-items: start;
   padding-top: calc(var(--safe-top) + min(15dvh, 128px));
-  background: var(--background);
+  background: var(--reader-surface-background);
   pointer-events: none;
   isolation: isolate;
 }
@@ -3460,7 +3461,7 @@
   position: absolute;
   inset: 0;
   z-index: 1;
-  background: var(--background);
+  background: var(--reader-surface-background);
   pointer-events: auto;
 }
 
@@ -3472,7 +3473,7 @@
   flex-direction: column;
   height: 100dvh;
   overflow: hidden;
-  background: transparent;
+  background: var(--reader-canvas-background);
   color: var(--foreground);
   isolation: isolate;
   touch-action: pan-y pinch-zoom;
@@ -3489,7 +3490,7 @@
   min-height: 0;
   overflow: hidden;
   padding: calc(var(--safe-top) + 8px) 0 calc(var(--safe-bottom) + 12px);
-  background: transparent;
+  background: var(--reader-canvas-background);
   transition: background-color 180ms var(--ease-standard);
 }
 

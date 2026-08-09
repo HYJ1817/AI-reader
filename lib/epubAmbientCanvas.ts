@@ -29,26 +29,40 @@ type EpubAmbientView = {
 
 const MEDIA_TAGS = new Set(["IMG", "SVG", "VIDEO", "CANVAS", "PICTURE"]);
 
-function setTransparentBackgroundColor(element: EpubAmbientElement | undefined) {
-  element?.style?.setProperty("background-color", "transparent", "important");
+function setCanvasBackgroundColor(
+  element: EpubAmbientElement | undefined,
+  canvasBackground: string
+) {
+  element?.style?.setProperty(
+    "background-color",
+    canvasBackground,
+    "important"
+  );
 }
 
-function setTransparentRootCanvas(element: EpubAmbientElement | undefined) {
-  element?.style?.setProperty("background", "transparent", "important");
-  setTransparentBackgroundColor(element);
+function setCanvasBackground(
+  element: EpubAmbientElement | undefined,
+  canvasBackground: string
+) {
+  element?.style?.setProperty("background", canvasBackground, "important");
+  setCanvasBackgroundColor(element, canvasBackground);
 }
 
-function clearNestedCanvases(element: EpubAmbientElement) {
+function applyNestedCanvasBackground(
+  element: EpubAmbientElement,
+  canvasBackground: string
+) {
   for (const child of Array.from(element.children ?? [])) {
     if (!MEDIA_TAGS.has(child.tagName?.toUpperCase() ?? "")) {
-      setTransparentRootCanvas(child);
+      setCanvasBackground(child, canvasBackground);
     }
-    clearNestedCanvases(child);
+    applyNestedCanvasBackground(child, canvasBackground);
   }
 }
 
 export function applyEpubAmbientCanvas(
-  contents: unknown
+  contents: unknown,
+  canvasBackground = "transparent"
 ): void {
   if (!contents || typeof contents !== "object") return;
 
@@ -61,16 +75,19 @@ export function applyEpubAmbientCanvas(
   const body = document?.body;
   if (!document || !body) return;
 
-  setTransparentRootCanvas(document.documentElement);
-  setTransparentRootCanvas(body);
-  clearNestedCanvases(body);
+  setCanvasBackground(document.documentElement, canvasBackground);
+  setCanvasBackground(body, canvasBackground);
+  applyNestedCanvasBackground(body, canvasBackground);
 }
 
-export function applyEpubViewTransparency(view: unknown): void {
+export function applyEpubViewTransparency(
+  view: unknown,
+  canvasBackground = "transparent"
+): void {
   if (!view || typeof view !== "object") return;
   const candidate = view as EpubAmbientView;
   for (const element of [candidate.container, candidate.element, candidate.iframe]) {
-    setTransparentRootCanvas(element);
+    setCanvasBackground(element, canvasBackground);
   }
   candidate.iframe?.setAttribute?.("allowtransparency", "true");
 }
