@@ -101,12 +101,14 @@ Files: `app/ReaderControls.tsx`, `app/BookDetailsSurface.tsx`, `app/page.module.
 
 - [x] Run `npm.cmd test`, `npm.cmd run lint`, `npm.cmd run build` and inspect every failure.
 - [x] Run new isolated-data experience E2E and the required full native-navigation matrix on a production build with one worker, zero retries and `--trace=off`.
-- [ ] Review spec compliance first, then code quality; fix findings without weakening thresholds or suppressing failed samples.
+- [x] Review spec compliance first, then code quality; fix findings without weakening thresholds or suppressing failed samples.
 - [x] Record A1–C5 evidence and initial migration caveat in HANDOFF and update design status.
-- [ ] Check `git diff --check`; commit explicit files, preserve unrelated work. Resolve remote connectivity with validated TLS, then integrate through a normal PR and passing CI under existing user authorization.
-- [ ] Confirm no production deploy occurred; report completion only when all required work, including integration, is verified.
+- [x] Check `git diff --check`; commit explicit files, preserve unrelated work. Resolve remote connectivity with validated TLS, then integrate through a normal PR and passing CI under existing user authorization.
+- [x] Confirm no production deploy occurred; report completion only when all required work, including integration, is verified.
 
 ## Execution notes
+
+2026-09-30 integration complete: PR #22 merged into main at bbc6d65 after required GitHub CI passed. Review findings are resolved, local work is committed, and production was not deployed. Dependency security follow-up uses Next/eslint-config-next 16.3.7, sharp 0.35.4 and XML parser overrides 0.8.15; production audit has no high/critical findings.
 
 2026-09-30 closeout:
 

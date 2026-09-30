@@ -20,7 +20,7 @@
 - Implemented backup preview and stale-revision fencing; user-controlled app updates with dirty/busy guards, final persistence flush and requesting-tab-only reload; observable import and exact duplicate handling; explicit AI metadata consent/provenance; NFKC metadata search; and reader/detail accessibility and visual refinements. Dark reader canvas remains pure `#000000` and the black styling remains scoped to reading surfaces.
 - TXT restoration preserves semantic percentage through content and viewport size changes; leaving the reader immediately persists the live position. Final keyboard regression uses End, proves actual progress advancement, and passed across both mobile profiles. Independent review confirmed all reported findings resolved.
 - Final local verification: Vitest **153 files / 1378 tests** and ESLint without warnings passed on 2026-09-30. The final focused Playwright run rebuilt/typechecked production and passed **4/4**. Earlier full-matrix and performance-variance evidence is retained above.
-- Integration: changes are ready for a normal PR after merging the latest origin/main CI-only updates. Wait for required CI, merge, and verify GitHub state. Existing production remains https://881817.xyz, Worker fdbf6abe-04c8-4654-ab37-85125dfbf0e1; this goal does not deploy.
+- Integration completed: PR #22 merged on 2026-09-30 at commit bbc6d65ae6c63a4c395dcf2eb28250a814e95139 after GitHub CI passed. Independent review is closed. Production was not deployed in this goal; existing URL and Worker version remain recorded below.
 
 ## Dark reader black canvas and PR #5 closeout (2026-08-09, current authoritative follow-up)
 
