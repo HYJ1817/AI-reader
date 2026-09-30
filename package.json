@@ -44,6 +44,6 @@
     "fake-indexeddb": "^6.2.5",
     "typescript": "^5",
     "vitest": "^4.1.7",
-    "wrangler": "^4.113.0"
+    "wrangler": "^4.144.0"
   }
 }
