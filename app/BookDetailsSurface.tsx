@@ -8,7 +8,10 @@ import {
 } from "react";
 import { AnimatePresence, m } from "motion/react";
 import type { BookMetadata } from "@/lib/db";
-import { buildBookDetailsPresentation } from "@/lib/bookDetailsPresentation";
+import { buildBookDetailsPresentation, getMetadataFailureMessage } from "@/lib/bookDetailsPresentation";
+import type { BookEnrichmentResult } from "@/lib/bookMetadataEnrichment";
+import BookDescription from "./BookDescription";
+import refinement from "./BookDetailsRefinement.module.css";
 import { bookCoverLayoutId } from "@/lib/sharedBookTransition";
 import { UI_TEXT } from "@/lib/uiText";
 import MotionBookCover from "./MotionBookCover";
@@ -26,7 +29,9 @@ export type BookDetailsSurfaceProps = {
   onBack: () => void;
   onRead: (originId: string) => void;
   onOpenContents: (originId: string) => void;
-  onEnrich: (mode: "automatic" | "manual") => void;
+  autoAiMetadata: boolean;
+  aiProviderLabel: string | null;
+  onEnrich: (mode: "automatic" | "manual", options?: { singleBookAiConsent?: boolean }) => Promise<BookEnrichmentResult | undefined>;
 };
 
 export default function BookDetailsSurface({
@@ -34,6 +39,8 @@ export default function BookDetailsSurface({
   progressPercent,
   originId,
   metadataRunning,
+  autoAiMetadata,
+  aiProviderLabel,
   onBack,
   onRead,
   onOpenContents,
@@ -46,7 +53,14 @@ export default function BookDetailsSurface({
   const menuId = useId();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const tagsRef = useRef<HTMLHeadingElement>(null);
+  const [offerAi, setOfferAi] = useState(false);
   const detailOriginId = `book-details-${book.id}`;
+  async function updateMetadata(singleBookAiConsent = false) {
+    setOfferAi(false);
+    const result = await onEnrich("manual", { singleBookAiConsent });
+    setOfferAi(result?.offerAiCompletion === true);
+  }
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -75,7 +89,7 @@ export default function BookDetailsSurface({
   const metadataStatus = metadataRunning
     ? UI_TEXT.METADATA_PENDING
     : book.enrichment?.status === "failed"
-      ? UI_TEXT.METADATA_FAILED
+      ? getMetadataFailureMessage(book.enrichment.errorCode)
       : presentation.sourceSummary
         ? `已补全 · ${presentation.sourceSummary}`
         : "图书与进度仅保存在本机";
@@ -125,7 +139,7 @@ export default function BookDetailsSurface({
                   role="menuitem"
                   disabled={metadataRunning}
                   onClick={() => {
-                    onEnrich("manual");
+                    void updateMetadata();
                     setMenuOpen(false);
                   }}
                 >
@@ -165,6 +179,10 @@ export default function BookDetailsSurface({
               {presentation.subjects.slice(0, 3).map((subject) => (
                 <span key={subject}>{subject}</span>
               ))}
+              {presentation.subjects.length > 3 && <button className={refinement.textAction} onClick={() => {
+                tagsRef.current?.scrollIntoView({ block: "start", behavior: reduceMotion ? "instant" : "smooth" });
+                tagsRef.current?.focus({ preventScroll: true });
+              }}>查看全部 {presentation.subjects.length} 个标签</button>}
             </div>
           )}
         </div>
@@ -201,6 +219,13 @@ export default function BookDetailsSurface({
       <p className={styles.bookDetailsMetadataStatus} aria-live="polite">
         {metadataStatus}
       </p>
+      {book.enrichment?.status === "failed" && <button className={refinement.textAction} disabled={metadataRunning} onClick={() => void updateMetadata()}>重试图书信息查询</button>}
+      {offerAi && !autoAiMetadata && <section className={refinement.offer} aria-label="单本 AI 补全">
+        <p>{aiProviderLabel ? `公共来源仍有缺项。可向 ${aiProviderLabel} 发送书名、已知信息和必要的开头节选，补全这本书；不会发送整本书，也不会开启自动补全。` : "公共来源仍有缺项。配置 AI 服务商后，可单独补全这本书。"}</p>
+        <button className={refinement.textAction} disabled={metadataRunning || !aiProviderLabel} onClick={() => {
+          if (window.confirm(`向 ${aiProviderLabel} 发送这本书的已知信息和必要的开头节选，用 AI 补全缺项？仅限本次。`)) void updateMetadata(true);
+        }}>用 AI 补全这本书</button>
+      </section>}
 
       <section className={styles.bookDetailsProgressCard} aria-label={UI_TEXT.READING_PROGRESS}>
         <div>
@@ -220,11 +245,11 @@ export default function BookDetailsSurface({
         </span>
       </section>
 
-      {(presentation.description || presentation.subjects.length > 0) && (
+      {(presentation.description || presentation.subjects.length > 3) && (
         <section className={styles.bookDetailsCard}>
-          {presentation.subjects.length > 0 && (
+          {presentation.subjects.length > 3 && (
             <div className={styles.bookDetailsSection}>
-              <h2>{UI_TEXT.TAGS}</h2>
+              <h2 ref={tagsRef} tabIndex={-1}>{UI_TEXT.TAGS}</h2>
               <div className={styles.bookDetailsTags}>
                 {presentation.subjects.map((subject) => (
                   <span key={subject}>{subject}</span>
@@ -235,7 +260,7 @@ export default function BookDetailsSurface({
           {presentation.description && (
             <div className={styles.bookDetailsSection}>
               <h2>{UI_TEXT.DESCRIPTION}</h2>
-              <p>{presentation.description}</p>
+              <BookDescription text={presentation.description} aiGenerated={book.enrichment?.fieldSources?.description?.source === "ai"} />
             </div>
           )}
         </section>

@@ -1,3 +1,5 @@
+import type { ReaderMode } from "./readerMode";
+
 export function parseTxtParagraphs(text: string): string[] {
   if (!text.trim()) return [];
 
@@ -78,6 +80,19 @@ export function progressFromHorizontalScroll(
   const safeScrollLeft = Number.isFinite(scrollLeft) ? scrollLeft : 0;
   const raw = (safeScrollLeft / maxScroll) * 100;
   return Math.floor(Math.min(100, Math.max(0, raw)));
+}
+
+export function getTxtReaderProgress(
+  reader: HTMLElement,
+  mode: ReaderMode
+): number {
+  return mode === "paged"
+    ? progressFromHorizontalScroll(
+        reader.scrollLeft,
+        reader.scrollWidth,
+        reader.clientWidth
+      )
+    : progressFromScroll(reader.scrollTop, reader.scrollHeight, reader.clientHeight);
 }
 
 export function scrollLeftFromProgress(

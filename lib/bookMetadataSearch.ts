@@ -8,11 +8,13 @@ import {
   type BookMetadataSearchInput,
   type NormalizedBookCandidate,
 } from "./bookMetadataProviders";
+import type { BookEnrichmentError } from "./bookMetadata";
 
 export type PublicBookMetadataSearchResult = {
   candidate: NormalizedBookCandidate | null;
   score: number;
   missing: Array<"description" | "subjects">;
+  errorCode?: BookEnrichmentError;
 };
 
 export type BookMetadataSearchOptions = {
@@ -105,11 +107,11 @@ async function fetchGoogleBooks(
 
 async function safeProvider(
   request: Promise<NormalizedBookCandidate[]>
-): Promise<NormalizedBookCandidate[]> {
+): Promise<{ candidates: NormalizedBookCandidate[]; errorCode?: BookEnrichmentError }> {
   try {
-    return await request;
-  } catch {
-    return [];
+    return { candidates: await request };
+  } catch (error) {
+    return { candidates: [], errorCode: error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") ? "timeout" : error instanceof TypeError ? "offline" : "provider" };
   }
 }
 
@@ -126,10 +128,12 @@ export async function searchPublicBookMetadata(
       safeProvider(fetchGoogleBooks(query, fetcher, googleBooksApiKey))
     );
   }
-  const candidates = (await Promise.all(requests)).flat();
+  const results = await Promise.all(requests);
+  const candidates = results.flatMap((result) => result.candidates);
   const selection = selectBestBookCandidate(query, candidates);
   const missing: Array<"description" | "subjects"> = [];
   if (!selection.candidate?.description) missing.push("description");
   if (!selection.candidate?.subjects.length) missing.push("subjects");
-  return { ...selection, missing };
+  const failure = !selection.candidate ? results.find((result) => result.errorCode)?.errorCode : undefined;
+  return { ...selection, missing, ...(failure ? { errorCode: failure } : {}) };
 }

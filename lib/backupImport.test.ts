@@ -7,7 +7,7 @@ import {
 } from "./backupImport";
 
 const pageSource = readFileSync(
-  new URL("../app/page.tsx", import.meta.url),
+  new URL("../app/useBackupTransfer.ts", import.meta.url),
   "utf8"
 );
 

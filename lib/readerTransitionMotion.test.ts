@@ -108,13 +108,13 @@ describe("shared reader transition timing", () => {
     );
   });
 
-  it("uses observer state normally without measuring source geometry during render", () => {
+  it("rechecks source geometry when reader entry could use shared projection", () => {
     const sourceSelection = transitionSource.match(
       /const sourceVisible[\s\S]*?const mode/
     )?.[0];
     expect(sourceSelection).toContain("source?.visible");
     expect(sourceSelection).toContain("source.element.isConnected");
-    expect(sourceSelection).not.toContain("isSourceVisible(source.element)");
+    expect(sourceSelection).toContain("isSourceVisible(source.element)");
   });
 
   it("revalidates the old source only after exit begins and exposes fallback state", () => {

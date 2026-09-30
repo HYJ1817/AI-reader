@@ -288,7 +288,7 @@ export default function ReaderControls({
           >
             <button className={styles.readerMenuRow} onClick={onOpenSettings}>
               <span>主题与设置</span>
-              <span className={styles.readerMenuTrailing}>大小</span>
+              <span className={styles.readerMenuTrailing} aria-hidden="true">›</span>
             </button>
           </m.div>
         </div>

@@ -153,11 +153,17 @@ export default function ReadingSession({
           <div
             ref={textReaderRef}
             data-txt-reader="true"
+            tabIndex={0}
             className={`${styles.readerBody} ${
               mode === "paged" ? styles.readerBodyPaged : ""
             }`}
             onScroll={onTextReaderScroll}
             onWheel={onReaderScrollStart}
+            onKeyDown={(event) => {
+              if (["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) {
+                onReaderScrollStart();
+              }
+            }}
             onTransitionEnd={onSwipeTransitionEnd}
             style={{
               fontSize: `${preferences.fontSizePx}px`,
@@ -194,7 +200,11 @@ export default function ReadingSession({
             }}
           >
             {paragraphChunks.map((chunk, chunkIndex) => (
-              <section key={chunkIndex} className={styles.paragraphChunk}>
+              <section
+                key={chunkIndex}
+                className={styles.paragraphChunk}
+                data-reader-paragraph-chunk="true"
+              >
                 {chunk.map((paragraph, paragraphIndex) => (
                   <p
                     key={`${chunkIndex}-${paragraphIndex}`}

@@ -1,6 +1,17 @@
 import type { BookMetadata } from "./db";
 import { formatBookDate, formatBookSize } from "./libraryPresentation";
 import { normalizeProgressPercent } from "./readerProgress";
+import type { BookEnrichmentError } from "./bookMetadata";
+
+export function getMetadataFailureMessage(code?: BookEnrichmentError) {
+  switch (code) {
+    case "offline": return "当前离线，已保留已有信息。联网后可重试。";
+    case "timeout": return "查询超时，已保留已有信息。可稍后重试。";
+    case "no-match": return "未找到匹配的公共图书信息，不影响阅读。";
+    case "invalid-response": return "服务返回的信息无法识别，已保留已有信息。";
+    default: return "图书信息服务暂时不可用，已保留已有信息。可稍后重试。";
+  }
+}
 
 export type BookDetailsMetadataRow = {
   label: string;
@@ -18,7 +29,7 @@ export type BookDetailsPresentation = {
   readingStatusLabel: string;
   lastReadLabel: string;
   metadataRows: BookDetailsMetadataRow[];
-  metadataActionLabel: "补全元数据" | "重新刮削元数据";
+  metadataActionLabel: "补全图书信息" | "更新图书信息";
   sourceSummary?: string;
 };
 
@@ -72,7 +83,7 @@ export function buildBookDetailsPresentation(
       progress >= 100 ? "已读完" : hasReadingProgress ? "阅读中" : "未开始",
     lastReadLabel: formatBookDate(book.lastOpenedAt),
     metadataRows,
-    metadataActionLabel: hasRemoteMetadata ? "重新刮削元数据" : "补全元数据",
+    metadataActionLabel: hasRemoteMetadata ? "更新图书信息" : "补全图书信息",
     ...(sources.size > 0 ? { sourceSummary: [...sources].join(" · ") } : {}),
   };
 }

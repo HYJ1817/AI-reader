@@ -1,0 +1,8 @@
+.notice { position: fixed; z-index: 70; top: calc(env(safe-area-inset-top) + 12px); left: 16px; right: 16px; max-width: 32rem; margin-inline: auto; padding: .75rem 1rem; border: 1px solid var(--separator); border-radius: 16px; background: var(--surface-primary); color: var(--text-primary); box-shadow: 0 4px 20px #0002; }
+.notice p, .settings p { margin: .35rem 0; line-height: 1.5; }
+.actions { display: flex; flex-wrap: wrap; gap: .5rem; }
+.notice button, .settings button { min-height: 44px; padding: .5rem .75rem; border: 1px solid var(--separator); border-radius: 10px; background: var(--surface-secondary); color: var(--text-primary); font: inherit; cursor: pointer; }
+.notice button:focus-visible, .settings button:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.notice [role="alert"], .settings [role="alert"] { color: var(--status-error); }
+.settings { padding: .75rem 1rem; }
+.progress { padding: 1.5rem; line-height: 1.5; }

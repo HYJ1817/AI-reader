@@ -10,6 +10,21 @@ function deferred() {
 }
 
 describe("WorkspacePersistenceCoordinator", () => {
+  it("retains failed cancellation output and retries it before a strict flush succeeds", async () => {
+    const coordinator = new WorkspacePersistenceCoordinator();
+    let unavailable = true;
+    let saved = "";
+    await expect(coordinator.cancel(async () => {
+      if (unavailable) throw new Error("quota");
+      saved = "received partial output";
+    })).rejects.toThrow("quota");
+    await expect(coordinator.flush()).rejects.toThrow("quota");
+    expect(saved).toBe("");
+    unavailable = false;
+    await coordinator.flush();
+    expect(saved).toBe("received partial output");
+    await coordinator.flush();
+  });
   it("lets cancellation win while a checkpoint delays terminal completion", async () => {
     const checkpoint = deferred();
     const coordinator = new WorkspacePersistenceCoordinator();

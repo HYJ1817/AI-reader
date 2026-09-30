@@ -73,8 +73,9 @@ export async function POST(request: Request) {
       fetcher: fetch,
       googleBooksApiKey: process.env.GOOGLE_BOOKS_API_KEY ?? "",
     });
+    if (result.errorCode) return Response.json({ error: "Book metadata search unavailable", code: result.errorCode }, { status: 502, headers: { "Cache-Control": "no-store" } });
     return Response.json(result, { headers: { "Cache-Control": "no-store" } });
   } catch {
-    return Response.json({ error: "Book metadata search failed" }, { status: 502 });
+    return Response.json({ error: "Book metadata search failed", code: "provider" }, { status: 502 });
   }
 }

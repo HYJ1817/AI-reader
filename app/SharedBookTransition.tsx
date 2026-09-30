@@ -372,7 +372,13 @@ export default function SharedBookTransition({
     ? sources.get(readerEntry.originId)
     : undefined;
   const sourceVisible = Boolean(
-    readerEntry && source?.visible && source.element.isConnected
+    readerEntry &&
+      source?.visible &&
+      source.element.isConnected &&
+      // IntersectionObserver can lag behind a programmatic scroll/transform.
+      // Recheck geometry when the reader entry is present so a stale `true`
+      // can never project a cover from outside the viewport.
+      isSourceVisible(source.element)
   );
   const mode =
     readerEntry && book

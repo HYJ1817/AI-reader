@@ -24,7 +24,7 @@ Avoid dashboard-heavy layouts, colorful icon grids, marketing cards, generic AI 
 
 - Keep reading as the center: controls appear only when useful and should never push text around.
 - Prefer familiar iOS patterns: simple lists, large tap targets, glassy overlays used only for active controls.
-- Preserve privacy cues: books and API keys are local by default, and AI requests use only selected text.
+- Preserve privacy cues: books and API keys are stored locally by default. AI requests travel through the application interface to the chosen provider with its API key for authentication. Reading questions may include selected passages, nearby visible text, book context and necessary conversation history; explicit or opted-in metadata completion may include bounded opening excerpts. Never send whole books. Automatic AI metadata completion defaults off, and backups exclude API keys.
 - Optimize for one-handed iPhone use: safe-area aware controls, large bottom targets, and predictable gestures.
 
 ## Accessibility & Inclusion

@@ -10,6 +10,7 @@ const detailsIntegrationSource = readSource("app/useBookDetailsIntegration.ts");
 const epubSource = readSource("app/EpubReader.tsx");
 const sessionSource = readSource("app/ReadingSession.tsx");
 const registrationSource = readSource("app/ServiceWorkerRegistration.tsx");
+const browserUpdateSource = readSource("lib/browserAppUpdate.ts");
 const lifecycleUrl = new URL(
   "../app/useReaderPositionLifecycle.ts",
   import.meta.url
@@ -56,11 +57,12 @@ describe("reading position persistence integration", () => {
   });
 
   it("requests a final flush before controlled service worker reloads", () => {
-    expect(registrationSource).toContain(
+    expect(browserUpdateSource).toContain(
       'new CustomEvent("ai-reader-before-reload"'
     );
-    expect(registrationSource.indexOf("ai-reader-before-reload")).toBeLessThan(
-      registrationSource.indexOf("window.location.reload()")
+    expect(browserUpdateSource.indexOf("ai-reader-before-reload")).toBeLessThan(
+      browserUpdateSource.indexOf("window.location.reload()")
     );
+    expect(registrationSource).not.toContain("window.location.reload()");
   });
 });

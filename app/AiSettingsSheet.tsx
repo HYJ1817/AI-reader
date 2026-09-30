@@ -5,6 +5,7 @@ import type { AiProviderSettings } from "@/lib/aiProviders";
 import AiSettingsSurface from "./AiSettingsSurface";
 import BottomSheet from "./BottomSheet";
 import styles from "./page.module.css";
+import { loadAppPreferences, saveAppPreferencesToStorage } from "@/lib/appPreferences";
 
 type Props = {
   settings: AiProviderSettings;
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
+  const [autoAiMetadata, setAutoAiMetadata] = useState(() => loadAppPreferences().autoAiMetadata);
   const [route, setRoute] = useState<{
     mode: "list" | "configure";
     providerId?: string;
@@ -31,6 +33,11 @@ export default function AiSettingsSheet({ settings, onSave, onClose }: Props) {
         <AiSettingsSurface
           mode={route.mode}
           settings={settings}
+          autoAiMetadata={autoAiMetadata}
+          onAutoAiMetadataChange={(enabled) => {
+            saveAppPreferencesToStorage({ ...loadAppPreferences(), autoAiMetadata: enabled });
+            setAutoAiMetadata(enabled);
+          }}
           providerId={route.providerId}
           onPushConfigure={(providerId) =>
             setRoute({ mode: "configure", providerId })

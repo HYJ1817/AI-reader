@@ -1,6 +1,8 @@
 import type { BookMetadata } from "./db";
 import {
   markBookEnrichmentFailed,
+  BOOK_METADATA_LIMITS,
+  type BookEnrichmentError,
   mergeBookEnrichment,
   type BookEnrichment,
   type BookMetadataProvenance,
@@ -54,6 +56,8 @@ export type BookMetadataEnrichmentDependencies = {
   ) => Promise<void>;
   aiProvider?: unknown;
   aiUsable: boolean;
+  isAiAuthorized?: () => boolean;
+  singleBookAiConsent?: boolean;
   shouldCommit?: () => boolean;
   signal?: AbortSignal;
 };
@@ -62,7 +66,20 @@ export type BookEnrichmentResult = {
   enrichment: BookEnrichment;
   committed: boolean;
   coverUpdated: boolean;
+  offerAiCompletion?: boolean;
 };
+
+export function metadataErrorCode(error: unknown): BookEnrichmentError {
+  if (error && typeof error === "object") {
+    const { code, name } = error as { code?: unknown; name?: unknown };
+    if (["offline", "timeout", "provider", "invalid-response", "no-match"].includes(String(code))) {
+      return code as BookEnrichmentError;
+    }
+    if (name === "TimeoutError") return "timeout";
+    if (error instanceof TypeError) return "offline";
+  }
+  return "provider";
+}
 
 function candidatePatch(candidate: NormalizedBookCandidate, attemptedAt: string) {
   return {
@@ -120,6 +137,11 @@ export async function enrichBookMetadata(
   const attemptedAt = deps.now();
   const signal = deps.signal ?? new AbortController().signal;
   const shouldCommit = deps.shouldCommit ?? (() => true);
+  const singleBookConsent = mode === "manual" && deps.singleBookAiConsent === true;
+  // Opting in later must not replay work started without permission.
+  const authorizedAtStart = singleBookConsent || deps.isAiAuthorized?.() === true;
+  const maySendAi = () => authorizedAtStart && !signal.aborted && shouldCommit() &&
+    (singleBookConsent || deps.isAiAuthorized?.() === true);
   let enrichment: BookEnrichment = {
     ...(book.enrichment ?? {}),
     status: "pending",
@@ -134,8 +156,8 @@ export async function enrichBookMetadata(
   let publicResult: PublicBookMetadataSearchResult;
   try {
     publicResult = await deps.searchPublic(queryForBook(book), signal);
-  } catch {
-    enrichment = markBookEnrichmentFailed(enrichment, "offline", attemptedAt);
+  } catch (error) {
+    enrichment = markBookEnrichmentFailed(enrichment, metadataErrorCode(error), attemptedAt);
     if (!shouldCommit()) {
       return { enrichment, committed: false, coverUpdated: false };
     }
@@ -175,17 +197,18 @@ export async function enrichBookMetadata(
 
   const missing = missingProse(enrichment);
   let aiCompleted = false;
-  if (missing.length > 0 && deps.aiUsable && deps.aiProvider) {
+  if (missing.length > 0 && deps.aiUsable && deps.aiProvider && maySendAi()) {
     try {
       const sourceBlob = await deps.getBookFile(book.id);
       if (sourceBlob) {
         const excerpt = await deps.extractOpeningExcerpt(sourceBlob, book.format);
+        if (maySendAi()) {
         const aiResult = await deps.completeWithAi(
           {
             provider: deps.aiProvider,
             knownMetadata: knownMetadata(book, enrichment),
             missing,
-            excerpt,
+            excerpt: excerpt.slice(0, BOOK_METADATA_LIMITS.excerpt),
           },
           signal
         );
@@ -199,14 +222,19 @@ export async function enrichBookMetadata(
           "automatic"
         );
         aiCompleted = Object.keys(aiResult.completion).length > 0;
+        }
       }
-    } catch {
-      enrichment = markBookEnrichmentFailed(enrichment, "provider", attemptedAt);
+    } catch (error) {
+      enrichment = markBookEnrichmentFailed(enrichment, metadataErrorCode(error), attemptedAt);
     }
   }
 
   if (!candidate && !aiCompleted && enrichment.status !== "failed") {
-    enrichment = markBookEnrichmentFailed(enrichment, "no-match", attemptedAt);
+    enrichment = markBookEnrichmentFailed(
+      enrichment,
+      publicResult.errorCode ?? "no-match",
+      attemptedAt
+    );
   }
   if (!shouldCommit()) {
     return {
@@ -220,5 +248,7 @@ export async function enrichBookMetadata(
     enrichment,
     committed: true,
     coverUpdated: Boolean(coverImageBlob),
+    offerAiCompletion: mode === "manual" && missingProse(enrichment).length > 0 &&
+      !singleBookConsent && deps.isAiAuthorized?.() !== true,
   };
 }

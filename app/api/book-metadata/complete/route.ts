@@ -85,7 +85,8 @@ export async function POST(request: Request) {
       { completion, provenance: PROVENANCE },
       { headers: { "Cache-Control": "no-store" } }
     );
-  } catch {
-    return Response.json({ error: "AI request failed" }, { status: 502 });
+  } catch (error) {
+    const code = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError") ? "timeout" : error instanceof TypeError ? "offline" : "provider";
+    return Response.json({ error: "AI request failed", code }, { status: 502 });
   }
 }

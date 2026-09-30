@@ -16,6 +16,7 @@ export function createReaderPositionCoordinator(
   let timer: ReturnType<typeof setTimeout> | null = null;
   let blocked = false;
   let writeChain = Promise.resolve();
+  const unsaved = new Map<string, ReadingPosition>();
 
   const clearTimer = () => {
     if (timer === null) return;
@@ -24,9 +25,11 @@ export function createReaderPositionCoordinator(
   };
 
   const enqueue = (position: ReadingPosition): Promise<void> => {
-    const write = writeChain.then(() => {
+    const write = writeChain.then(async () => {
       if (blocked) return;
-      return persist(position);
+      unsaved.set(position.bookId, position);
+      await persist(position);
+      unsaved.delete(position.bookId);
     });
     writeChain = write.catch(() => undefined);
     return write;
@@ -43,9 +46,11 @@ export function createReaderPositionCoordinator(
     const position = takePending();
     if (position && !blocked) {
       await enqueue(position);
-      return;
     }
     await writeChain;
+    if (!blocked) {
+      for (const position of [...unsaved.values()]) await enqueue(position);
+    }
   };
 
   return {
@@ -69,6 +74,7 @@ export function createReaderPositionCoordinator(
     async cancel() {
       takePending();
       await writeChain;
+      unsaved.clear();
     },
     setBlocked(nextBlocked) {
       blocked = nextBlocked;

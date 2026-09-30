@@ -28,14 +28,21 @@ import {
   listAllWorkspaceArtifacts,
   listAllWorkspaceMemories,
   type BookRecord,
+  getReaderDataRevision,
+  acquireReaderRestoreLock,
+  getReaderRestoreRevision,
 } from "./db";
 import {
   createBackupPayload,
   restoreBackupPayload,
   validateBackupPayload,
+  prepareBackupRestore,
+  restorePreparedBackup,
 } from "./backup";
 import { createAiProviderFromPreset } from "./aiProviders";
 import { BOOK_METADATA_LIMITS } from "./bookMetadata";
+import { executeConfirmedBackupRestore } from "./confirmedBackupRestore";
+import { createReaderPositionCoordinator } from "./readerPositionCoordinator";
 
 const backupSource = readFileSync(new URL("./backup.ts", import.meta.url), "utf8");
 
@@ -54,6 +61,47 @@ function makeBook(overrides: Partial<BookRecord> = {}): BookRecord {
 
 beforeEach(async () => {
   await clearAllReaderData();
+});
+
+describe("confirmed backup revision", () => {
+  it("permits authorized final task writes under the restore lock before replacement", async () => {
+    const prepared = prepareBackupRestore(await createBackupPayload());
+    await saveBook(makeBook({ id: "old" }));
+    const revision = await getReaderDataRevision();
+    await executeConfirmedBackupRestore({
+      acquire: () => acquireReaderRestoreLock(revision.revision),
+      coordinator: createReaderPositionCoordinator(saveReadingPosition),
+      stopTasks: () => [saveReadingPosition({ bookId: "old", locator: "txt-30", progressPercent: 30, updatedAt: new Date().toISOString() })],
+      stopReader: () => {},
+      restore: async () => restorePreparedBackup(prepared, { expectedRevision: await getReaderRestoreRevision() }),
+      reload: async () => {},
+    });
+    expect(await listBookMetadata()).toEqual([]);
+    expect(await getReadingPosition("old")).toBeUndefined();
+  });
+  it("decodes files before confirmation without changing the library", async () => {
+    await saveBook(makeBook({ id: "keep" }));
+    const payload = await createBackupPayload();
+    payload.books[0].fileContent = "not base64!";
+    expect(() => prepareBackupRestore(payload)).toThrow("malformed file content");
+    expect((await listBookMetadata()).map((book) => book.id)).toEqual(["keep"]);
+  });
+
+  it("reports configuration failure separately after database restoration", async () => {
+    const payload = await createBackupPayload();
+    await saveBook(makeBook({ id: "removed" }));
+    const prepared = prepareBackupRestore(payload);
+    const result = await restorePreparedBackup(prepared, { saveProviders: () => false });
+    expect(result.configurationSaved).toBe(false);
+    expect(await listBookMetadata()).toEqual([]);
+  });
+  it("refuses to overwrite changes made after preview", async () => {
+    const payload = await createBackupPayload();
+    const revision = await getReaderDataRevision();
+    await saveBook(makeBook({ id: "after-preview" }));
+    await expect(restoreBackupPayload(payload, { expectedRevision: revision.revision })).rejects.toThrow("书库在预览后发生了变化");
+    expect((await listBookMetadata()).map((book) => book.id)).toEqual(["after-preview"]);
+  });
 });
 
 describe("createBackupPayload", () => {

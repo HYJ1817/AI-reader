@@ -19,6 +19,19 @@ describe("reader position coordinator", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("retries an unsaved debounced position and rejects flush until persistence succeeds", async () => {
+    const persist = vi.fn<(_: ReadingPosition) => Promise<void>>(async () => { throw new Error("storage failed"); });
+    const coordinator = createReaderPositionCoordinator(persist);
+    const position = makePosition("book", 35);
+    coordinator.schedule(position);
+    await vi.advanceTimersByTimeAsync(180);
+    await expect(coordinator.flush()).rejects.toThrow("storage failed");
+    persist.mockImplementation(async () => {});
+    await coordinator.flush();
+    expect(persist).toHaveBeenLastCalledWith(position);
+    expect(persist).toHaveBeenCalledTimes(3);
+  });
+
   it("persists only the latest scheduled position after the debounce", async () => {
     const saved: ReadingPosition[] = [];
     const coordinator = createReaderPositionCoordinator(async (position) => {

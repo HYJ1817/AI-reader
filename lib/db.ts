@@ -1,7 +1,9 @@
 import Dexie, { type EntityTable } from "dexie";
 import { createLocalId } from "./localId";
+import { readBookFileBytes } from "./bookFileBytes";
 import type { BookEnrichment } from "./bookMetadata";
 import type { ReaderMode } from "./readerMode";
+import { installReaderDataRevision, INITIAL_READER_REVISION, CHANGED_READER_MESSAGE, type ReaderDataRevision } from "./readerDataRevision";
 import {
   createBookWorkspaceRecords,
   type ReadingWorkspaceRecord,
@@ -107,6 +109,7 @@ export type CustomBackgroundRecord = {
 const CUSTOM_BACKGROUND_ID: CustomBackgroundRecord["id"] = "app-background";
 
 type AiReaderDb = Dexie & {
+  readerState: EntityTable<ReaderDataRevision, "id">;
   books: EntityTable<StoredBookRecord, "id">;
   bookFiles: EntityTable<BookFileRecord, "bookId">;
   bookCovers: EntityTable<BookCoverRecord, "bookId">;
@@ -122,6 +125,8 @@ type AiReaderDb = Dexie & {
   workspaceArtifacts: EntityTable<WorkspaceArtifactRecord, "id">;
   workspaceMemories: EntityTable<WorkspaceMemoryRecord, "id">;
 };
+
+let revisionGuard: ReturnType<typeof installReaderDataRevision> | undefined;
 
 function createDb(): AiReaderDb {
   const db = new Dexie("AiReader") as AiReaderDb;
@@ -162,6 +167,8 @@ function createDb(): AiReaderDb {
     workspaceMemories: "id, workspaceId, state, updatedAt, [workspaceId+updatedAt]",
   });
 
+  db.version(8).stores({ readerState: "id" });
+  revisionGuard = installReaderDataRevision(db);
   return db;
 }
 
@@ -176,11 +183,34 @@ function getDb(): AiReaderDb {
 }
 
 export async function saveBook(record: BookRecord): Promise<void> {
+  await writeBook(record);
+}
+
+export type BookCommitOptions = {
+  shouldCommit?: () => boolean;
+  onCommit?: () => void;
+};
+
+/** Insert only if the inspected library is still current. The control store
+ * serializes this check with writes in other tabs; never overwrite an old ID. */
+export async function saveBookAtRevision(
+  record: BookRecord,
+  expectedRevision: number,
+  options: BookCommitOptions = {}
+): Promise<boolean> {
+  return writeBook(record, expectedRevision, options);
+}
+
+async function writeBook(
+  record: BookRecord,
+  expectedRevision?: number,
+  options: BookCommitOptions = {}
+): Promise<boolean> {
   const db = getDb();
   const { fileBlob, coverImageBlob, ...metadata } = record;
   const fileRecord: BookFileRecord = {
     bookId: record.id,
-    fileData: await fileBlob.arrayBuffer(),
+      fileData: await readBookFileBytes(fileBlob),
     fileType: fileBlob.type || "application/octet-stream",
   };
   const coverRecord: BookCoverRecord | null = coverImageBlob
@@ -190,14 +220,24 @@ export async function saveBook(record: BookRecord): Promise<void> {
         coverImageType: coverImageBlob.type || "image/*",
       }
     : null;
-  await db.transaction("rw", [db.books, db.bookFiles, db.bookCovers], async () => {
-    await db.books.put(metadata);
+  return db.transaction("rw", [db.readerState, db.books, db.bookFiles, db.bookCovers], async () => {
+    if (expectedRevision !== undefined) {
+      const state = (await db.readerState.get("data")) ?? INITIAL_READER_REVISION;
+      if (state.revision !== expectedRevision) return false;
+    }
+    if (options.shouldCommit && !options.shouldCommit()) {
+      throw new DOMException("Import cancelled", "AbortError");
+    }
+    options.onCommit?.();
+    if (expectedRevision !== undefined) await db.books.add(metadata);
+    else await db.books.put(metadata);
     await db.bookFiles.put(fileRecord);
     if (coverRecord) {
       await db.bookCovers.put(coverRecord);
     } else {
       await db.bookCovers.delete(record.id);
     }
+    return true;
   });
 }
 
@@ -862,6 +902,21 @@ export async function updateBookLastOpenedAt(
   await getDb().books.update(id, { lastOpenedAt });
 }
 
+export async function getReaderDataRevision(): Promise<ReaderDataRevision> {
+  return (await getDb().readerState.get("data")) ?? INITIAL_READER_REVISION;
+}
+
+export async function acquireReaderRestoreLock(expectedRevision: number) {
+  const db = getDb();
+  await db.open();
+  return revisionGuard!.acquireRestoreLock(expectedRevision);
+}
+
+export async function getReaderRestoreRevision() {
+  await getDb().open();
+  return revisionGuard!.getRestoreRevision();
+}
+
 export async function updateBookEnrichment(
   bookId: string,
   enrichment: BookEnrichment,
@@ -965,7 +1020,7 @@ export type ReaderDataReplacement = {
   customBackground?: CustomBackgroundRecord | null;
 };
 
-export async function replaceReaderData(data: ReaderDataReplacement): Promise<void> {
+export async function replaceReaderData(data: ReaderDataReplacement, expectedRevision?: number): Promise<void> {
   const db = getDb();
   const serializedBooks = await Promise.all(
     data.books.map(async ({ fileBlob, coverImageBlob, ...metadata }) => ({
@@ -984,9 +1039,10 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
         : null,
     }))
   );
-  await db.transaction(
+  const epoch = await db.transaction(
     "rw",
     [
+      db.readerState,
       db.books,
       db.bookFiles,
       db.bookCovers,
@@ -1003,6 +1059,10 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
       db.workspaceMemories,
     ],
     async () => {
+      const before = (await db.readerState.get("data")) ?? INITIAL_READER_REVISION;
+      if (expectedRevision !== undefined && before.revision !== expectedRevision) {
+        throw new Error(CHANGED_READER_MESSAGE);
+      }
       await db.books.clear();
       await db.bookFiles.clear();
       await db.bookCovers.clear();
@@ -1059,8 +1119,12 @@ export async function replaceReaderData(data: ReaderDataReplacement): Promise<vo
           await db.customBackgrounds.put(data.customBackground);
         }
       }
+      const after = (await db.readerState.get("data")) ?? before;
+      await db.readerState.put({ ...after, epoch: before.epoch + 1 });
+      return before.epoch + 1;
     }
   );
+  revisionGuard?.acceptEpoch(epoch);
 }
 
 export async function getDailyReadingStat(

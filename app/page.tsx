@@ -12,7 +12,6 @@ import styles from "./page.module.css";
 import {
   listBookMetadata,
   getBook,
-  saveBook,
   saveReadingPosition,
   getReadingPosition,
   listReadingPositions,
@@ -25,15 +24,18 @@ import {
   renameBook,
   type BookMetadata, type BookGroup, type DailyReadingStat,
 } from "@/lib/db";
-import { createBookRecordFromFile } from "@/lib/importBook";
+import useBookImport from "./useBookImport";
+import BookImportStatus from "./BookImportStatus";
 import {
   chunkParagraphs,
+  getTxtReaderProgress,
   getHorizontalPageInfo,
   progressFromHorizontalScroll,
   progressFromScroll,
   scrollLeftFromProgress,
   scrollTopFromProgress,
 } from "@/lib/txtReader";
+import useReaderLayoutStability from "@/app/useReaderLayoutStability";
 import AppNavigation from "@/app/AppNavigation";
 import AppMotionRoot from "@/app/AppMotionRoot";
 import AppPushSurfaces from "@/app/AppPushSurfaces";
@@ -52,7 +54,10 @@ import {
   saveAiProviderSettingsToStorage,
   type AiProviderSettings,
 } from "@/lib/aiProviders";
-import { createBackupPayload, restoreBackupPayload } from "@/lib/backup";
+import useBackupTransfer from "@/app/useBackupTransfer";
+import BackupRestoreSheet from "@/app/BackupRestoreSheet";
+import AppUpdateNotice from "@/app/AppUpdateNotice";
+import useUpdateProtection from "@/app/useUpdateProtection";
 import { createBookFileExport } from "@/lib/bookFileExport";
 import { triggerBlobDownload } from "@/lib/browserDownload";
 import { hasIndexedDbSupport } from "@/lib/browserStorage";
@@ -86,7 +91,6 @@ import useAppNavigation from "@/app/useAppNavigation";
 import useReaderBookState from "@/app/useReaderBookState";
 import useReadingGoalState from "@/app/useReadingGoalState";
 import { UI_TEXT } from "@/lib/uiText";
-import { getBookImportErrorMessage } from "@/lib/bookImportError";
 import {
   DEFAULT_READER_MODE,
   type ReaderMode,
@@ -130,7 +134,6 @@ import {
   shouldDiscoverReaderControls,
 } from "@/lib/readerControlDiscovery";
 import useCustomBackground from "@/app/useCustomBackground";
-import { requestPersistentStorage } from "@/lib/storagePersistence";
 import { createLocalId } from "@/lib/localId";
 import useWorkspaceChat from "@/app/useWorkspaceChat";
 import useReaderAnnotationsController from "@/app/useReaderAnnotationsController";
@@ -140,8 +143,6 @@ import useIncrementalRenderWindow from "@/app/useIncrementalRenderWindow";
 import useBookMetadataEnrichment from "@/app/useBookMetadataEnrichment";
 import useBookDetailsIntegration from "@/app/useBookDetailsIntegration";
 import { createReaderPositionCoordinator } from "@/lib/readerPositionCoordinator";
-import { runBackupRestoreGuarded } from "@/lib/backupRestoreGuard";
-import { assertBackupImportSize } from "@/lib/backupImport";
 type ReaderTurnDirection = "prev" | "next";
 const LIBRARY_RENDER_BATCH = 30;
 
@@ -171,13 +172,11 @@ export default function Home() {
   const pendingPushAfterReaderRef = useRef<"ai-providers" | null>(null);
   const readerRef = useRef<HTMLDivElement>(null);
   const scrollRestoredRef = useRef(false);
+  const readerLayout = useReaderLayoutStability();
   const [aiProviderSettings, setAiProviderSettings] = useState<AiProviderSettings>(
     DEFAULT_AI_PROVIDER_SETTINGS
   );
 
-  const backupInputRef = useRef<HTMLInputElement>(null);
-  const [backupStatus, setBackupStatus] = useState<string | null>(null);
-  const [backupError, setBackupError] = useState<string | null>(null);
   const [positionCoordinator] = useState(() => createReaderPositionCoordinator(saveReadingPosition, 180));
   const scheduleReadingPosition = useReaderPositionLifecycle(positionCoordinator, setImportError);
 
@@ -403,9 +402,35 @@ export default function Home() {
       if (targetTab) navigation.selectTab(targetTab);
       return;
     }
-    void positionCoordinator.flush().catch(() => {
-      setImportError(UI_TEXT.ERROR_READ_FILE);
-    });
+    const reader = readerRef.current;
+    if (openBook?.format === "txt" && reader) {
+      const progressPercent = getTxtReaderProgress(reader, readerMode);
+      if (readerScrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerScrollFrameRef.current);
+        readerScrollFrameRef.current = null;
+      }
+      readerLayout.stop();
+      readerLayout.setProgress(progressPercent);
+      setReaderProgressPercent(progressPercent);
+      setReadingProgressMap((map) =>
+        shouldPublishProgressPercent(map[openBook.id] ?? 0, progressPercent)
+          ? { ...map, [openBook.id]: progressPercent }
+          : map
+      );
+      void positionCoordinator.saveNow({
+        bookId: openBook.id,
+        locator: readerMode === "paged" ? "txt-paged" : "txt-scroll",
+        progressPercent,
+        readingMode: readerMode,
+        updatedAt: new Date().toISOString(),
+      }).catch(() => {
+        setImportError(UI_TEXT.ERROR_READ_FILE);
+      });
+    } else {
+      void positionCoordinator.flush().catch(() => {
+        setImportError(UI_TEXT.ERROR_READ_FILE);
+      });
+    }
     pendingReaderTargetRef.current = targetTab ?? null;
     navigation.dismissReader();
   }
@@ -695,29 +720,6 @@ export default function Home() {
     exitLibraryEditing();
   }
 
-  async function handleImport(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImportError(null);
-    if (!hasIndexedDbSupport(window)) {
-      setImportError(getBookImportErrorMessage(new Error("indexeddb-unavailable")));
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      return;
-    }
-    try {
-      void requestPersistentStorage();
-      const record = await createBookRecordFromFile(file);
-      await saveBook(record);
-      autoOpenAttemptedRef.current = true;
-      setBooks(await listBookMetadata());
-      void metadataEnrichment.run(record, "automatic");
-    } catch (err) {
-      setImportError(getBookImportErrorMessage(err));
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  }
-
   const groupFilteredBooks = groupFilter === null
     ? books
     : groupFilter === "__ungrouped"
@@ -789,10 +791,25 @@ export default function Home() {
     [aiProviderSettings]
   );
   const metadataEnrichment = useBookMetadataEnrichment({
+    autoAiMetadata: appPrefs.autoAiMetadata,
     aiProvider: activeAiProvider,
     onMetadataChanged: setBooks,
   });
   const aiProviderUsable = hasUsableAiProvider(activeAiProvider);
+  const bookImport = useBookImport({
+    inputRef: fileInputRef,
+    onExistingFound: async () => {
+      const [currentBooks, positions] = await Promise.all([listBookMetadata(), listReadingPositions()]);
+      setBooks(currentBooks);
+      setReadingProgressMap(buildReadingProgressMap(positions));
+    },
+    onError: setImportError,
+    onSaved: (nextBooks, record) => {
+      autoOpenAttemptedRef.current = true;
+      setBooks(nextBooks);
+      void metadataEnrichment.run(record, "automatic");
+    },
+  });
   const topSheet = navigationSheets.at(-1);
   const routedWorkspaceBook = topSheet?.route === "reading-workspace" && topSheet.entityId
     ? books.find((book) => book.id === topSheet.entityId) ?? null : null;
@@ -811,6 +828,7 @@ export default function Home() {
     clearSelection: handleClearSelection,
     ask: handleAsk, runSkill: runReadingSkill, saveMessageToMaterials, rememberMessage,
     stop: stopWorkspaceRequest,
+    flushPersistence: flushWorkspacePersistence,
     retry: retryWorkspaceRequest,
     selectSession: selectWorkspaceSession,
     createSession: createWorkspaceSession, loadOlderMessages, renameArtifact, deleteArtifact, revokeMemory, deleteRevokedMemory, compactConversation,
@@ -964,6 +982,7 @@ export default function Home() {
         readerModeRestoreProgressRef.current ?? pos?.progressPercent ?? 0
       );
       readerModeRestoreProgressRef.current = null;
+      readerLayout.restore(restoreProgress, el, readerMode);
 
       if (readerMode === "paged") {
         el.scrollLeft = scrollLeftFromProgress(
@@ -991,11 +1010,13 @@ export default function Home() {
         setReadingProgressMap((map) => ({ ...map, [openBook.id]: progress }));
       }
       scrollRestoredRef.current = true;
+
     });
     return () => {
       cancelled = true;
+      readerLayout.stop();
     };
-  }, [annotations, openBook, paragraphs, readerMode, readerModeRestoreProgressRef]);
+  }, [annotations, openBook, paragraphs, readerMode, readerModeRestoreProgressRef, readerLayout]);
 
   useEffect(() => {
     return () => {
@@ -1027,21 +1048,14 @@ export default function Home() {
 
     readerScrollFrameRef.current = window.requestAnimationFrame(() => {
       readerScrollFrameRef.current = null;
+      if (!readerPresented) return;
       const el = readerRef.current;
       if (!el) return;
 
-      const progressPercent =
-        readerMode === "paged"
-          ? progressFromHorizontalScroll(
-              el.scrollLeft,
-              el.scrollWidth,
-              el.clientWidth
-            )
-          : progressFromScroll(
-              el.scrollTop,
-              el.scrollHeight,
-              el.clientHeight
-            );
+      const progressPercent = readerLayout.isRestoring()
+        ? readerLayout.getProgress()
+        : getTxtReaderProgress(el, readerMode);
+      readerLayout.setProgress(progressPercent);
       const pageInfo =
         readerMode === "paged"
           ? getHorizontalPageInfo(el.scrollLeft, el.scrollWidth, el.clientWidth)
@@ -1067,7 +1081,7 @@ export default function Home() {
         updatedAt: new Date().toISOString(),
       });
     });
-  }, [annotations, openBook, positionCoordinator, readerMode]);
+  }, [annotations, openBook, positionCoordinator, readerLayout, readerMode, readerPresented]);
 
   const handleEpubProgressChange = useCallback(
     (progressValue: number) => {
@@ -1103,41 +1117,11 @@ export default function Home() {
     [annotations, readerCurrentPage, readerProgressPercent]
   );
 
-  async function handleExportBackup() {
-    setBackupStatus(null);
-    setBackupError(null);
-    try {
-      const payload = await createBackupPayload();
-      const json = JSON.stringify(payload, null, 2);
-      const blob = new Blob([json], { type: "application/json" });
-      triggerBlobDownload(blob, "ai-reader-backup.json");
-      setBackupStatus(UI_TEXT.BACKUP_EXPORTED);
-    } catch (err) {
-      setBackupError(err instanceof Error ? err.message : UI_TEXT.EXPORT_FAILED);
-    }
-  }
-
-  async function handleImportBackup(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setBackupStatus(null);
-    setBackupError(null);
-    try {
-      assertBackupImportSize(file.size);
-      const text = await file.text();
-      const data = JSON.parse(text);
-      await stopWorkspaceRequest();
-      await runBackupRestoreGuarded({
-        coordinator: positionCoordinator,
-        stopReader: () => {
-          navigation.dismissReader();
-          clearReaderBook();
-        },
-        restore: async () => {
-          await cancelBookCoverBackfillAndDrain();
-          await restoreBackupPayload(data);
-        },
-        reload: async () => {
+  const backupTransfer = useBackupTransfer({
+    coordinator: positionCoordinator,
+    stopTasks: () => [flushWorkspacePersistence(), cancelBookCoverBackfillAndDrain(), metadataEnrichment.cancelAndDrain()],
+    stopReader: () => { navigation.dismissReader(); clearReaderBook(); },
+    reload: async () => {
           const [restoredBooks, restoredPositions, restoredGroups, restoredStats] =
             await Promise.all([
               listBookMetadata(),
@@ -1153,15 +1137,10 @@ export default function Home() {
           await background.reloadCustomBackground();
           setGroupFilter(null);
           setAiProviderSettings(loadAiProviderSettings());
-        },
-      });
-      setBackupStatus(UI_TEXT.BACKUP_RESTORED);
-    } catch (err) {
-      setBackupError(err instanceof Error ? err.message : UI_TEXT.IMPORT_FAILED);
-    } finally {
-      if (backupInputRef.current) backupInputRef.current.value = "";
-    }
-  }
+    },
+  });
+  useUpdateProtection({ label: "问题草稿", dirty: question.trim().length > 0 });
+  useUpdateProtection({ label: "AI 回答", busy: askLoading, stop: flushWorkspacePersistence });
 
   function handleToolbarBack() {
     dismissReader();
@@ -1179,18 +1158,9 @@ export default function Home() {
       const reader = readerRef.current;
       if (openBook.format === "txt" && reader) {
         progress =
-          readerMode === "paged"
-            ? progressFromHorizontalScroll(
-                reader.scrollLeft,
-                reader.scrollWidth,
-                reader.clientWidth
-              )
-            : progressFromScroll(
-                reader.scrollTop,
-                reader.scrollHeight,
-                reader.clientHeight
-              );
+          getTxtReaderProgress(reader, readerMode);
         readerModeRestoreProgressRef.current = progress;
+        readerLayout.setProgress(progress);
         scrollRestoredRef.current = false;
       }
 
@@ -1212,7 +1182,7 @@ export default function Home() {
       });
       setReaderMode(nextMode);
     },
-    [openBook, positionCoordinator, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
+    [openBook, positionCoordinator, readerLayout, readerMode, readerModeRestoreProgressRef, readerProgressPercent]
   );
 
   const turnReaderPage = useCallback(async (
@@ -1279,6 +1249,7 @@ export default function Home() {
 
   const handleReaderPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
+    readerLayout.stop();
     const reader = readerRef.current;
     let baseOffset = 0;
     if (reader) {
@@ -1307,7 +1278,7 @@ export default function Home() {
       axis: "pending",
       baseOffset,
     };
-  }, []);
+  }, [readerLayout]);
 
   const finishReaderSwipeSettle = useCallback(async (generation: number) => {
     const pending = pendingReaderSwipeSettleRef.current;
@@ -1559,9 +1530,10 @@ export default function Home() {
         }
       }}
       onReaderTap={toggleReaderChrome}
-      onReaderScrollStart={() =>
-        dispatchReaderChrome({ type: "scroll", at: performance.now() })
-      }
+      onReaderScrollStart={() => {
+        readerLayout.stop();
+        dispatchReaderChrome({ type: "scroll", at: performance.now() });
+      }}
       onSwipeTurn={(direction) =>
         void turnReaderPage(direction, { instant: true })
       }
@@ -1585,6 +1557,12 @@ export default function Home() {
     />
   );
 
+  function openImportedDetails(book: BookMetadata) {
+    bookImport.cancel();
+    bookImport.dismissStatus();
+    navigation.push("book-details", { entityId: book.id });
+  }
+  const importStatus = <BookImportStatus mode="status" transfer={bookImport} progressMap={readingProgressMap} onOpen={openImportedDetails} />;
   return (
     <AppMotionRoot reduceMotion={appPrefs.reduceMotion}>
       <NavigationProvider value={navigation}>
@@ -1605,7 +1583,8 @@ export default function Home() {
         type="file"
         accept=".epub,.txt"
         className={styles.hiddenInput}
-        onChange={handleImport}
+        onChange={bookImport.select}
+        disabled={bookImport.busy}
       />
 
       <SharedBookTransition
@@ -1650,11 +1629,13 @@ export default function Home() {
                   lastReadAt: detailBook.lastOpenedAt,
                   originId: detailEntry?.restoreFocusId,
                   metadataRunning: metadataEnrichment.isRunning(detailBook.id),
+                  autoAiMetadata: appPrefs.autoAiMetadata,
+                  aiProviderLabel: aiProviderUsable ? activeAiProvider?.label ?? null : null,
                   onRead: (originId) => void openBookForReading(detailBook, originId),
                   onOpenContents: (originId) => bookDetailsIntegration.openContents(
                     detailBook, originId, openBookForReading
                   ),
-                  onEnrich: (mode) => void metadataEnrichment.run(detailBook, mode),
+                  onEnrich: (mode, options) => metadataEnrichment.run(detailBook, mode, options),
                 } : null,
                 collections: {
                   collectionItems: collectionListItems,
@@ -1686,6 +1667,8 @@ export default function Home() {
                 },
                 ai: {
                   settings: aiProviderSettings,
+                  autoAiMetadata: appPrefs.autoAiMetadata,
+                  onAutoAiMetadataChange: (autoAiMetadata) => handleAppPreferencesChange({ autoAiMetadata }),
                   onSave: handleAiProviderSettingsSave,
                 },
                 background: {
@@ -1709,12 +1692,14 @@ export default function Home() {
         >
         <NavigationRoot tab="library">
         <LibrarySurface
+          importStatus={importStatus}
           className={styles.libraryPage}
           ariaHidden={activeTab !== "library"}
           data={{
             books,
             visibleBooks,
             filteredBookCount: libraryShelfBooks.length,
+            importBusy: bookImport.busy,
             featuredBook: libraryHomePresentation.featuredBook,
             featuredLayout: libraryHomePresentation.featuredLayout,
             groups,
@@ -1755,6 +1740,7 @@ export default function Home() {
         </NavigationRoot>
         <NavigationRoot tab="reading">
         <ReadingDashboard
+          importStatus={importStatus}
           className={styles.readingDashboard}
           ariaHidden={activeTab !== "reading" || readerPresented}
           todayMinutes={todayMinutesValue}
@@ -1769,6 +1755,7 @@ export default function Home() {
             void openBookForReading(book, originId)
           }
           onImport={() => fileInputRef.current?.click()}
+          importBusy={bookImport.busy}
         />
         </NavigationRoot>
 
@@ -1785,9 +1772,13 @@ export default function Home() {
           readerThemeLabel={readerThemeLabel}
           todayMinutes={todayMinutesValue}
           targetMinutes={readingGoal.targetMinutes}
-          backupStatus={backupStatus}
-          backupError={backupError}
-          backupInputRef={backupInputRef}
+          backupStatus={backupTransfer.status}
+          backupRestored={backupTransfer.restored}
+          onViewLibrary={() => navigation.selectTab("library")}
+          backupError={backupTransfer.error}
+          backupBusy={backupTransfer.busy}
+          backupTriggerRef={backupTransfer.triggerRef}
+          backupInputRef={backupTransfer.inputRef}
           backgroundInputRef={background.backgroundInputRef}
           customBackgroundAvailable={background.customBackgroundAvailable}
           onPreferencesChange={handleAppPreferencesChange}
@@ -1797,8 +1788,8 @@ export default function Home() {
             navigation.push("custom-background")
           }
           onOpenAiProviders={() => navigation.push("ai-providers")}
-          onExportBackup={handleExportBackup}
-          onImportBackup={handleImportBackup}
+          onExportBackup={backupTransfer.exportBackup}
+          onImportBackup={backupTransfer.select}
           onOpenReaderSettings={() =>
             navigation.presentSheet("reader-settings")
           }
@@ -1815,6 +1806,7 @@ export default function Home() {
         searchOpen={librarySearchOpen}
         searchQuery={librarySearchQuery}
         navigationRevision={navigation.getState().revision}
+        searchEntryKey={navigation.state.pushes.find((entry) => entry.route === "library-search")?.key ?? null}
         showLibraryBatchBar={
           activeTab === "library" && libraryEditing && books.length > 0
         }
@@ -1847,6 +1839,9 @@ export default function Home() {
         onOpenBatchDelete={() => navigation.presentSheet("batch-delete")}
       />
 
+      <BackupRestoreSheet transfer={backupTransfer} />
+      <BookImportStatus mode="dialog" transfer={bookImport} progressMap={readingProgressMap} onOpen={openImportedDetails} />
+      <AppUpdateNotice quiet={readerPresented || navigationSheets.length > 0 || Boolean(topPushRoute && topPushRoute !== "library-search" && topPushRoute !== "book-details") || activeTab === "settings" || question.trim().length > 0 || askLoading} />
       <AppOverlays
         reader={{
           preferences: readerPrefs,

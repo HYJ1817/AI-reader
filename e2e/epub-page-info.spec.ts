@@ -92,6 +92,7 @@ test("EPUB location label resolves from calculating to a whole-book count", asyn
   const cover = library.locator("[data-book-cover-origin]").first();
   await expect(cover).toBeVisible();
   await cover.click();
+  await page.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
 
   const chrome = page.locator('[data-reader-chrome-controls="true"]');

@@ -48,12 +48,66 @@ function makeDeps(
     updateBookEnrichment: vi.fn().mockResolvedValue(undefined),
     aiProvider: { id: "provider" },
     aiUsable: true,
+    isAiAuthorized: () => true,
     shouldCommit: () => true,
     ...overrides,
   };
 }
 
 describe("enrichBookMetadata", () => {
+  it("continues public lookup but never reads or sends text without consent", async () => {
+    const deps = makeDeps({
+      isAiAuthorized: undefined,
+      searchPublic: vi.fn().mockResolvedValue({ candidate: null, score: 0, missing: ["description"] }),
+    });
+    const result = await enrichBookMetadata(makeBook(), "manual", deps);
+    expect(deps.searchPublic).toHaveBeenCalledOnce();
+    expect(deps.getBookFile).not.toHaveBeenCalled();
+    expect(deps.completeWithAi).not.toHaveBeenCalled();
+    expect(result.offerAiCompletion).toBe(true);
+  });
+
+  it("fences queued AI sends when authorization is withdrawn during excerpt extraction", async () => {
+    let allowed = true;
+    const deps = makeDeps({
+      isAiAuthorized: () => allowed,
+      searchPublic: vi.fn().mockResolvedValue({ candidate: null, score: 0, missing: ["description"] }),
+      extractOpeningExcerpt: vi.fn().mockImplementation(async () => { allowed = false; return "excerpt"; }),
+    });
+    await enrichBookMetadata(makeBook(), "automatic", deps);
+    expect(deps.extractOpeningExcerpt).toHaveBeenCalledOnce();
+    expect(deps.completeWithAi).not.toHaveBeenCalled();
+  });
+
+  it("allows explicit single-book consent without enabling automatic AI", async () => {
+    const deps = makeDeps({
+      isAiAuthorized: () => false,
+      singleBookAiConsent: true,
+      searchPublic: vi.fn().mockResolvedValue({ candidate: null, score: 0, missing: ["description"] }),
+    });
+    await enrichBookMetadata(makeBook(), "manual", deps);
+    expect(deps.completeWithAi).toHaveBeenCalledOnce();
+    expect(deps.isAiAuthorized?.()).toBe(false);
+  });
+
+  it.each(["offline", "timeout", "provider"] as const)("preserves typed %s failures", async (code) => {
+    const deps = makeDeps({ searchPublic: vi.fn().mockRejectedValue({ code }) });
+    const result = await enrichBookMetadata(makeBook(), "manual", deps);
+    expect(result.enrichment.errorCode).toBe(code);
+  });
+  it.each(["offline", "timeout", "provider"] as const)("preserves resolved public %s failures", async (code) => {
+    const deps = makeDeps({
+      aiUsable: false,
+      searchPublic: vi.fn().mockResolvedValue({
+        candidate: null,
+        score: 0,
+        missing: ["description", "subjects"],
+        errorCode: code,
+      }),
+    });
+    const result = await enrichBookMetadata(makeBook(), "manual", deps);
+    expect(result.enrichment.errorCode).toBe(code);
+  });
   it("does not read source bytes or call AI when public metadata is complete", async () => {
     const deps = makeDeps();
     const result = await enrichBookMetadata(makeBook(), "automatic", deps);

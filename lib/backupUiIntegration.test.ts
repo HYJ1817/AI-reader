@@ -10,31 +10,18 @@ const settingsSource = readFileSync(
   new URL("../app/SettingsSurface.tsx", import.meta.url),
   "utf8"
 );
+const transferSource = readFileSync(new URL("../app/useBackupTransfer.ts", import.meta.url), "utf8");
 
 describe("backup restore UI integration", () => {
-  it("quiesces and clears stale reader state before replacing the library", () => {
-    const importIndex = pageSource.indexOf("async function handleImportBackup");
-    const stopIndex = pageSource.indexOf(
-      "await stopWorkspaceRequest()",
-      importIndex
-    );
-    const guardIndex = pageSource.indexOf("await runBackupRestoreGuarded({");
-    const restoreIndex = pageSource.indexOf("await restoreBackupPayload(data)");
-    const dismissIndex = pageSource.indexOf("navigation.dismissReader()", guardIndex);
-    const clearIndex = pageSource.indexOf("clearReaderBook();", guardIndex);
-    const successIndex = pageSource.indexOf(
-      "setBackupStatus(UI_TEXT.BACKUP_RESTORED)",
-      restoreIndex
-    );
-
-    expect(stopIndex).toBeGreaterThan(importIndex);
-    expect(stopIndex).toBeLessThan(guardIndex);
-    expect(guardIndex).toBeGreaterThanOrEqual(0);
-    expect(restoreIndex).toBeGreaterThanOrEqual(0);
-    expect(dismissIndex).toBeGreaterThan(guardIndex);
-    expect(clearIndex).toBeGreaterThan(dismissIndex);
-    expect(clearIndex).toBeLessThan(successIndex);
-    expect(restoreIndex).toBeGreaterThan(clearIndex);
+  it("wires the confirmation controller to all background-task owners", () => {
+    // Execution ordering is covered behaviorally in confirmedBackupRestore.test.ts.
+    expect(pageSource).toContain("useBackupTransfer({");
+    expect(pageSource).toContain("stopTasks: () => [flushWorkspacePersistence(), cancelBookCoverBackfillAndDrain(), metadataEnrichment.cancelAndDrain()]");
+    expect(pageSource).toContain("stopReader: () => { navigation.dismissReader(); clearReaderBook(); }");
+    expect(pageSource).toContain("<BackupRestoreSheet transfer={backupTransfer}");
+    expect(transferSource).toContain("executeConfirmedBackupRestore({");
+    expect(transferSource).toContain("acquireReaderRestoreLock(pending.revision)");
+    expect(transferSource).toContain("await getReaderRestoreRevision()");
   });
 
   it("warns that backups contain passages and AI conversations", () => {

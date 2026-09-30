@@ -11,6 +11,7 @@ import {
   type ReadingProgressMap,
 } from "@/lib/libraryProgress";
 import { buildLibraryBookPresentation } from "@/lib/libraryPresentation";
+import { getBookSearchContext } from "@/lib/libraryFilters";
 import { MOTION_DURATION, MOTION_SPRING } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
@@ -25,6 +26,7 @@ export type LibraryBookResultsProps = {
   entranceOrder: ReadonlyMap<string, number>;
   originPrefix: string;
   layoutGroupId: string;
+  searchQuery?: string;
   onPressBook: (book: BookMetadata, originId: string) => void;
   onOpenBookActions: (book: BookMetadata) => void;
 };
@@ -39,6 +41,7 @@ export default function LibraryBookResults({
   entranceOrder,
   originPrefix,
   layoutGroupId,
+  searchQuery,
   onPressBook,
   onOpenBookActions,
 }: LibraryBookResultsProps) {
@@ -101,6 +104,7 @@ export default function LibraryBookResults({
                     >
                       <MotionBookCover book={book} originId={originId} />
                       <span className={styles.bookGridTitle}>{book.title}</span>
+                      <SearchContext book={book} query={searchQuery} className={styles.bookGridMeta} />
                       <span className={styles.bookGridMeta}>
                         {presentation.progressLabel}
                         {presentation.state !== "unread" && (
@@ -189,6 +193,7 @@ export default function LibraryBookResults({
                         >
                           {book.title}
                         </span>
+                        <SearchContext book={book} query={searchQuery} className={styles.bookGroupLabels} />
                         <span className={styles.bookMeta}>
                           <span>{presentation.sourceLabel}</span>
                           <span aria-hidden="true">·</span>
@@ -246,6 +251,19 @@ export default function LibraryBookResults({
       </div>
     </LayoutGroup>
   );
+}
+
+function SearchContext({ book, query, className }: {
+  book: BookMetadata;
+  query?: string;
+  className: string;
+}) {
+  if (!query) return null;
+  return getBookSearchContext(book, query).map((line) => (
+    <span key={line} className={className} data-library-search-context="true">
+      {line}
+    </span>
+  ));
 }
 
 function Checkmark() {
