@@ -162,6 +162,7 @@ test("search restores a scrolled result and retains progress after a reader roun
   await expect(details).toBeVisible();
   await expect.poll(readSavedProgress).toBeGreaterThan(0);
   const savedProgress = await readSavedProgress();
+  if (savedProgress === undefined) throw new Error("Reader progress was not persisted");
   const expectedProgress = `${savedProgress}%`;
   await expect(progress.getByText(expectedProgress, { exact: true })).toBeVisible();
   await expect(details.getByRole("button", { name: "继续阅读", exact: true })).toBeVisible();

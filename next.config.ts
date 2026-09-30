@@ -8,6 +8,7 @@ const readerBuildId = process.env.READER_BUILD_ID ||= randomUUID();
 const nextConfig: NextConfig = {
   generateBuildId: async () => readerBuildId,
   env: { NEXT_PUBLIC_READER_BUILD_ID: readerBuildId },
+  typescript: { tsconfigPath: "tsconfig.build.json" },
 };
 
 export default nextConfig;

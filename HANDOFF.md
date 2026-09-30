@@ -9,6 +9,10 @@
 
 ## Reader experience refinement implementation (2026-09-30, current follow-up)
 
+- Required CI found newly disclosed production dependency advisories. Closeout upgrades Next/eslint-config-next to 16.3.7, sharp to 0.35.4 and both XML-parser overrides to @xmldom/xmldom 0.8.15. Production audit now has no high/critical findings (one moderate transitive mapping advisory remains). Vitest 1378/1378 and lint pass after upgrades; production build is recorded by the PR checks.
+- Integration PR: https://github.com/HYJ1817/AI-reader/pull/22. Independent final review confirmed no remaining actionable findings.
+- Next 16.3.7 checks the full configured TypeScript project rather than the prior application scope. Production now uses `tsconfig.build.json`, which strictly checks app/lib and generated route types while leaving Vitest/Playwright test code in the editor project. The upgraded production build/typecheck passes with 10/10 generated pages; no type errors are ignored. CI remains the final integration gate.
+
 - Final follow-up: TXT keyboard scroll now releases restore preservation for vertical and horizontal keys; layout restoration observes reader viewport resizing and newly mounted paragraph chunks. The End-key regression proves progress actually advances before comparing the current position with IndexedDB. Production-build focused regressions passed **4/4** across iPhone 14 and iPhone 15 Pro Max, including paged TXT. This run also rebuilt and typechecked the application successfully. The user requested targeted verification only for closeout.
 - The earlier uninterrupted matrix passed **262/262**; a subsequent matrix was interrupted during the second profile after recording a 50ms contents-tab frame against a 34ms gate on iPhone 14. Keep this performance sample as a known variance; the interrupted matrix is not an additional passing full gate. No performance threshold was changed.
 
