@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type CSSProperties, type RefObject } from "react";
+import { useRef, useState, type CSSProperties, type RefObject, type ReactNode } from "react";
 import { AnimatePresence, m } from "motion/react";
 import { useAppReducedMotion } from "@/app/AppMotionRoot";
 import LibraryBookResults from "@/app/LibraryBookResults";
@@ -17,6 +17,7 @@ import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
 export type LibrarySurfaceProps = {
+  importStatus?: ReactNode;
   className: string;
   ariaHidden: boolean;
   data: {
@@ -29,6 +30,7 @@ export type LibrarySurfaceProps = {
     progressMap: ReadingProgressMap;
     loading: boolean;
     importError: string | null;
+    importBusy?: boolean;
   };
   view: {
     mode: LibraryViewMode;
@@ -56,6 +58,7 @@ export type LibrarySurfaceProps = {
 };
 
 export default function LibrarySurface({
+  importStatus,
   className,
   ariaHidden,
   data,
@@ -167,6 +170,7 @@ export default function LibrarySurface({
               title={UI_TEXT.IMPORT}
               aria-label={UI_TEXT.IMPORT}
               onClick={actions.importBooks}
+              disabled={data.importBusy}
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M10 3v10m0 0l-3-3m3 3l3-3M3 17h14" strokeLinecap="round" strokeLinejoin="round" />
@@ -177,6 +181,7 @@ export default function LibrarySurface({
         </div>
       </div>
 
+      {importStatus}
       <div>
           {books.length > 0 && (
             <div className={styles.librarySearchRow}>
@@ -239,7 +244,7 @@ export default function LibrarySurface({
               <p className={styles.emptyPrivacyText}>
                 {UI_TEXT.LOCAL_STORAGE_ONLY}
               </p>
-              <button className={styles.primaryButton} onClick={actions.importBooks}>
+              <button className={styles.primaryButton} onClick={actions.importBooks} disabled={data.importBusy}>
                 {importError ? UI_TEXT.RESELECT_FILE : UI_TEXT.IMPORT_BOOKS}
               </button>
             </div>

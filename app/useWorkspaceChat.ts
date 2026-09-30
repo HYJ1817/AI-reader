@@ -216,12 +216,10 @@ export default function useWorkspaceChat({
         previousWorkspacePersistence = persistenceCoordinator.cancel(
           async () => {
             if (cancelledMessage) {
-              await putWorkspaceMessage(cancelledMessage).catch(
-                () => undefined
-              );
+              await putWorkspaceMessage(cancelledMessage);
             }
             if (pausedSession) {
-              await putWorkspaceSession(pausedSession).catch(() => undefined);
+              await putWorkspaceSession(pausedSession);
             }
           }
         );
@@ -376,7 +374,7 @@ export default function useWorkspaceChat({
       requestControllerRef.current?.abort();
       requestControllerRef.current = null;
       generationRef.current += 1;
-      await persistenceCoordinator.drain();
+      await persistenceCoordinator.flush();
       setLoading(false);
       return;
     }
@@ -430,14 +428,31 @@ export default function useWorkspaceChat({
     setLoading(false);
     await persistenceCoordinator.cancel(async () => {
       if (cancelledMessage) {
-        await putWorkspaceMessage(cancelledMessage).catch(() => undefined);
+        await putWorkspaceMessage(cancelledMessage);
       }
       if (pausedSession) {
-        await putWorkspaceSession(pausedSession).catch(() => undefined);
+        await putWorkspaceSession(pausedSession);
       }
     });
     streamingContentRef.current = "";
   }, [persistenceCoordinator, publishMessages, publishSessions]);
+
+  const flushPersistence = useCallback(async () => {
+    await markRequestCancelled();
+    await persistenceCoordinator.flush();
+  }, [markRequestCancelled, persistenceCoordinator]);
+  const stop = useCallback(async () => {
+    try { await flushPersistence(); }
+    catch { setError("回答已停止，但保存失败。请勿关闭应用，稍后重试保存。"); }
+  }, [flushPersistence]);
+  useEffect(() => {
+    const beforeReload = (event: Event) => {
+      const detail = (event as CustomEvent<{ waitUntil: (task: Promise<void>) => void }>).detail;
+      detail?.waitUntil(flushPersistence());
+    };
+    window.addEventListener("ai-reader-before-reload", beforeReload);
+    return () => window.removeEventListener("ai-reader-before-reload", beforeReload);
+  }, [flushPersistence]);
 
   const selectSession = useCallback(
     async (sessionId: string) => {
@@ -1166,7 +1181,8 @@ export default function useWorkspaceChat({
     runSkill,
     saveMessageToMaterials,
     rememberMessage,
-    stop: markRequestCancelled,
+    stop,
+    flushPersistence,
     retry,
     selectSession,
     createSession,

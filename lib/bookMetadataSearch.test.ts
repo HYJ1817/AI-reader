@@ -56,7 +56,7 @@ describe("searchPublicBookMetadata", () => {
     expect(fetcher.mock.calls.some(([url]) => String(url).includes("key=secret-key"))).toBe(true);
   });
 
-  it("returns a safe no-match result when every provider fails", async () => {
+  it("distinguishes provider failure from a genuine no-match without exposing details", async () => {
     const result = await searchPublicBookMetadata(validInput, {
       fetcher: vi.fn().mockRejectedValue(new Error("secret upstream failure")),
       googleBooksApiKey: "secret-key",
@@ -65,7 +65,14 @@ describe("searchPublicBookMetadata", () => {
       candidate: null,
       score: 0,
       missing: ["description", "subjects"],
+      errorCode: "provider",
     });
+  });
+
+  it("preserves typed timeout and network failures", async () => {
+    await expect(searchPublicBookMetadata(validInput, { fetcher: vi.fn().mockRejectedValue(new DOMException("Timeout", "TimeoutError")) })).resolves.toMatchObject({ errorCode: "timeout" });
+    await expect(searchPublicBookMetadata(validInput, { fetcher: vi.fn().mockRejectedValue(new TypeError("network")) })).resolves.toMatchObject({ errorCode: "offline" });
+    await expect(searchPublicBookMetadata(validInput, { fetcher: vi.fn().mockResolvedValue(Response.json({ docs: [] })) })).resolves.not.toHaveProperty("errorCode");
   });
 
   it("ignores an oversized provider response", async () => {

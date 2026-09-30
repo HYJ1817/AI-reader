@@ -41,6 +41,7 @@ export type CloseSheet = (afterClose?: () => void) => void;
 
 export type MotionSheetProps = {
   open: boolean;
+  dismissible?: boolean;
   stackDepth?: number;
   onRequestClose: () => void;
   onExitComplete?: () => void;
@@ -137,6 +138,7 @@ function isInteractiveControl(target: EventTarget | null): boolean {
 
 export default function MotionSheet({
   open,
+  dismissible = true,
   stackDepth = 1,
   onRequestClose,
   onExitComplete,
@@ -392,12 +394,13 @@ export default function MotionSheet({
   const close = useCallback<CloseSheet>((nextAfterClose) => {
     if (
       !open ||
+      !dismissible ||
       !closeRequestGuardRef.current.request(nextAfterClose)
     ) {
       return;
     }
     onRequestClose();
-  }, [onRequestClose, open]);
+  }, [dismissible, onRequestClose, open]);
 
   useLayoutEffect(() => {
     if (exitCommitGeneration === null) return;
@@ -491,7 +494,7 @@ export default function MotionSheet({
   }, [close]);
 
   function handleDragPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!openRef.current || event.button !== 0) return;
+    if (!openRef.current || !dismissible || event.button !== 0) return;
     const panel = panelRef.current;
     if (!panel) return;
     const target = event.target;

@@ -447,15 +447,17 @@ export function loadAiProviderSettings(): AiProviderSettings {
   return loadLegacyProvider();
 }
 
-export function saveAiProviderSettingsToStorage(settings: AiProviderSettings): void {
-  if (typeof localStorage === "undefined") return;
+export function saveAiProviderSettingsToStorage(settings: AiProviderSettings): boolean {
   try {
+    if (typeof localStorage === "undefined") return false;
     localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify(sanitizeAiProviderSettings(settings))
     );
+    return true;
   } catch {
     // Keep provider editing usable when persistent storage is unavailable.
+    return false;
   }
 }
 

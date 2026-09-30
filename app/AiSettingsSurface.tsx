@@ -3,6 +3,7 @@
 import { AnimatePresence, m } from "motion/react";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import styles from "./page.module.css";
+import useUpdateProtection from "./useUpdateProtection";
 import {
   AI_API_FORMATS,
   AI_PROVIDER_PRESETS,
@@ -65,6 +66,8 @@ const PROVIDER_COMPACT_LABEL: Record<
 export type AiSettingsSurfaceProps = {
   mode: "list" | "configure";
   settings: AiProviderSettings;
+  autoAiMetadata: boolean;
+  onAutoAiMetadataChange: (enabled: boolean) => void;
   providerId?: string;
   onPushConfigure: (providerId?: string) => void;
   onBack: () => void;
@@ -144,6 +147,8 @@ function createInitialDraft(
 export default function AiSettingsSurface({
   mode,
   settings,
+  autoAiMetadata,
+  onAutoAiMetadataChange,
   providerId,
   onPushConfigure,
   onBack,
@@ -155,6 +160,8 @@ export default function AiSettingsSurface({
     createInitialDraft(mode, settings, providerId)
   );
   const [manualModel, setManualModel] = useState("");
+  const [initialDraft] = useState(() => JSON.stringify(draft));
+  useUpdateProtection({ label: "服务商设置", dirty: mode === "configure" && (JSON.stringify(draft) !== initialDraft || manualModel.trim().length > 0) });
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [modelRefreshStatus, setModelRefreshStatus] = useState("");
   const [modelRefreshFailure, setModelRefreshFailure] =
@@ -717,8 +724,15 @@ export default function AiSettingsSurface({
                 </button>
               ) : null}
               <p className={styles.providerHelpText}>
-                API Key 只保存在本机浏览器。提问时可能发送书名、格式、选中文本、附近正文（当前页面）、当前问题和最近对话；不会发送整本书，也不会在备份中导出 API Key。
+                API Key 保存在本机浏览器；调用服务时会通过应用接口用于向所选服务商认证。备份不包含密钥。提问时会发送书名、选中文本、附近正文、问题及必要的最近对话，不会发送整本书。
               </p>
+              <label className={styles.settingsSwitchRow}>
+                <span className={styles.settingsRowText}>
+                  <strong>自动用 AI 补全图书信息</strong>
+                  <small>缺少简介或标签时，向当前服务商发送书名、已知信息及必要的开头节选。仅影响之后的导入和手动更新，不扫描已有书库。</small>
+                </span>
+                <input type="checkbox" checked={autoAiMetadata} onChange={(event) => onAutoAiMetadataChange(event.target.checked)} />
+              </label>
               <AnimatePresence initial={false}>
                 {providerImportStatus ? (
                   <m.p
@@ -839,7 +853,7 @@ export default function AiSettingsSurface({
                       </button>
                     </div>
                     <small className={styles.providerFieldHint}>
-                      密钥只保存在本机浏览器，不会离开当前设备的本地存储。
+                      API Key 保存在本机浏览器；调用服务时会通过应用接口用于向所选服务商认证。备份不包含密钥。
                     </small>
                   </div>
                   <label className={styles.providerField}>

@@ -24,7 +24,8 @@ export default function useReaderPositionLifecycle(
       const reloadEvent = event as CustomEvent<{
         waitUntil?: (promise: Promise<void>) => void;
       }>;
-      reloadEvent.detail?.waitUntil?.(flushPendingPosition());
+      // Unlike page-hide best effort, an explicit update must observe failures.
+      reloadEvent.detail?.waitUntil?.(positionCoordinator.flush());
     };
 
     document.addEventListener("visibilitychange", handleVisibilityChange);

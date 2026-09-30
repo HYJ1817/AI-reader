@@ -126,6 +126,7 @@ async function openWorkspaceFromLibrary(page: Page) {
 
 async function openAskFromReader(page: Page) {
   await page.locator(`${libraryRoot} [data-library-book-open="true"]`).first().click();
+  await page.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   const toggle = page.locator('[data-reader-menu-toggle="true"]');
   if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
@@ -146,6 +147,7 @@ async function saveFixtureMaterial(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/book-metadata/search", (route) => route.fulfill({ json: { candidate: null, score: 0, missing: [] } }));
   await installLocalAiFixture(page);
   await waitForLibrary(page);
   await importBook(page);
@@ -165,6 +167,44 @@ test("reader question streams locally, persists, and opens the same workspace", 
   expect(await workspace.locator('[data-workspace-message-id]').evaluateAll(
     (items) => new Set(items.map((item) => item.getAttribute("data-workspace-message-id"))).size
   )).toBe(2);
+});
+
+test("update flush rejects a failed real stream save and retains output for retry", async ({ page }) => {
+  await page.evaluate(() => { Object.assign(window, { __workspaceStreamMode: "long" }); });
+  await openWorkspaceFromLibrary(page);
+  const workspace = page.locator('[data-sheet-route="reading-workspace"]');
+  await workspace.getByRole("textbox", { name: "问 AI" }).fill("Retain received output");
+  await workspace.getByRole("button", { name: "发送" }).click();
+  await expect(workspace.locator('[data-workspace-message-state="streaming"]')).toContainText("xxxxxxxx");
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.put;
+    Object.assign(window, { failWorkspaceSave: true });
+    IDBObjectStore.prototype.put = function (...args: Parameters<typeof original>) {
+      if (this.name === "workspaceMessages" && Reflect.get(window, "failWorkspaceSave")) throw new DOMException("Full", "QuotaExceededError");
+      return original.apply(this, args);
+    };
+  });
+  async function flush() {
+    return page.evaluate(async () => {
+      const pending: Promise<void>[] = [];
+      window.dispatchEvent(new CustomEvent("ai-reader-before-reload", { detail: { waitUntil: (task: Promise<void>) => pending.push(task) } }));
+      try { await Promise.all(pending); return "saved"; } catch { return "failed"; }
+    });
+  }
+  expect(await flush()).toBe("failed");
+  await expect(workspace.locator('[data-workspace-message-state="cancelled"]')).toContainText("xxxxxxxx");
+  expect(await flush()).toBe("failed");
+  await page.evaluate(() => { Object.assign(window, { failWorkspaceSave: false }); });
+  expect(await flush()).toBe("saved");
+  const saved = await page.evaluate(() => new Promise<{ state: string; content: string }[]>((resolve) => {
+    const request = indexedDB.open("AiReader");
+    request.onsuccess = () => {
+      const db = request.result;
+      const read = db.transaction("workspaceMessages").objectStore("workspaceMessages").getAll();
+      read.onsuccess = () => { resolve(read.result); db.close(); };
+    };
+  }));
+  expect(saved.some((message) => message.state === "cancelled" && message.content.includes("xxxxxxxx"))).toBe(true);
 });
 
 test("Ask AI assistant replies stay in the conversation flow without a covering card", async ({ page }) => {

@@ -4,6 +4,7 @@ export type WorkspaceOwnedTask = (
 
 export class WorkspacePersistenceCoordinator {
   private tail: Promise<void> = Promise.resolve();
+  private pendingCancellations = new Set<() => Promise<void> | void>();
 
   private enqueue(task: () => Promise<void> | void): Promise<void> {
     const queued = this.tail.catch(() => undefined).then(task);
@@ -30,7 +31,20 @@ export class WorkspacePersistenceCoordinator {
   }
 
   async cancel(task: () => Promise<void> | void): Promise<void> {
-    await this.enqueue(task);
+    this.pendingCancellations.add(task);
+    await this.enqueue(async () => {
+      await task();
+      this.pendingCancellations.delete(task);
+    });
+  }
+
+  async flush(): Promise<void> {
+    await this.enqueue(async () => {
+      for (const task of this.pendingCancellations) {
+        await task();
+        this.pendingCancellations.delete(task);
+      }
+    });
   }
 
   async drain(): Promise<void> {

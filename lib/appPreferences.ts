@@ -1,7 +1,10 @@
+import { createLocalId } from "./localId";
+
 export type LibraryViewMode = "grid" | "list";
 export type BackgroundMode = "auto" | "custom";
 
 export type AppPreferences = {
+  autoAiMetadata: boolean;
   libraryView: LibraryViewMode;
   autoOpenLastBook: boolean;
   reduceMotion: boolean;
@@ -13,6 +16,7 @@ export type AppPreferences = {
 };
 
 export const DEFAULT_APP_PREFERENCES: AppPreferences = {
+  autoAiMetadata: false,
   libraryView: "list",
   autoOpenLastBook: false,
   reduceMotion: false,
@@ -33,6 +37,7 @@ export function sanitizeAppPreferences(value: unknown): AppPreferences {
   if (!isRecord(value)) return DEFAULT_APP_PREFERENCES;
 
   return {
+    autoAiMetadata: value.autoAiMetadata === true,
     libraryView:
       value.libraryView === "grid" || value.libraryView === "list"
         ? value.libraryView
@@ -86,11 +91,31 @@ export function loadAppPreferences(): AppPreferences {
 export function saveAppPreferencesToStorage(preferences: AppPreferences): void {
   if (typeof localStorage === "undefined") return;
   try {
+    const previous = readAutoAiMetadataAuthorization();
+    const revision = previous.allowed === preferences.autoAiMetadata
+      ? previous.revision : createLocalId();
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify(sanitizeAppPreferences(preferences))
+      JSON.stringify({ ...sanitizeAppPreferences(preferences), autoAiMetadataRevision: revision })
     );
   } catch {
     // Storage can be unavailable in private browsing or when its quota is full.
   }
+}
+
+function readAutoAiMetadataAuthorization() {
+  try {
+    const raw: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null");
+    return { allowed: isRecord(raw) && raw.autoAiMetadata === true,
+      revision: isRecord(raw) && typeof raw.autoAiMetadataRevision === "string" ? raw.autoAiMetadataRevision : "legacy" };
+  } catch { return { allowed: false, revision: "unavailable" }; }
+}
+
+// An off/on cycle grants future work permission, never revives a revoked task.
+export function captureAutoAiMetadataAuthorization(): () => boolean {
+  const initial = readAutoAiMetadataAuthorization();
+  return () => {
+    const current = readAutoAiMetadataAuthorization();
+    return initial.allowed && current.allowed && current.revision === initial.revision;
+  };
 }

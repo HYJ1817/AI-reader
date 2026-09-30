@@ -4,6 +4,7 @@ import {
   loadAppPreferences,
   sanitizeAppPreferences,
   saveAppPreferencesToStorage,
+  captureAutoAiMetadataAuthorization,
 } from "./appPreferences";
 
 const store = new Map<string, string>();
@@ -32,6 +33,22 @@ const localStorageMock: Storage = {
 vi.stubGlobal("localStorage", localStorageMock);
 
 describe("sanitizeAppPreferences", () => {
+  it("never reauthorizes queued work after an off/on cycle", () => {
+    store.clear();
+    saveAppPreferencesToStorage({ ...DEFAULT_APP_PREFERENCES, autoAiMetadata: true });
+    const permitted = captureAutoAiMetadataAuthorization();
+    expect(permitted()).toBe(true);
+    saveAppPreferencesToStorage({ ...DEFAULT_APP_PREFERENCES, autoAiMetadata: false });
+    expect(permitted()).toBe(false);
+    saveAppPreferencesToStorage({ ...DEFAULT_APP_PREFERENCES, autoAiMetadata: true });
+    expect(permitted()).toBe(false);
+    expect(captureAutoAiMetadataAuthorization()()).toBe(true);
+  });
+  it("requires explicit opt-in even for existing configured users", () => {
+    expect(sanitizeAppPreferences({ libraryView: "grid" }).autoAiMetadata).toBe(false);
+    expect(sanitizeAppPreferences({ autoAiMetadata: "true" }).autoAiMetadata).toBe(false);
+    expect(sanitizeAppPreferences({ autoAiMetadata: true }).autoAiMetadata).toBe(true);
+  });
   it("keeps valid app preferences", () => {
     expect(
       sanitizeAppPreferences({
@@ -45,6 +62,7 @@ describe("sanitizeAppPreferences", () => {
         customBackgroundOpacity: 0.65,
       })
     ).toEqual({
+      autoAiMetadata: false,
       libraryView: "list",
       autoOpenLastBook: true,
       reduceMotion: true,
@@ -80,6 +98,7 @@ describe("sanitizeAppPreferences", () => {
         keepScreenAwake: true,
       })
     ).toEqual({
+      autoAiMetadata: false,
       libraryView: "list",
       autoOpenLastBook: true,
       reduceMotion: true,
@@ -103,6 +122,7 @@ describe("app preferences storage", () => {
 
   it("saves sanitized preferences to localStorage", () => {
     saveAppPreferencesToStorage({
+      autoAiMetadata: true,
       libraryView: "list",
       autoOpenLastBook: true,
       reduceMotion: true,
@@ -114,6 +134,7 @@ describe("app preferences storage", () => {
     });
 
     expect(loadAppPreferences()).toEqual({
+      autoAiMetadata: true,
       libraryView: "list",
       autoOpenLastBook: true,
       reduceMotion: true,

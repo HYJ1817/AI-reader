@@ -19,6 +19,7 @@ type AppNavigationProps = {
   activeTab: NavigationTab;
   showBottomTabs: boolean;
   searchOpen: boolean;
+  searchEntryKey: string | null;
   searchQuery: string;
   navigationRevision: number;
   showLibraryBatchBar: boolean;
@@ -40,6 +41,7 @@ export default function AppNavigation({
   activeTab,
   showBottomTabs,
   searchOpen,
+  searchEntryKey,
   searchQuery,
   navigationRevision,
   showLibraryBatchBar,
@@ -59,6 +61,7 @@ export default function AppNavigation({
   const reduceMotion = useAppReducedMotion();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const focusRevisionRef = useRef<number | null>(null);
+  const focusedSearchEntryRef = useRef<string | null>(null);
   const dockTransition = reduceMotion
     ? { duration: MOTION_DURATION.reduced }
     : {
@@ -70,12 +73,15 @@ export default function AppNavigation({
   const focusSearchInput = useCallback(() => {
     if (
       !searchOpen ||
+      !searchEntryKey ||
+      focusedSearchEntryRef.current === searchEntryKey ||
       focusRevisionRef.current !== navigationRevision
     ) {
       return;
     }
     searchInputRef.current?.focus({ preventScroll: true });
-  }, [navigationRevision, searchOpen]);
+    if (document.activeElement === searchInputRef.current) focusedSearchEntryRef.current = searchEntryKey;
+  }, [navigationRevision, searchEntryKey, searchOpen]);
 
   useEffect(() => {
     if (!searchOpen) {

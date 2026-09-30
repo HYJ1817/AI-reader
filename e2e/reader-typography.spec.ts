@@ -42,6 +42,7 @@ async function importAndOpen(page: Page, name: string, text: string) {
     .first();
   await expect(cover).toBeVisible();
   await cover.click();
+  await page.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   await expect(
     page.locator('[data-reader-presented="true"] > div').first()

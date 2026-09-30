@@ -330,7 +330,7 @@ test("press feedback appears within 80 ms across daily interaction families", as
   await page.locator('input[type="file"][accept*=".txt"]').setInputFiles({
     name: "press-feedback-second.txt",
     mimeType: "text/plain",
-    buffer: Buffer.from(sampleText),
+    buffer: Buffer.from(`${sampleText}\n\nA distinct second book for press feedback.`),
   });
   await expect(covers).toHaveCount(coverCount + 1);
 
@@ -339,6 +339,7 @@ test("press feedback appears within 80 ms across daily interaction families", as
     control: "book-row",
     latency: await measurePressFeedback(page, bookOpen),
   });
+  await page.locator('[data-book-details-read="true"]').click();
   const reader = page.locator('[data-reader-presented="true"]');
   await expect(reader).toBeVisible();
   await expect
@@ -360,6 +361,7 @@ test("press feedback appears within 80 ms across daily interaction families", as
     await readerControl.click();
   }
   await reader.getByRole("button", { name: "书库" }).click();
+  await page.locator('[data-book-details-back="true"]').click();
 
   await expect(page.locator(libraryRoot)).toBeVisible();
   await page.locator(`${libraryRoot} [data-library-book-more="true"]`).first().click();
@@ -393,6 +395,7 @@ test("reader popover keeps focus with reduced motion and 200 percent text", asyn
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
   await page.locator(`${libraryRoot} [data-book-cover-origin]`).first().click();
+  await page.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   const menuToggle = page.locator('[data-reader-menu-toggle="true"]');
   if ((await menuToggle.getAttribute("aria-expanded")) !== "true") {
@@ -477,6 +480,7 @@ test("reader lifecycle resumes at settled geometry without replaying entry", asy
   page,
 }) => {
   await page.locator(`${libraryRoot} [data-book-cover-origin]`).first().click();
+  await page.locator('[data-book-details-read="true"]').click();
   const presentation = page.locator('[data-reader-presented="true"]');
   const content = presentation.locator('[data-reader-content-ready="true"]');
   await expect(content).toHaveCount(1);
@@ -695,7 +699,10 @@ test("nested sheet rapid reversal settles on the last requested page", async ({
 
   for (let index = 0; index < 5; index += 1) {
     await page.getByRole("button", { name: "重命名书籍" }).click();
-    await page.getByRole("button", { name: "关闭" }).click();
+    await page
+      .locator('[data-sheet-route="book-rename"]')
+      .getByRole("button", { name: "关闭", exact: true })
+      .click();
   }
 
   await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);

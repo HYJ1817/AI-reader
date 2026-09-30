@@ -96,6 +96,7 @@ export default function LibrarySearchSurface({
             entranceOrder={EMPTY_ENTRANCE_ORDER}
             originPrefix="library-search"
             layoutGroupId="library-search-books"
+            searchQuery={query}
             onPressBook={onPressBook}
             onOpenBookActions={onOpenBookActions}
           />

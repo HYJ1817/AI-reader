@@ -9,6 +9,7 @@ import { getRoleTransition } from "@/lib/motionSystem";
 import type { WorkspaceArtifactRecord } from "@/lib/readingWorkspace";
 import { UI_TEXT } from "@/lib/uiText";
 import { useAppReducedMotion } from "./AppMotionRoot";
+import useUpdateProtection from "./useUpdateProtection";
 import styles from "./page.module.css";
 
 function safeFileName(title: string): string {
@@ -33,6 +34,11 @@ export default function WorkspaceArtifactPreview({
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  useUpdateProtection({
+    label: "材料标题编辑",
+    dirty: title !== artifact.title,
+    busy: saving,
+  });
 
   const rename = async () => {
     if (!title.trim()) {

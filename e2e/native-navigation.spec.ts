@@ -165,7 +165,7 @@ async function importBook(
     .setInputFiles({
       name: fileName,
       mimeType: "text/plain",
-      buffer: Buffer.from(sampleText),
+      buffer: Buffer.from(`${sampleText}\n\n独立导入文件：${fileName}`),
     });
 
   await expect(covers).toHaveCount(previousCount + 1);
@@ -2019,7 +2019,10 @@ test("nested sheet stack preserves one panel through history and visible back", 
   await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
 
   await page.getByRole("button", { name: "重命名书籍" }).click();
-  await page.getByRole("button", { name: "关闭" }).click();
+  await page
+    .locator('[data-sheet-route="book-rename"]')
+    .getByRole("button", { name: "关闭", exact: true })
+    .click();
   await expect(page.locator('[data-sheet-route="book-actions"]')).toHaveCount(1);
   await expect(page.locator("[data-sheet-page]")).toHaveCount(1);
   await expect(panel).toHaveCount(1);

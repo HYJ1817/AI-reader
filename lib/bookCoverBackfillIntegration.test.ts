@@ -13,9 +13,7 @@ describe("background book cover integration", () => {
     expect(pageSource).toContain('from "@/app/useBookCoverBackfill"');
     expect(hookSource).toContain("startBookCoverBackfill(storedBooks)");
     expect(pageSource).toContain("startBookCoverBackfill(restoredBooks)");
-    expect(pageSource).toMatch(
-      /await cancelBookCoverBackfillAndDrain\(\);\s*await restoreBackupPayload\(data\)/
-    );
+    expect(pageSource).toContain("stopTasks: () => [flushWorkspacePersistence(), cancelBookCoverBackfillAndDrain(), metadataEnrichment.cancelAndDrain()]");
   });
 
   it("supplies the latest rendered Library books as queue priority", () => {

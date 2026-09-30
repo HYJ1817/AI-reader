@@ -614,7 +614,7 @@ export function validateBackupPayload(data: unknown): RestorableBackupPayload {
   };
 }
 
-export async function restoreBackupPayload(data: unknown): Promise<void> {
+export function prepareBackupRestore(data: unknown) {
   const payload = validateBackupPayload(data);
   const books: BookRecord[] = payload.books.map((book) => ({
     id: book.id,
@@ -646,7 +646,7 @@ export async function restoreBackupPayload(data: unknown): Promise<void> {
   const workspaceData =
     payload.version === 3 ? payload : emptyWorkspaceBackupData();
 
-  await replaceReaderData({
+  return { payload, data: {
     books,
     readingPositions: payload.readingPositions,
     annotations: payload.annotations,
@@ -662,15 +662,31 @@ export async function restoreBackupPayload(data: unknown): Promise<void> {
         ? payload.dailyReadingStats
         : undefined,
     customBackground,
-  });
+  } };
+}
 
+export type PreparedBackupRestore = ReturnType<typeof prepareBackupRestore>;
+
+export async function restorePreparedBackup(
+  prepared: PreparedBackupRestore,
+  options?: { expectedRevision?: number; saveProviders?: typeof saveAiProviderSettingsToStorage }
+): Promise<{ configurationSaved: boolean }> {
+  const { payload, data } = prepared;
+  await replaceReaderData(data, options?.expectedRevision);
+
+  let configurationSaved = true;
   if (payload.version === 2 || payload.version === 3) {
-    saveAiProviderSettingsToStorage(payload.aiProviderSettings);
+    configurationSaved = (options?.saveProviders ?? saveAiProviderSettingsToStorage)(payload.aiProviderSettings);
   } else if (payload.aiSettings) {
-    saveAiSettingsToStorage({
+    configurationSaved = saveAiSettingsToStorage({
       baseUrl: payload.aiSettings.baseUrl || DEFAULT_AI_SETTINGS.baseUrl,
       model: payload.aiSettings.model || DEFAULT_AI_SETTINGS.model,
       apiKey: "",
     });
   }
+  return { configurationSaved };
+}
+
+export async function restoreBackupPayload(data: unknown, options?: { expectedRevision?: number }): Promise<void> {
+  await restorePreparedBackup(prepareBackupRestore(data), options);
 }

@@ -1,4 +1,5 @@
 "use client";
+import type { ReactNode } from "react";
 
 import { AnimatePresence, m } from "motion/react";
 import AnimatedNumber from "@/app/AnimatedNumber";
@@ -13,6 +14,7 @@ import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
 
 export type ReadingDashboardProps = {
+  importStatus?: ReactNode;
   className: string;
   ariaHidden: boolean;
   todayMinutes: number;
@@ -25,9 +27,11 @@ export type ReadingDashboardProps = {
   onOpenGoal: () => void;
   onOpenBook: (book: BookMetadata, originId: string) => void;
   onImport: () => void;
+  importBusy?: boolean;
 };
 
 export default function ReadingDashboard({
+  importStatus,
   className,
   ariaHidden,
   todayMinutes,
@@ -40,6 +44,7 @@ export default function ReadingDashboard({
   onOpenGoal,
   onOpenBook,
   onImport,
+  importBusy,
 }: ReadingDashboardProps) {
   const reduceMotion = useAppReducedMotion();
   const latestBookOriginId = latestBook
@@ -61,6 +66,7 @@ export default function ReadingDashboard({
       <div className={styles.pageHeader}>
         <h1 className={styles.libraryTitle}>{UI_TEXT.READING}</h1>
       </div>
+      {importStatus}
 
       <section
         className={styles.readingDashboardSection}
@@ -118,7 +124,7 @@ export default function ReadingDashboard({
             </span>
             <h2>{UI_TEXT.START_READING}</h2>
             <p>{UI_TEXT.READING_EMPTY_HINT}</p>
-            <button className={styles.primaryButton} onClick={onImport}>
+            <button className={styles.primaryButton} onClick={onImport} disabled={importBusy}>
               {UI_TEXT.IMPORT_BOOKS}
             </button>
           </div>

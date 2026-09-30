@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   getBookFile,
   listBookMetadata,
@@ -21,6 +21,9 @@ import type {
   NormalizedBookCandidate,
 } from "@/lib/bookMetadataProviders";
 import { hasUsableAiProvider, type AiProviderConfig } from "@/lib/aiProviders";
+import { captureAutoAiMetadataAuthorization } from "@/lib/appPreferences";
+import { metadataResponseJson as responseJson } from "@/lib/bookMetadataResponse";
+import useUpdateProtection from "./useUpdateProtection";
 
 type RunningTask = {
   generation: number;
@@ -30,13 +33,9 @@ type RunningTask = {
 
 type UseBookMetadataEnrichmentOptions = {
   aiProvider: AiProviderConfig | null;
+  autoAiMetadata: boolean;
   onMetadataChanged: (books: BookMetadata[]) => void;
 };
-
-async function responseJson<T>(response: Response): Promise<T> {
-  if (!response.ok) throw new Error("Metadata request failed");
-  return (await response.json()) as T;
-}
 
 async function searchPublic(
   input: BookMetadataSearchInput,
@@ -78,11 +77,17 @@ async function completeWithAi(
 
 export default function useBookMetadataEnrichment({
   aiProvider,
+  autoAiMetadata,
   onMetadataChanged,
 }: UseBookMetadataEnrichmentOptions) {
   const tasksRef = useRef(new Map<string, RunningTask>());
   const generationRef = useRef(0);
-  const [, setRevision] = useState(0);
+  const [runningTaskCount, setRunningTaskCount] = useState(0);
+  const autoAiMetadataRef = useRef(autoAiMetadata);
+
+  useLayoutEffect(() => {
+    autoAiMetadataRef.current = autoAiMetadata;
+  }, [autoAiMetadata]);
 
   useEffect(() => {
     const tasks = tasksRef.current;
@@ -93,9 +98,19 @@ export default function useBookMetadataEnrichment({
   }, []);
 
   const run = useCallback(
-    (book: BookMetadata, mode: BookMetadataEnrichmentMode) => {
+    (
+      book: BookMetadata,
+      mode: BookMetadataEnrichmentMode,
+      { singleBookAiConsent = false }: { singleBookAiConsent?: boolean } = {}
+    ) => {
       const existing = tasksRef.current.get(book.id);
       if (existing) return existing.promise;
+
+      // Capture before the promise microtask: a later opt-in cannot authorize old work.
+      const authorizedAtStart = autoAiMetadataRef.current;
+      const hasCurrentAuthorization = captureAutoAiMetadataAuthorization();
+      const isAiAuthorized = () => authorizedAtStart &&
+        autoAiMetadataRef.current && hasCurrentAuthorization();
 
       const generation = ++generationRef.current;
       const controller = new AbortController();
@@ -115,6 +130,8 @@ export default function useBookMetadataEnrichment({
             updateBookEnrichment,
             aiProvider: aiProvider ?? undefined,
             aiUsable: hasUsableAiProvider(aiProvider),
+            isAiAuthorized,
+            singleBookAiConsent,
             shouldCommit: isCurrent,
             signal: controller.signal,
           })
@@ -129,12 +146,12 @@ export default function useBookMetadataEnrichment({
         .finally(() => {
           if (tasksRef.current.get(book.id)?.generation === generation) {
             tasksRef.current.delete(book.id);
-            setRevision((value) => value + 1);
+            setRunningTaskCount(tasksRef.current.size);
           }
         });
 
       tasksRef.current.set(book.id, { generation, controller, promise });
-      setRevision((value) => value + 1);
+      setRunningTaskCount(tasksRef.current.size);
       return promise;
     },
     [aiProvider, onMetadataChanged]
@@ -145,5 +162,17 @@ export default function useBookMetadataEnrichment({
     []
   );
 
-  return { run, isRunning };
+  const cancelAndDrain = useCallback(async () => {
+    const tasks = [...tasksRef.current.values()];
+    for (const task of tasks) task.controller.abort();
+    await Promise.all(tasks.map((task) => task.promise));
+  }, []);
+
+  useUpdateProtection({
+    busy: runningTaskCount > 0,
+    stop: cancelAndDrain,
+    label: "书籍信息补全",
+  });
+
+  return { run, isRunning, cancelAndDrain };
 }

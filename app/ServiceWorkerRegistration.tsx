@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import { appUpdate } from "@/lib/appUpdate";
+import { DEFERRED_UPDATE_KEY } from "@/lib/browserAppUpdate";
 
-const BUILD_ID_STORAGE_KEY = "ai-reader-build-id";
 const BUILD_ID_CHECK_INTERVAL_MS = 60_000;
 
 export default function ServiceWorkerRegistration() {
@@ -37,28 +38,11 @@ export default function ServiceWorkerRegistration() {
       return;
     }
 
-    const hadController = Boolean(navigator.serviceWorker.controller);
-    let reloading = false;
+    let disposed = false;
     let checkingBuildId = false;
-    const flushReaderBeforeReload = async () => {
-      const pending: Promise<void>[] = [];
-      window.dispatchEvent(
-        new CustomEvent("ai-reader-before-reload", {
-          detail: {
-            waitUntil: (promise: Promise<void>) => pending.push(promise),
-          },
-        })
-      );
-      await Promise.allSettled(pending);
-    };
-    const handleControllerChange = async () => {
-      if (!hadController || reloading) return;
-      reloading = true;
-      await flushReaderBeforeReload();
-      window.location.reload();
-    };
+    try { appUpdate.defer(sessionStorage.getItem(DEFERRED_UPDATE_KEY)); } catch { /* In-memory snooze still works. */ }
     const checkForNewBuild = async () => {
-      if (reloading || checkingBuildId || document.visibilityState === "hidden") {
+      if (checkingBuildId || document.visibilityState === "hidden") {
         return;
       }
       checkingBuildId = true;
@@ -67,13 +51,7 @@ export default function ServiceWorkerRegistration() {
         if (!response.ok) return;
         const buildId = (await response.text()).trim();
         if (!buildId) return;
-        const previousBuildId = sessionStorage.getItem(BUILD_ID_STORAGE_KEY);
-        sessionStorage.setItem(BUILD_ID_STORAGE_KEY, buildId);
-        if (previousBuildId && previousBuildId !== buildId) {
-          reloading = true;
-          await flushReaderBeforeReload();
-          window.location.reload();
-        }
+        if (!disposed) appUpdate.discover(buildId);
       } catch {
         // Version checks are opportunistic; offline reading must remain usable.
       } finally {
@@ -84,6 +62,8 @@ export default function ServiceWorkerRegistration() {
       if (document.visibilityState === "visible") void checkForNewBuild();
     };
     const handleFocus = () => void checkForNewBuild();
+    // A worker takeover is discovery, never permission to reload this page.
+    const handleControllerChange = () => void checkForNewBuild();
 
     navigator.serviceWorker.addEventListener(
       "controllerchange",
@@ -105,6 +85,7 @@ export default function ServiceWorkerRegistration() {
       });
 
     return () => {
+      disposed = true;
       navigator.serviceWorker.removeEventListener(
         "controllerchange",
         handleControllerChange

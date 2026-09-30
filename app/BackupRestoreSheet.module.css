@@ -1,0 +1,15 @@
+.panel { max-height: min(88dvh, 56rem); }
+.content { overflow-y: auto; padding: 0 1.25rem max(1.25rem, env(safe-area-inset-bottom)); color: var(--text-primary); line-height: 1.55; }
+.content h2 { margin: 0 0 .75rem; font-size: 1.3rem; }
+.content p, .content li { overflow-wrap: anywhere; }
+.content ul { padding-left: 1.25rem; }
+.file { font-weight: 600; }
+.counts { display: grid; gap: .6rem; }
+.counts div { display: grid; grid-template-columns: 5em 1fr; gap: .5rem; }
+.counts dd { margin: 0; }
+.warning { font-weight: 600; }
+.actions { display: grid; gap: .6rem; margin-top: 1rem; }
+.actions button { min-height: 44px; padding: .65rem 1rem; border: 1px solid currentColor; border-radius: 12px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.actions button:disabled { opacity: .55; cursor: wait; }
+.actions button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.actions .destructive { color: var(--status-error); font-weight: 600; }

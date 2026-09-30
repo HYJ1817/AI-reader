@@ -40,14 +40,14 @@ const epubPreferencesSource = readFileSync(
 
 describe("reader chrome event integration", () => {
   it("keeps imported books in the library instead of opening them immediately", () => {
-    const importStart = pageSource.indexOf("async function handleImport");
+    const importStart = pageSource.indexOf("const bookImport = useBookImport");
     const importEnd = pageSource.indexOf(
-      "const groupFilteredBooks",
+      "const topSheet",
       importStart
     );
     const importSource = pageSource.slice(importStart, importEnd);
 
-    expect(importSource).toContain("setBooks(await listBookMetadata())");
+    expect(importSource).toContain("setBooks(nextBooks)");
     expect(importSource).not.toContain("openBookForReading(record)");
   });
 

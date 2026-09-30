@@ -72,6 +72,7 @@ async function importNavigationEpub(page: Page, chapterCount: number = 120) {
 
 async function openFirstBook(page: Page) {
   await page.locator(`${libraryRoot} [data-book-id]`).first().click();
+  await page.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   await expect(page.locator('[data-txt-reader="true"]')).toBeVisible();
 }
@@ -251,6 +252,7 @@ test("contents tab clicks keep 60fps under CPU pressure and native swipes keep p
   await waitForLibrary(page);
   await importNavigationEpub(page);
   await page.locator(`${libraryRoot} [data-book-id]`).first().click();
+  await page.locator('[data-book-details-read="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   await openContents(page);
   await expect(page.locator("#toc-panel-chapters li")).toHaveCount(60);
@@ -372,6 +374,7 @@ test("TXT bookmarks and three-color highlights persist, navigate, and delete", a
 
   await page.locator('[data-reader-close="true"]').click();
   await expect(page.locator('[data-reader-presented="true"]')).toHaveCount(0);
+  await page.locator('[data-book-details-back="true"]').click();
   await page.reload();
   await waitForLibrary(page);
   await openFirstBook(page);

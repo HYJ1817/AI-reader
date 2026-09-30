@@ -1,6 +1,7 @@
 import type { BookRecord } from "./db";
 import { extractEpubPackage } from "./epubPackage";
 import { createLocalId } from "./localId";
+import { rememberBookFileBytes } from "./bookFileBytes";
 
 export const SUPPORTED_BOOK_EXTENSIONS = ["epub", "txt"] as const;
 
@@ -22,7 +23,8 @@ export function titleFromFileName(fileName: string): string {
 }
 
 export async function createBookRecordFromFile(
-  file: File
+  file: File,
+  onStage?: (stage: "reading" | "parsing") => void
 ): Promise<BookRecord> {
   const format = getBookFormatFromFileName(file.name);
   if (!format) {
@@ -31,8 +33,11 @@ export async function createBookRecordFromFile(
     throw new Error(`Unsupported file type: ${ext}`);
   }
 
+  onStage?.("reading");
   const buffer = await file.arrayBuffer();
+  onStage?.("parsing");
   const fileBlob = new Blob([buffer], { type: file.type || "application/octet-stream" });
+  rememberBookFileBytes(fileBlob, buffer);
   const epubPackage =
     format === "epub"
       ? await extractEpubPackage(fileBlob, { includeExcerpt: false })

@@ -61,12 +61,14 @@ export function loadAiSettings(): AiClientSettings {
   }
 }
 
-export function saveAiSettingsToStorage(settings: AiClientSettings): void {
-  if (typeof window === "undefined") return;
+export function saveAiSettingsToStorage(settings: AiClientSettings): boolean {
+  if (typeof window === "undefined") return false;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitizeAiSettings(settings)));
+    return true;
   } catch {
     // Legacy backup restore should still succeed when storage is unavailable.
+    return false;
   }
 }
 

@@ -76,9 +76,15 @@ test("Library list exposes separate keyboard-native open and More actions", asyn
     .not.toBe("none");
   await capture(page, testInfo, "keyboard-focus");
   await open.press("Enter");
+  const read = page.locator('[data-book-details-read="true"]');
+  await expect(read).toBeVisible();
+  await read.focus();
+  await read.press("Enter");
   await expect(page.locator('[data-reader-presented="true"]')).toBeVisible();
   await page.locator('[data-reader-menu-toggle="true"]').click();
   await page.locator('[data-reader-close="true"]').click();
+  await page.locator('[data-book-details-back="true"]').click();
+  await expect(page.locator(libraryRoot)).toBeVisible();
 
   await more.focus();
   await more.press("Enter");

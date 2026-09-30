@@ -10,6 +10,7 @@ import type { AppPreferences } from "@/lib/appPreferences";
 import { MOTION_DURATION } from "@/lib/motionSystem";
 import { UI_TEXT } from "@/lib/uiText";
 import styles from "./page.module.css";
+import { AppUpdateSettingsRow } from "./AppUpdateNotice";
 
 export type SettingsSurfaceProps = {
   className: string;
@@ -21,6 +22,10 @@ export type SettingsSurfaceProps = {
   targetMinutes: number;
   backupStatus: string | null;
   backupError: string | null;
+  backupBusy?: boolean;
+  backupRestored?: boolean;
+  onViewLibrary?: () => void;
+  backupTriggerRef?: RefObject<HTMLButtonElement | null>;
   backupInputRef: RefObject<HTMLInputElement | null>;
   backgroundInputRef: RefObject<HTMLInputElement | null>;
   customBackgroundAvailable: boolean;
@@ -45,6 +50,10 @@ export default function SettingsSurface({
   targetMinutes,
   backupStatus,
   backupError,
+  backupBusy = false,
+  backupRestored,
+  onViewLibrary,
+  backupTriggerRef,
   backupInputRef,
   backgroundInputRef,
   customBackgroundAvailable,
@@ -212,6 +221,7 @@ export default function SettingsSurface({
           <button
             className={styles.settingsNavRow}
             onClick={onExportBackup}
+            disabled={backupBusy}
           >
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.EXPORT_BACKUP}</strong>
@@ -221,6 +231,8 @@ export default function SettingsSurface({
           <button
             className={styles.settingsNavRow}
             onClick={() => backupInputRef.current?.click()}
+            ref={backupTriggerRef}
+            disabled={backupBusy}
           >
             <span className={styles.settingsRowText}>
               <strong>{UI_TEXT.IMPORT_BACKUP}</strong>
@@ -234,6 +246,7 @@ export default function SettingsSurface({
             accept=".json"
             className={styles.hiddenInput}
             onChange={onImportBackup}
+            disabled={backupBusy}
           />
         </div>
         {backupStatus && (
@@ -244,6 +257,7 @@ export default function SettingsSurface({
             {backupStatus}
           </p>
         )}
+        {backupRestored && <button className={styles.settingsRow} onClick={onViewLibrary}>查看书库</button>}
         {backupError && (
           <p
             className={`${styles.settingsStatusText} ${styles.settingsStatusErr}`}
@@ -252,6 +266,11 @@ export default function SettingsSurface({
             {backupError}
           </p>
         )}
+      </section>
+
+      <section className={styles.settingsSection}>
+        <h2 className={styles.settingsSectionTitle}>应用更新</h2>
+        <div className={styles.settingsNativeList}><AppUpdateSettingsRow /></div>
       </section>
 
       <section className={styles.settingsSection}>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BookMetadata } from "./db";
-import { buildBookDetailsPresentation } from "./bookDetailsPresentation";
+import { buildBookDetailsPresentation, getMetadataFailureMessage } from "./bookDetailsPresentation";
 
 const now = "2026-08-09T00:00:00.000Z";
 
@@ -17,6 +17,13 @@ function makeBook(overrides: Partial<BookMetadata> = {}): BookMetadata {
 }
 
 describe("buildBookDetailsPresentation", () => {
+  it("uses plain action copy and actionable typed failure messages", () => {
+    expect(buildBookDetailsPresentation(makeBook(), 0).metadataActionLabel).toBe("补全图书信息");
+    expect(getMetadataFailureMessage("offline")).toContain("离线");
+    expect(getMetadataFailureMessage("timeout")).toContain("超时");
+    expect(getMetadataFailureMessage("provider")).toContain("服务暂时不可用");
+    expect(getMetadataFailureMessage("no-match")).toContain("未找到匹配");
+  });
   it.each([
     [0, "开始阅读"],
     [0.01, "继续阅读"],

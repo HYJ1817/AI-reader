@@ -61,6 +61,7 @@ function minuteRow(wheel: Locator, minute: number) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await page.route("**/api/book-metadata/search", (route) => route.fulfill({ json: { candidate: null, score: 0, missing: [] } }));
   const errorLog: BrowserErrorLog = { pageErrors: [], consoleErrors: [] };
   browserErrorsByPage.set(page, errorLog);
   page.on("pageerror", (error) => errorLog.pageErrors.push(error.message));

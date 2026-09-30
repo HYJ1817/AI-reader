@@ -3705,6 +3705,25 @@
   font-weight: 800;
 }
 
+/* Reader-only black controls: leave application surfaces and other themes intact. */
+:global([data-reader-theme="dark"]) :is(.readerMenuRow, .readerOverlayBack, .readerPagePill),
+:global([data-reader-theme="dark"]) .readerMenuRow:not(:disabled):active,
+:global([data-reader-theme="dark"]) .readerOverlayBack:active,
+:global([data-reader-theme="dark"]) .readerMenuWakeButton::before,
+:global([data-reader-theme="dark"]) .readerMenuWakeButton:active::before {
+  background: #000000;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global([data-app-shell="true"]:not([data-reader-theme])) :is(.readerMenuRow, .readerOverlayBack, .readerPagePill),
+  :global([data-app-shell="true"]:not([data-reader-theme])) .readerMenuRow:not(:disabled):active,
+  :global([data-app-shell="true"]:not([data-reader-theme])) .readerOverlayBack:active,
+  :global([data-app-shell="true"]:not([data-reader-theme])) .readerMenuWakeButton::before,
+  :global([data-app-shell="true"]:not([data-reader-theme])) .readerMenuWakeButton:active::before {
+    background: #000000;
+  }
+}
+
 .readerHighlightPalette {
   display: flex;
   align-items: center;
