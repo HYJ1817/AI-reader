@@ -17,7 +17,7 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "dexie": "^4.4.3",
+    "dexie": "^4.4.4",
     "epubjs": "^0.3.93",
     "jszip": "^3.10.1",
     "motion": "^12.42.2",
